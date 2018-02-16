@@ -1,0 +1,77 @@
+-- This file has been generated from package.yaml by hpack version 0.20.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 1029cb67ef047c3d0281bdcbc7d8b231661cad25c5f9bafb476f4864be4720e8
+
+name:           kademlia
+version:        0.1.0.0
+description:    Please see the README on Github at <https://github.com/githubuser/kademlia#readme>
+homepage:       https://github.com/githubuser/kademlia#readme
+bug-reports:    https://github.com/githubuser/kademlia/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2018 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/kademlia
+
+library
+  hs-source-dirs:
+      src
+  build-depends:
+      async
+    , base >=4.7 && <5
+    , bytestring
+    , configurator >=0.3.0.0
+    , network
+    , random
+  exposed-modules:
+      Node
+  other-modules:
+      Paths_kademlia
+  default-language: Haskell2010
+
+executable kademlia-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      async
+    , base >=4.7 && <5
+    , bytestring
+    , configurator >=0.3.0.0
+    , kademlia
+    , network
+    , random
+  other-modules:
+      Paths_kademlia
+  default-language: Haskell2010
+
+test-suite kademlia-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      async
+    , base >=4.7 && <5
+    , bytestring
+    , configurator >=0.3.0.0
+    , kademlia
+    , network
+    , random
+  other-modules:
+      Paths_kademlia
+  default-language: Haskell2010
