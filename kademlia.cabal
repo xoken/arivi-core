@@ -1,8 +1,8 @@
--- This file has been generated from package.yaml by hpack version 0.20.0.
+-- This file has been generated from package.yaml by hpack version 0.21.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1029cb67ef047c3d0281bdcbc7d8b231661cad25c5f9bafb476f4864be4720e8
+-- hash: 6494ee3408ccdeec562762491ee345f4c49665a48358a6b20302d09d514acc43
 
 name:           kademlia
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
     , configurator >=0.3.0.0
     , network
     , random
+    , text
   exposed-modules:
       Node
   other-modules:
@@ -54,6 +55,7 @@ executable kademlia-exe
     , kademlia
     , network
     , random
+    , text
   other-modules:
       Paths_kademlia
   default-language: Haskell2010
@@ -72,6 +74,7 @@ test-suite kademlia-test
     , kademlia
     , network
     , random
+    , text
   other-modules:
       Paths_kademlia
   default-language: Haskell2010
