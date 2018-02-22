@@ -5,7 +5,6 @@ module Node
     networkClient,
     addToKbChan,
     convertToSockAddr,
-    generateNodeId
   ) where
 
 import           Control.Concurrent        (forkIO, newChan, newEmptyMVar,
