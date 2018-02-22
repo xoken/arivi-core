@@ -1,8 +1,8 @@
--- This file has been generated from package.yaml by hpack version 0.21.2.
+-- This file has been generated from package.yaml by hpack version 0.20.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6494ee3408ccdeec562762491ee345f4c49665a48358a6b20302d09d514acc43
+-- hash: c4d9ce96fbb780a6c6d24d553504f0a44fe8ad87f4c5c689fd8ad2819902757d
 
 name:           kademlia
 version:        0.1.0.0
@@ -31,10 +31,14 @@ library
   build-depends:
       async
     , base >=4.7 && <5
+    , binary
     , bytestring
     , configurator >=0.3.0.0
+    , containers
     , network
     , random
+    , split >=0.1.2.3
+    , stm
     , text
   exposed-modules:
       Node
@@ -50,11 +54,15 @@ executable kademlia-exe
   build-depends:
       async
     , base >=4.7 && <5
+    , binary
     , bytestring
     , configurator >=0.3.0.0
+    , containers
     , kademlia
     , network
     , random
+    , split >=0.1.2.3
+    , stm
     , text
   other-modules:
       Paths_kademlia
@@ -69,11 +77,15 @@ test-suite kademlia-test
   build-depends:
       async
     , base >=4.7 && <5
+    , binary
     , bytestring
     , configurator >=0.3.0.0
+    , containers
     , kademlia
     , network
     , random
+    , split >=0.1.2.3
+    , stm
     , text
   other-modules:
       Paths_kademlia

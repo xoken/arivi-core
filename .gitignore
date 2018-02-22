@@ -1,2 +1,6 @@
 .stack-work/
+./data 
+./app/learn.hs
+./app/Main 
+./app/Main.o 
 *~
