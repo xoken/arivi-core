@@ -42,3 +42,4 @@ instance Binary Exp where
                             e1 <- get
                             e2 <- get
                             return (OpE s e1 e2)
+
