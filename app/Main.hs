@@ -15,8 +15,7 @@ import           Data.Text          hiding (find)
 import qualified Network.Socket.Internal   as M 
 import           Network.Socket            hiding (recv)
 
-      
-
+-- Custom data type to collect data from configutation file 
 data Config = Config
   { localIpAddress :: String
   , localPortNo    :: String
@@ -40,7 +39,6 @@ extractTupleFromConfig x = (peer_Ip,peer_Port)
     peer_Ip = (peerInfo !! 0)
     peer_Port = (peerInfo !! 1)
 
-  
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
