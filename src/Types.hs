@@ -4,7 +4,7 @@
 -- and scond it makes code cleaner and structured.  
 
 {-# LANGUAGE DeriveGeneric #-}
-module Node
+module Types 
   ( getTimeStamp,
     Message,
     NodeId,
@@ -62,8 +62,8 @@ data Message = PING {
                 }
                |FN_RESP {
                     nodeId        :: NodeId
-                ,   knodes        :: [(NodeAddress,NodeId)] 
-                ,   address       :: NodeAddress 
+                ,   peerList      :: [(NodeAddress,NodeId)] 
+                ,   nodeAddress   :: NodeAddress 
                 ,   seqNo         :: Sequence
                 ,   signature     :: Signature
                 ,   timeStamp     :: TimeStamp 
