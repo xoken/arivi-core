@@ -1,10 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Node
   ( runUDPServerForever,
     messageHandler,
     loadDefaultPeers,
     networkClient,
     addToKbChan,
-    convertToSockAddr,
   ) where
 
 import           Control.Concurrent        (forkIO, newChan, newEmptyMVar,
@@ -15,44 +15,15 @@ import qualified Data.ByteString.Char8     as C
 import           Network.Socket            hiding (recv)
 import qualified Network.Socket.ByteString as N (recv, recvFrom, sendAll,
                                                  sendAllTo, sendTo)
-import qualified Network.Socket.Internal   as M 
 import           Control.Concurrent.Async
 import           System.Environment
 import           System.Random             (randomRIO)
 import qualified Data.Map.Strict           as Map 
 import           Data.Maybe 
 import           System.Random
-import qualified Data.List.Split           as S  
 import           Data.Word 
-      
--- Helper functions to extract value from 3-tuple
-extractFirst :: (a, b, c) -> a
-extractFirst (a,_,_) = a
-
-extractSecond :: (a, b, c) -> b
-extractSecond (_,b,_) = b
-
-extractThird :: (a, b, c) -> c
-extractThird (_,_,c) = c
-
--- Custom data type to send & recieve message 
-data Message = PING
-               |PONG
-               |FIND_NODE { 
-                   nodeId     :: [Char]
-                ,  find       :: [Char]
-                ,  address    :: [Char] 
-                ,  seqNo      :: [Char]
-                ,  signature  :: [Char] 
-                }
-               |FN_RESP {
-                    nodeId    :: [Char]
-                ,   knodes    :: [(String,String)] 
-                ,   address   :: [Char] 
-                ,   seqNo     :: [Char]
-                ,   signature :: [Char] 
-                }            
-               deriving (Show)
+import           Utils              
+                             
 
 -- Process all the incoming messages to server and write the response to outboundChan 
 -- whenever a findNode message is recieved it write that peer to peerChan  
@@ -140,17 +111,7 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
             (mesg, socaddr2) <- N.recvFrom sock 4096
             print (mesg,socaddr2)
             writeChan inboundChan ((C.unpack mesg),socaddr2,sock)
-
--- covnerts a string of format IP:Port to SockAddr  
-convertToSockAddr :: [Char] -> SockAddr 
-convertToSockAddr x  = fSockAddr
-    where addrString = S.splitOn ":" x
-          remotePort = read $ addrString !! 1 :: M.PortNumber 
-          temp       = S.splitOn "." (addrString !! 0)  
-          temp2      = case (Prelude.map (read :: String -> Word8) temp) of [a,b,c,d] -> (a,b,c,d)
-          remoteIp   = tupleToHostAddress temp2
-          fSockAddr  = SockAddrInet remotePort remoteIp
-
+            
 -- Load Default peers into kbChan i.e K-buckets 
 loadDefaultPeers :: [SockAddr] 
                  -> Chan (String,SockAddr,Socket) 
