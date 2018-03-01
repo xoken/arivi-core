@@ -7,11 +7,11 @@
 module Types 
   ( getTimeStamp,
     Message,
-    NodeId,
-    NodeAddress,
-    Signature,
-    Sequence,
-    TimeStamp
+    NodeId(NodeId),
+    NodeEndPoint(NodeEndPoint),
+    Signature(Signature),
+    Sequence(Sequence),
+    TimeStamp(TimeStamp)
   ) where
    
 import           Codec.Serialise
@@ -29,12 +29,18 @@ import qualified Data.List.Split           as S
 import           Data.Word 
 import           Data.Time.Clock.POSIX 
 import           Data.Time.Clock           
+import           Utils 
 
-newtype NodeId        = NodeId String deriving (Show,Generic)
-newtype NodeAddress   = NodeAddress SockAddr deriving (Show,Generic) 
-newtype Signature     = Signature String deriving (Show,Generic)
-newtype Sequence      = Sequence Int deriving (Show,Generic)
-newtype TimeStamp     = TimeStamp (UTCTime) deriving (Show,Generic)
+data NodeEndPoint = NodeEndPoint {
+        nodeIp  :: HostAddress
+    ,   udpPort :: PortNumber
+    ,   tcpPort :: PortNumber 
+} deriving (Show,Generic)
+
+newtype NodeId         = NodeId String deriving (Show,Generic)
+newtype Signature      = Signature String deriving (Show,Generic)
+newtype Sequence       = Sequence Int deriving (Show,Generic)
+newtype TimeStamp      = TimeStamp (UTCTime) deriving (Show,Generic)
 
 -- Helper function to get timeStamp/ epoch 
 getTimeStamp :: IO TimeStamp
@@ -42,43 +48,52 @@ getTimeStamp = do
     tStamp <- getPOSIXTime 
     return $ TimeStamp (posixSecondsToUTCTime tStamp)
 
-
+data MessageType = MSG01
+                   |MSG02
+                   |MSG03 
+                   |MSG04 
+                   deriving (Show,Generic)
 -- Custom data type to send & recieve message  
 data Message = PING {
-                    nodeId        :: NodeId
-                ,   timeStamp     :: TimeStamp
+                    nodeId         :: NodeId
+                ,   fromEndPoint   :: NodeEndPoint
+                ,   toEndPoint     :: NodeEndPoint  
                 }
                |PONG {
-                    nodeId        :: NodeId
-                ,   timeStamp     :: TimeStamp 
+                    nodeId         :: NodeId
+                ,   toEndPoint     :: NodeEndPoint 
                }
                |FIND_NODE { 
-                    nodeId        :: NodeId
-                ,   remoteNodeId  :: NodeId
-                ,   nodeAddress   :: NodeAddress
-                ,   seqNo         :: Sequence
-                ,   signature     :: Signature
-                ,   timeStamp     :: TimeStamp 
+                    nodeId         :: NodeId
+                ,   targetNodeId   :: NodeId
+                ,   nodeEndPoint   :: NodeEndPoint
                 }
                |FN_RESP {
-                    nodeId        :: NodeId
-                ,   peerList      :: [(NodeAddress,NodeId)] 
-                ,   nodeAddress   :: NodeAddress 
-                ,   seqNo         :: Sequence
-                ,   signature     :: Signature
-                ,   timeStamp     :: TimeStamp 
+                    nodeId         :: NodeId
+                ,   peerList       :: [(NodeEndPoint,NodeId)] 
+                ,   nodeEndPoint   :: NodeEndPoint 
                 }            
                deriving (Generic,Show)
+
+data Payload = Payload {
+         messageType :: MessageType  
+    ,    message     :: Message 
+    ,    sequence    :: Sequence
+    ,    timeStamp   :: TimeStamp
+    ,    signature   :: Signature    
+} deriving (Show,Generic) 
 
 -- Serialise instance of different custom types so that they can be encoded 
 -- and decoded using serialise library which further allows these types 
 -- to be serialised and thuse makes it possible to be sent across network 
 
 instance Serialise NodeId 
-instance Serialise NodeAddress 
+instance Serialise NodeEndPoint 
 instance Serialise Signature
 instance Serialise Sequence
 instance Serialise TimeStamp 
+instance Serialise Payload 
+instance Serialise MessageType 
 
 -- Serialise Instance for SockAddr type defined in Network.Socket 
 instance Serialise SockAddr where 
@@ -120,22 +135,22 @@ instance Serialise Message where
     decode = decodeMessage 
 
 encodeMessage :: Message -> Encoding 
-encodeMessage (PING nodeId timeStamp) = 
-    encodeListLen 3 <> encodeWord 0 <> encode nodeId <> encode timeStamp
-encodeMessage (PONG nodeId timeStamp) =
-    encodeListLen 3 <> encodeWord 1 <> encode nodeId <> encode timeStamp   
-encodeMessage (FIND_NODE nodeId findId address seqNo signature timeStamp) = 
-    encodeListLen 6 <> encodeWord 2 <> encode nodeId <> encode findId <> encode address <> encode seqNo <> encode signature <> encode timeStamp
-encodeMessage (FN_RESP nodeId knodes address seqNo signature timeStamp) = 
-    encodeListLen 6 <> encodeWord 3 <> encode nodeId <> encode knodes <> encode address <> encode seqNo <> encode signature <> encode timeStamp
+encodeMessage (PING nodeId toEndPoint fromEndPoint) = 
+    encodeListLen 4 <> encodeWord 0 <> encode nodeId <> encode toEndPoint <> encode fromEndPoint 
+encodeMessage (PONG nodeId toEndPoint) =
+    encodeListLen 3 <> encodeWord 1 <> encode nodeId <> encode toEndPoint  
+encodeMessage (FIND_NODE nodeId targetNodeId nodeEndPoint) = 
+    encodeListLen 4 <> encodeWord 2 <> encode nodeId <> encode targetNodeId <> encode nodeEndPoint 
+encodeMessage (FN_RESP nodeId peerList nodeEndPoint) = 
+    encodeListLen 4 <> encodeWord 3 <> encode nodeId <> encode peerList <> encode nodeEndPoint 
 
 decodeMessage :: Decoder s Message 
 decodeMessage = do 
     len <- decodeListLen
     tag <- decodeWord
     case (len,tag) of 
-        (3,0) -> PING <$> decode <*> decode 
+        (4,0) -> PING <$> decode <*> decode <*> decode 
         (3,1) -> PONG <$> decode <*> decode
-        (6,2) -> FIND_NODE <$> decode <*> decode <*> decode <*> decode <*> decode <*> decode
-        (6,3) -> FN_RESP <$> decode <*> decode <*> decode <*> decode <*> decode <*> decode 
+        (4,2) -> FIND_NODE <$> decode <*> decode <*> decode 
+        (4,3) -> FN_RESP <$> decode <*> decode <*> decode  
         _     -> fail "Invalid Message encoding"

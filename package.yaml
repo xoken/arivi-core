@@ -30,8 +30,10 @@ dependencies:
 - split >= 0.1.2.3
 - containers
 - stm
-- random 
-- binary 
+- random  
+- serialise
+- time 
+
 
 library:
   source-dirs: src

@@ -14,6 +14,7 @@ import           Data.Text          hiding (find)
 
 import qualified Network.Socket.Internal   as M 
 import           Network.Socket            hiding (recv)
+import           Utils 
 
 
 -- Custom data type to collect data from configutation file 
