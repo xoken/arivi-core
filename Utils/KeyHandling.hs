@@ -1,10 +1,10 @@
-module Crypto.Utils
+module Crypto.Utils.KeyHandling
 (
     getSecretKey,
     getPublicKey,
     sign,
-    verify 
-) where 
+    verify
+) where
 
 
 import Crypto.PubKey.Ed25519 (SecretKey,PublicKey,secretKey,toPublic,sign,verify)
