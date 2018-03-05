@@ -15,6 +15,11 @@ import           Data.Text          hiding (find)
 import qualified Network.Socket.Internal   as M 
 import           Network.Socket            hiding (recv)
 import           Utils 
+import qualified Types as T 
+import           Random 
+import           KeyHandling 
+import qualified Data.ByteString           as B 
+import qualified Data.ByteString.Char8     as BC 
 
 
 -- Custom data type to collect data from configutation file 
@@ -44,6 +49,16 @@ extractTupleFromConfig x = (peer_Ip,peer_Port)
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
+
+  -- Assing the node a NodeID which is alos the public id of the node 
+
+  seed <- getRandomByteString 32 
+  let sk     = getSecretKey seed
+      pk     = getPublicKey sk 
+      nodeId = pk :: T.NodeId
+
+  print ("NodeId : " ++ BC.unpack (toHex(pk)))
+
   args <- getArgs
   let cfgFilePath =
         fromMaybe (error "Usage: ./kademlia-exe --config /file/path") $
@@ -64,10 +79,10 @@ main = do
   kbChan       <- newChan
   servChan     <- newChan 
   
-  mapM_ (messageHandler inboundChan outboundChan peerChan) [1..workerCount]
+  mapM_ (messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan) [1..workerCount]
   mapM_ (networkClient outboundChan ) [1..workerCount]
   mapM_ (addToKbChan kbChan peerChan ) [1..workerCount]
-
+ 
   -- Allow First node to be run as a bootstrap node because there are no peers to connect to
   case isBsNode of
     "y" -> do
@@ -81,7 +96,7 @@ main = do
           defaultPeerList = (Prelude.map convertToSockAddr peerList)
   
       forkIO $ runUDPServerForever (localIpAddress cfg) (localPortNo cfg) inboundChan servChan >> putMVar done ()
-      forkIO $ loadDefaultPeers (defaultPeerList) outboundChan peerChan servChan >> putMVar done ()
+      forkIO $ loadDefaultPeers nodeId sk (defaultPeerList) outboundChan peerChan servChan >> putMVar done ()
         
       takeMVar done
       takeMVar done
