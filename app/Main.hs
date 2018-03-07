@@ -80,12 +80,13 @@ main = do
   inboundChan  <- atomically $ newTChan
   outboundChan <- atomically $ newTChan
   peerChan     <- atomically $ newTChan
-  kbChan       <- atomically $ newTChan
+  kbChan       <- atomically $ newTChan 
+  -- kbDChan     <- atomically $ dupTChan kbChan 
   servChan     <- atomically $ newTChan 
   
   mapM_ (messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan) [1..workerCount]
   mapM_ (networkClient outboundChan ) [1..workerCount]
-  mapM_ (addToKbChan kbChan peerChan ) [1..workerCount]
+  mapM_ (addToKbChan kbChan peerChan) [1..workerCount]
  
   -- Allow First node to be run as a bootstrap node because there are no peers to connect to
   case isBsNode of
