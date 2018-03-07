@@ -42,16 +42,12 @@ import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
 
--- queryKBucket :: targetNodeId 
---              -> alpha 
---              -> TChan (Map.Map Int [(C.ByteString,T.NodeEndPoint)]) 
---              -> TChan (T.PayLoad,SockAddr,Socket)
---              -> IO ThreadId 
+-- Helper function to extract "k-closest" peers from a given list of keys 
+getPeerListFromKeyList :: [Int] 
+                       -> Int 
+                       -> (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
+                       -> [(T.NodeId,T.NodeEndPoint)]
 
--- getElemFromMap temp xs key  = fromMaybe temp lst 
---     where lst = Map.lookup key xs 
-
-getPeerListFromKeyList :: [Int] -> Int -> (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) -> [(T.NodeId,T.NodeEndPoint)]
 getPeerListFromKeyList [] k msg = [] 
 getPeerListFromKeyList (x:xs) k msg 
     | (ls >= k) = fst (Prelude.splitAt k plt)
@@ -62,7 +58,17 @@ getPeerListFromKeyList (x:xs) k msg
         pl   = fst (Prelude.splitAt k plt)
         plt  = fromMaybe [] (Map.lookup x msg)
 
-          
+-- Function responsible for querying K-buckets to return K-closest peers to FIND_NODE issuer 
+queryKBucket :: T.NodeId 
+             -> T.NodeId 
+             -> Int  
+             -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
+             -> TChan (T.PayLoad,SockAddr,Socket)
+             -> SockAddr
+             -> SockAddr
+             -> Socket 
+             -> SecretKey 
+             -> IO ()
 
 queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock localSocket sk = do 
     let dis = (Data.ByteArray.xor (localNodeId :: PublicKey) (targetNodeId :: PublicKey)) :: C.ByteString
