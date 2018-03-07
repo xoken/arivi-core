@@ -45,6 +45,8 @@ import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
 
+import qualified Query as Q 
+
 
 extractDistance :: T.NodeId -> (T.NodeId,T.NodeEndPoint) -> Int 
 extractDistance nodeId x  = fromIntegral kbi :: Int   
@@ -108,18 +110,22 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
                 kbi     = I# (integerLog2# (bs2i dis))
                 nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
             atomically $ writeTChan peerChan ((nId,nep),kbi)
-            print "Written to PeerChan"
+            -- print "Written to PeerChan"
             -- Part above adds peer issuing FIND_NODE to it's appropriate k-bucket 
             -- Part below quieries k-buckets and send k-closest buckets 
-            
-        -- handles the case when message type is MSG04 i.e FN_RESP
-        -- (T.MSG04) -> do
-        --     let nId     = T.nodeId (T.messageBody(T.message (incMsg)))
-        --         nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
-        --         plist   = T.peerList (T.messageBody(T.message (incMsg)))
-        --         nIdPk   = nId :: PublicKey 
-        --         kbil    = map (extractDistance nodeId) plist   
-        --     mapM_ (writeChan peerChan) (zip plist kbil)
+            let localSock = extractThird2 msg 
+                remoteSock = extractSecond2 msg  
+                localSocket = extractFourth msg 
+            threadDelay 1000
+            Q.queryKBucket nodeId nId k kbChan outboundChan localSock remoteSock localSocket sk 
+            -- handles the case when message type is MSG04 i.e FN_RESP
+        (T.MSG04) -> do
+            let nId     = T.nodeId (T.messageBody(T.message (incMsg)))
+                nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
+                plist   = T.peerList (T.messageBody(T.message (incMsg)))
+                nIdPk   = nId :: PublicKey 
+                kbil    = map (extractDistance nodeId) plist   
+            atomically $ mapM_ (writeTChan peerChan) (zip plist kbil)
 
 
 -- Sends the message written by outboundChan to remote Client 
@@ -133,39 +139,40 @@ networkClient outboundChan workerId = forkIO $ forever $ do
     N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)          
 
 -- Runs on a seperate thread & and is responsible for writing to kbChan   
-addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)] ) 
+addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
             -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
             -> Int 
             -> IO ThreadId 
 
 addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
     msg <- atomically $ readTChan peerChan 
+    rl <- atomically $ isEmptyTChan kbChan 
     
-    rl <- atomically $ isEmptyTChan kbChan
     -- let temp5 = H.encode (convert (fst (fst msg)) :: C.ByteString)
     --     temp4 = (temp5,snd (fst msg))
     let temp4 = fst msg      
     case rl of 
         True -> do 
-            let temp = Map.empty 
+            let temp  = Map.empty 
                 temp2 = Map.insert (snd msg) (temp4 : []) temp  
             atomically $ writeTChan kbChan temp2
             print temp2
 
         False -> do 
-                kb  <- atomically $ readTChan kbChan
+                kb  <- atomically $ readTChan kbChan 
                 if (Map.lookup (snd msg) kb == Nothing)
                     then do
                         let temp = Map.insert (snd msg) (temp4:[]) kb 
                         atomically $ writeTChan kbChan temp 
                         print temp
+                       
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
-                            temp2   = fromMaybe (temp4:[]) temp 
+                            temp2   = fromMaybe [] temp 
                             temp3   = temp4 : temp2
-                            payLoad = Map.insert (snd msg) (temp3) kb
-                        print payLoad     
+                            payLoad = Map.insert (snd msg) (temp3) kb   
                         atomically $ writeTChan kbChan payLoad
+                        print payLoad 
                                                  
 -- UDP server which is constantly listenting for requests
 runUDPServerForever :: String 

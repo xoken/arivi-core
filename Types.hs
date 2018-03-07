@@ -90,7 +90,7 @@ data MessageBody = PING {
                 }
                |FN_RESP {
                     nodeId         :: NodeId
-                ,   peerList       :: [[(NodeId,NodeEndPoint)]]  
+                ,   peerList       :: [(NodeId,NodeEndPoint)]
                 ,   fromEndPoint   :: NodeEndPoint 
                 }            
                deriving (Generic,Show)
