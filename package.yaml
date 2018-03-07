@@ -33,11 +33,17 @@ dependencies:
 - random  
 - serialise
 - time 
-
+- cryptonite 
+- bytes 
+- raaz 
+- memory 
+- base16-bytestring 
+- crypto-api 
+- integer-gmp
 
 library:
   source-dirs: src
-
+  
 executables:
   kademlia-exe:
     main:                Main.hs

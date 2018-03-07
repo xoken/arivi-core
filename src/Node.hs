@@ -41,6 +41,10 @@ import GHC.Integer.Logarithms
 import GHC.Exts
 import Data.ByteString.Base16 as H 
 import Data.ByteArray 
+import Control.Concurrent.STM.TChan
+import Control.Monad.STM 
+import Control.Monad 
+
 
 extractDistance :: T.NodeId -> (T.NodeId,T.NodeEndPoint) -> Int 
 extractDistance nodeId x  = fromIntegral kbi :: Int   
@@ -53,16 +57,16 @@ extractDistance nodeId x  = fromIntegral kbi :: Int
 -- whenever a findNode message is recieved it write that peer to peerChan  
 messageHandler :: T.NodeId  
                -> SecretKey
-               -> Chan (SockAddr,Socket)
-               -> Chan (T.PayLoad,SockAddr,SockAddr,Socket) 
-               -> Chan (T.PayLoad,SockAddr,Socket) 
-               -> Chan ((T.NodeId,T.NodeEndPoint),Int) 
-               -> Chan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])          
+               -> TChan (SockAddr,Socket)
+               -> TChan (T.PayLoad,SockAddr,SockAddr,Socket) 
+               -> TChan (T.PayLoad,SockAddr,Socket) 
+               -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
+               -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])          
                -> Int                           
                -> IO ThreadId                   
 
 messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan workerId = forkIO $ forever $ do
-    msg <- readChan inboundChan
+    msg <- atomically $ readTChan inboundChan
     -- socmsg <- readChan servChan 
     let incMsg = extractFirst2 msg
     -- handles the case when message type is MSG01 i.e PING 
@@ -82,7 +86,7 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
             let msgf         = T.Message (mesgt) (mesgb) (seq) (ts)  
                 sgn          = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msgf)) )) :: T.Sign 
                 payl         = T.PayLoad msgf sgn 
-            writeChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
+            atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
         -- handles the case when message type is MSG02 i.e PONG
         (T.MSG02) -> do 
             let socka        = extractThird2 msg 
@@ -94,7 +98,7 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
             let msgf         = T.Message (mesgt) (mesgb) (seq) (ts)  
                 sgn          = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msgf)) )) :: T.Sign 
                 payl         = T.PayLoad msgf sgn 
-            writeChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
+            atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
 
         -- handles the case when message type is MSG03 i.e FIND_NODE
         (T.MSG03) -> do
@@ -103,17 +107,11 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
                 dis     = ((Data.ByteArray.xor nId nodeId) :: C.ByteString)
                 kbi     = I# (integerLog2# (bs2i dis))
                 nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
-            writeChan peerChan ((nId,nep),kbi)
-        
+            atomically $ writeTChan peerChan ((nId,nep),kbi)
+            print "Written to PeerChan"
             -- Part above adds peer issuing FIND_NODE to it's appropriate k-bucket 
             -- Part below quieries k-buckets and send k-closest buckets 
-            do 
-                let localSock   = extractThird2 msg 
-                    remoteSock  = extractSecond2 msg 
-                    localSocket = extractFourth msg 
-                print "Querying"
-                queryKBucket nodeId nId k kbChan outboundChan localSock remoteSock localSocket sk 
-                print "Done Querying"
+            
         -- handles the case when message type is MSG04 i.e FN_RESP
         -- (T.MSG04) -> do
         --     let nId     = T.nodeId (T.messageBody(T.message (incMsg)))
@@ -123,87 +121,27 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
         --         kbil    = map (extractDistance nodeId) plist   
         --     mapM_ (writeChan peerChan) (zip plist kbil)
 
--- queryKBucket :: targetNodeId 
---              -> alpha 
---              -> Chan (Map.Map Int [(C.ByteString,T.NodeEndPoint)]) 
---              -> Chan (T.PayLoad,SockAddr,Socket)
---              -> IO ThreadId 
 
-getElemFromMap temp xs key  = fromMaybe temp lst 
-    where lst = Map.lookup key xs 
-
-queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock localSocket sk = do 
-    let dis = (Data.ByteArray.xor (localNodeId :: PublicKey) (targetNodeId :: PublicKey)) :: C.ByteString
-        kbi = I# (integerLog2# (bs2i dis))  
-    
-    print "reading kbChan"
-    msg <- readChan kbChan 
-    print "done reading kbChan"
-    let keys = Map.keys msg
-        temp = [x | x <- keys , x >= kbi]
-   
-    -- // temp setup for using fromMaybe function which extracts peerList from Maybe peerList 
-    let tempn   = Map.empty 
-        tempn4  = convertToSockAddr "127.0.0.1:7000"
-        nid     = localNodeId :: T.NodeId 
-        nip     = sockAddrToHostAddr tempn4
-        uport   = sockAddrToPortNumber tempn4
-        tcpport = sockAddrToPortNumber tempn4  
-        tempn3  = T.NodeEndPoint nip uport tcpport 
-        tempn2  = Map.insert 1 tempn3 
-        tempn5  = (nid,tempn3):[] 
-          
-    if (Prelude.length temp) < k
-    then do 
-        let peerList  = (Prelude.map (getElemFromMap tempn5 msg) temp )
-            -- peerListf = (Prelude.map convertToBs peerList)
-        -- Payload which is actually response for FIND_NODE X 
-        let msgType  = T.MSG04 
-            fromep   = T.NodeEndPoint (sockAddrToHostAddr localSock) (sockAddrToPortNumber localSock) (sockAddrToPortNumber localSock)
-            seq      = 1
-            msgbody  = T.FN_RESP localNodeId peerList fromep
-        ts <- T.getTimeStamp 
-        let msgS     = T.Message msgType msgbody seq ts 
-            sgn       = (sign (sk) (localNodeId :: PublicKey) (LBS.toStrict (serialise(msgS)) )) :: T.Sign 
-            payl     = T.PayLoad msgS sgn            
-        writeChan outboundChan (payl,remoteSock,localSocket)
-       
-    else do 
-        let temp3 = fst (Prelude.splitAt k temp) 
-            peerList2 = (Prelude.map (getElemFromMap tempn5 msg) temp3) 
-        
-        -- Payload which is actually response for FIND_NODE X 
-        let msgType  = T.MSG04 
-            fromep   = T.NodeEndPoint (sockAddrToHostAddr localSock) (sockAddrToPortNumber localSock) (sockAddrToPortNumber localSock)
-            seq      = 1
-            msgbody  = T.FN_RESP localNodeId peerList2 fromep
-        ts <- T.getTimeStamp 
-        let msgS     = T.Message msgType msgbody seq ts 
-            sgn       = (sign (sk) (localNodeId :: PublicKey) (LBS.toStrict (serialise(msgS)) )) :: T.Sign 
-            payl     = T.PayLoad msgS sgn    
-                
-        writeChan outboundChan (payl,remoteSock,localSocket)
-        -- 
 -- Sends the message written by outboundChan to remote Client 
-networkClient :: Chan (T.PayLoad,SockAddr,Socket) 
+networkClient :: TChan (T.PayLoad,SockAddr,Socket) 
               -> Int 
               -> IO ThreadId
 
 networkClient outboundChan workerId = forkIO $ forever $ do 
-    msg <- readChan outboundChan
+    msg <- atomically $ readTChan outboundChan
     let pl = serialise (extractFirst msg) 
     N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)          
 
 -- Runs on a seperate thread & and is responsible for writing to kbChan   
-addToKbChan :: Chan (Map.Map Int [(T.NodeId,T.NodeEndPoint)] ) 
-            -> Chan ((T.NodeId,T.NodeEndPoint),Int) 
+addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)] ) 
+            -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
             -> Int 
             -> IO ThreadId 
 
 addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
-    msg <- readChan peerChan 
-    rl <- isEmptyChan kbChan
-    print "passed rl"
+    msg <- atomically $ readTChan peerChan 
+    
+    rl <- atomically $ isEmptyTChan kbChan
     -- let temp5 = H.encode (convert (fst (fst msg)) :: C.ByteString)
     --     temp4 = (temp5,snd (fst msg))
     let temp4 = fst msg      
@@ -211,15 +149,15 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
         True -> do 
             let temp = Map.empty 
                 temp2 = Map.insert (snd msg) (temp4 : []) temp  
-            writeChan kbChan temp2
+            atomically $ writeTChan kbChan temp2
             print temp2
 
         False -> do 
-                kb  <- readChan kbChan
+                kb  <- atomically $ readTChan kbChan
                 if (Map.lookup (snd msg) kb == Nothing)
                     then do
                         let temp = Map.insert (snd msg) (temp4:[]) kb 
-                        writeChan kbChan temp 
+                        atomically $ writeTChan kbChan temp 
                         print temp
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
@@ -227,13 +165,13 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                             temp3   = temp4 : temp2
                             payLoad = Map.insert (snd msg) (temp3) kb
                         print payLoad     
-                        writeChan kbChan payLoad
+                        atomically $ writeTChan kbChan payLoad
                                                  
 -- UDP server which is constantly listenting for requests
 runUDPServerForever :: String 
                     -> String 
-                    -> Chan(T.PayLoad,SockAddr,SockAddr,Socket) 
-                    -> Chan (SockAddr,Socket) 
+                    -> TChan(T.PayLoad,SockAddr,SockAddr,Socket) 
+                    -> TChan (SockAddr,Socket) 
                     -> IO ()
 
 runUDPServerForever local_ip local_port inboundChan servChan = do
@@ -241,7 +179,7 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
     let serveraddr = head addrinfos
     sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
     bind sock (addrAddress serveraddr)
-    writeChan servChan ((addrAddress serveraddr),sock) 
+    atomically $ writeTChan servChan ((addrAddress serveraddr),sock) 
 
     print ("Server now listening for requests at : " ++ local_port)
     forever $
@@ -249,19 +187,19 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
             (mesg, socaddr2) <- N.recvFrom sock 4096
             -- print (mesg,socaddr2)
             let remoteMsg = (deserialise (LBS.fromStrict $ mesg) :: T.PayLoad)
-            writeChan inboundChan (remoteMsg,socaddr2,(addrAddress serveraddr),sock)
+            atomically $ writeTChan inboundChan (remoteMsg,socaddr2,(addrAddress serveraddr),sock)
             
 -- Load Default peers into kbChan i.e K-buckets 
 loadDefaultPeers :: T.NodeId 
                  -> SecretKey
                  -> [SockAddr]
-                 -> Chan (T.PayLoad,SockAddr,Socket) 
-                 -> Chan ((T.NodeId,T.NodeEndPoint),Int) 
-                 -> Chan (SockAddr,Socket) 
+                 -> TChan (T.PayLoad,SockAddr,Socket) 
+                 -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
+                 -> TChan (SockAddr,Socket) 
                  -> IO ()
 
 loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan = do 
-    msg <- readChan servChan 
+    msg <- atomically $ readTChan servChan 
 
     let repl         = Prelude.replicate (Prelude.length peerList)
         sock2        = fst msg
@@ -275,4 +213,4 @@ loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan = do
         payl         = T.PayLoad msgf sgn 
 
     -- mapM_ (writeChan peerChan) (zip peerList (replicate (length peerList) 1))
-    mapM_ (writeChan outboundChan) (zip3 (repl payl) peerList (repl (snd msg)))
+    atomically $ mapM_ (writeTChan outboundChan) (zip3 (repl payl) peerList (repl (snd msg)))

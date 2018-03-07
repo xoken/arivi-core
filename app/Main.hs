@@ -21,6 +21,10 @@ import           KeyHandling
 import qualified Data.ByteString           as B 
 import qualified Data.ByteString.Char8     as BC 
 
+import Control.Concurrent.STM.TChan
+import Control.Monad.STM 
+import Control.Monad 
+
 
 -- Custom data type to collect data from configutation file 
 data Config = Config
@@ -73,11 +77,11 @@ main = do
   cfg <- readConfig cfgFilePath
 
   let workerCount = 5
-  inboundChan  <- newChan
-  outboundChan <- newChan
-  peerChan     <- newChan
-  kbChan       <- newChan
-  servChan     <- newChan 
+  inboundChan  <- atomically $ newTChan
+  outboundChan <- atomically $ newTChan
+  peerChan     <- atomically $ newTChan
+  kbChan       <- atomically $ newTChan
+  servChan     <- atomically $ newTChan 
   
   mapM_ (messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan) [1..workerCount]
   mapM_ (networkClient outboundChan ) [1..workerCount]
@@ -99,4 +103,5 @@ main = do
       forkIO $ loadDefaultPeers nodeId sk (defaultPeerList) outboundChan peerChan servChan >> putMVar done ()
         
       takeMVar done
-      takeMVar done
+      takeMVar done 
+

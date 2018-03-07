@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 44ded26691a27ea7b6f46d2440a3b590aef2dca7b86fbd75ba03c8029824c89c
+-- hash: 290b7e721f0ee746c6272d227dbf18557da968d90cdf0653a7e66f715e67648c
 
 name:           kademlia
 version:        0.1.0.0
@@ -31,10 +31,17 @@ library
   build-depends:
       async
     , base >=4.7 && <5
+    , base16-bytestring
+    , bytes
     , bytestring
     , configurator >=0.3.0.0
     , containers
+    , crypto-api
+    , cryptonite
+    , integer-gmp
+    , memory
     , network
+    , raaz
     , random
     , serialise
     , split >=0.1.2.3
@@ -42,9 +49,12 @@ library
     , text
     , time
   exposed-modules:
+      KeyHandling
       Node
+      Random
       Types
       Utils
+      Xor
   other-modules:
       Paths_kademlia
   default-language: Haskell2010
@@ -57,11 +67,18 @@ executable kademlia-exe
   build-depends:
       async
     , base >=4.7 && <5
+    , base16-bytestring
+    , bytes
     , bytestring
     , configurator >=0.3.0.0
     , containers
+    , crypto-api
+    , cryptonite
+    , integer-gmp
     , kademlia
+    , memory
     , network
+    , raaz
     , random
     , serialise
     , split >=0.1.2.3
@@ -81,11 +98,18 @@ test-suite kademlia-test
   build-depends:
       async
     , base >=4.7 && <5
+    , base16-bytestring
+    , bytes
     , bytestring
     , configurator >=0.3.0.0
     , containers
+    , crypto-api
+    , cryptonite
+    , integer-gmp
     , kademlia
+    , memory
     , network
+    , raaz
     , random
     , serialise
     , split >=0.1.2.3
