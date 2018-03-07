@@ -48,10 +48,13 @@ import Control.Monad
 import qualified Query as Q 
 
 
-extractDistance :: T.NodeId -> (T.NodeId,T.NodeEndPoint) -> Int 
-extractDistance nodeId x  = fromIntegral kbi :: Int   
-    where temp = (fst x)  :: PublicKey 
-          nid  = nodeId :: PublicKey 
+extractDistance :: T.NodeId 
+                -> (T.NodeId,T.NodeEndPoint) 
+                -> ((T.NodeId,T.NodeEndPoint),Int) 
+
+extractDistance localNodeId x  = (((fst x),(snd x)),kbi)   
+    where temp = (fst x)     :: PublicKey 
+          nid  = localNodeId :: PublicKey 
           dis  = Data.ByteArray.xor temp nid :: C.ByteString 
           kbi  = I# (integerLog2# (bs2i dis)) 
 
@@ -125,7 +128,7 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
                 plist   = T.peerList (T.messageBody(T.message (incMsg)))
                 nIdPk   = nId :: PublicKey 
                 kbil    = map (extractDistance nodeId) plist   
-            atomically $ mapM_ (writeTChan peerChan) (zip plist kbil)
+            atomically $ mapM_ (writeTChan peerChan) (kbil)
 
 
 -- Sends the message written by outboundChan to remote Client 
