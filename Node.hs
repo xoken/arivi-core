@@ -122,7 +122,7 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan worke
             threadDelay 1000
             Q.queryKBucket nodeId nId k kbChan outboundChan localSock remoteSock localSocket sk 
             -- handles the case when message type is MSG04 i.e FN_RESP
-        (T.MSG04) -> do
+        (T.MSG04) -> do   
             let nId     = T.nodeId (T.messageBody(T.message (incMsg)))
                 nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
                 plist   = T.peerList (T.messageBody(T.message (incMsg)))
@@ -160,7 +160,8 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                 temp2 = Map.insert (snd msg) (temp4 : []) temp  
             atomically $ writeTChan kbChan temp2
             print temp2
-
+            putStrLn ""
+            
         False -> do 
                 kb  <- atomically $ readTChan kbChan 
                 if (Map.lookup (snd msg) kb == Nothing)
@@ -168,6 +169,7 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                         let temp = Map.insert (snd msg) (temp4:[]) kb 
                         atomically $ writeTChan kbChan temp 
                         print temp
+                        putStrLn ""
                        
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
@@ -176,6 +178,7 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                             payLoad = Map.insert (snd msg) (temp3) kb   
                         atomically $ writeTChan kbChan payLoad
                         print payLoad 
+                        putStrLn ""
                                                  
 -- UDP server which is constantly listenting for requests
 runUDPServerForever :: String 
@@ -192,9 +195,11 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
     atomically $ writeTChan servChan ((addrAddress serveraddr),sock) 
 
     print ("Server now listening for requests at : " ++ local_port)
+    putStrLn ""
     forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
+            print "read message"
             -- print (mesg,socaddr2)
             let remoteMsg = (deserialise (LBS.fromStrict $ mesg) :: T.PayLoad)
             atomically $ writeTChan inboundChan (remoteMsg,socaddr2,(addrAddress serveraddr),sock)
