@@ -1,9 +1,16 @@
-module Crypto.Utils.KeyHandling
+-- |
+-- Module : Crypto.Utils.Keys.Signature
+-- 
+-- This module is made for verifying messages between two parties
+
+
+module Crypto.Utils.Keys.Signature
 (
     getSecretKey,
     getPublicKey,
     sign,
-    verify
+    verify,
+    generateKeyPair
 ) where
 
 
@@ -12,7 +19,7 @@ import Crypto.Error (throwCryptoError)
 import Data.ByteString.Char8 (ByteString)
 import Data.ByteArray (convert)
 import Data.ByteString.Base16 (encode)
-
+import Crypto.Utils.Random
 
 -- | Takes a 32 bytes seed and produces SecretKey
 getSecretKey :: ByteString -> SecretKey
@@ -32,3 +39,12 @@ toByteString mPublicKey = ((Data.ByteArray.convert mPublicKey) :: ByteString)
 -- | Converts PublicKey format to Hexadecimal format
 toHex :: PublicKey -> ByteString
 toHex mPublicKey = (Data.ByteString.Base16.encode (toByteString mPublicKey))
+
+
+
+generateKeyPair :: IO (SecretKey, PublicKey)
+generateKeyPair = do 
+                 randomSeed <- (Crypto.Utils.Random.getRandomByteString 32)
+                 let secretKey = getSecretKey randomSeed
+                 let publicKey = getPublicKey secretKey
+                 return (secretKey,publicKey)
