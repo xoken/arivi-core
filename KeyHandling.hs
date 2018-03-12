@@ -15,7 +15,6 @@ import Data.ByteString.Char8
 import Data.ByteArray (convert)
 import Data.ByteString.Base16 (encode)
 
-
 import Data.ByteArray 
 import Xor 
 import Random 
