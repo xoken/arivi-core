@@ -63,4 +63,5 @@ extra-deps: ["serialise-0.2.0.0","cborg-0.2.0.0"]
 # extra-lib-dirs: [/path/to/dir]
 #
 # Allow a newer minor version of GHC than the snapshot specifies
+# allow-newer : true 
 # compiler-check: newer-minor

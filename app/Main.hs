@@ -21,6 +21,7 @@ import           KeyHandling
 import qualified Data.ByteString           as B 
 import qualified Data.ByteString.Char8     as BC 
 
+import Data.ByteArray 
 import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
@@ -59,9 +60,11 @@ main = do
   seed <- getRandomByteString 32 
   let sk     = getSecretKey seed
       pk     = getPublicKey sk 
+      pk2    = convert pk :: BC.ByteString
       nodeId = pk :: T.NodeId
 
-  print ("NodeId : " ++ BC.unpack (toHex(pk)))
+  -- print ("NodeId : " ++ BC.unpack (toHex(pk)))
+  print ("NodeId : " ++ BC.unpack(pk2))
 
   args <- getArgs
   let cfgFilePath =
