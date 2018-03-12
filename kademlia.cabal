@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 290b7e721f0ee746c6272d227dbf18557da968d90cdf0653a7e66f715e67648c
+-- hash: 845c1fa9b3676ce70710ac1e58157990750a76ed5979b8cf9c70b7d645b8a401
 
 name:           kademlia
 version:        0.1.0.0
@@ -51,6 +51,7 @@ library
   exposed-modules:
       KeyHandling
       Node
+      Query
       Random
       Types
       Utils

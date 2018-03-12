@@ -87,7 +87,7 @@ queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock
         msgbody  = T.FN_RESP localNodeId peerList fromep
     ts <- T.getTimeStamp 
     let msgS     = T.Message msgType msgbody seq ts 
-        sgn       = (sign (sk) (localNodeId :: PublicKey) (LBS.toStrict (serialise(msgS)) )) :: T.Sign 
+        sgn      = (sign (sk) (localNodeId :: PublicKey) (LBS.toStrict (serialise(msgS)) )) :: T.Sign 
         payl     = T.PayLoad msgS sgn            
     atomically $ writeTChan outboundChan (payl,remoteSock,localSocket)
             
