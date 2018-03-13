@@ -10,7 +10,7 @@ description: The arivi library is a generic library to build P2P
   protocol layers are supported.
 
 homepage:         http://github.com/xoken/arivi
-bug-reports:      https://github.com/raaz-crypto/raaz/issues
+bug-reports:      https://github.com/xoken/arivi/issues
 
 license:      BSD3
 license-file: LICENSE
@@ -24,7 +24,7 @@ cabal-version:      >=1.10
 
 source-repository head
   type: git
-  location: https://github.com/raaz-crypto/raaz
+  location: https://github.com/xoken/arivi/
 
 library
   build-depends:       base >=4.9 && <4.10
