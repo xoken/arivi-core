@@ -32,6 +32,7 @@ data Config = Config
   { localIpAddress :: String
   , localPortNo    :: String
   , bootStrapPeers :: [String]
+  , k              :: Int 
   } deriving (Eq, Show)
 
 readConfig :: FilePath -> IO Config
@@ -40,7 +41,8 @@ readConfig cfgFile = do
   localIpAddress    <- C.require cfg "node.localIpAddress"
   localPortNo       <- C.require cfg "node.localPortNo"
   bootStrapPeers    <- C.require cfg "node.bootStrapPeers"
-  return $ Config localIpAddress localPortNo bootStrapPeers
+  k                 <- C.require cfg "node.k"
+  return $ Config localIpAddress localPortNo bootStrapPeers k 
 
 --extractTupleFromConfig [] = ("0.0.0":"0")
 extractTupleFromConfig :: String -> (String,String)
@@ -81,7 +83,7 @@ main = do
   -- kbDChan     <- atomically $ dupTChan kbChan 
   servChan     <- atomically $ newTChan 
   
-  mapM_ (messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan) [1..workerCount]
+  mapM_ (messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan (k cfg)) [1..workerCount]
   mapM_ (networkClient outboundChan ) [1..workerCount]
   mapM_ (addToKbChan kbChan peerChan) [1..workerCount]
  
