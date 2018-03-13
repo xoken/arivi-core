@@ -41,6 +41,7 @@ import Data.ByteArray
 import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
+import Data.List as L 
 
 -- Helper function to extract "k-closest" peers from a given list of keys 
 getPeerListFromKeyList :: [Int] 
@@ -78,7 +79,9 @@ queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock
     let keys = Map.keys msg
         temp = [x | x <- keys]
 
-    let peerList = getPeerListFromKeyList temp k msg 
+    let peerList2    = getPeerListFromKeyList temp k msg 
+        tempfromep   = T.NodeEndPoint (sockAddrToHostAddr localSock) (sockAddrToPortNumber localSock) (sockAddrToPortNumber localSock)
+        peerList     = L.deleteBy (\(x,y) (a,b) -> a==x) (targetNodeId,tempfromep) peerList2
     
     -- Payload which is actually response for FIND_NODE X 
     let msgType  = T.MSG04 
