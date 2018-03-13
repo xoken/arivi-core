@@ -105,4 +105,3 @@ main = do
                      forkIO $ loadDefaultPeers nodeId sk (defaultPeerList) outboundChan peerChan servChan >> putMVar done ()
                      takeMVar done
                      takeMVar done 
-
