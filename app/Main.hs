@@ -21,7 +21,7 @@ import           KeyHandling
 import qualified Data.ByteString           as B 
 import qualified Data.ByteString.Char8     as BC 
 
-import Data.ByteArray 
+import Data.ByteArray
 import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
@@ -63,18 +63,12 @@ main = do
       pk2    = convert pk :: BC.ByteString
       nodeId = pk :: T.NodeId
 
-  -- print ("NodeId : " ++ BC.unpack (toHex(pk)))
-  print ("NodeId : " ++ BC.unpack(pk2))
+  print ("NodeId : " ++ BC.unpack (toHex(pk)))
 
   args <- getArgs
   let cfgFilePath =
         fromMaybe (error "Usage: ./kademlia-exe --config /file/path") $
         find (/= "--config") args
-
-      args1 = Data.List.tail args
-      isBsNode =
-        fromMaybe (error "Usage ./kademlia-exe --isbsnode yes/no") $
-        find (/= "--bsnode") $ Data.List.tail args1
 
   -- reads configuration file
   cfg <- readConfig cfgFilePath
@@ -91,21 +85,22 @@ main = do
   mapM_ (networkClient outboundChan ) [1..workerCount]
   mapM_ (addToKbChan kbChan peerChan) [1..workerCount]
  
-  -- Allow First node to be run as a bootstrap node because there are no peers to connect to
-  case isBsNode of
-    "y" -> do
-      done <- newEmptyMVar
-      forkIO $ runUDPServerForever (localIpAddress cfg) (localPortNo cfg) inboundChan servChan >> putMVar done ()
-      takeMVar done
-    
-    "n" ->  do
-      done <- newEmptyMVar
-      let peerList = bootStrapPeers cfg
-          defaultPeerList = (Prelude.map convertToSockAddr peerList)
+  let peerList = bootStrapPeers cfg
+      defaultPeerList = (Prelude.map convertToSockAddr peerList)
   
-      forkIO $ runUDPServerForever (localIpAddress cfg) (localPortNo cfg) inboundChan servChan >> putMVar done ()
-      forkIO $ loadDefaultPeers nodeId sk (defaultPeerList) outboundChan peerChan servChan >> putMVar done ()
-        
-      takeMVar done
-      takeMVar done 
+  case (Data.List.length defaultPeerList) of
+    -- case in which the default peerList is empty i.e the node will run
+    -- as a bootstrap node. 
+    (0)       -> do 
+                     done <- newEmptyMVar 
+                     forkIO $ runUDPServerForever (localIpAddress cfg) (localPortNo cfg) inboundChan servChan >> putMVar done ()
+                     takeMVar done 
+    -- case in which the default peerList is present and thus the peer would 
+    -- load the default peerList 
+    otherwise -> do 
+                     done <- newEmptyMVar
+                     forkIO $ runUDPServerForever (localIpAddress cfg) (localPortNo cfg) inboundChan servChan >> putMVar done ()
+                     forkIO $ loadDefaultPeers nodeId sk (defaultPeerList) outboundChan peerChan servChan >> putMVar done ()
+                     takeMVar done
+                     takeMVar done 
 
