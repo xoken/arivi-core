@@ -75,35 +75,22 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
     msg <- atomically $ readTChan inboundChan
     -- socmsg <- readChan servChan 
     let incMsg = extractFirst2 msg
+        socka        = extractThird2 msg 
+    ts <- T.getTimeStamp 
     -- handles the case when message type is MSG01 i.e PING 
 
     case (T.messageType (T.message (incMsg)))  of 
-        (T.MSG01) -> do 
-             -- // it should be rather extractThird msg  
-            let socka        = extractThird2 msg 
-                mesgt        = T.MSG02 
-                fromendPoint = T.NodeEndPoint (sockAddrToHostAddr socka) (sockAddrToPortNumber socka) (sockAddrToPortNumber socka)
-                mesgb        = T.PONG nodeId fromendPoint 
-                seq          = 1
-            ts <- T.getTimeStamp 
-            let msgf         = T.Message (mesgt) (mesgb) (seq) (ts)  
-                sgn          = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msgf)) )) :: T.Sign 
-                payl         = T.PayLoad msgf sgn 
+        (T.MSG01) -> do   
+            let payl = T.packPing nodeId sk socka (1) ts     
             atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
+       
         -- handles the case when message type is MSG02 i.e PONG
         (T.MSG02) -> do 
-            let socka        = extractThird2 msg 
-                mesgt        = T.MSG01 
-                fromendPoint = T.NodeEndPoint (sockAddrToHostAddr socka) (sockAddrToPortNumber socka) (sockAddrToPortNumber socka)
-                mesgb        = T.PONG nodeId fromendPoint 
-                seq          = 1
-            ts <- T.getTimeStamp 
-            let msgf         = T.Message (mesgt) (mesgb) (seq) (ts)  
-                sgn          = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msgf)) )) :: T.Sign 
-                payl         = T.PayLoad msgf sgn 
+            let payl = T.packPong nodeId sk socka (1) ts 
             atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
 
         -- handles the case when message type is MSG03 i.e FIND_NODE
+        -- Adds peer issuing FIND_NODE to it's appropriate k-bucket 
         (T.MSG03) -> do
             let nId     = T.nodeId (T.messageBody(T.message (incMsg)))
                 nIdPk   = nId :: PublicKey 
@@ -111,15 +98,15 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
                 kbi     = I# (integerLog2# (bs2i dis))
                 nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
             atomically $ writeTChan peerChan ((nId,nep),kbi)
-            -- print "Written to PeerChan"
-            -- Part above adds peer issuing FIND_NODE to it's appropriate k-bucket 
-            -- Part below quieries k-buckets and send k-closest buckets 
+
+            -- Queries k-buckets and send k-closest buckets 
             let localSock = extractThird2 msg 
                 remoteSock = extractSecond2 msg  
                 localSocket = extractFourth msg 
             threadDelay 1000
             Q.queryKBucket nodeId nId k kbChan outboundChan localSock remoteSock localSocket sk 
-            -- handles the case when message type is MSG04 i.e FN_RESP
+        
+        -- handles the case when message type is MSG04 i.e FN_RESP
         (T.MSG04) -> do   
             let nId     = T.nodeId (T.messageBody(T.message (incMsg)))
                 nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
@@ -212,17 +199,11 @@ loadDefaultPeers :: T.NodeId
 
 loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan = do 
     msg <- atomically $ readTChan servChan 
+    ts  <- T.getTimeStamp
 
-    let repl         = Prelude.replicate (Prelude.length peerList)
-        sock2        = fst msg
-        mesgt        = T.MSG03
-        fromendPoint = T.NodeEndPoint (sockAddrToHostAddr sock2) (sockAddrToPortNumber sock2) (sockAddrToPortNumber sock2)
-        mesgb        = T.FIND_NODE nodeId nodeId fromendPoint 
-        seq          = 1
-    ts <- T.getTimeStamp
-    let msgf         = T.Message (mesgt) (mesgb) (seq) (ts)  
-        sgn          = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msgf)) )) :: T.Sign 
-        payl         = T.PayLoad msgf sgn 
+    let repl  = Prelude.replicate (Prelude.length peerList)
+        socka = fst msg
+        payl  = T.packFindMsg nodeId sk socka (1) ts nodeId 
 
     -- mapM_ (writeChan peerChan) (zip peerList (replicate (length peerList) 1))
     atomically $ mapM_ (writeTChan outboundChan) (zip3 (repl payl) peerList (repl (snd msg)))
