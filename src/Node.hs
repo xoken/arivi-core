@@ -199,7 +199,6 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
     forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
-            print "read message"
             -- print (mesg,socaddr2)
             let remoteMsg = (deserialise (LBS.fromStrict $ mesg) :: T.PayLoad)
             atomically $ writeTChan inboundChan (remoteMsg,socaddr2,(addrAddress serveraddr),sock)
