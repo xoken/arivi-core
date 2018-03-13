@@ -66,18 +66,16 @@ messageHandler :: T.NodeId
                -> TChan (T.PayLoad,SockAddr,SockAddr,Socket) 
                -> TChan (T.PayLoad,SockAddr,Socket) 
                -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
-               -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])          
+               -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
+               -> Int            
                -> Int                           
                -> IO ThreadId                   
 
-messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan workerId = forkIO $ forever $ do
+messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k workerId = forkIO $ forever $ do
     msg <- atomically $ readTChan inboundChan
     -- socmsg <- readChan servChan 
     let incMsg = extractFirst2 msg
     -- handles the case when message type is MSG01 i.e PING 
-
-    let k     = 10 
-        alpha = 3  
 
     case (T.messageType (T.message (incMsg)))  of 
         (T.MSG01) -> do 
