@@ -1,7 +1,7 @@
 module Utils.XorDistance(
 
     getXorDistance,
-    getXorDistancelog2,
+    getRawXor,
 )
 where 
 
@@ -26,6 +26,13 @@ hexToDecimal lst = hexToDec (reverse lst) 0 (length lst)
 
 biWisexorOfKeys firstNodeId secondNodeId = zipWith xor (hexToDigits firstNodeId) (hexToDigits secondNodeId) 
 
-getXorDistance firstNodeId secondNodeId = hexToDecimal(map toInteger (biWisexorOfKeys firstNodeId secondNodeId))
+getRawXor firstNodeId secondNodeId = hexToDecimal(map toInteger (biWisexorOfKeys firstNodeId secondNodeId))
 
-getXorDistancelog2 number = logBase 2 (fromIntegral number)
+-- getXorDistancelog2 number = logBase 2 (fromIntegral number)
+
+-- | Our notion of distance
+
+getXorDistance firstNodeId secondNodeId = if rawXor == 0
+                                            then 0
+                                          else logBase 2 (fromIntegral (rawXor)) 
+                                          where rawXor = getRawXor firstNodeId secondNodeId
