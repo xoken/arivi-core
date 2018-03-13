@@ -26,7 +26,8 @@ module Types
     TimeStamp(TimeStamp),
     MessageType(MSG01,MSG02,MSG03,MSG04),
     MessageBody(PING,PONG,FIND_NODE,FN_RESP),
-    PayLoad (PayLoad)
+    PayLoad (PayLoad),
+    packMsg
   ) where 
    
 import           Codec.Serialise
@@ -50,6 +51,14 @@ import           Crypto.PubKey.Ed25519
 import           Data.ByteArray 
 import           Crypto.Error 
 
+import qualified Data.ByteString.Lazy as LBS  
+
+-- Helper function to get timeStamp/ epoch 
+getTimeStamp :: IO TimeStamp
+getTimeStamp = do 
+    tStamp <- getPOSIXTime 
+    return $ TimeStamp (posixSecondsToUTCTime tStamp) 
+
 data NodeEndPoint = NodeEndPoint {
         nodeIp  :: HostAddress
     ,   udpPort :: PortNumber
@@ -60,12 +69,6 @@ type NodeId            = PublicKey
 type Sign              = Signature
 type Sequence          = Int
 newtype TimeStamp      = TimeStamp UTCTime deriving (Show,Generic)
-
--- Helper function to get timeStamp/ epoch 
-getTimeStamp :: IO TimeStamp
-getTimeStamp = do 
-    tStamp <- getPOSIXTime 
-    return $ TimeStamp (posixSecondsToUTCTime tStamp) 
 
 data MessageType = MSG01
                    |MSG02
@@ -106,6 +109,30 @@ data PayLoad = PayLoad {
                      message       :: Message 
                 ,    signature     :: Sign   
                 } deriving (Show,Generic) 
+
+packMsg msgType nodeId sk sockAddr msgSeq msgTs targetNode peerList
+    | (msgType == MSG01) = PayLoad msg1 sgn1 
+    | (msgType == MSG02) = PayLoad msg2 sgn2
+    | (msgType == MSG03) = PayLoad msg3 sgn3 
+    | (msgType == MSG04) = PayLoad msg2 sgn4 
+    where 
+        fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
+       
+        msgBody1 = PING nodeId fromep 
+        msg1     = Message msgType msgBody1 msgSeq msgTs
+        sgn1     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg1)) )) :: Sign
+
+        msgBody2 = PONG nodeId fromep
+        msg2     = Message msgType msgBody2 msgSeq msgTs
+        sgn2     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg2)) )) :: Sign
+
+        msgBody3 = FIND_NODE nodeId targetNode fromep 
+        msg3     = Message msgType msgBody3 msgSeq msgTs 
+        sgn3     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg3)) )) :: Sign
+
+        msgBody4 = FIND_NODE nodeId peerList fromep 
+        msg4     = Message msgType msgBody4 msgSeq msgTs 
+        sgn4     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg4)) )) :: Sign
 
 -- Serialise instance of different custom types so that they can be encoded 
 -- and decoded using serialise library which further allows these types 
