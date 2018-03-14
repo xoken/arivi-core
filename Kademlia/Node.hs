@@ -1,12 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MagicHash #-}
 
-module Node
+module Kademlia.Node
   ( runUDPServerForever,
     messageHandler,
     loadDefaultPeers,
     networkClient,
     addToKbChan,
+    -- refreshKbucket
   ) where
 
 import           Control.Concurrent        (forkIO, newChan, newEmptyMVar,
@@ -24,8 +25,8 @@ import qualified Data.Map.Strict           as Map
 import           Data.Maybe 
 import           System.Random
 import           Data.Word 
-import           Utils              
-import qualified Types as T 
+import           Kademlia.Utils              
+import qualified Kademlia.Types as T 
 
 import           Codec.Serialise
 import           Codec.Serialise.Encoding
@@ -45,7 +46,7 @@ import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
 
-import qualified Query as Q 
+import qualified Kademlia.Query as Q 
 
 
 extractDistance :: T.NodeId 
@@ -73,9 +74,8 @@ messageHandler :: T.NodeId
 
 messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k workerId = forkIO $ forever $ do
     msg <- atomically $ readTChan inboundChan
-    -- socmsg <- readChan servChan 
     let incMsg = extractFirst2 msg
-        socka        = extractThird2 msg 
+        socka  = extractThird2 msg 
     ts <- T.getTimeStamp 
     -- handles the case when message type is MSG01 i.e PING 
 
@@ -115,12 +115,12 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
                 kbil    = map (extractDistance nodeId) plist   
             atomically $ mapM_ (writeTChan peerChan) (kbil)
 
-
 -- Sends the message written by outboundChan to remote Client 
 networkClient :: TChan (T.PayLoad,SockAddr,Socket) 
               -> Int 
               -> IO ThreadId
-
+              
+-- responsible for reading outboundChan and sending the contents to mentioned address 
 networkClient outboundChan workerId = forkIO $ forever $ do 
     msg <- atomically $ readTChan outboundChan
     let pl = serialise (extractFirst msg) 
@@ -135,10 +135,8 @@ addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
 addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
     msg <- atomically $ readTChan peerChan 
     rl <- atomically $ isEmptyTChan kbChan 
-    
-    -- let temp5 = H.encode (convert (fst (fst msg)) :: C.ByteString)
-    --     temp4 = (temp5,snd (fst msg))
     let temp4 = fst msg      
+    
     case rl of 
         True -> do 
             let temp  = Map.empty 
@@ -159,7 +157,7 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
                             temp2   = fromMaybe [] temp 
-                            temp3   = temp4 : temp2
+                            temp3   = temp2 ++ (temp4 : [])
                             payLoad = Map.insert (snd msg) (temp3) kb   
                         atomically $ writeTChan kbChan payLoad
                         print payLoad 
@@ -184,7 +182,6 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
     forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
-            -- print (mesg,socaddr2)
             let remoteMsg = (deserialise (LBS.fromStrict $ mesg) :: T.PayLoad)
             atomically $ writeTChan inboundChan (remoteMsg,socaddr2,(addrAddress serveraddr),sock)
             
@@ -207,3 +204,7 @@ loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan = do
 
     -- mapM_ (writeChan peerChan) (zip peerList (replicate (length peerList) 1))
     atomically $ mapM_ (writeTChan outboundChan) (zip3 (repl payl) peerList (repl (snd msg)))
+
+-- refreshKbucket kbChan outboundChan rt workerId = forkIO $ forever $ do
+--     threadDelay rt  
+    

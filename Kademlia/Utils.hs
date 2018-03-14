@@ -1,4 +1,4 @@
-module Utils 
+module Kademlia.Utils 
 (
     extractFirst,
     extractSecond,

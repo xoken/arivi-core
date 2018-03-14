@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MagicHash #-}
 
-module Query 
+module Kademlia.Query 
 (
 queryKBucket 
  ) where 
@@ -21,8 +21,8 @@ import qualified Data.Map.Strict           as Map
 import           Data.Maybe 
 import           System.Random
 import           Data.Word 
-import           Utils              
-import qualified Types as T 
+import           Kademlia.Utils              
+import qualified Kademlia.Types as T 
 
 import           Codec.Serialise
 import           Codec.Serialise.Encoding
