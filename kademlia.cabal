@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1029cb67ef047c3d0281bdcbc7d8b231661cad25c5f9bafb476f4864be4720e8
+-- hash: 44ded26691a27ea7b6f46d2440a3b590aef2dca7b86fbd75ba03c8029824c89c
 
 name:           kademlia
 version:        0.1.0.0
@@ -33,10 +33,18 @@ library
     , base >=4.7 && <5
     , bytestring
     , configurator >=0.3.0.0
+    , containers
     , network
     , random
+    , serialise
+    , split >=0.1.2.3
+    , stm
+    , text
+    , time
   exposed-modules:
       Node
+      Types
+      Utils
   other-modules:
       Paths_kademlia
   default-language: Haskell2010
@@ -51,9 +59,15 @@ executable kademlia-exe
     , base >=4.7 && <5
     , bytestring
     , configurator >=0.3.0.0
+    , containers
     , kademlia
     , network
     , random
+    , serialise
+    , split >=0.1.2.3
+    , stm
+    , text
+    , time
   other-modules:
       Paths_kademlia
   default-language: Haskell2010
@@ -69,9 +83,15 @@ test-suite kademlia-test
     , base >=4.7 && <5
     , bytestring
     , configurator >=0.3.0.0
+    , containers
     , kademlia
     , network
     , random
+    , serialise
+    , split >=0.1.2.3
+    , stm
+    , text
+    , time
   other-modules:
       Paths_kademlia
   default-language: Haskell2010

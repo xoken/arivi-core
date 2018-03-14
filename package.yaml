@@ -22,10 +22,25 @@ description:         Please see the README on Github at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - configurator >= 0.3.0.0
-- network 
-- random 
-- async 
+- network
+- random
+- async
 - bytestring
+- text
+- split >= 0.1.2.3
+- containers
+- stm
+- random  
+- serialise
+- time 
+- cryptonite 
+- bytes 
+- raaz 
+- memory 
+- base16-bytestring 
+- crypto-api 
+- integer-gmp
+
 
 library:
   source-dirs: src
