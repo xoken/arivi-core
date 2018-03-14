@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-10.5
+resolver: lts-11.0
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -63,5 +63,4 @@ extra-deps: ["serialise-0.2.0.0","cborg-0.2.0.0"]
 # extra-lib-dirs: [/path/to/dir]
 #
 # Allow a newer minor version of GHC than the snapshot specifies
-# allow-newer : true 
 # compiler-check: newer-minor

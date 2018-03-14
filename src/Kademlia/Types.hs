@@ -4,12 +4,12 @@
 -- and scond it makes code cleaner and structured.  
 
 {-# LANGUAGE DeriveGeneric #-}
-module Types 
+module Kademlia.Types 
   ( getTimeStamp,
     Message (Message),
     messageType,
     messageBody,
-    Types.sequence,
+    Kademlia.Types.sequence,
     timeStamp,
     nodeId,
     fromEndPoint,
@@ -19,7 +19,7 @@ module Types
     tcpPort,
     message,
     peerList, 
-    Types.signature,
+    Kademlia.Types.signature,
     NodeId,
     Sign, 
     NodeEndPoint(NodeEndPoint),
@@ -48,7 +48,7 @@ import qualified Data.List.Split           as S
 import           Data.Word 
 import           Data.Time.Clock.POSIX 
 import           Data.Time.Clock           
-import           Utils 
+import           Kademlia.Utils 
 import           Data.ByteString
 import           Crypto.PubKey.Ed25519
 import           Data.ByteArray 
