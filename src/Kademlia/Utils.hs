@@ -10,7 +10,9 @@ module Kademlia.Utils
     extractFirst2,
     extractSecond2,
     extractThird2,
-    extractFourth
+    extractFourth,
+    isNodeIdElem
+    -- getRandomR 
 
 ) where 
 
@@ -18,6 +20,7 @@ import qualified Data.List.Split           as S
 import           Network.Socket    
 import qualified Network.Socket.Internal   as M 
 import           Data.Word 
+import           System.Random 
                              
 
 -- Helper functions to extract value from 3-tuple
@@ -63,5 +66,18 @@ sockAddrToHostAddr (SockAddrInet a b) = b
 
 sockAddrToPortNumber :: SockAddr -> PortNumber
 sockAddrToPortNumber (SockAddrInet a b) = a 
+
+-- Helper function to check if a values exist in a list of type [(a,_)]
+isNodeIdElem [] _      = False 
+isNodeIdElem (x:xs) m 
+    | (fst x == m)     = True 
+    | otherwise        = isNodeIdElem xs m 
+         
+
+-- Generates a random number between a given range 
+getRandomR :: Random b => (b, b) -> IO b
+getRandomR (a,b) = do
+    rndR <- getStdRandom (randomR (a,b))
+    return (rndR)
 
 
