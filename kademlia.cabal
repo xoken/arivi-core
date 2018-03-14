@@ -1,97 +1,47 @@
--- This file has been generated from package.yaml by hpack version 0.20.0.
---
--- see: https://github.com/sol/hpack
---
--- hash: 44ded26691a27ea7b6f46d2440a3b590aef2dca7b86fbd75ba03c8029824c89c
-
-name:           kademlia
-version:        0.1.0.0
-description:    Please see the README on Github at <https://github.com/githubuser/kademlia#readme>
-homepage:       https://github.com/githubuser/kademlia#readme
-bug-reports:    https://github.com/githubuser/kademlia/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2018 Author name here
-license:        BSD3
-license-file:   LICENSE
-build-type:     Simple
-cabal-version:  >= 1.10
-
-extra-source-files:
-    ChangeLog.md
-    README.md
-
-source-repository head
-  type: git
-  location: https://github.com/githubuser/kademlia
+name:                kademlia
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/kademlia#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Ankit Singh 
+maintainer:          example@example.com
+copyright:           2018 XokenLabs 
+category:            Network 
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
 
 library
-  hs-source-dirs:
-      src
-  build-depends:
-      async
-    , base >=4.7 && <5
-    , bytestring
-    , configurator >=0.3.0.0
-    , containers
-    , network
-    , random
-    , serialise
-    , split >=0.1.2.3
-    , stm
-    , text
-    , time
-  exposed-modules:
-      Node
-      Types
-      Utils
-  other-modules:
-      Paths_kademlia
-  default-language: Haskell2010
+  hs-source-dirs:      src
+  exposed-modules:     Kademlia.Node
+                       Kademlia.Query 
+                       Kademlia.Types 
+                       Kademlia.Utils 
+                       Kademlia.XorDistance 
+                       
+  build-depends:       base >= 4.7 && < 5
+                    ,  configurator >= 0.3.0.0
+                    ,  network
+                    ,  random
+                    ,  async
+                    ,  bytestring
+                    ,  text
+                    ,  split >= 0.1.2.3
+                    ,  containers
+                    ,  stm  
+                    ,  serialise
+                    ,  time 
+                    ,  bytes 
+                    ,  memory 
+                    ,  base16-bytestring 
+                    ,  crypto-api 
+                    ,  integer-gmp
+                    ,  cryptonite 
 
-executable kademlia-exe
-  main-is: Main.hs
-  hs-source-dirs:
-      app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      async
-    , base >=4.7 && <5
-    , bytestring
-    , configurator >=0.3.0.0
-    , containers
-    , kademlia
-    , network
-    , random
-    , serialise
-    , split >=0.1.2.3
-    , stm
-    , text
-    , time
-  other-modules:
-      Paths_kademlia
-  default-language: Haskell2010
+  default-language:    Haskell2010
 
-test-suite kademlia-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  hs-source-dirs:
-      test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      async
-    , base >=4.7 && <5
-    , bytestring
-    , configurator >=0.3.0.0
-    , containers
-    , kademlia
-    , network
-    , random
-    , serialise
-    , split >=0.1.2.3
-    , stm
-    , text
-    , time
-  other-modules:
-      Paths_kademlia
-  default-language: Haskell2010
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/kademlia
