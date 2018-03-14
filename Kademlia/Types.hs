@@ -104,7 +104,7 @@ data MessageBody = PING {
 data Message = Message {
                      messageType   :: MessageType  
                 ,    messageBody   :: MessageBody  
-                ,    sequence      :: Sequence
+                ,    sequence      :: Sequence 
                 ,    timeStamp     :: TimeStamp
                 } deriving (Generic,Show)
 
@@ -230,7 +230,7 @@ decodePortNumber = do
     len <- decodeListLen
     tag <- decodeWord
     case (len,tag) of 
-        (2,0)  -> PortNum <$> decode
+        (2,0)  -> (PortNum <$> decode)
         _      -> fail "Invalid PortNumber encoding"  
 
 -- Serialise instance for MessageBody data type

@@ -81,12 +81,12 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
 
     case (T.messageType (T.message (incMsg)))  of 
         (T.MSG01) -> do   
-            let payl = T.packPing nodeId sk socka (1) ts     
+            let payl = T.packPong nodeId sk socka (1) ts     
             atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
        
         -- handles the case when message type is MSG02 i.e PONG
         (T.MSG02) -> do 
-            let payl = T.packPong nodeId sk socka (1) ts 
+            let payl = T.packPing nodeId sk socka (1) ts 
             atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
 
         -- handles the case when message type is MSG03 i.e FIND_NODE
@@ -123,9 +123,10 @@ networkClient :: TChan (T.PayLoad,SockAddr,Socket)
 -- responsible for reading outboundChan and sending the contents to mentioned address 
 networkClient outboundChan workerId = forkIO $ forever $ do 
     msg <- atomically $ readTChan outboundChan
-    let pl = serialise (extractFirst msg) 
-    N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)          
-
+    let pl           = serialise (extractFirst msg) 
+    N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)
+    
+  
 -- Runs on a seperate thread & and is responsible for writing to kbChan   
 addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
             -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
@@ -153,15 +154,24 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                         atomically $ writeTChan kbChan temp 
                         print temp
                         putStrLn ""
-                       
+                        
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
                             temp2   = fromMaybe [] temp 
-                            temp3   = temp2 ++ (temp4 : [])
-                            payLoad = Map.insert (snd msg) (temp3) kb   
-                        atomically $ writeTChan kbChan payLoad
-                        print payLoad 
-                        putStrLn ""
+                        -- Checks if the nodeId already exists in the HashMap 
+                        if (isNodeIdElem temp2 (fst temp4) == False)
+                            then do 
+                                let temp3   = temp2 ++ (temp4 : [])
+                                    payLoad = Map.insert (snd msg) (temp3) kb   
+                                atomically $ writeTChan kbChan payLoad
+                                print payLoad 
+                                putStrLn ""
+                            else do 
+                                let payLoad = Map.insert (snd msg) (temp2) kb   
+                                atomically $ writeTChan kbChan payLoad
+                                print payLoad 
+                                putStrLn ""
+
                                                  
 -- UDP server which is constantly listenting for requests
 runUDPServerForever :: String 
@@ -204,6 +214,11 @@ loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan = do
 
     -- mapM_ (writeChan peerChan) (zip peerList (replicate (length peerList) 1))
     atomically $ mapM_ (writeTChan outboundChan) (zip3 (repl payl) peerList (repl (snd msg)))
+
+
+-- | When issuing a Find_Node request add the nodeId and contextID to a hash map and wait for FN_RESP
+-- | When issuing a Ping request add the nodeId and contextID to hash map and wait for PONG 
+
 
 -- refreshKbucket kbChan outboundChan rt workerId = forkIO $ forever $ do
 --     threadDelay rt  
