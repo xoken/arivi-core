@@ -46,6 +46,7 @@ import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
 
+import Crypto.Utils.Keys.Signature 
 import qualified Kademlia.Query as Q 
 
 
@@ -76,17 +77,16 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
     msg <- atomically $ readTChan inboundChan
     let incMsg = extractFirst2 msg
         socka  = extractThird2 msg 
-    ts <- T.getTimeStamp 
     -- handles the case when message type is MSG01 i.e PING 
 
     case (T.messageType (T.message (incMsg)))  of 
         (T.MSG01) -> do   
-            let payl = T.packPong nodeId sk socka (1) ts     
+            let payl = T.packPong nodeId sk socka (1)     
             atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
        
         -- handles the case when message type is MSG02 i.e PONG
         (T.MSG02) -> do 
-            let payl = T.packPing nodeId sk socka (1) ts 
+            let payl = T.packPing nodeId sk socka (1) 
             atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
 
         -- handles the case when message type is MSG03 i.e FIND_NODE
@@ -100,8 +100,8 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
             atomically $ writeTChan peerChan ((nId,nep),kbi)
 
             -- Queries k-buckets and send k-closest buckets 
-            let localSock = extractThird2 msg 
-                remoteSock = extractSecond2 msg  
+            let localSock   = extractThird2 msg 
+                remoteSock  = extractSecond2 msg  
                 localSocket = extractFourth msg 
             threadDelay 1000
             Q.queryKBucket nodeId nId k kbChan outboundChan localSock remoteSock localSocket sk 
@@ -112,7 +112,7 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan k wor
                 nep     = T.fromEndPoint (T.messageBody(T.message (incMsg)))
                 plist   = T.peerList (T.messageBody(T.message (incMsg)))
                 nIdPk   = nId :: PublicKey 
-                kbil    = map (extractDistance nodeId) plist   
+                kbil    = map (extractDistance nodeId) plist    
             atomically $ mapM_ (writeTChan peerChan) (kbil)
 
 -- Sends the message written by outboundChan to remote Client 
@@ -124,9 +124,9 @@ networkClient :: TChan (T.PayLoad,SockAddr,Socket)
 networkClient outboundChan workerId = forkIO $ forever $ do 
     msg <- atomically $ readTChan outboundChan
     let pl           = serialise (extractFirst msg) 
-    N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)
     
-  
+    N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)
+      
 -- Runs on a seperate thread & and is responsible for writing to kbChan   
 addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
             -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
@@ -206,20 +206,56 @@ loadDefaultPeers :: T.NodeId
 
 loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan = do 
     msg <- atomically $ readTChan servChan 
-    ts  <- T.getTimeStamp
 
     let repl  = Prelude.replicate (Prelude.length peerList)
         socka = fst msg
-        payl  = T.packFindMsg nodeId sk socka (1) ts nodeId 
+        payl  = T.packFindMsg nodeId sk socka (1) nodeId 
 
-    -- mapM_ (writeChan peerChan) (zip peerList (replicate (length peerList) 1))
+    -- zip3 will produce [(T.PayLoad,SockAddr,Socket)]
     atomically $ mapM_ (writeTChan outboundChan) (zip3 (repl payl) peerList (repl (snd msg)))
-
-
--- | When issuing a Find_Node request add the nodeId and contextID to a hash map and wait for FN_RESP
--- | When issuing a Ping request add the nodeId and contextID to hash map and wait for PONG 
-
-
--- refreshKbucket kbChan outboundChan rt workerId = forkIO $ forever $ do
---     threadDelay rt  
     
+    -- mapM_ (writeChan peerChan) (zip peerList (replicate (length peerList) 1))
+
+addToPendingResChan :: TChan (T.PayLoad,T.NodeId,SockAddr,Socket)
+                    -> TChan (Map.Map C.ByteString [(T.Sequence,T.TimeStamp)])
+                    -> IO ThreadId 
+
+addToPendingResChan prhChan pendingResChan = forkIO $ forever $ do 
+    msg <- atomically $ readTChan prhChan 
+    let recvdPayl   = extractFirst2 msg
+        msgType     = T.messageType (T.message (recvdPayl))
+        msgSeq      = T.sequence (T.message (recvdPayl))
+        recvrNodeId = publicKeytoHex (extractSecond2 msg)
+    
+    rl <- atomically $ isEmptyTChan pendingResChan 
+    ts <- T.getTimeStamp
+    case rl of 
+        True -> do 
+            let temp  = Map.empty 
+                temp2 = Map.insert recvrNodeId ((msgSeq,ts):[]) temp 
+            atomically $ writeTChan pendingResChan temp2 
+
+        False -> do 
+            msg2 <- atomically $ peekTChan pendingResChan  
+            case (Map.lookup (recvrNodeId) msg2) of 
+                Nothing   -> do 
+                    let temp3 = Map.insert recvrNodeId ((msgSeq,ts):[]) msg2 
+                    atomically $ writeTChan pendingResChan temp3 
+
+                otherwise -> do 
+                    let temp4 = Map.lookup (recvrNodeId) msg2 
+                        temp5 = fromMaybe [] temp4
+                        temp6 = (msgSeq,ts) 
+                        temp7 = Map.insert recvrNodeId (temp5 ++ (temp6:[])) msg2 
+                    atomically $ writeTChan pendingResChan temp7 
+
+
+-- | sends PING         -> add to pendingResponse Chan  
+-- | sends PONG         ->
+-- | sends FIND_NODE    -> add to pendingResponse Chan 
+-- | sends FN_RESP      -> 
+    
+-- | recieves PING       ->
+-- | recieves PONG       -> check pendingResponse Chan, accept respons if matches ignore otherwise
+-- | recieves FIND_NODE  -> 
+-- | recieves FN_RESP    -> check pendingResponse Chan, accept respons if matches ignore otherwise

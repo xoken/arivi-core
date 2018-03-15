@@ -11,9 +11,8 @@ module Kademlia.Utils
     extractSecond2,
     extractThird2,
     extractFourth,
-    isNodeIdElem
-    -- getRandomR 
-
+    isNodeIdElem,
+    getRandomWord32 
 ) where 
 
 import qualified Data.List.Split           as S  
@@ -57,8 +56,8 @@ stringToHostAddress x = remoteIp
 convertToSockAddr :: [Char] -> SockAddr 
 convertToSockAddr x  = fSockAddr
     where addrString = S.splitOn ":" x
-          remotePort = read $ addrString !! 1 :: M.PortNumber 
-          remoteIp   = stringToHostAddress (addrString !! 0)
+          remotePort = read $ addrString !! 2 :: M.PortNumber 
+          remoteIp   = stringToHostAddress (addrString !! 1)
           fSockAddr  = SockAddrInet remotePort remoteIp
 
 sockAddrToHostAddr :: SockAddr -> HostAddress 
@@ -74,10 +73,8 @@ isNodeIdElem (x:xs) m
     | otherwise        = isNodeIdElem xs m 
          
 
--- Generates a random number between a given range 
-getRandomR :: Random b => (b, b) -> IO b
-getRandomR (a,b) = do
-    rndR <- getStdRandom (randomR (a,b))
-    return (rndR)
+-- Generates a random number of type Word32  
 
+getRandomWord32 = a  
+    where a = randomIO :: IO Word32  
 

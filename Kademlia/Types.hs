@@ -10,7 +10,6 @@ module Kademlia.Types
     messageType,
     messageBody,
     Kademlia.Types.sequence,
-    timeStamp,
     nodeId,
     fromEndPoint,
     targetNodeId,
@@ -20,6 +19,7 @@ module Kademlia.Types
     message,
     peerList, 
     Kademlia.Types.signature,
+    Kademlia.Types.Sequence,
     NodeId,
     Sign, 
     NodeEndPoint(NodeEndPoint),
@@ -105,7 +105,6 @@ data Message = Message {
                      messageType   :: MessageType  
                 ,    messageBody   :: MessageBody  
                 ,    sequence      :: Sequence 
-                ,    timeStamp     :: TimeStamp
                 } deriving (Generic,Show)
 
 data PayLoad = PayLoad {
@@ -114,32 +113,32 @@ data PayLoad = PayLoad {
                 } deriving (Show,Generic) 
 
 -- Heper functions to create messages 
-packPing nodeId sk sockAddr msgSeq msgTs = PayLoad msg sgn 
+packPing nodeId sk sockAddr msgSeq = PayLoad msg sgn 
     where 
         fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = PING nodeId fromep 
-        msg     = Message (MSG01) msgBody msgSeq msgTs
+        msg     = Message (MSG01) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
 
-packPong nodeId sk sockAddr msgSeq msgTs = PayLoad msg sgn 
+packPong nodeId sk sockAddr msgSeq = PayLoad msg sgn 
     where 
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = PONG nodeId fromep
-        msg     = Message (MSG02) msgBody msgSeq msgTs
+        msg     = Message (MSG02) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
 
-packFindMsg nodeId sk sockAddr msgSeq msgTs targetNode = PayLoad msg sgn 
+packFindMsg nodeId sk sockAddr msgSeq targetNode = PayLoad msg sgn 
     where 
         fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = FIND_NODE nodeId targetNode fromep 
-        msg     = Message (MSG03) msgBody msgSeq msgTs 
+        msg     = Message (MSG03) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
 
-packFnR nodeId sk sockAddr msgSeq msgTs peerList = PayLoad msg sgn 
+packFnR nodeId sk sockAddr msgSeq peerList = PayLoad msg sgn 
     where 
         fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = FIND_NODE nodeId peerList fromep 
-        msg     = Message (MSG04) msgBody msgSeq msgTs 
+        msg     = Message (MSG04) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
 
 
@@ -155,12 +154,12 @@ instance Serialise PayLoad
 instance Serialise MessageType 
 instance Serialise Message
 
-instance Eq MessageType where 
-    MSG01 == MSG01 = True
-    MSG02 == MSG02 = True
-    MSG03 == MSG03 = True
-    MSG04 == MSG04 = True
-    _ == _         = False 
+-- instance Eq MessageType where 
+--     MSG01 == MSG01 = True
+--     MSG02 == MSG02 = True
+--     MSG03 == MSG03 = True
+--     MSG04 == MSG04 = True
+--     _ == _         = False 
 
 -- Serialise intance for PublicKey 
 instance Serialise PublicKey where 
