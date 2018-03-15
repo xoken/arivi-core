@@ -81,8 +81,8 @@ curveX25519 = Proxy :: Proxy Curve_X25519
 -- | Using createSharedSecreatKey sender will create SharedSecret for himself
 -- and shares encrypted ephemeralPublicKey with remote
 
-createSharedSecreatKey :: SecretKey -> PublicKey -> CryptoFailable Crypto.ECC.SharedSecret
-createSharedSecreatKey ephemeralPrivateKey remotePublicKey = ecdh curveX25519 ephemeralPrivateKey remotePublicKey
+createSharedSecreatKey :: SecretKey -> PublicKey ->  Crypto.ECC.SharedSecret
+createSharedSecreatKey ephemeralPrivateKey remotePublicKey = Crypto.Error.throwCryptoError (ecdh curveX25519 ephemeralPrivateKey remotePublicKey)
 
 
 
@@ -90,5 +90,5 @@ createSharedSecreatKey ephemeralPrivateKey remotePublicKey = ecdh curveX25519 ep
 -- ephemeralPublicKey and computes SecretKey using derivedSharedSecreatKey 
 -- function
 
-derivedSharedSecreatKey :: PublicKey -> SecretKey -> CryptoFailable Crypto.ECC.SharedSecret
-derivedSharedSecreatKey ephemeralPublicKey remotePrivateKey = ecdh curveX25519 remotePrivateKey ephemeralPublicKey
+derivedSharedSecreatKey :: PublicKey -> SecretKey -> Crypto.ECC.SharedSecret
+derivedSharedSecreatKey ephemeralPublicKey remotePrivateKey = Crypto.Error.throwCryptoError  (ecdh curveX25519 remotePrivateKey ephemeralPublicKey)
