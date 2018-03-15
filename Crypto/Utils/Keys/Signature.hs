@@ -10,15 +10,21 @@ module Crypto.Utils.Keys.Signature
     getPublicKey,
     sign,
     verify,
+<<<<<<< HEAD
     generateKeyPair
+=======
+    generateKeyPair,
+    toHex,
+    hexToPublicKey 
+>>>>>>> 4ad2acf... Added  function
 ) where
 
 
-import Crypto.PubKey.Ed25519 (SecretKey,PublicKey,secretKey,toPublic,sign,verify)
+import Crypto.PubKey.Ed25519 (SecretKey,PublicKey,secretKey,toPublic,sign,verify,publicKey)
 import Crypto.Error (throwCryptoError)
 import Data.ByteString.Char8 (ByteString)
 import Data.ByteArray (convert)
-import Data.ByteString.Base16 (encode)
+import Data.ByteString.Base16 (encode,decode)
 import Crypto.Utils.Random
 
 -- | Takes a 32 bytes seed and produces SecretKey
@@ -26,7 +32,7 @@ getSecretKey :: ByteString -> SecretKey
 getSecretKey seedString = throwCryptoError (secretKey seedString)
 
 
--- | Generatees Public Key using the given Secret Key
+-- | Generates Public Key using the given Secret Key
 getPublicKey :: SecretKey -> PublicKey
 getPublicKey secretKey = toPublic secretKey
 
@@ -40,7 +46,9 @@ toByteString mPublicKey = ((Data.ByteArray.convert mPublicKey) :: ByteString)
 toHex :: PublicKey -> ByteString
 toHex mPublicKey = (Data.ByteString.Base16.encode (toByteString mPublicKey))
 
-
+-- | Converts PublicKey from hex form to PublicKey form
+hexToPublicKey :: ByteString -> PublicKey
+hexToPublicKey hexPublicKey = (Crypto.Error.throwCryptoError (Crypto.PubKey.Ed25519.publicKey (fst (Data.ByteString.Base16.decode hexPublicKey))))
 
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do 
