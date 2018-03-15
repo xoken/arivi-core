@@ -11,12 +11,14 @@ module Crypto.Utils.Keys.Signature
     sign,
     verify,
     generateKeyPair,
-    toHex,
-    hexToPublicKey 
+    publicKeytoHex,
+    hexToPublicKey,
+    secretKeyToHex,
+    hexToSecretKey 
 ) where
 
 
-import Crypto.PubKey.Ed25519 (SecretKey,PublicKey,secretKey,toPublic,sign,verify,publicKey)
+import Crypto.PubKey.Ed25519 (SecretKey,PublicKey,secretKey,toPublic,sign,verify,publicKey,secretKey)
 import Crypto.Error (throwCryptoError)
 import Data.ByteString.Char8 (ByteString)
 import Data.ByteArray (convert)
@@ -39,8 +41,8 @@ toByteString mPublicKey = ((Data.ByteArray.convert mPublicKey) :: ByteString)
 
 
 -- | Converts PublicKey format to Hexadecimal format
-toHex :: PublicKey -> ByteString
-toHex mPublicKey = (Data.ByteString.Base16.encode (toByteString mPublicKey))
+publicKeytoHex :: PublicKey -> ByteString
+publicKeytoHex mPublicKey = (Data.ByteString.Base16.encode (toByteString mPublicKey))
 
 -- | Converts PublicKey from hex form to PublicKey form
 hexToPublicKey :: ByteString -> PublicKey
@@ -52,3 +54,13 @@ generateKeyPair = do
                  let secretKey = getSecretKey randomSeed
                  let publicKey = getPublicKey secretKey
                  return (secretKey,publicKey)
+
+
+-- | This function is used for converting Secret Key from SecretKey form to hex form
+secretKeyToHex :: SecretKey-> ByteString
+secretKeyToHex mSecretKey= (Data.ByteString.Base16.encode ((Data.ByteArray.convert mSecretKey)::ByteString))
+
+
+-- | This function is used for converting Secret Key from hex form to SecretKey form
+hexToSecretKey :: ByteString -> SecretKey
+hexToSecretKey hexSecretKey = (Crypto.Error.throwCryptoError (Crypto.PubKey.Ed25519.secretKey (fst (Data.ByteString.Base16.decode hexSecretKey))))
