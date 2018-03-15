@@ -39,6 +39,7 @@ library
                     ,  crypto-api 
                     ,  integer-gmp
                     ,  cryptonite 
+                    ,  crypto
 
   default-language:    Haskell2010
 
