@@ -57,10 +57,10 @@ import           Crypto.Error
 import qualified Data.ByteString.Lazy as LBS  
 
 -- Helper function to get timeStamp/ epoch 
-getTimeStamp :: IO TimeStamp
+getTimeStamp :: IO TimeStamp 
 getTimeStamp = do 
     tStamp <- getPOSIXTime 
-    return $ TimeStamp (posixSecondsToUTCTime tStamp) 
+    return $ TimeStamp tStamp 
 
 data NodeEndPoint = NodeEndPoint {
         nodeIp  :: HostAddress
@@ -71,7 +71,7 @@ data NodeEndPoint = NodeEndPoint {
 type NodeId            = PublicKey
 type Sign              = Signature
 type Sequence          = Int
-newtype TimeStamp      = TimeStamp UTCTime deriving (Show,Generic)
+newtype TimeStamp      = TimeStamp POSIXTime deriving (Show,Eq,Ord)
 
 data MessageType = MSG01
                    |MSG02
@@ -149,7 +149,6 @@ packFnR nodeId sk sockAddr msgSeq peerList = PayLoad msg sgn
 -- instance Serialise NodeId 
 instance Serialise NodeEndPoint 
 -- instance Serialise Sequence
-instance Serialise TimeStamp 
 instance Serialise PayLoad 
 instance Serialise MessageType 
 instance Serialise Message
