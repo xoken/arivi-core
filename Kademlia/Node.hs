@@ -249,6 +249,32 @@ addToPendingResChan prhChan pendingResChan = forkIO $ forever $ do
                         temp7 = Map.insert recvrNodeId (temp5 ++ (temp6:[])) msg2 
                     atomically $ writeTChan pendingResChan temp7 
 
+removeFromPendingResChan :: (T.NodeId,T.Sequence,T.TimeStamp)
+                         -> TChan (Map.Map C.ByteString [(T.Sequence,T.TimeStamp)])
+                         -> IO Bool 
+     
+removeFromPendingResChan peerInfo pendingResChan = do 
+    msg <- atomically $ peekTChan pendingResChan 
+
+    let peerNodeId = publicKeytoHex (extractFirst peerInfo)
+        msgSeq     = extractSecond peerInfo 
+        ts         = extractThird peerInfo 
+        seqList    = Map.lookup peerNodeId msg 
+        
+    case (seqList) of 
+        Nothing   -> return False 
+
+        otherwise -> do 
+            let peerSeqList = fromMaybe [] seqList 
+                peerTuple   = (msgSeq,ts)
+            
+            case (Prelude.elem peerTuple peerSeqList) of 
+                True  -> do
+                    let newMap = Map.delete peerNodeId msg 
+                    atomically $ writeTChan pendingResChan newMap  
+                    return True 
+                False -> return (False)  
+
 
 -- | sends PING         -> add to pendingResponse Chan  
 -- | sends PONG         ->
