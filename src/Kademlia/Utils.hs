@@ -12,15 +12,16 @@ module Kademlia.Utils
     extractThird2,
     extractFourth,
     isNodeIdElem,
-    getRandomWord32 
+    getSockAddr
 ) where 
 
-import qualified Data.List.Split           as S  
+import qualified Data.List.Split               as S  
 import           Network.Socket    
-import qualified Network.Socket.Internal   as M 
+import qualified Network.Socket.Internal       as M 
 import           Data.Word 
-import           System.Random 
-                             
+import           Data.ByteArray 
+import           Crypto.Utils.Keys.Signature 
+import qualified Data.ByteString.Char8         as C
 
 -- Helper functions to extract value from 3-tuple
 extractFirst :: (a, b, c) -> a
@@ -53,12 +54,15 @@ stringToHostAddress x = remoteIp
           remoteIp = tupleToHostAddress temp2   
 
 -- covnerts a string of format IP:Port to SockAddr  
-convertToSockAddr :: [Char] -> SockAddr 
-convertToSockAddr x  = fSockAddr
+convertToSockAddr :: [Char] -> (PublicKey,SockAddr) 
+convertToSockAddr x  = (nodeId,fSockAddr)
     where addrString = S.splitOn ":" x
           remotePort = read $ addrString !! 2 :: M.PortNumber 
           remoteIp   = stringToHostAddress (addrString !! 1)
+          nodeId     = hexToPublicKey (C.pack (addrString !! 0)) 
           fSockAddr  = SockAddrInet remotePort remoteIp
+
+getSockAddr ip udpPort = SockAddrInet udpPort ip 
 
 sockAddrToHostAddr :: SockAddr -> HostAddress 
 sockAddrToHostAddr (SockAddrInet a b) = b 
@@ -72,9 +76,3 @@ isNodeIdElem (x:xs) m
     | (fst x == m)     = True 
     | otherwise        = isNodeIdElem xs m 
          
-
--- Generates a random number of type Word32  
-
-getRandomWord32 = a  
-    where a = randomIO :: IO Word32  
-

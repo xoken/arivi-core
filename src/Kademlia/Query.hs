@@ -69,9 +69,10 @@ queryKBucket :: T.NodeId
              -> SockAddr
              -> Socket 
              -> SecretKey 
+             -> Word32 
              -> IO ()
 
-queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock localSocket sk = do 
+queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock localSocket sk seq = do 
     let dis = (Data.ByteArray.xor (localNodeId :: PublicKey) (targetNodeId :: PublicKey)) :: C.ByteString
         kbi = I# (integerLog2# (bs2i dis))  
     
@@ -86,7 +87,6 @@ queryKBucket localNodeId targetNodeId k kbChan outboundChan localSock remoteSock
     -- Payload which is actually response for FIND_NODE X 
     let msgType  = T.MSG04 
         fromep   = T.NodeEndPoint (sockAddrToHostAddr localSock) (sockAddrToPortNumber localSock) (sockAddrToPortNumber localSock)
-        seq      = 1
         msgbody  = T.FN_RESP localNodeId peerList fromep
     let msgS     = T.Message msgType msgbody seq
         sgn      = (sign (sk) (localNodeId :: PublicKey) (LBS.toStrict (serialise(msgS)) )) :: T.Sign 
