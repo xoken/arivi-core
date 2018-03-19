@@ -30,7 +30,10 @@ module Kademlia.Types
     packFindMsg,
     packFnR,
     packPing,
-    packPong
+    packPong,
+    POSIXTime,
+    getPOSIXTime,
+    getRandomSequence 
   ) where 
    
 import           Codec.Serialise
@@ -53,6 +56,7 @@ import           Data.ByteString
 import           Crypto.PubKey.Ed25519
 import           Data.ByteArray 
 import           Crypto.Error 
+import           System.Random 
 
 import qualified Data.ByteString.Lazy as LBS  
 
@@ -70,7 +74,7 @@ data NodeEndPoint = NodeEndPoint {
 
 type NodeId            = PublicKey
 type Sign              = Signature
-type Sequence          = Int
+type Sequence          = Word32 
 newtype TimeStamp      = TimeStamp POSIXTime deriving (Show,Eq,Ord)
 
 data MessageType = MSG01
@@ -81,13 +85,11 @@ data MessageType = MSG01
 -- Custom data type to send & recieve message  
 data MessageBody = PING {
                     nodeId         :: NodeId
-                ,   fromEndPoint   :: NodeEndPoint
-                -- ,   toEndPoint     :: NodeEndPoint  
+                ,   fromEndPoint   :: NodeEndPoint 
                 }
                |PONG {
                     nodeId         :: NodeId
                 ,   fromEndPoint   :: NodeEndPoint
-             -- ,   toEndPoint     :: NodeEndPoint 
                }
                |FIND_NODE { 
                     nodeId         :: NodeId
@@ -115,7 +117,7 @@ data PayLoad = PayLoad {
 -- Heper functions to create messages 
 packPing nodeId sk sockAddr msgSeq = PayLoad msg sgn 
     where 
-        fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
+        fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = PING nodeId fromep 
         msg     = Message (MSG01) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
@@ -127,16 +129,16 @@ packPong nodeId sk sockAddr msgSeq = PayLoad msg sgn
         msg     = Message (MSG02) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
 
-packFindMsg nodeId sk sockAddr msgSeq targetNode = PayLoad msg sgn 
+packFindMsg nodeId sk sockAddr targetNode msgSeq  = PayLoad msg sgn 
     where 
-        fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
+        fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = FIND_NODE nodeId targetNode fromep 
         msg     = Message (MSG03) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
 
-packFnR nodeId sk sockAddr msgSeq peerList = PayLoad msg sgn 
+packFnR nodeId sk sockAddr peerList msgSeq = PayLoad msg sgn 
     where 
-        fromep   = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
+        fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr) (sockAddrToPortNumber sockAddr) (sockAddrToPortNumber sockAddr) 
         msgBody = FIND_NODE nodeId peerList fromep 
         msg     = Message (MSG04) msgBody msgSeq 
         sgn     = (sign (sk) (nodeId :: PublicKey) (LBS.toStrict (serialise(msg)) )) :: Sign
@@ -153,12 +155,6 @@ instance Serialise PayLoad
 instance Serialise MessageType 
 instance Serialise Message
 
--- instance Eq MessageType where 
---     MSG01 == MSG01 = True
---     MSG02 == MSG02 = True
---     MSG03 == MSG03 = True
---     MSG04 == MSG04 = True
---     _ == _         = False 
 
 -- Serialise intance for PublicKey 
 instance Serialise PublicKey where 
@@ -256,3 +252,8 @@ decodeMessageBody = do
         (4,2) -> FIND_NODE <$> decode <*> decode <*> decode 
         (4,3) -> FN_RESP <$> decode <*> decode <*> decode  
         _     -> fail "Invalid MessageBody encoding"
+
+-- Generates a random number of type Word32  
+getRandomSequence = a 
+    where a = randomIO :: IO Word32  
+
