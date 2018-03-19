@@ -20,7 +20,7 @@ import Crypto.Cipher.ChaChaPoly1305 as ChachaPoly1305
 
 
 getCipherTextAuthPair :: ByteString -> (ByteString, ByteString)
-getCipherTextAuthPair mCipherText = (B.reverse (B.drop 16 (B.reverse mCipherText)), B.reverse (B.take 16 (B.reverse mCipherText)))
+getCipherTextAuthPair mCipherText = B.splitAt ((B.length mCipherText) - 16) mCipherText
 
 
 
