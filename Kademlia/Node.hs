@@ -48,11 +48,12 @@ import Control.Monad.STM
 import Control.Monad 
 
 import Crypto.Utils.Keys.Signature 
-import qualified Kademlia.Query as Q 
+import qualified Kademlia.Query as Q                
 import Data.List as L 
 import Control.Monad.Logger
 import Control.Monad.IO.Class
 import qualified Data.Text as DT 
+import Kademlia.XorDistance 
 
 -- Process all the incoming messages to server and write the response to outboundChan 
 -- whenever a findNode message is recieved it write that peer to peerChan  
@@ -64,12 +65,14 @@ messageHandler :: T.NodeId
                -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
                -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
                -> TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
+               -> Chan (Loc, LogSource, LogLevel, LogStr)
                -> Int            
                -> Int                           
                -> IO ThreadId                   
 
-messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan pendingResChan  k workerId = forkIO $ forever $ do
-    msg <- atomically $ readTChan inboundChan
+messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan pendingResChan logChan  k workerId = forkIO $ forever $ runChanLoggingT logChan $ do
+    logInfoN (DT.pack ("Reading inboundChan, WorkderID : " ++ (show workerId)))
+    msg <- liftIO $ atomically $ readTChan inboundChan
 
     let incMsg          = extractFirst2 msg
         socka           = extractThird2 msg 
@@ -85,53 +88,57 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan pendi
         dis             = ((Data.ByteArray.xor senderNodeId nodeId) :: C.ByteString)
         kbi             = I# (integerLog2# (bs2i dis))
 
+    logInfoN (DT.pack ("WorkerID :  " ++ (show workerId) ++ " | Incoming Payload : " ++ (show incMsg)))
+
     case (T.messageType (T.message (incMsg)))  of 
         
         -- | handles the case when message type is MSG01 i.e PING 
         (T.MSG01) -> do   
             let payl = T.packPong nodeId sk socka (1)     
-            atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
+            liftIO $ atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
        
         -- | handles the case when message type is MSG02 i.e PONG
         (T.MSG02) -> do 
             let payl = T.packPing nodeId sk socka (1) 
-            atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
+            liftIO $ atomically $ writeTChan outboundChan (payl,extractSecond2 msg,extractFourth msg)
 
         -- | handles the case when message type is MSG03 i.e FIND_NODE
         -- | Adds peer issuing FIND_NODE to it's appropriate k-bucket 
         (T.MSG03) -> do
-            atomically $ writeTChan peerChan ((senderNodeId,senderEndPoint),kbi)
+            liftIO $ atomically $ writeTChan peerChan ((senderNodeId,senderEndPoint),kbi)
 
             -- | Queries k-buckets and send k-closest buckets 
-            threadDelay 1000
-            Q.queryKBucket nodeId senderNodeId k kbChan outboundChan localSock remoteSock localSocket sk msgSeq
+            liftIO $ threadDelay 1000
+            liftIO $ Q.queryKBucket nodeId senderNodeId k kbChan outboundChan localSock remoteSock localSocket sk msgSeq
         
         -- | handles the case when message type is MSG04 i.e FN_RESP
         (T.MSG04) -> do   
             let plist   = T.peerList (T.messageBody(T.message (incMsg)))
                 kbil    = map (extractDistance nodeId) plist       
-            isValid <- checkResponseValidity pendingResChan (senderNodeId,msgSeq)
+            isValid <- liftIO $ checkResponseValidity pendingResChan (senderNodeId,msgSeq)
             case (isValid) of 
                 True      -> do 
-                    atomically $ mapM_ (writeTChan peerChan) (kbil)
+                    liftIO $ atomically $ mapM_ (writeTChan peerChan) (kbil)
                     case (isPlistFilled plist) of 
                         True -> do 
-                            temp <- replicateM (Prelude.length plist) (T.getRandomSequence) 
+                            temp <- liftIO $ replicateM (Prelude.length plist) (T.getRandomSequence) 
                             let payl         = Prelude.map (T.packFindMsg nodeId sk localSock nodeId) temp 
                                 repl         = (Prelude.replicate (Prelude.length plist))
                                 sockAddrList = Prelude.map (\x  -> getSockAddr (T.nodeIp x) (T.udpPort x)) $ (Prelude.map (snd) plist) 
                                 tempm        = (zip payl (Prelude.map (fst) plist ))
                         
-                            mapM_ (addToPendingResChan pendingResChan) tempm
-                            atomically $ mapM_ (writeTChan outboundChan) (zip3 payl sockAddrList (repl localSocket)) 
+                            liftIO $ mapM_ (addToPendingResChan pendingResChan) tempm
+                            liftIO $ atomically $ mapM_ (writeTChan outboundChan) (zip3 payl sockAddrList (repl localSocket)) 
 
                         otherwise -> do 
-                            putStrLn "Cannot Send FIND_NODE becasue of empty FN_RESP"
-                            putStrLn ""
+                            liftIO $ putStrLn "Cannot Send FIND_NODE becasue of empty FN_RESP"
+                            liftIO $ putStrLn ""
+                            logInfoN (DT.pack "Cannot Send FIND_NODE becasue of empty FN_RESP")
                 
                 otherwise -> do 
-                    print "Invalid/timed out message OR empty pendingResChan"
-                    putStrLn ""
+                    liftIO $ print "Invalid/timed out message OR empty pendingResChan"
+                    liftIO $ putStrLn ""
+                    logInfoN (DT.pack "Invalid/timed out message OR empty pendingResChan")
 
 isPlistFilled plist 
     | (Prelude.length plist == 0) = False
@@ -140,13 +147,16 @@ isPlistFilled plist
 -- | Sends the message written by outboundChan to remote Client 
 -- | Responsible for reading outboundChan and sending the contents to mentioned address
 networkClient :: TChan (T.PayLoad,SockAddr,Socket) 
+              -> Chan (Loc, LogSource, LogLevel, LogStr) 
               -> Int 
               -> IO ThreadId
 
-networkClient outboundChan workerId = forkIO $ forever $ do 
-    msg <- atomically $ readTChan outboundChan
+networkClient outboundChan logChan workerId = forkIO $ forever $ runChanLoggingT logChan $ do 
+    msg <- liftIO $ atomically $ readTChan outboundChan
     let pl = serialise (extractFirst msg) 
-    N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)
+    liftIO $ N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)
+    logInfoN (DT.pack ( "WorkerId : " ++ (show workerId) ++ " | Outgoing Payload " ++ (show msg)))
+
       
 -- | Runs on a seperate thread & and is responsible for writing to kbChan   
 addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
@@ -165,7 +175,7 @@ addToKbChan kbChan peerChan logChan workerId = forkIO $ forever $ runChanLogging
             let temp  = Map.empty 
                 temp2 = Map.insert (snd msg) (temp4 : []) temp  
             liftIO $ atomically $ writeTChan kbChan temp2
-            logInfoN (DT.pack (show temp2))
+            logInfoN (DT.pack ("Kbucket : " ++ show temp2))
             
         False -> do 
                 kb <- liftIO $ atomically $ readTChan kbChan
@@ -173,7 +183,7 @@ addToKbChan kbChan peerChan logChan workerId = forkIO $ forever $ runChanLogging
                     then do
                         let temp = Map.insert (snd msg) (temp4:[]) kb 
                         liftIO $ atomically $ writeTChan kbChan temp 
-                        logInfoN (DT.pack (show temp))
+                        logInfoN (DT.pack ("Kbucket : " ++ show temp))
                         
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
@@ -184,12 +194,12 @@ addToKbChan kbChan peerChan logChan workerId = forkIO $ forever $ runChanLogging
                                 let temp3   = temp2 ++ (temp4 : [])
                                     payLoad = Map.insert (snd msg) (temp3) kb   
                                 liftIO $ atomically $ writeTChan kbChan payLoad
-                                logInfoN (DT.pack (show payLoad))
+                                logInfoN (DT.pack ("Kbucket : " ++ show payLoad))
                               
                             else do 
                                 let payLoad = Map.insert (snd msg) (temp2) kb   
                                 liftIO $ atomically $ writeTChan kbChan payLoad
-                                logInfoN (DT.pack (show payLoad))
+                                logInfoN (DT.pack ("Kbucket : " ++ show payLoad))
                                                                              
 -- | UDP server which is constantly listenting for requests
 runUDPServerForever :: String 
