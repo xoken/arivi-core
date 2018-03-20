@@ -50,6 +50,9 @@ import Control.Monad
 import Crypto.Utils.Keys.Signature 
 import qualified Kademlia.Query as Q 
 import Data.List as L 
+import Control.Monad.Logger
+import Control.Monad.IO.Class
+import qualified Data.Text as DT 
 
 -- Process all the incoming messages to server and write the response to outboundChan 
 -- whenever a findNode message is recieved it write that peer to peerChan  
@@ -117,8 +120,9 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan pendi
                             let payl         = Prelude.map (T.packFindMsg nodeId sk localSock nodeId) temp 
                                 repl         = (Prelude.replicate (Prelude.length plist))
                                 sockAddrList = Prelude.map (\x  -> getSockAddr (T.nodeIp x) (T.udpPort x)) $ (Prelude.map (snd) plist) 
-                            
-                            mapM_ (addToPendingResChan pendingResChan) (zip payl (Prelude.map (fst) plist ))
+                                tempm        = (zip payl (Prelude.map (fst) plist ))
+                        
+                            mapM_ (addToPendingResChan pendingResChan) tempm
                             atomically $ mapM_ (writeTChan outboundChan) (zip3 payl sockAddrList (repl localSocket)) 
 
                         otherwise -> do 
@@ -147,30 +151,29 @@ networkClient outboundChan workerId = forkIO $ forever $ do
 -- | Runs on a seperate thread & and is responsible for writing to kbChan   
 addToKbChan :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
             -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
+            -> Chan (Loc, LogSource, LogLevel, LogStr)
             -> Int 
             -> IO ThreadId 
 
-addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
-    msg <- atomically $ readTChan peerChan 
-    rl <- atomically $ isEmptyTChan kbChan 
+addToKbChan kbChan peerChan logChan workerId = forkIO $ forever $ runChanLoggingT logChan $ do
+    msg <- liftIO $ atomically $ readTChan peerChan 
+    rl <- liftIO $ atomically $ isEmptyTChan kbChan 
     let temp4 = fst msg      
     
     case rl of 
         True -> do 
             let temp  = Map.empty 
                 temp2 = Map.insert (snd msg) (temp4 : []) temp  
-            atomically $ writeTChan kbChan temp2
-            print temp2
-            putStrLn ""
+            liftIO $ atomically $ writeTChan kbChan temp2
+            logInfoN (DT.pack (show temp2))
             
         False -> do 
-                kb  <- atomically $ readTChan kbChan 
+                kb <- liftIO $ atomically $ readTChan kbChan
                 if (Map.lookup (snd msg) kb == Nothing)
                     then do
                         let temp = Map.insert (snd msg) (temp4:[]) kb 
-                        atomically $ writeTChan kbChan temp 
-                        print temp
-                        putStrLn ""
+                        liftIO $ atomically $ writeTChan kbChan temp 
+                        logInfoN (DT.pack (show temp))
                         
                     else do 
                         let temp    = Map.lookup (snd msg) kb 
@@ -180,16 +183,14 @@ addToKbChan kbChan peerChan workerId = forkIO $ forever $ do
                             then do 
                                 let temp3   = temp2 ++ (temp4 : [])
                                     payLoad = Map.insert (snd msg) (temp3) kb   
-                                atomically $ writeTChan kbChan payLoad
-                                print payLoad 
-                                putStrLn ""
+                                liftIO $ atomically $ writeTChan kbChan payLoad
+                                logInfoN (DT.pack (show payLoad))
+                              
                             else do 
                                 let payLoad = Map.insert (snd msg) (temp2) kb   
-                                atomically $ writeTChan kbChan payLoad
-                                print payLoad 
-                                putStrLn ""
-
-                                                 
+                                liftIO $ atomically $ writeTChan kbChan payLoad
+                                logInfoN (DT.pack (show payLoad))
+                                                                             
 -- | UDP server which is constantly listenting for requests
 runUDPServerForever :: String 
                     -> String 
@@ -250,8 +251,9 @@ addToPendingResChan :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
                     -> IO ThreadId 
 
 addToPendingResChan pendingResChan peerInfo = forkIO $ do 
-    let msg = peerInfo
-    let recvdPayl   = fst msg
+    
+    let msg         = peerInfo
+        recvdPayl   = fst msg
         msgType     = T.messageType (T.message (recvdPayl))
         msgSeq      = T.sequence (T.message (recvdPayl))
         recvrNodeId = publicKeytoHex (snd msg)
@@ -279,14 +281,13 @@ addToPendingResChan pendingResChan peerInfo = forkIO $ do
                         temp7 = Map.insert recvrNodeId (temp5 ++ (temp6:[])) msg2 
                     atomically $ writeTChan pendingResChan temp7 
 
-
 checkResponseValidity :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)]) 
                       -> (T.NodeId,T.Sequence)
                       -> IO Bool 
      
 checkResponseValidity pendingResChan peerInfo = do 
     
-    msg <- atomically $ peekTChan pendingResChan 
+    msg <- atomically $ readTChan pendingResChan 
     let peerNodeId  = publicKeytoHex (fst peerInfo)
         msgSeq      = snd peerInfo 
         seqList     = Map.lookup peerNodeId msg 
@@ -330,10 +331,9 @@ maintainPendingResChan :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)]
                        -> IO ThreadId 
                        
 maintainPendingResChan pendingResChan responseTime threadDel workerId = forkIO $ forever $ do 
-    msg <- atomically $ peekTChan pendingResChan
+    msg <- atomically $ readTChan pendingResChan
     let keys = Map.keys msg
     mapM_ (removeIfExpired pendingResChan responseTime msg) keys 
-   
     threadDelay threadDel 
 
 extractDistance :: T.NodeId 
