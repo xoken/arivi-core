@@ -30,8 +30,8 @@ module Crypto.Utils.Keys.Encryption
     getPublicKey,
     generateKeyPair,
     createSharedSecreatKey,
-    derivedSharedSecreatKey
-
+    derivedSharedSecreatKey,
+    SharedSecret
 ) where
 
 
