@@ -1,12 +1,12 @@
 -- |
--- Module : Crypto.Utils.ChaChaPoly1305 
+-- Module : Crypto.Utils.Cipher.ChaChaPoly1305 
 -- 
 -- This module is made for encrypting communications between two parties
 -- using ChaCha20 algorithm and validation of message integrity, authenticity 
 -- using Poly1305
 
 
-module Crypto.Utils.ChaChaPoly1305 
+module Crypto.Utils.Cipher.ChaChaPoly1305 
 (
     chachaEncrypt,
     chachaDecrypt,
