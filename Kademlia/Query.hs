@@ -3,7 +3,8 @@
 
 module Kademlia.Query 
 (
-queryKBucket 
+queryKBucket,
+isNodeInKbucket
  ) where 
 
 import           Control.Concurrent        (forkIO, newChan, newEmptyMVar,
@@ -58,6 +59,23 @@ getPeerListFromKeyList (x:xs) k msg
         ls   = Prelude.length (Map.lookup x msg)
         pl   = fst (Prelude.splitAt k plt)
         plt  = fromMaybe [] (Map.lookup x msg)
+
+
+isNodeInKbucket :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)]) 
+                -> T.NodeId 
+                -> Int 
+                -> IO Bool 
+
+isNodeInKbucket kbChan nodeId kbi = do 
+    msg <- atomically $ peekTChan kbChan 
+    let temp  = Map.lookup kbi msg 
+        temp2 = fromMaybe [] temp 
+        temp3 = Prelude.map (fst) temp2 
+
+    case (elem nodeId temp3) of 
+        True  -> return True 
+        False -> return False 
+
 
 -- Function responsible for querying K-buckets to return K-closest peers to FIND_NODE issuer 
 queryKBucket :: T.NodeId 
