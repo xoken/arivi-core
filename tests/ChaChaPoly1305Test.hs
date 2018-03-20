@@ -1,4 +1,4 @@
-import Crypto.Utils.ChaChaPoly1305
+import Crypto.Utils.Cipher.ChaChaPoly1305
 import Crypto.Utils.Keys.Encryption
 import Crypto.Utils.Random
 import Data.ByteArray
