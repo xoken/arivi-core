@@ -33,7 +33,9 @@ module Kademlia.Types
     packPong,
     POSIXTime,
     getPOSIXTime,
-    getRandomSequence 
+    getRandomSequence,
+    PortNumber,
+    HostAddress
   ) where 
    
 import           Codec.Serialise
@@ -113,6 +115,7 @@ data PayLoad = PayLoad {
                      message       :: Message 
                 ,    signature     :: Sign   
                 } deriving (Show,Generic) 
+
 
 -- Heper functions to create messages 
 packPing nodeId sk sockAddr msgSeq = PayLoad msg sgn 
