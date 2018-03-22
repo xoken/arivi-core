@@ -20,6 +20,7 @@ library
                        Kademlia.Types 
                        Kademlia.Utils 
                        Kademlia.XorDistance 
+                       Kademlia.Instance 
                        
   build-depends:       base >= 4.7 && < 5
                     ,  configurator >= 0.3.0.0

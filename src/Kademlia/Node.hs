@@ -58,8 +58,8 @@ import Kademlia.XorDistance
 -- Process all the incoming messages to server and write the response to outboundChan 
 -- whenever a findNode message is recieved it write that peer to peerChan  
 messageHandler :: T.NodeId  
-               -> SecretKey
-               -> TChan (SockAddr,Socket)
+               -> SecretKey 
+               -> TChan (SockAddr,Socket) 
                -> TChan (T.PayLoad,SockAddr,SockAddr,Socket) 
                -> TChan (T.PayLoad,SockAddr,Socket) 
                -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
@@ -73,6 +73,7 @@ messageHandler :: T.NodeId
 messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan pendingResChan logChan  k workerId = forkIO $ forever $ runChanLoggingT logChan $ do
     logInfoN (DT.pack ("Reading inboundChan, WorkderID : " ++ (show workerId)))
     msg <- liftIO $ atomically $ readTChan inboundChan
+    ts  <- liftIO $ T.getPOSIXTime 
 
     let incMsg          = extractFirst2 msg
         socka           = extractThird2 msg 
@@ -115,20 +116,25 @@ messageHandler nodeId sk servChan inboundChan outboundChan peerChan kbChan pendi
         (T.MSG04) -> do   
             let plist   = T.peerList (T.messageBody(T.message (incMsg)))
                 kbil    = map (extractDistance nodeId) plist       
-            isValid <- liftIO $ checkResponseValidity pendingResChan (senderNodeId,msgSeq)
-            case (isValid) of 
+            (isValidRequest,tstemp) <- liftIO $ checkResponseValidity pendingResChan (senderNodeId,msgSeq)
+            case (isValidRequest) of 
                 True      -> do 
                     liftIO $ atomically $ mapM_ (writeTChan peerChan) (kbil)
                     case (isPlistFilled plist) of 
                         True -> do 
-                            temp <- liftIO $ replicateM (Prelude.length plist) (T.getRandomSequence) 
-                            let payl         = Prelude.map (T.packFindMsg nodeId sk localSock nodeId) temp 
-                                repl         = (Prelude.replicate (Prelude.length plist))
-                                sockAddrList = Prelude.map (\x  -> getSockAddr (T.nodeIp x) (T.udpPort x)) $ (Prelude.map (snd) plist) 
-                                tempm        = (zip payl (Prelude.map (fst) plist ))
+                            case (isExpired (ts) (tstemp) 10 ) of 
+                                True -> do  
+                                    temp <- liftIO $ replicateM (Prelude.length plist) (T.getRandomSequence) 
+                                    let payl         = Prelude.map (T.packFindMsg nodeId sk localSock nodeId) temp 
+                                        repl         = (Prelude.replicate (Prelude.length plist))
+                                        sockAddrList = Prelude.map (\x  -> getSockAddr (T.nodeIp x) (T.udpPort x)) $ (Prelude.map (snd) plist) 
+                                        tempm        = (zip payl (Prelude.map (fst) plist ))
                         
-                            liftIO $ mapM_ (addToPendingResChan pendingResChan) tempm
-                            liftIO $ atomically $ mapM_ (writeTChan outboundChan) (zip3 payl sockAddrList (repl localSocket)) 
+                                    liftIO $ mapM_ (addToPendingResChan pendingResChan) tempm
+                                    liftIO $ atomically $ mapM_ (writeTChan outboundChan) (zip3 payl sockAddrList (repl localSocket)) 
+
+                                otherwise -> do 
+                                    liftIO $ print ""
 
                         otherwise -> do 
                             liftIO $ putStrLn "Cannot Send FIND_NODE becasue of empty FN_RESP"
@@ -155,7 +161,7 @@ networkClient outboundChan logChan workerId = forkIO $ forever $ runChanLoggingT
     msg <- liftIO $ atomically $ readTChan outboundChan
     let pl = serialise (extractFirst msg) 
     liftIO $ N.sendTo (extractThird msg) (LBS.toStrict pl) (extractSecond msg)
-    logInfoN (DT.pack ( "WorkerId : " ++ (show workerId) ++ " | Outgoing Payload " ++ (show msg)))
+    logInfoN (DT.pack ( "WorkerId :  " ++ (show workerId) ++ " | Outgoing Payload " ++ (show msg)))
 
       
 -- | Runs on a seperate thread & and is responsible for writing to kbChan   
@@ -194,21 +200,22 @@ addToKbChan kbChan peerChan logChan workerId = forkIO $ forever $ runChanLogging
                                 let temp3   = temp2 ++ (temp4 : [])
                                     payLoad = Map.insert (snd msg) (temp3) kb   
                                 liftIO $ atomically $ writeTChan kbChan payLoad
-                                logInfoN (DT.pack ("Kbucket : " ++ show payLoad))
+                                logInfoN (DT.pack ("Kbucket 1 : " ++ show payLoad))
                               
                             else do 
                                 let payLoad = Map.insert (snd msg) (temp2) kb   
                                 liftIO $ atomically $ writeTChan kbChan payLoad
-                                logInfoN (DT.pack ("Kbucket : " ++ show payLoad))
+                                logInfoN (DT.pack ("Kbucket 2 : " ++ show payLoad))
                                                                              
 -- | UDP server which is constantly listenting for requests
 runUDPServerForever :: String 
                     -> String 
                     -> TChan(T.PayLoad,SockAddr,SockAddr,Socket) 
                     -> TChan (SockAddr,Socket) 
-                    -> IO ()
+                    -> IO ThreadId 
 
-runUDPServerForever local_ip local_port inboundChan servChan = do
+runUDPServerForever local_ip local_port inboundChan servChan = forkIO $ do
+
     addrinfos <- getAddrInfo Nothing (Just local_ip) (Just local_port)
     let serveraddr = head addrinfos
     sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
@@ -217,6 +224,7 @@ runUDPServerForever local_ip local_port inboundChan servChan = do
 
     print ("Server now listening for requests at : " ++ local_port)
     putStrLn ""
+    
     forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
@@ -238,9 +246,9 @@ loadDefaultPeers :: T.NodeId
                  -> TChan ((T.NodeId,T.NodeEndPoint),Int) 
                  -> TChan (SockAddr,Socket) 
                  -> TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
-                 -> IO ()
+                 -> IO ThreadId
 
-loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan pendingResChan = do 
+loadDefaultPeers nodeId sk peerList outboundChan peerChan servChan pendingResChan = forkIO $ do 
     msg    <- atomically $ readTChan servChan 
     temp   <- replicateM (Prelude.length peerList) (T.getRandomSequence) 
     
@@ -293,34 +301,22 @@ addToPendingResChan pendingResChan peerInfo = forkIO $ do
 
 checkResponseValidity :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)]) 
                       -> (T.NodeId,T.Sequence)
-                      -> IO Bool 
-     
+                      -> IO (Bool,POSIXTime)
+                                  
 checkResponseValidity pendingResChan peerInfo = do 
-    
     msg <- atomically $ readTChan pendingResChan 
     let peerNodeId  = publicKeytoHex (fst peerInfo)
         msgSeq      = snd peerInfo 
         seqList     = Map.lookup peerNodeId msg 
         peerSeqList = fromMaybe [] seqList
-    
-    ts <- T.getPOSIXTime
-    case (elem msgSeq $ Prelude.map fst peerSeqList) of 
-                
-        True  -> do
-            let newList = L.deleteBy (\(x,y) (a,b) -> a==x) (msgSeq,ts) peerSeqList
-            case (Prelude.length newList) of 
-                (0)         -> do 
-                    let newMap = Map.delete peerNodeId msg 
-                    atomically $ writeTChan pendingResChan newMap
-                    return True
-                            
-                otherwise   -> do 
-                    let newMap  = Map.insert peerNodeId newList msg 
-                    atomically $ writeTChan pendingResChan newMap  
-                    return True 
-            
-        False -> do 
-            return (False)  
+        tempf       = elem msgSeq $ Prelude.map fst peerSeqList
+
+    case tempf of 
+        (True)      -> do 
+            let tstemp = fromMaybe 0 (L.lookup msgSeq peerSeqList)  
+            return (True,tstemp) 
+        (otherwise) -> do 
+            return (False,(0::POSIXTime)) 
 
 isExpired :: T.POSIXTime -> T.POSIXTime -> T.POSIXTime -> Bool                
 isExpired ts1 ts2 rt
