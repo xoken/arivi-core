@@ -5,13 +5,13 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building..'
-                sh 'scripts/ci.sh'
+                sh 'scripts/ci.sh'                
                 
                 emailext (
                     subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                    body: """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                      <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-                    recipientProviders: "'${env.EMAIL_RECEPIENTS}'"
+                    body: """<p>STARTED: Job '${env.DEFAULT_RECIPIENTS} [${env.DEFAULT_REPLYTO}]':</p>
+                      <p>Check console output at &QUOT;<a href='${env.ABC}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+                    to: "jenkins-notifications@xoken.org"
               )
             }
         }
@@ -32,9 +32,9 @@ pipeline {
 
           emailext (
               subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-              body: """<p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+              body: """<p>'${env.PROJECT_NAME}' - Build #'${env.BUILD_NUMBER}' - '${env.BUILD_STATUS}':</p><p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
                 <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-              recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+              to: "jenkins-notifications@xoken.org"
             )
         }
 
@@ -42,9 +42,9 @@ pipeline {
 
           emailext (
               subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-              body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+              body: """<p>'${env.PROJECT_NAME}' - Build #'${env.BUILD_NUMBER}' - '${env.BUILD_STATUS}':</p><p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
                 <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-              recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+              to: "jenkins-notifications@xoken.org"
             )
         }
   }
