@@ -20,6 +20,9 @@ then
     PATH="$COMPILER_PATH":$PATH
 fi
 
+ghc --version
+cabal --version
+
 cabal update
 cabal new-configure
 cabal new-build
