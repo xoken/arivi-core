@@ -15,7 +15,8 @@ module Crypto.Utils.Keys.Signature
     hexToPublicKey,
     secretKeyToHex,
     hexToSecretKey,
-    PublicKey 
+    PublicKey,
+    SecretKey
 ) where
 
 
