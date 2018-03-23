@@ -28,5 +28,11 @@ source-repository head
 
 library
   build-depends:       base >=4.9 && <4.10
+                    ,  eve >= 0.1.8
+                    ,  network >= 2.6.3.4 
+                    ,  stm >= 2.4.4.1
+                    ,  bytestring 
+                    ,  split 
   hs-source-dirs:      src
+  exposed-modules:     Network.Arivi.UdpServer 
   default-language:    Haskell2010
