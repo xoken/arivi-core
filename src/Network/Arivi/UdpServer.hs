@@ -28,12 +28,12 @@ import           Data.Word
 import           Data.Maybe                                  (fromMaybe)
 
 
--- | Structure to hold the Payload which arivi will send and recieve (PENDING)
+-- | Structure to hold the Payload which arivi will send and receive (PENDING)
 data Payload = Payload C.ByteString 
                deriving (Show)
 
 -- | type synonyms for PortNumber and HostAdress, they are named this way because of the  
---   exisiting types in Network.Socket.    
+--   existing types in Network.Socket.    
 type PortNumb      = String 
 type HostAddr      = String 
 
@@ -53,13 +53,13 @@ data AriviInstance  = AriviInstance {
  
 -- | Server 
 --   Since Arivi is a multi protocol peer to peer solution it need to have both UDP and 
---   TCP server to send and recieve messages and it also becomes crucial to have two 
---   servers simultaenously running because different nodes can choose to use different protcol
---   and overall arivi is a abstraction over underlying protocol to user can send and recieve 
+--   TCP server to send and receive messages and it also becomes crucial to have two 
+--   servers simultaneously running because different nodes can choose to use different protocol
+--   and overall arivi is an abstraction over underlying protocol so that user can send and receive 
 --   messages without worrying about the underlying protocol. 
 
--- | UDP Server, it constantly recieves requests and writes the incoming messages to the 
---   "InboundChan" which is a TChan, for further procressing. 
+-- | UDP Server, it constantly receives requests and writes the incoming messages to the 
+--   "InboundChan" which is a TChan, for further processing. 
 runUDPServerForever :: HostAddr
                     -> PortNumb
                     -> TChan(C.ByteString,SockAddr) 
@@ -107,16 +107,16 @@ networkClient outboundChan socketTMVar workerId = forkIO $ forever $ do
 -- | Event Driven Architecture 
 -------------------------------------------------------------------------------
 
--- | since arivi handles the sending, recieving, framing , chunking etc and sits at a lower 
---   level of abstraction and the actuall processing of messages happens at much higher 
---   level therefore a mechanism is required to pass the messages recieved by arivi 
---   to upper application layer such as kademlia for peer discovert or block-syncing or for
+-- | since arivi handles the sending, receiving, framing , chunking etc and sits at a lower 
+--   level of abstraction and the actual processing of messages happens at much higher 
+--   level therefore a mechanism is required to pass the messages received by arivi 
+--   to upper application layer such as kademlia for peer discovery or block-syncing or for
 --   block inventory etc. 
 
 -- | We have taken the event driven approach wherein arivi exposes a function which 
 --   accepts a callback function and under the hood arivi listens to an event which in 
 --   this particular case is udpserver receiving a message and every time a message is 
---   recieved the event is triggered which further alerts the event listener and fires 
+--   received the event is triggered which further alerts the event listener and fires 
 --   the callback function with received message and pass the control back to callback function 
 
 
@@ -144,8 +144,8 @@ defaultUdpPort :: PortNumb
 defaultUdpPort = "7000"
 
 
--- | forks a udp server on a seperate thread and along with arivi config also accepts a 
---   function which will be called everytime the server recieves a message along with the 
+-- | forks a udp server on a separate thread and along with arivi config also accepts a 
+--   function which will be called every time the server receives a message along with the 
 --   message  
 runAriviInstance :: AriviConfig -> (Payload -> App ()) -> IO ()
 runAriviInstance ariviConfig msgHandler = do 
