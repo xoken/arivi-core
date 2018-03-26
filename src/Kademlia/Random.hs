@@ -18,7 +18,7 @@
 -- 1.<https://hackage.haskell.org/package/raaz-0.2.0/docs/Raaz-Core-Memory.html#v:securely>
 -- 
 
-module Crypto.Utils.Random
+module Kademlia.Random
 (
     getRandomByteString
 )

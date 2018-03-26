@@ -47,7 +47,7 @@ import Control.Concurrent.STM.TChan
 import Control.Monad.STM 
 import Control.Monad 
 
-import Crypto.Utils.Keys.Signature 
+import Kademlia.Signature 
 import qualified Kademlia.Query as Q                
 import Data.List as L 
 import Control.Monad.Logger

@@ -21,6 +21,8 @@ library
                        Kademlia.Utils 
                        Kademlia.XorDistance 
                        Kademlia.Instance 
+                       Kademlia.Signature 
+                       Kademlia.Random 
                        
   build-depends:       base >= 4.7 && < 5
                     ,  configurator >= 0.3.0.0
@@ -40,8 +42,8 @@ library
                     ,  crypto-api 
                     ,  integer-gmp
                     ,  cryptonite 
-                    ,  crypto
                     ,  monad-logger
+                    ,  raaz
 
   default-language:    Haskell2010
 
