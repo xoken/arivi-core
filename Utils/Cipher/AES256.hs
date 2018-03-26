@@ -1,6 +1,13 @@
 -- |
--- Module: Crypto.Utils.Cipher.AES256
+-- Module 	   : Crypto.Utils.Cipher.AES256
+-- License     : 
+-- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
+-- Stability   :
+-- Portability :
+-- 
 -- This module is provides Encryption and Decryption using AES256 in CTR mode  
+-- 
+
 module Crypto.Utils.Cipher.AES256
 (
     aesEncrypt,
@@ -23,14 +30,16 @@ type PlainText = ByteString
 type CipherText = ByteString
 
 
+-- | sskToAES256Cipher takes SharedSecret as input and concert's it to AES256 
+-- type
 sskToAES256Cipher :: SharedSecret -> AES256
 sskToAES256Cipher sharedSecretKey = throwCryptoError ((cipherInit (Data.ByteArray.convert sharedSecretKey :: ByteString)) :: CryptoFailable AES256)
 
+-- | aesEncrypt encrypts plainTextMsg using AES256 in CTR mode
 aesEncrypt ::  SharedSecret -> IV AES256 -> PlainText -> CipherText
 aesEncrypt sharedSecretKey iv plainTextMsg = ctrCombine (sskToAES256Cipher sharedSecretKey) iv plainTextMsg 
 
 
-
-
+-- | aesDecrypt decrypts cipherTextMsg using AES256 in CTR mode
 aesDecrypt ::  SharedSecret -> IV AES256 -> CipherText -> PlainText
-aesDecrypt sharedSecretKey iv plainTextMsg = ctrCombine (sskToAES256Cipher sharedSecretKey) iv plainTextMsg 
+aesDecrypt sharedSecretKey iv cipherTextMsg = ctrCombine (sskToAES256Cipher sharedSecretKey) iv cipherTextMsg 

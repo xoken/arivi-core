@@ -1,8 +1,12 @@
 -- |
--- Module : Crypto.Utils.Keys.Signature
+-- Module      : Crypto.Utils.Keys.Signature
+-- License     : 
+-- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
+-- Stability   :
+-- Portability 
 -- 
 -- This module is made for verifying messages between two parties
-
+-- 
 
 module Crypto.Utils.Keys.Signature
 (
@@ -50,6 +54,9 @@ publicKeytoHex mPublicKey = (Data.ByteString.Base16.encode (toByteString mPublic
 hexToPublicKey :: ByteString -> PublicKey
 hexToPublicKey hexPublicKey = (Crypto.Error.throwCryptoError (Crypto.PubKey.Ed25519.publicKey (fst (Data.ByteString.Base16.decode hexPublicKey))))
 
+
+-- | This function generates (SecretKey,PublicKey) pair using Raaz's Random Seed
+-- generation 
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do 
                  randomSeed <- (Crypto.Utils.Random.getRandomByteString 32)
