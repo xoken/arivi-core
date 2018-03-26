@@ -1,10 +1,14 @@
 -- |
--- Module : Crypto.Utils.Cipher.ChaChaPoly1305 
+-- Module      : Crypto.Utils.Cipher.ChaChaPoly1305 
+-- License     : 
+-- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
+-- Stability   :
+-- Portability :
 -- 
 -- This module is made for encrypting communications between two parties
 -- using ChaCha20 algorithm and validation of message integrity, authenticity 
 -- using Poly1305
-
+-- 
 
 module Crypto.Utils.Cipher.ChaChaPoly1305 
 (

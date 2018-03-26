@@ -1,5 +1,9 @@
 -- |
--- Module : Crypto.Utils.Keys.Encryption
+-- Module      : Crypto.Utils.Keys.Encryption
+-- License     : 
+-- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
+-- Stability   :
+-- Portability :
 -- 
 -- This module is made for encrypting communications between two parties
 
@@ -20,9 +24,7 @@
 -- using his secretKey and uses this ephemeralPublicKey and his secretKey to 
 -- get the SharedSecret (User has to take care of ephemeral Public Key encryption
 -- and decryption)
-
-
-
+-- 
 
 module Crypto.Utils.Keys.Encryption
 (
@@ -61,7 +63,8 @@ toByteString :: PublicKey -> ByteString
 toByteString mPublicKey = ((Data.ByteArray.convert mPublicKey) :: ByteString)
 
 
-
+-- | This function generates (SecretKey,PublicKey) pair using Raaz's Random Seed
+-- generation 
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do 
                  randomSeed <- (Crypto.Utils.Random.getRandomByteString 32)
