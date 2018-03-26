@@ -33,6 +33,11 @@ library
                     ,  stm >= 2.4.4.1
                     ,  bytestring 
                     ,  split 
+                    ,  containers
   hs-source-dirs:      src
-  exposed-modules:     Network.Arivi.UdpServer 
+  exposed-modules:     Network.Arivi.Datagram 
+                       Network.Arivi.Stream  
+                       Network.Arivi.Types  
+                       Network.Arivi.NetworkClient   
+                       Network.Arivi.Multiplexer 
   default-language:    Haskell2010
