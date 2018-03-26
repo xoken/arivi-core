@@ -8,7 +8,7 @@
 -- This module is made for verifying messages between two parties
 -- 
 
-module Crypto.Utils.Keys.Signature
+module Kademlia.Signature
 (
     getSecretKey,
     getPublicKey,
@@ -29,7 +29,7 @@ import Crypto.Error (throwCryptoError)
 import Data.ByteString.Char8 (ByteString)
 import Data.ByteArray (convert)
 import Data.ByteString.Base16 (encode,decode)
-import Crypto.Utils.Random
+import Kademlia.Random
 
 -- | Takes a 32 bytes seed and produces SecretKey
 getSecretKey :: ByteString -> SecretKey
@@ -59,7 +59,7 @@ hexToPublicKey hexPublicKey = (Crypto.Error.throwCryptoError (Crypto.PubKey.Ed25
 -- generation 
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do 
-                 randomSeed <- (Crypto.Utils.Random.getRandomByteString 32)
+                 randomSeed <- (Kademlia.Random.getRandomByteString 32)
                  let secretKey = getSecretKey randomSeed
                  let publicKey = getPublicKey secretKey
                  return (secretKey,publicKey)

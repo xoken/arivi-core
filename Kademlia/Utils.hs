@@ -20,7 +20,7 @@ import           Network.Socket
 import qualified Network.Socket.Internal       as M 
 import           Data.Word 
 import           Data.ByteArray 
-import           Crypto.Utils.Keys.Signature 
+import           Kademlia.Signature 
 import qualified Data.ByteString.Char8         as C
 
 -- Helper functions to extract value from 3-tuple

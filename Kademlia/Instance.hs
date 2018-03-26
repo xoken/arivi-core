@@ -19,8 +19,8 @@ import qualified Network.Socket.Internal   as M
 import           Network.Socket            hiding (recv)
 import           Kademlia.Utils
 import qualified Kademlia.Types as T 
-import           Crypto.Utils.Random 
-import           Crypto.Utils.Keys.Signature as CS 
+import           Kademlia.Random 
+import           Kademlia.Signature as CS 
 import qualified Data.ByteString           as B 
 import qualified Data.ByteString.Char8     as BC 
 
@@ -77,7 +77,7 @@ writeLog nodeId logChan logFilePath = forkIO $ forever $ runFileLoggingT logFile
 
 createKademliaInstance cfg = do 
     -- Assing the node a NodeID which is also the public id of the node 
-    seed <- (Crypto.Utils.Random.getRandomByteString 32)
+    seed <- (Kademlia.Random.getRandomByteString 32)
     let (sk,pk)    = genPublicKey seed (privateKey cfg)
         -- tempNodeId = pk :: T.NodeId 
     let ki = KademliaInstance pk sk (localPortNo cfg) (localIpAddress cfg) (k cfg) (responseTime cfg) (threadSleepTime cfg) (bootStrapPeers cfg) (logFilePath cfg)

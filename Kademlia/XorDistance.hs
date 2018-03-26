@@ -1,4 +1,4 @@
-module Utils.XorDistance(
+module Kademlia.XorDistance(
 
     getXorDistance,
     getRawXor,
