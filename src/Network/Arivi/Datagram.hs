@@ -28,10 +28,12 @@ import           Data.Maybe                                  (fromMaybe)
 import qualified Data.Map.Strict                    as Map 
 
 
+import qualified Network.Arivi.Types                as T
+import qualified Network.Arivi.Multiplexer          as MP 
 
 runUDPServerForever :: SockAddr
                     -> Socket  
-                    -> (Payload -> IO ())
+                    -> MP.Registry 
                     -> IO ThreadId 
 
 runUDPServerForever sockAddr sock messageHandler = do
