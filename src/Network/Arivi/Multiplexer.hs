@@ -1,9 +1,16 @@
 module Network.Arivi.Multiplexer
 (
-
+Registry (..)
 ) where 
     
 import qualified Data.Map.Strict                    as Map 
+import qualified Network.Arivi.Types                as T 
+
+
+data Registry = Registry {
+                    registry :: Map Int (T.Payload -> IO ())
+                } 
+
 
 
 

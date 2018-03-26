@@ -1,6 +1,6 @@
-module Network.Arivi.networkClient 
+module Network.Arivi.NetworkClient 
 (
-
+    networkClient 
 ) where 
 
 import           Control.Concurrent                         (forkIO,ThreadId,newEmptyMVar,putMVar,
