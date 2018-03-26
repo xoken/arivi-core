@@ -1,8 +1,8 @@
-name:                kademlia
+  name:                kademlia
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/kademlia#readme
+homepage:            https://github.com/xoken/kademlia
 license:             BSD3
 license-file:        LICENSE
 author:              Ankit Singh 
@@ -49,4 +49,5 @@ library
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/kademlia
+  location: https://github.com/xoken/kademlia
+  
