@@ -23,7 +23,7 @@ fi
 ghc --version
 cabal --version
 
-cabal-2.0.0.1 update
-cabal-2.0.0.1 new-configure
-cabal-2.0.0.1 new-build
-cabal-2.0.0.1 new-test
+cabal update
+cabal new-configure
+cabal new-build
+cabal new-test
