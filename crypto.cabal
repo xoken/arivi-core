@@ -2,12 +2,12 @@ name:                crypto
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/crypto#readme
-license:             BSD3
+homepage:            https://github.com/xoken/xoken-core/blob/master/crypto/README.md
+license:             
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2018 Author name here
+author:              Mahesh Uligade
+maintainer:          maheshsuligade@gmail.com
+copyright:           2018 Xoken Labs
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -30,4 +30,4 @@ library
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/crypto
+  location: https://github.com/xoken/xoken-core/tree/master/crypto
