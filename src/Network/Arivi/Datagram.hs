@@ -27,15 +27,22 @@ runUDPServerForever :: SockAddr
                     -> MP.Registry 
                     -> IO ThreadId 
 
-runUDPServerForever sockAddr sock messageHandler = do
+runUDPServerForever sockAddr sock registry = do
     
     bind sock sockAddr 
-    -- printing is here just for testing purposes and won't be required after full integration 
+    -- printing is here just for testing purposes and won't be required after 
+    -- full integration 
     -- print ("Server now listening for requests at : " ++ local_port)
     putStrLn ""
     forkIO $ forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
+            -- lookup the protocol 
+            -- get corresponding callback say callb 
+            -- pass msg to callback 
+            -- callb (mesg,socadr2)
             print ""
+
+
 
 
