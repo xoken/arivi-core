@@ -31,11 +31,11 @@ runUDPServerForever sockAddr sock messageHandler = do
     
     bind sock sockAddr 
     -- printing is here just for testing purposes and won't be required after full integration 
-    print ("Server now listening for requests at : " ++ local_port)
+    -- print ("Server now listening for requests at : " ++ local_port)
     putStrLn ""
     forkIO $ forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
-            atomically $ writeTChan inboundChan (mesg,socaddr2)
+            print ""
 
 
