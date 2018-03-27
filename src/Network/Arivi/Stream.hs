@@ -1,6 +1,6 @@
 module Network.Arivi.Stream 
 (
-
+    runTCPServerForever
 ) where 
 
 import           Control.Concurrent                         (forkIO,ThreadId,newEmptyMVar,putMVar,
@@ -16,6 +16,17 @@ import qualified Data.ByteString.Char8              as C
 import qualified Data.List.Split                    as S 
 import           Data.Word 
 import           Data.Maybe                                  (fromMaybe)
+import qualified Network.Arivi.Multiplexer          as MP    (Registry)
 
 
+runTCPServerForever :: SockAddr
+                    -> Socket  
+                    -> MP.Registry 
+                    -> IO ThreadId 
 
+runTCPServerForever sockAddr sock messageHandler = do
+    bind sock sockAddr 
+    forkIO $ forever $
+         do
+            (mesg, socaddr2) <- N.recvFrom sock 4096
+            print ""
