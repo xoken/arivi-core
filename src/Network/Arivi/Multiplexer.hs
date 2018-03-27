@@ -8,7 +8,7 @@ import qualified Network.Arivi.Types                as T
 
 
 data Registry = Registry {
-                    registry :: Map Int (T.Payload -> IO ())
+                    registry :: Map.Map Int (T.Payload -> IO ())
                 } 
 
 
@@ -19,6 +19,6 @@ data Registry = Registry {
 
 -- register ariviInstance (0,messageHandler)
 -- register ariviInstance (1,messageHandler)
--- register ariviInstance (1,messageHandler)
+-- register ariviInstance (2,messageHandler)
 
 -- runAriviInstance ariviInstance 
