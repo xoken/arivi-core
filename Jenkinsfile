@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+      GHCVER=8.2.2
+      CABALVER=2.0.0.1
+    }
+
     stages {
         stage('Build') {
             steps {
