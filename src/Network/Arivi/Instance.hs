@@ -7,6 +7,7 @@ import           Network.Arivi.Types
 import           Control.Concurrent                         (forkIO,ThreadId,newEmptyMVar,putMVar,
                                                             takeMVar,MVar)
 import qualified Data.Map.Strict                    as Map 
+import qualified Network.Arivi.Multiplexer          as MP 
                                                             
 
 
@@ -22,5 +23,19 @@ data AriviHandle    = AriviHandle {
                     ,   ariviTcpSock    :: (Socket,SockAddr)
                     ,   udpThread       :: MVar ThreadId  
                     ,   tcpThread       :: MVar ThreadId    
-                    ,   registry        :: Map.Map Int (Payload -> IO())   
+                    ,   registry        :: Map.Map Int (PayLoad -> IO())   
             }  
+
+
+getAriviInstance :: AriviConfig -> AriviHandle 
+getAriviInstance ac = undefined 
+
+registerCallback :: Int 
+                 -> (PayLoad -> IO())
+                 -> Bool 
+registerCallback key value = undefined 
+
+runAriviInstance :: AriviHandle 
+                 -> IO () 
+runAriviInstance ah = undefined 
+

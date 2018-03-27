@@ -8,8 +8,9 @@ import qualified Network.Arivi.Types                as T
 
 
 data Registry = Registry {
-                    registry :: Map.Map Int (T.Payload -> IO ())
+                    registry :: Map.Map Int (T.PayLoad -> IO ())
                 } 
+
 
 
 
