@@ -17,7 +17,7 @@ import           Data.Int                                   (Int16,Int64)
 type ConnectionId   = Int64  
 type PayloadLength  = Int16    
 type FragmentNumber = Integer 
-type ContextId      = UUID 
+type MessageId      = UUID 
 type SubProtocol    = Int 
 
 data Frame   = Frame {
@@ -28,6 +28,8 @@ data Frame   = Frame {
                 ,   payload       :: Payload 
                 ,   connectionId  :: ConnectionId   
                 ,   payloadLength :: PayloadLength 
+                ,   transport     :: Transport
+                ,   encoding      :: Encoding 
             } deriving (Show)
 
 data Version
@@ -38,12 +40,10 @@ data Version
 data PayloadMarker = PayloadMarker {
                     subProtocol    :: SubProtocol 
                 ,   fragmentNumber :: FragmentNumber
-                ,   contextId      :: ContextId
+                ,   messageId      :: MessageId
             } deriving (Show)
 
-data Opcode       = REQUEST 
-                    | RESPONSE 
-                    | ERROR 
+data Opcode       = ERROR 
                     | HANDSHAKE_REQUEST 
                     | HANDSHAKE_REPONSE 
                     | OPTIONS 
@@ -67,6 +67,17 @@ data EncryptionType = NONE
                       
 data Payload = Payload C.ByteString 
                deriving (Show)
+
+data Transport = UDP 
+                 | TCP 
+                 deriving (Show)
+                 
+data Encoding = UTF_8
+                | ASCII 
+                | CBOR 
+                | JSON 
+                | PROTO_BUFF 
+                deriving (Show)
                
 
                     
