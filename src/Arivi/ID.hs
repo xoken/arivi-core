@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | The identity of objects.
 module Arivi.ID
-      ( ID
+      ( ID, Identifiable(..)
       -- * Some Unsafe conversion functions.
       , unsafeToHash, unsafeToID
       ) where
@@ -22,3 +22,8 @@ unsafeToHash = unID
 -- for which there really are no objects.
 unsafeToID :: BLAKE2b -> ID a
 unsafeToID = ID
+
+-- | Types for which one can compute the ID from a value.
+class Identifiable value where
+  -- | Compute the ID of a value.
+  identity :: value -> ID value
