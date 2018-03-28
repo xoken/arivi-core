@@ -30,8 +30,11 @@ library
   build-depends:       base >=4.9 && <4.11
                ,       bytestring
                ,       raaz >=0.2
+               ,       transformers
+               ,       network
   hs-source-dirs:      src
   other-modules: Arivi.ID
+               , Arivi.Network.Datagram
   default-language:    Haskell2010
 
 
