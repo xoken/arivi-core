@@ -1,73 +1,82 @@
 # ARIVI Wire Specification 
 
 ## Handshake Frame
-This frame contains handshake of the connections, initially client sends list of the version available along with the ephemeral key and challenge cipher text with Handshake-Request field set, then server sends the negotiated protocol version, the decrepted challenge text decrypted using the shared secret key derived from ephemeral key
 
----
-## Reset/Close Frame
+This type of frame contains handshake of the connection.
 
-This frame contains information about the closing/ resetting connection, If opcode field is RESET then session of the connection resets, if it is CLOSE the the connection closes
+ 1. **INVITE:** Initially Handshake-Initiator sends available protocol version list,supported encryption mode list, supported encoding list, session id and its public key along with INVITE opcode field set to Handshake-Responder.
+    
+2.  **AUTH_CHALLENGE:** Using received Handshake-Initiator’s public key and generated ephemeral Keys, Handshake-Responder computes shared secret for communication and encrypts challenge ciphertext, then sends it back negotiated protocol version,negotiated encryption mode,negotiated encoding mode along with the ephemeral public key and challenge ciphertext with AUTH_CHALLENGE opcode field set, to Handshake-Initiator.
+    
+3.  **AUTH_RESPONSE:** Handshake-Initiator decrypts received challenge cipher text using derived shared secret and sends this to Handshake-Responder, then Handshake-Responder verifies it is properly decrypted or not, if it is not proper, Handshake-Initiator  will replay with an ERROR frame . When Handshake-Responder receives error frame it will send connection reset request. AUTH_RESPONSE opcode field is set.
+
 
 ---
 
 ## Regular Frame
 
-This type of contains the actual payload for the communication
+This is type of frame is used for regular messages. 
 
 ---
 
-### **Version**:
- Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
+## Reset/Close Frame
+
+This frame contains information about the closing/ resetting connection, If opcode field is RESET then session of the connection resets, if it is CLOSE then the connection closes
 
 ---
 
+**Version: \[2 Bytes\]**
+	 Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
 
-### **Opcode**:
+---
+**Opcode: \[4 Bytes\]**
 
- -  **ERROR - 0x00**
-	 - Indicates an error processing a request. The body of the message will be an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
+ - **ERROR - 0x00**
+	-   Indicates an error processing a request. The Error descriptor of the message will contain an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
+    
+-   **INVITE 0x01**
+	-   This opcode indicates that the given frame is INVITE step in message handshake.
     
 
-- **Handshake-Request - 0x01** 
-	- Shows that this is a Handshake-Request, Message payload contains all versions available at client, ephemeral public key of ecies and encrypted random challenge ciphertext
-
+-   **AUTH_CHALLENGE 0x02**
   
-
--   **Handshake-Response \- 0x02**
-	- Shows that this is a Handshake-Response, Message payload contain version negotiated, the decrypted message received from Handshake-Request
+	-   This opcode indicates that the given frame is AUTH_CHALLENGE step in message handshake.
     
--   **OPTIONS 0x03**
-	- Asks the server to return what service options are supported. The body of an OPTIONS message should be empty and the server will respond with a SUPPORTED message such as services Kademlia,Chord,Block
+-   **AUTH_RESPONSE - 0x03**
+	-   This opcode indicates that the given frame is AUTH_RESPONSE step in message handshake.
+    
+-   **Options 0x04**
+	-   Asks the server to return what service options are supported. The body of an OPTIONS message should be empty and the server will respond with a SUPPORTED message such as services Kademlia,Chord,Block
+    
+
+-   **Reset, 0x05**
+ 
+	-   Resets the connection session
+    
+
+-   **Close 0x06**
+    -   Ends the current connection with the server
+    
+
+-   **Ping 0x07**
    
-
--   **RESET 0x04**
-	-  Resets the connection session
+	-   A Ping frame MAY include "Application data". Upon receipt of a Ping frame, an endpoint MUST send a Pong frame in response, unless it already received a Close frame. It SHOULD respond with Pong frame as soon as is practical.
     
-
--   **CLOSE 0x05**
-	-  Ends the current connection with the server
-    
-
--   **PING 0x06**
-	-   A Ping frame MAY include "Application data". Upon receipt of a Ping frame, an endpoint MUST send a Pong frame in  response, unless it already received a Close frame. It should respond with Pong frame as soon as is practical.
-    
-
--   **PONG 0x07**
-	-  A Pong frame sent in response to a Ping frame must have identical  
+-   **Pong 0x08**
+   
+	-   A Pong frame sent in response to a Ping frame must have identical  
     "Application data" as found in the message body of the Ping frame  
     being replied to.
+    
 
+> Note: Ping and Pong is used to keep connection alive
 ----
 
-### **Public Flags:**
+## Public Flags: \[1 Bytes\]
 
--   **Final Fragment :** A fragmented message consists of a single frame with the FIN bit clear and an opcode other than 0, followed by zero or more frames with the FIN bit clear and the opcode set to 0, and terminated by a single frame with the FIN bit set and an opcode of 0. A fragmented message is conceptually equivalent to a single larger message whose payload is equal to the concatenation of the payloads of the fragments in order.
+-   **Fragmentation** : This bit is set for fragmented messages. Unfragmented messages will not have this bit set.
     
--   **Text/Binary:** 
-	- If set to 0, its assumed to be Binary, else it is ASCII text.
-    
--   **Initiator:** 
-	- This bit will be set to 1 if the Connection was initiated by this endpoint. Will be useful in maintain the counter/nonce exclusivity for certain symmetric encryption schemes like AES / Poly where unique nonce is needed.
+-   **Initiator:** This bit will be set to 1 if the Connection was initiated by this endpoint. Will be useful in maintain the counter/nonce exclusivity for certain symmetric encryption schemes like AES / Poly where unique nonce is needed.
     
 -   **Encryption  Type (0 None,1 AES CTR, 2 PolyChaCha)**
 	- This defines the encryption method used for encryption of payload , two bits is allocated for this
@@ -79,17 +88,60 @@ This type of contains the actual payload for the communication
 			10 - ChaChaPoly
 
   
+
+-   Encoding: 
+	- This field is used to represent the encoding used for the message it can be UTF-8,CBOR,JSON,Google’s Protocol Buffer, etc
+    
+
   
 
-- **ConnectionId** 
-	- This is 128 bit universally unique identifier (UUID) which is generated by client using [ Data.UUID.V4 ](https://hackage.haskell.org/package/uuid), so that each connection will get unique id
+-   TransportType:
+	-  If this bit is set TCP otherwise UDP.
 
+---
+
+### SessionId  \[4 Bytes\] 
+
+ - This is unique identifier which is generated by client using some random function. This is used to map negotiated protocol version,shared secret key used for encryption,negotiated encoding type of subprotocol, public key of the other party.
+ - We need to store key (sessionId) and value ( (protocolContext, port ,ip ,transport-type, encryption-format, app-encoding-type)) in sessionHashMap for further reference.
+
+---
+
+
+### Payload-Length \[3 Byte\] 
+
+ -  This denote the length of message in payload field. This field size is 3 Bytes which gives 2^(3*8) bits = 2 MB max size of payload but actual size will be 500KB
+
+  ---
   
   
 
-- **Payload-Length** 
-	- This denote the length of message in payload field. This field size is 3 Bytes which gives 2^(3*8) bits = 2 MB max size of payload actual size will be 500KB
+### Error Descriptor \[2 Bytes\]
 
+ -  This is optional field in the frame. If opcode field is ERROR, then this field will be present in the frame. Otherwise it is absent.
 
- - **Payload**
-		 - This is the actual payload of the frame which can be of max size 2MB but actual size is 500KB
+---
+  
+  
+  
+
+### Message id: \[1 Byte\] (Present Only if fragmentation bit is set) 
+- All message of same fragment will have same message id
+
+  
+---
+
+### Fragment number \[2 Bytes\]
+
+- If this contains a negative value then this fragment is considered to be the final fragment.
+
+---
+
+### Payload marker (Header)
+- Subprotocol \[1 Byte\]
+
+ ---
+ 
+### Payload  \[Max 2MB, but actual 500KB\]
+
+- This is the actual payload of the frame which can be of max size 2MB but actual size is 500KB in TCP, 50KB in UDP
