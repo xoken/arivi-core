@@ -1,9 +1,16 @@
 module Network.Arivi.Types 
 (
-PayLoad     (..),
-Frame       (..),
+PayLoad        (..),
+Frame          (..),
+SessionId      (..),
+MessageId      (..),
+EncryptionType (..),
+Transport      (..),
+Encoding       (..),
 Socket,
-SockAddr 
+SockAddr,
+PortNumber,
+HostAddress
 ) where 
 
 import           Network.Socket     
@@ -21,9 +28,7 @@ type SubProtocol    = Int
 
 data Frame   = Frame {
                     version        :: Version 
-                ,   publicFlags    :: PublicFlags
-                ,   encoding       :: Encoding  
-                ,   transport      :: Transport
+                ,   publicFlags    :: PublicFlags 
                 ,   opcode         :: Opcode 
                 ,   fragmentNumber :: FragmentNumber
                 ,   payLoadLength  :: PayLoadLength     
@@ -40,6 +45,8 @@ data PublicFlags  = PublicFlags {
                     finalFragment :: Bool 
                 ,   initiator     :: Bool 
                 ,   ecncryption   :: EncryptionType 
+                ,   encoding      :: Encoding 
+                ,   transport      :: Transport
             } deriving (Show) 
 
 data EncryptionType = NONE 

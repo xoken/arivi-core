@@ -28,12 +28,15 @@ source-repository head
 
 library
   build-depends:       base >=4.9 && <4.10
+                    ,  async 
                     ,  network >= 2.6.3.4 
                     ,  stm >= 2.4.4.1
                     ,  bytestring 
                     ,  split 
                     ,  containers
                     ,  uuid 
+                    ,  monad-logger 
+                    ,  text 
   hs-source-dirs:      src
   exposed-modules:     Network.Arivi.Datagram 
                        Network.Arivi.Stream  
