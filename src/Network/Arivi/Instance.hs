@@ -77,10 +77,10 @@ getSession :: PortNumber
            -> HostAddress 
            -> Transport 
            -> EncryptionType 
-           -> Subprotocol
+           -> SubProtocol
            -> SessionId 
 
-getSession recPort recHost transport encryptionType = undefined 
+getSession recPort recHost transport encryptionType subprotocl = undefined 
 
 sendMessage :: SessionId -> PayLoad -> IO ()  
 sendMessage ssid message = undefined 
@@ -88,5 +88,6 @@ sendMessage ssid message = undefined
 closeSession :: SessionId -> IO () 
 closeSession ssid = undefined 
 
-resetSession :: SessionId -> IO () 
+resetSession :: SessionId -> IO ()
 resetSession ssid = undefined 
+
