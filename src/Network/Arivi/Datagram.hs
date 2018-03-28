@@ -22,19 +22,16 @@ import qualified Data.Map.Strict                    as Map
 import qualified Network.Arivi.Types                as T
 import qualified Network.Arivi.Multiplexer          as MP 
 
-runUDPServerForever :: SockAddr
-                    -> Socket  
+runUDPServerForever :: Socket 
+                    -> SockAddr
                     -> MP.Registry 
-                    -> IO ThreadId 
+                    -> IO ()
 
-runUDPServerForever sockAddr sock registry = do
+runUDPServerForever sock sockAddr registry = do
     
     bind sock sockAddr 
-    -- printing is here just for testing purposes and won't be required after 
-    -- full integration 
-    -- print ("Server now listening for requests at : " ++ local_port)
-    putStrLn ""
-    forkIO $ forever $
+    print ("Server now listening for requests at : ")
+    forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
             -- lookup the protocol 
