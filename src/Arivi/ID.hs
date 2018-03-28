@@ -1,13 +1,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | The identity of objects.
 module Arivi.ID
-      ( ID, Identifiable(..)
+      ( ID, Identifiable(..), Distance, distance
       -- * Some Unsafe conversion functions.
       , unsafeToHash, unsafeToID
       ) where
 
-import Raaz
-import Raaz.Hash.Blake2
+import           Data.Bits
+import qualified Data.ByteString as BS
+import           Raaz
+import           Raaz.Hash.Blake2
+
 
 -- | The ID of an object.
 newtype ID a = ID { unID :: BLAKE2b } deriving (Show, Eq)
@@ -27,3 +30,14 @@ unsafeToID = ID
 class Identifiable value where
   -- | Compute the ID of a value.
   identity :: value -> ID value
+
+-- | The distance values
+newtype Distance = Distance BS.ByteString
+
+-- TODO: Performance does it makes sense to use ShortBytestring
+-- instead of ByteString.
+
+-- | Compute the distance.
+distance :: ID a -> ID b -> Distance
+distance ia = Distance . BS.pack . BS.zipWith xor (toBS ia) . toBS
+  where toBS = toByteString . unsafeToHash
