@@ -10,12 +10,16 @@ This type of frame contains handshake of the connection.
     
 3.  **AUTH_RESPONSE:** Handshake-Initiator decrypts received challenge cipher text using derived shared secret and sends this to Handshake-Responder, then Handshake-Responder verifies it is properly decrypted or not, if it is not proper, Handshake-Initiator  will replay with an ERROR frame . When Handshake-Responder receives error frame it will send connection reset request. AUTH_RESPONSE opcode field is set.
 
-
+![enter image description here](https://user-images.githubusercontent.com/8463082/38079498-ab7d8622-335c-11e8-8007-7f12502346cb.png)
 ---
 
 ## Regular Frame
 
 This is type of frame is used for regular messages. 
+
+
+
+![enter image description here](https://user-images.githubusercontent.com/8463082/38079499-abb8228c-335c-11e8-90a2-5c85fae7b72e.png)
 
 ---
 
@@ -23,7 +27,24 @@ This is type of frame is used for regular messages.
 
 This frame contains information about the closing/ resetting connection, If opcode field is RESET then session of the connection resets, if it is CLOSE then the connection closes
 
+
+
+![enter image description here](https://user-images.githubusercontent.com/8463082/38079500-abfbf3cc-335c-11e8-9a4d-8d9d6a58f196.png)
+
+
 ---
+## ERROR Frame
+
+
+This frame contains information about the error in connection, the opcode of this type of frame is set to **ERROR** and the **ERROR Descriptor** field is present in this frame. 
+
+
+
+![enter image description here](https://user-images.githubusercontent.com/8463082/38079496-ab3a887c-335c-11e8-897d-1390072c1687.png)
+
+---
+
+
 
 **Version: \[2 Bytes\]**
 	 Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
@@ -69,7 +90,7 @@ This frame contains information about the closing/ resetting connection, If opco
     being replied to.
     
 
-> Note: Ping and Pong is used to keep connection alive
+> Note: Ping and Pong are used to check if a connection is alive
 ----
 
 ## Public Flags: \[1 Bytes\]
@@ -145,3 +166,5 @@ This frame contains information about the closing/ resetting connection, If opco
 ### Payload  \[Max 2MB, but actual 500KB\]
 
 - This is the actual payload of the frame which can be of max size 2MB but actual size is 500KB in TCP, 50KB in UDP
+
+---
