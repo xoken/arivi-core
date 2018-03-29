@@ -10,7 +10,7 @@ This type of frame contains handshake of the connection.
     
 3.  **AUTH_RESPONSE:** Handshake-Initiator decrypts received challenge cipher text using derived shared secret and sends this to Handshake-Responder, then Handshake-Responder verifies it is properly decrypted or not, if it is not proper, Handshake-Initiator  will replay with an ERROR frame . When Handshake-Responder receives error frame it will send connection reset request. AUTH_RESPONSE opcode field is set.
 
-![enter image description here](https://user-images.githubusercontent.com/8463082/38079498-ab7d8622-335c-11e8-8007-7f12502346cb.png)
+
 ---
 
 ## Regular Frame
