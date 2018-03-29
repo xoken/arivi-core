@@ -18,18 +18,12 @@ This type of frame contains handshake of the connection.
 This is type of frame is used for regular messages. 
 
 
-
-![enter image description here](https://user-images.githubusercontent.com/8463082/38079499-abb8228c-335c-11e8-90a2-5c85fae7b72e.png)
-
 ---
 
 ## Reset/Close Frame
 
 This frame contains information about the closing/ resetting connection, If opcode field is RESET then session of the connection resets, if it is CLOSE then the connection closes
 
-
-
-![enter image description here](https://user-images.githubusercontent.com/8463082/38079500-abfbf3cc-335c-11e8-9a4d-8d9d6a58f196.png)
 
 
 ---
@@ -40,17 +34,15 @@ This frame contains information about the error in connection, the opcode of thi
 
 
 
-![enter image description here](https://user-images.githubusercontent.com/8463082/38079496-ab3a887c-335c-11e8-897d-1390072c1687.png)
-
 ---
 
 
 
-**Version: \[2 Bytes\]**
+**Version: \[1 Byte\]**
 	 Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
 
 ---
-**Opcode: \[4 Bytes\]**
+**Opcode: \[1 Byte\]**
 
  - **ERROR - 0x00**
 	-   Indicates an error processing a request. The Error descriptor of the message will contain an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
@@ -93,7 +85,7 @@ This frame contains information about the error in connection, the opcode of thi
 > Note: Ping and Pong are used to check if a connection is alive
 ----
 
-## Public Flags: \[1 Bytes\]
+## Public Flags: \[1 Byte\]
 
 -   **Fragmentation** : This bit is set for fragmented messages. Unfragmented messages will not have this bit set.
     
@@ -152,14 +144,15 @@ This frame contains information about the error in connection, the opcode of thi
   
 ---
 
-### Fragment number \[2 Bytes\]
-
-- If this contains a negative value then this fragment is considered to be the final fragment.
+### Fragment number \[1 or 2 Bytes\]
+- If the first bit is 0, then the next 7 bits indicate the fragment number, fragment counting starts from 1.
+- If the first bit is set to 1, then the next 15 bits indicate the fragment number.
+- If the first 8 bits are zeroes, then this fragment is considered to be the final fragment.
 
 ---
 
-### Payload marker (Header)
-- Subprotocol \[1 Byte\]
+### Payload marker \[1 Byte\]
+- Subprotocol 
 
  ---
  
