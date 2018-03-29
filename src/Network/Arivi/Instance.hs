@@ -47,8 +47,8 @@ getAriviInstance ac = do
     udpSock <- socket (addrFamily udpServeraddr) Datagram defaultProtocol
     tcpSock <- socket (addrFamily tcpServeraddr) Datagram defaultProtocol
 
-    let ariviUdpSock = (udpSock,(addrAddress udpServeraddr))
-        arivitcpSock = (tcpSock,(addrAddress tcpServeraddr))
+    let ariviUdpSock = (udpSock,addrAddress udpServeraddr)
+        arivitcpSock = (tcpSock,addrAddress tcpServeraddr)
         registry     = MP.Registry Map.empty
     udpt <- newEmptyMVar
     tcpt <- newEmptyMVar
@@ -83,14 +83,7 @@ register :: AriviHandle
             -> Encoding
             -> ContextID
 
-register ah key value protocol transport encryptionType encoding = do
-    let registry = registry ah
-        temp     = Map.lookup protocol registry
-        case temp of
-            Nothing ->  do
-
-
-
+register ah key value protocol transport encryptionType encoding = undefined
 
 -- | assigns a unique session for each connection & subprotocol between two nodes which is
 --   identified by a sessionID
@@ -109,4 +102,3 @@ closeSession ssid = undefined
 
 resetSession :: SessionId -> IO ()
 resetSession ssid = undefined
-
