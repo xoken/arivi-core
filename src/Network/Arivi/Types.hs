@@ -1,4 +1,4 @@
-module Network.Arivi.Types 
+module Network.Arivi.Types
 (
 PayLoad        (..),
 Frame          (..),
@@ -8,80 +8,82 @@ EncryptionType (..),
 Transport      (..),
 Encoding       (..),
 SubProtocol    (..),
+ContextID      (..),
 Socket,
 SockAddr,
 PortNumber,
 HostAddress
-) where 
+) where
 
-import           Network.Socket     
-import qualified Data.ByteString.Char8              as C 
-import qualified Data.Map.Strict                    as Map 
+import           Network.Socket
+import qualified Data.ByteString.Char8              as C
+import qualified Data.Map.Strict                    as Map
 import           Data.UUID                                  (UUID)
-import           Data.Int                                   (Int16,Int64)   
+import           Data.Int                                   (Int16,Int64)
 
 
-type SessionId      = Int64  
-type PayLoadLength  = Int16    
-type FragmentNumber = Integer 
-type MessageId      = UUID 
-type SubProtocol    = Int 
+type SessionId      = Int64
+type PayLoadLength  = Int16
+type FragmentNumber = Integer
+type MessageId      = UUID
+type SubProtocol    = Int
+type ContextID      = Int
 
 data Frame   = Frame {
-                    version        :: Version 
-                ,   publicFlags    :: PublicFlags 
-                ,   opcode         :: Opcode 
+                    version        :: Version
+                ,   publicFlags    :: PublicFlags
+                ,   opcode         :: Opcode
                 ,   fragmentNumber :: FragmentNumber
-                ,   payLoadLength  :: PayLoadLength     
-                ,   payLoadMarker  :: PayLoadMarker 
-                ,   payLoad        :: PayLoad 
+                ,   payLoadLength  :: PayLoadLength
+                ,   payLoadMarker  :: PayLoadMarker
+                ,   payLoad        :: PayLoad
                } deriving (Show)
 
 data Version
-    = V0 
-    | V1 
+    = V0
+    | V1
     deriving (Eq, Ord, Show)
 
 data PublicFlags  = PublicFlags {
-                    finalFragment :: Bool 
-                ,   initiator     :: Bool 
-                ,   ecncryption   :: EncryptionType 
-                ,   encoding      :: Encoding 
+                    finalFragment :: Bool
+                ,   initiator     :: Bool
+                ,   ecncryption   :: EncryptionType
+                ,   encoding      :: Encoding
                 ,   transport      :: Transport
-            } deriving (Show) 
+            } deriving (Show)
 
-data EncryptionType = NONE 
+data EncryptionType = NONE
                       | AES256_CTR
-                      | CHACHA_POLY 
+                      | CHACHA_POLY
                       deriving (Show)
 
 data Encoding = UTF_8
-                | ASCII 
-                | CBOR 
-                | JSON 
-                | PROTO_BUFF 
+                | ASCII
+                | CBOR
+                | JSON
+                | PROTO_BUFF
                 deriving (Show)
 
-data Transport = UDP 
-                 | TCP 
+data Transport = UDP
+                 | TCP
                  deriving (Show)
 
-data Opcode       = ERROR 
-                    | HANDSHAKE_REQUEST 
-                    | HANDSHAKE_REPONSE 
-                    | OPTIONS 
-                    | RESET 
-                    | CLOSE 
-                    | PING  
-                    | PONG 
+data Opcode       = ERROR
+                    | HANDSHAKE_REQUEST
+                    | HANDSHAKE_REPONSE
+                    | OPTIONS
+                    | RESET
+                    | CLOSE
+                    | PING
+                    | PONG
                     deriving (Show)
-               
+
 
 data PayLoadMarker = PayLoadMarker {
-                    subProtocol    :: SubProtocol 
+                    subProtocol    :: SubProtocol
                 ,   messageId      :: MessageId
             } deriving (Show)
-                      
+
 data PayLoad = PayLoad C.ByteString
                deriving (Show)
-                
+
