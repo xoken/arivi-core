@@ -131,9 +131,8 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
   
   
 
-### Message id: \[1 Byte\] (Present Only if fragmentation bit is set) 
-- All message of same fragment will have same message id
-
+### Message id: \[1 Byte\]  
+- This field will be present only if fragmentation bit is set. All fragments of a given message will have the same message id.
   
 ---
 
