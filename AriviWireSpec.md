@@ -4,11 +4,11 @@
 
 This type of frame contains handshake of the connection.
 
- 1. **INVITE:** Initially Handshake-Initiator sends available protocol version list,supported encryption mode list, supported encoding list, session id and its public key along with INVITE opcode field set to Handshake-Responder.
+ 1. **HANDSHAKE_REQUEST:** Initially Handshake-Initiator sends supported protocol version list,supported encryption mode list, session id and its public key along with INVITE opcode field set to Handshake-Responder.
     
-2.  **AUTH_CHALLENGE:** Using received Handshake-Initiator’s public key and generated ephemeral Keys, Handshake-Responder computes shared secret for communication and encrypts challenge ciphertext, then sends it back negotiated protocol version,negotiated encryption mode,negotiated encoding mode along with the ephemeral public key and challenge ciphertext with AUTH_CHALLENGE opcode field set, to Handshake-Initiator.
+2.  **HANDSHAKE_RESPONSE:** Using received Handshake-Initiator’s public key and generated ephemeral Keys, Handshake-Responder computes shared secret for communication and encrypts challenge ciphertext, then sends it back negotiated protocol version, negotiated encryption mode, the ephemeral public key and challenge ciphertext with AUTH_CHALLENGE as opcode to the Handshake-Initiator.
     
-3.  **AUTH_RESPONSE:** Handshake-Initiator decrypts received challenge cipher text using derived shared secret and sends this to Handshake-Responder, then Handshake-Responder verifies it is properly decrypted or not, if it is not proper, Handshake-Initiator  will replay with an ERROR frame . When Handshake-Responder receives error frame it will send connection reset request. AUTH_RESPONSE opcode field is set.
+3.  **HANDSHAKE_ACK:** Handshake-Initiator decrypts received challenge cipher text using derived shared secret and if successful sends an ACK to the Handshake-Responder, else an ERROR frame will be sent that marks the closure of this unsucessful handshake.
 
 
 ---
@@ -68,18 +68,17 @@ This frame contains information about the error in connection, the opcode of thi
     
 
 -   **Close 0x06**
-    -   Ends the current connection with the server
+        -   Terminates the current connection with the server
     
 
 -   **Ping 0x07**
    
-	-   A Ping frame MAY include "Application data". Upon receipt of a Ping frame, an endpoint MUST send a Pong frame in response, unless it already received a Close frame. It SHOULD respond with Pong frame as soon as is practical.
+	-   A Ping frame may serve either as a keepalive or as a means to verify that the remote endpoint is still alive.
     
 -   **Pong 0x08**
    
-	-   A Pong frame sent in response to a Ping frame must have identical  
-    "Application data" as found in the message body of the Ping frame  
-    being replied to.
+	-   A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolicited to serve an 
+   unidirectional heartbeat.  A response to an unsolicited Pong frame is not expected.
     
 
 > Note: Ping and Pong are used to check if a connection is alive
