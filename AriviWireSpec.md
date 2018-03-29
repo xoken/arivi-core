@@ -1,6 +1,6 @@
 # ARIVI Wire Specification 
 
-## Handshake Frame
+## 1) Handshake Frame
 
 This type of frame contains handshake of the connection.
 
@@ -13,21 +13,21 @@ This type of frame contains handshake of the connection.
 
 ---
 
-## Regular Frame
+## 2) Regular Frame
 
 This is type of frame is used for regular messages containing application data payload that is typically encrypted per the application's needs. 
 
 
 ---
 
-## Reset/Close Frame
+## 3) Reset/Close Frame
 
 This frame contains information about the closing/ resetting connection, If opcode field is RESET then session of the connection resets, if it is CLOSE then the connection closes
 
 
 
 ---
-## ERROR Frame
+## 4) Error Frame
 
 
 This frame contains information about the error in connection, the opcode of this type of frame is set to **ERROR** and the **ERROR Descriptor** field is present in this frame. 
@@ -38,53 +38,48 @@ This frame contains information about the error in connection, the opcode of thi
 
 
 
-**Version: \[1 Byte\]**
-	 Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
+### Version: \[1 Byte\]
+
+Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
 
 ---
-**Opcode: \[1 Byte\]**
+### Opcode: \[1 Byte\]
 
  - **ERROR - 0x00**
-	-   Indicates an error processing a request. The Error descriptor of the message will contain an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
+
+Indicates an error processing a request. The Error descriptor of the message will contain an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
     
--   **INVITE 0x01**
-	-   This opcode indicates that the given frame is INVITE step in message handshake.
+-   **HANDSHAKE_REQUEST 0x01**
+This opcode indicates that the given frame is HANDSHAKE_REQUEST step (1 of 3) in message handshake.
     
 
--   **AUTH_CHALLENGE 0x02**
-  
-	-   This opcode indicates that the given frame is AUTH_CHALLENGE step in message handshake.
+-   **HANDSHAKE_RESPONSE 0x02**
+This opcode indicates that the given frame is HANDSHAKE_RESPONSE step (2 of 3) in message handshake.
     
--   **AUTH_RESPONSE - 0x03**
-	-   This opcode indicates that the given frame is AUTH_RESPONSE step in message handshake.
+-   **HANDSHAKE_ACK - 0x03**
+This opcode indicates that the given frame is HANDSHAKE_ACK step (3 of 3) in message handshake.
     
 -   **Options 0x04**
-	-   Asks the server to return what service options are supported. The body of an OPTIONS message should be empty and the server will respond with a SUPPORTED message such as services Kademlia,Chord,Block
+Asks the server to return what service options are supported. The body of an OPTIONS message should be empty and the server will respond with a SUPPORTED message such as services Kademlia,Chord,Block
     
 
 -   **Reset, 0x05**
- 
-	-   Resets the connection session
+Resets the connection session
     
 
 -   **Close 0x06**
-        -   Terminates the current connection with the server
+Terminates the current connection with the server
     
 
 -   **Ping 0x07**
-   
-	-   A Ping frame may serve either as a keepalive or as a means to verify that the remote endpoint is still alive.
+A Ping frame may serve either as a keepalive or as a means to verify that the remote endpoint is still alive.
     
 -   **Pong 0x08**
-   
-	-   A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolicited to serve an 
-   unidirectional heartbeat.  A response to an unsolicited Pong frame is not expected.
+A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolicited to serve an unidirectional heartbeat.  A response to an unsolicited Pong frame is not expected.
     
-
-> Note: Ping and Pong are used to check if a connection is alive
 ----
 
-## Public Flags: \[1 Byte\]
+### Public Flags: \[1 Byte\]
 
 -   **Fragmentation** : This bit is set for fragmented messages. Unfragmented messages will not have this bit set.
     
@@ -99,15 +94,14 @@ This frame contains information about the error in connection, the opcode of thi
 
 			10 - ChaChaPoly
 
-  
 
--   Encoding: 
+-   **Encoding: **
 	- This field is used to represent the encoding used for the message it can be UTF-8,CBOR,JSON,Google’s Protocol Buffer, etc
     
 
   
 
--   TransportType:
+-   **TransportType:**
 	-  If this bit is set TCP otherwise UDP.
 
 ---
