@@ -15,7 +15,7 @@ This type of frame contains handshake of the connection.
 
 ## Regular Frame
 
-This is type of frame is used for regular messages. 
+This is type of frame is used for regular messages containing application data payload that is typically encrypted per the application's needs. 
 
 
 ---
