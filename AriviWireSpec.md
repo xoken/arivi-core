@@ -128,9 +128,9 @@ This frame contains information about the error in connection, the opcode of thi
   
   
 
-### Error Descriptor \[2 Bytes\]
+### Descriptor \[2 Bytes\]
 
- -  This is optional field in the frame. If opcode field is ERROR, then this field will be present in the frame. Otherwise it is absent.
+ -  This is optional field in the frame. If opcode value is ERROR, then this field serves as an Error descriptor. Else if the opcode value is SUPPORTED then this field will contain a list of supported Sub-Protocols. This field is not used for other opcodes.
 
 ---
   
