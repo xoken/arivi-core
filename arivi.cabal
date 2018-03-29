@@ -19,7 +19,7 @@ maintainer:   ppk@cse.iitk.ac.in
 -- copyright:
 category:           Network
 build-type:         Simple
-extra-source-files: ChangeLog.md, README.md
+extra-source-files: CHANGELOG.md, README.md
 cabal-version:      >=1.10
 
 source-repository head
