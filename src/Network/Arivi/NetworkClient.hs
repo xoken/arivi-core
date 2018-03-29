@@ -29,4 +29,4 @@ networkClient outboundChan socketTMVar workerId = forkIO $ forever $ do
     msg     <- atomically $ readTChan outboundChan
     let pl = fst msg
 
-    N.sendTo (snd sockMsg) (pl) (fst sockMsg)
+    N.sendTo (snd sockMsg) pl (fst sockMsg)
