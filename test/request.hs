@@ -1,39 +1,39 @@
 
-import           Network.Arivi.UdpServer 
-import           Network.Socket 
+import qualified Data.ByteString.Char8     as C
+import qualified Data.List.Split           as S
+import           Data.Word
+import           Network.Arivi.UdpServer
+import           Network.Socket
+import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
+import qualified Network.Socket.Internal   as M
 import           System.Environment
-import qualified Network.Socket.ByteString     as N    (recvFrom,sendTo) 
-import qualified Data.ByteString.Char8         as C 
-import qualified Data.List.Split               as S  
-import qualified Network.Socket.Internal       as M 
-import           Data.Word 
 
 
-stringToHostAddress :: [Char] -> HostAddress
+stringToHostAddress :: String -> HostAddress
 stringToHostAddress x = remoteIp
-    where temp     = S.splitOn "." x   
-          temp2    = case (Prelude.map (read :: String -> Word8) temp) of [a,b,c,d] -> (a,b,c,d)  
-          remoteIp = tupleToHostAddress temp2  
+    where temp     = S.splitOn "." x
+          temp2    = case Prelude.map (read :: String -> Word8) temp of [a,b,c,d] -> (a,b,c,d)
+          remoteIp = tupleToHostAddress temp2
 
-convertToSockAddr :: [Char] -> SockAddr
+convertToSockAddr :: String -> SockAddr
 convertToSockAddr x  = fSockAddr
     where addrString = S.splitOn ":" x
-          remotePort = read $ addrString !! 1 :: M.PortNumber 
-          remoteIp   = stringToHostAddress (addrString !! 0)
+          remotePort = read $ addrString !! 1 :: M.PortNumber
+          remoteIp   = stringToHostAddress (head addrString)
           fSockAddr  = SockAddrInet remotePort remoteIp
 
-main = do 
-    args <- getArgs 
-    let port       = head args 
+main = do
+    args <- getArgs
+    let port       = head args
         ip         = "127.0.0.1"
         sa         = "127.0.0.1:8000"
-        tosockAddr = convertToSockAddr sa 
-    
+        tosockAddr = convertToSockAddr sa
+
     addrinfos <- getAddrInfo Nothing (Just ip) (Just port)
     let serveraddr = head addrinfos
     sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
-    bind sock (addrAddress serveraddr) 
-    
-    bs <- N.sendTo (sock) (C.pack (args !! 1)) (tosockAddr) 
+    bind sock (addrAddress serveraddr)
 
-    print ("Bytes Sent : " ++ (show bs) )
+    bs <- N.sendTo sock (C.pack (args !! 1)) tosockAddr
+
+    print "Bytes Sent : " ++ show bs
