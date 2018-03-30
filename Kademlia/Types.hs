@@ -234,7 +234,7 @@ instance Serialise PortNumber where
     decode = decodePortNumber
 
 encodePortNumber :: PortNumber -> Encoding
-encodePortNumber (a) =
+encodePortNumber (PortNum a) =
     encodeListLen 2 <> encodeWord 0 <> encode a
 
 decodePortNumber :: Decoder s PortNumber
@@ -242,7 +242,7 @@ decodePortNumber = do
     len <- decodeListLen
     tag <- decodeWord
     case (len,tag) of
-        (2,0) -> decode
+        (2,0) -> PortNum <$> decode
         _     -> fail "Invalid PortNumber encoding"
 
 -- Serialise instance for MessageBody data type
