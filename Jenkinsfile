@@ -5,8 +5,8 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building..'
+                sh 'hlint --extension=hs .'
                 sh 'stack build'                
-                
                 emailext (
                     subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
                     body: """<p>STARTED: Job '${env.DEFAULT_RECIPIENTS} [${env.DEFAULT_REPLYTO}]':</p>
