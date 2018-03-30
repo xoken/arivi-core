@@ -7,16 +7,16 @@ runAriviInstance ,
 AriviHandle (..),
 ) where
 
-import           Network.Socket
-import           Network.Arivi.Types
-import           Network.Arivi.Datagram
-import           Network.Arivi.Stream
-import           Control.Concurrent                         (forkIO,ThreadId,newEmptyMVar,putMVar,
-                                                            takeMVar,MVar)
-import qualified Data.Map.Strict                    as Map
-import qualified Network.Arivi.Multiplexer          as MP
+import           Control.Concurrent        (MVar, ThreadId, forkIO,
+                                            newEmptyMVar, putMVar, takeMVar)
 import           Control.Concurrent.Async
 import           Control.Monad
+import qualified Data.Map.Strict           as Map
+import           Network.Arivi.Datagram
+import qualified Network.Arivi.Multiplexer as MP
+import           Network.Arivi.Stream
+import           Network.Arivi.Types
+import           Network.Socket
 
 
 -- | Strcuture to hold the arivi configurations can also contain more parameters but for now
@@ -31,11 +31,11 @@ data AriviConfig    = AriviConfig {
 --   around to different functions to differentiate betweeen different instances of
 --   arivi.
 data AriviHandle    = AriviHandle {
-                        ariviUDPSock    :: (Socket,SockAddr)
-                    ,   ariviTCPSock    :: (Socket,SockAddr)
-                    ,   udpThread       :: MVar ThreadId
-                    ,   tcpThread       :: MVar ThreadId
-                    ,   registry        :: MP.Registry
+                        ariviUDPSock :: (Socket,SockAddr)
+                    ,   ariviTCPSock :: (Socket,SockAddr)
+                    ,   udpThread    :: MVar ThreadId
+                    ,   tcpThread    :: MVar ThreadId
+                    ,   registry     :: MP.Registry
             }
 
 getAriviInstance :: AriviConfig -> IO AriviHandle

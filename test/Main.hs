@@ -1,14 +1,14 @@
-import Network.Arivi.UdpServer  
+import           Network.Arivi.UdpServer
 
-msgHandler msg = do 
+msgHandler msg =
     print "Handle the message"
 
-main = do 
+main = do
     let ip      = "127.0.0.1"
         udpPort = "8000"
         tcpPort = "7000"
-        
-    ai <- getAriviInstance ip udpPort tcpPort 
 
-    runAriviInstance ai 
-    registerEventHandler dataGramEentHandler msgHandler 
+    ai <- getAriviInstance ip udpPort tcpPort
+
+    runAriviInstance ai
+    registerEventHandler dataGramEentHandler msgHandler
