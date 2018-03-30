@@ -3,28 +3,28 @@ module Kademlia.XorDistance(
     getXorDistance,
     getRawXor,
 )
-where 
+where
 
 
-import Data.Bits
-import Numeric (showHex,showIntAtBase)
-import Data.Char (intToDigit,digitToInt)
-import Data.ByteString.Char8 (ByteString)
+import           Data.Bits
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Char             (digitToInt, intToDigit)
+import           Numeric               (showHex, showIntAtBase)
 
 
 
-fn str =  (digitToInt str ):: Int
-hexToDigits str = map fn str
+fn str =  digitToInt str :: Int
+hexToDigits  = map fn
 
-hexToDec [] _ _  = 0; 
-hexToDec (xs:x) index length = hexToDec(x) (index+1) length + (16 ^ index)*xs
+hexToDec [] _ _              = 0;
+hexToDec (xs:x) index length = hexToDec x (index+1) length + (16 ^ index)*xs
 
 
 hexToDecimal lst = hexToDec (reverse lst) 0 (length lst)
 
 
 
-biWisexorOfKeys firstNodeId secondNodeId = zipWith xor (hexToDigits firstNodeId) (hexToDigits secondNodeId) 
+biWisexorOfKeys firstNodeId secondNodeId = zipWith xor (hexToDigits firstNodeId) (hexToDigits secondNodeId)
 
 getRawXor firstNodeId secondNodeId = hexToDecimal(map toInteger (biWisexorOfKeys firstNodeId secondNodeId))
 
@@ -34,5 +34,5 @@ getRawXor firstNodeId secondNodeId = hexToDecimal(map toInteger (biWisexorOfKeys
 
 getXorDistance firstNodeId secondNodeId = if rawXor == 0
                                             then 0
-                                          else logBase 2 (fromIntegral (rawXor)) 
+                                          else logBase 2 (fromIntegral rawXor)
                                           where rawXor = getRawXor firstNodeId secondNodeId
