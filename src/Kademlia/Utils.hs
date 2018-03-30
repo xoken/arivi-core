@@ -1,4 +1,4 @@
-module Kademlia.Utils 
+module Kademlia.Utils
 (
     extractFirst,
     extractSecond,
@@ -13,15 +13,15 @@ module Kademlia.Utils
     extractFourth,
     isNodeIdElem,
     getSockAddr
-) where 
+) where
 
-import qualified Data.List.Split               as S  
-import           Network.Socket    
-import qualified Network.Socket.Internal       as M 
-import           Data.Word 
-import           Data.ByteArray 
-import           Kademlia.Signature 
-import qualified Data.ByteString.Char8         as C
+import           Data.ByteArray
+import qualified Data.ByteString.Char8   as C
+import qualified Data.List.Split         as S
+import           Data.Word
+import           Kademlia.Signature
+import           Network.Socket
+import qualified Network.Socket.Internal as M
 
 -- Helper functions to extract value from 3-tuple
 extractFirst :: (a, b, c) -> a
@@ -47,32 +47,33 @@ extractFourth :: (a,b,c,d) -> d
 extractFourth (_,_,_,d) = d
 
 
-stringToHostAddress :: [Char] -> HostAddress
+stringToHostAddress :: String -> HostAddress
 stringToHostAddress x = remoteIp
-    where temp     = S.splitOn "." x   
-          temp2    = case (Prelude.map (read :: String -> Word8) temp) of [a,b,c,d] -> (a,b,c,d)  
-          remoteIp = tupleToHostAddress temp2   
+    where temp     = S.splitOn "." x
+          temp2    = case Prelude.map (read :: String -> Word8) temp
+                        of [a,b,c,d] -> (a,b,c,d)
+          remoteIp = tupleToHostAddress temp2
 
--- covnerts a string of format IP:Port to SockAddr  
-convertToSockAddr :: [Char] -> (PublicKey,SockAddr) 
+-- covnerts a string of format IP:Port to SockAddr
+convertToSockAddr :: String -> (PublicKey,SockAddr)
 convertToSockAddr x  = (nodeId,fSockAddr)
     where addrString = S.splitOn ":" x
-          remotePort = read $ addrString !! 2 :: M.PortNumber 
+          remotePort = read $ addrString !! 2 :: M.PortNumber
           remoteIp   = stringToHostAddress (addrString !! 1)
-          nodeId     = hexToPublicKey (C.pack (addrString !! 0)) 
+          nodeId     = hexToPublicKey (C.pack (head addrString))
           fSockAddr  = SockAddrInet remotePort remoteIp
 
-getSockAddr ip udpPort = SockAddrInet udpPort ip 
+getSockAddr ip udpPort = SockAddrInet udpPort ip
 
-sockAddrToHostAddr :: SockAddr -> HostAddress 
-sockAddrToHostAddr (SockAddrInet a b) = b 
+sockAddrToHostAddr :: SockAddr -> HostAddress
+sockAddrToHostAddr (SockAddrInet a b) = b
 
 sockAddrToPortNumber :: SockAddr -> PortNumber
-sockAddrToPortNumber (SockAddrInet a b) = a 
+sockAddrToPortNumber (SockAddrInet a b) = a
 
 -- Helper function to check if a values exist in a list of type [(a,_)]
-isNodeIdElem [] _      = False 
-isNodeIdElem (x:xs) m 
-    | (fst x == m)     = True 
-    | otherwise        = isNodeIdElem xs m 
-         
+isNodeIdElem [] _      = False
+isNodeIdElem (x:xs) m
+    | fst x == m     = True
+    | otherwise        = isNodeIdElem xs m
+
