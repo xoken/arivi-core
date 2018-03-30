@@ -1,43 +1,80 @@
+
+
 module Network.Arivi.Types
-(
-PayLoad        (..),
-Frame          (..),
-SessionId      (..),
-MessageId      (..),
-EncryptionType (..),
-Transport      (..),
-Encoding       (..),
-SubProtocol    (..),
-ContextID      (..),
-Socket,
-SockAddr,
-PortNumber,
-HostAddress
+(   PayLoad        (..),
+    Frame          (..),
+    SessionId      (..),
+    MessageId      (..),
+    EncryptionType (..),
+    Transport      (..),
+    Encoding       (..),
+    SubProtocol    (..),
+    ContextID      (..),
+    Socket,
+    SockAddr,
+    PortNumber,
+    HostAddress
 ) where
 
+import qualified Data.ByteString.Char8
+import           Data.Int              (Int16, Int64)
+import qualified Data.Map.Strict       as Map
+import           Data.UUID             (UUID)
 import           Network.Socket
-import qualified Data.ByteString.Char8              as C
-import qualified Data.Map.Strict                    as Map
-import           Data.UUID                                  (UUID)
-import           Data.Int                                   (Int16,Int64)
 
 
-type SessionId      = Int64
-type PayLoadLength  = Int16
+type SessionId  = Int64
+type PayLoadLength = Int16
 type FragmentNumber = Integer
-type MessageId      = UUID
-type SubProtocol    = Int
-type ContextID      = Int
+type MessageId  = UUID
+type SubProtocol = Int
+type EncodingList = Data.ByteString.Char8.ByteString
+type EncryptionModeList  = Data.ByteString.Char8.ByteString
+type Descriptor  = Data.ByteString.Char8.ByteString
+type ContextID  = Int
 
-data Frame   = Frame {
+
+data Frame   =  HandshakeFrame {
+                    versionList        :: [Version]
+                ,   opcode             :: Opcode
+                ,   sessionId          :: SessionId
+                ,   messageId          :: MessageId
+                ,   encodingModeList   :: [EncodingList]
+                ,   encryptionModeList :: [EncryptionModeList]
+
+
+               }
+               | RegularFrame  {
                     version        :: Version
-                ,   publicFlags    :: PublicFlags
                 ,   opcode         :: Opcode
-                ,   fragmentNumber :: FragmentNumber
-                ,   payLoadLength  :: PayLoadLength
+                ,   publicFlags    :: PublicFlags
+                ,   messageId      :: MessageId
                 ,   payLoadMarker  :: PayLoadMarker
+                ,   fragmentNumber :: FragmentNumber
+                ,   sessionId      :: SessionId
+                ,   payLoadLength  :: PayLoadLength
                 ,   payLoad        :: PayLoad
-               } deriving (Show)
+               }
+
+               | ErrorFrame {
+                    version        :: Version
+                ,   opcode         :: Opcode
+                ,   publicFlags    :: PublicFlags
+                ,   messageId      :: MessageId
+                ,   fragmentNumber :: FragmentNumber
+                ,   descriptor     :: Descriptor
+                ,   sessionId      :: SessionId
+               }
+
+               | ResetCloseFrame {
+                    version        :: Version
+                ,   opcode         :: Opcode
+                ,   publicFlags    :: PublicFlags
+                ,   fragmentNumber :: FragmentNumber
+                ,   sessionId      :: SessionId
+                ,   messageId      :: MessageId
+               }
+                deriving (Show)
 
 data Version
     = V0
@@ -49,26 +86,26 @@ data PublicFlags  = PublicFlags {
                 ,   initiator     :: Bool
                 ,   ecncryption   :: EncryptionType
                 ,   encoding      :: Encoding
-                ,   transport      :: Transport
+                ,   transport     :: Transport
             } deriving (Show)
 
 data EncryptionType = NONE
                       | AES256_CTR
                       | CHACHA_POLY
-                      deriving (Show)
+                      deriving (Eq,Show)
 
 data Encoding = UTF_8
                 | ASCII
                 | CBOR
                 | JSON
                 | PROTO_BUFF
-                deriving (Show)
+                deriving (Eq,Show)
 
-data Transport = UDP
+data Transport =   UDP
                  | TCP
-                 deriving (Show)
+                 deriving (Eq,Show)
 
-data Opcode       = ERROR
+data Opcode       =   ERROR
                     | HANDSHAKE_REQUEST
                     | HANDSHAKE_REPONSE
                     | OPTIONS
@@ -79,11 +116,9 @@ data Opcode       = ERROR
                     deriving (Show)
 
 
-data PayLoadMarker = PayLoadMarker {
-                    subProtocol    :: SubProtocol
-                ,   messageId      :: MessageId
-            } deriving (Show)
+newtype PayLoadMarker = PayLoadMarker {
+                            subProtocol :: SubProtocol
+                    } deriving (Show)
 
-data PayLoad = PayLoad C.ByteString
+newtype PayLoad = PayLoad Data.ByteString.Char8.ByteString
                deriving (Show)
-
