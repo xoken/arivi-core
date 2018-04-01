@@ -7,8 +7,8 @@
 -- 
 -- This module provides random generation using Raaz's random no generation 
 -- with `securely`
-
--- | securely : 
+-- 
+-- securely : 
 -- Run a memory action with the internal memory allocated from a 
 -- locked memory buffer. This memory buffer will never be swapped out by the 
 -- operating system and will be wiped clean before releasing.

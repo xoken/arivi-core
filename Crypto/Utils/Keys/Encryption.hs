@@ -6,18 +6,15 @@
 -- Portability :
 -- 
 -- This module is made for encrypting communications between two parties
-
-
-
--- | This is ECIES implementation using Elliptic Curve Diffie Hellman key exchange
+-- 
+-- 
+-- 
+--  This is ECIES implementation using Elliptic Curve Diffie Hellman key exchange
 -- inspired from Crypto.PubKey.ECIES <https://hackage.haskell.org/package/cryptonite-0.25/docs/Crypto-PubKey-ECIES.html>  
 -- (why not use Crypto.PubKey.ECIES itself?. Since we are using randomByteString 
 -- generation from Raaz Library for key generations)
-
-
-
-
--- | Sender will compute ephemeral Key Pairs. He uses remotePublicKey and his 
+-- 
+--  Sender will compute ephemeral Key Pairs. He uses remotePublicKey and his 
 -- computed ephemeralPrivateKey to compute SharedSecret for further  
 -- communications, then he encrypts  ephemeralPublicKey using remotePublicKey
 -- and sends to remote. Now remote will decrypt received ephemeralPublicKey 
