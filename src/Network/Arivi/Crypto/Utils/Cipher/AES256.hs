@@ -8,7 +8,7 @@
 -- This module is provides Encryption and Decryption using AES256 in CTR mode  
 -- 
 
-module Crypto.Utils.Cipher.AES256
+module Network.Arivi.Crypto.Utils.Cipher.AES256
 (
     aesEncrypt,
     aesDecrypt,

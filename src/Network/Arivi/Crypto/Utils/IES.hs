@@ -16,7 +16,7 @@
 -- secret key using received ephemeral public key
 -- 
 
-module Crypto.Utils.IES 
+module Network.Arivi.Crypto.Utils.IES
 (
     generateSharedSecret,
     genIESParams
