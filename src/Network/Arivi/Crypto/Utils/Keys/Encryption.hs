@@ -23,14 +23,16 @@
 -- and decryption)
 -- 
 
-module Crypto.Utils.Keys.Encryption
+module Network.Arivi.Crypto.Utils.Keys.Encryption
 (
     getSecretKey,
     getPublicKey,
     generateKeyPair,
     createSharedSecreatKey,
     derivedSharedSecreatKey,
-    SharedSecret
+    SharedSecret,
+    PublicKey,
+    SecretKey
 ) where
 
 
@@ -41,7 +43,7 @@ import Data.ByteArray (convert)
 import Crypto.ECC (ecdh,Curve_X25519,SharedSecret)
 import Data.Proxy
 
-import Crypto.Utils.Random
+import Network.Arivi.Crypto.Utils.Random
 
 
 
@@ -64,7 +66,7 @@ toByteString mPublicKey = Data.ByteArray.convert mPublicKey :: ByteString
 -- generation 
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do 
-                 randomSeed <- Crypto.Utils.Random.getRandomByteString 32
+                 randomSeed <-  Network.Arivi.Crypto.Utils.Random.getRandomByteString 32
                  let secretKey = getSecretKey randomSeed
                  let publicKey = getPublicKey secretKey
                  return (secretKey,publicKey)
@@ -82,7 +84,7 @@ curveX25519 = Proxy :: Proxy Curve_X25519
 -- and shares encrypted ephemeralPublicKey with remote
 
 createSharedSecreatKey :: SecretKey -> PublicKey ->  Crypto.ECC.SharedSecret
-createSharedSecreatKey ephemeralPrivateKey remotePublicKey = Crypto.Error.throwCryptoError (ecdh curveX25519 ephemeralPrivateKey remotePublicKey)
+createSharedSecreatKey ephemeralPrivateKey remotePublicKey = ecdh curveX25519 ephemeralPrivateKey remotePublicKey
 
 
 
@@ -91,4 +93,4 @@ createSharedSecreatKey ephemeralPrivateKey remotePublicKey = Crypto.Error.throwC
 -- function
 
 derivedSharedSecreatKey :: PublicKey -> SecretKey -> Crypto.ECC.SharedSecret
-derivedSharedSecreatKey ephemeralPublicKey remotePrivateKey = Crypto.Error.throwCryptoError  (ecdh curveX25519 remotePrivateKey ephemeralPublicKey)
+derivedSharedSecreatKey ephemeralPublicKey remotePrivateKey =  ecdh curveX25519 remotePrivateKey ephemeralPublicKey
