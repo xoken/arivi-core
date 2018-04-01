@@ -24,7 +24,7 @@ import Crypto.Cipher.ChaChaPoly1305 as ChachaPoly1305
 
 
 getCipherTextAuthPair :: ByteString -> (ByteString, ByteString)
-getCipherTextAuthPair mCipherText = B.splitAt ((B.length mCipherText) - 16) mCipherText
+getCipherTextAuthPair mCipherText = B.splitAt (B.length mCipherText - 16) mCipherText
 
 
 
@@ -58,6 +58,6 @@ chachaDecrypt nonce key header auth cipherText = do
         stateOne = ChachaPoly1305.finalizeAAD $ ChachaPoly1305.appendAAD header initialState
         (out, stateTwo) = ChachaPoly1305.decrypt cipherText stateOne
         authCalc = ChachaPoly1305.finalize stateTwo
-    if auth == (Data.ByteArray.convert authCalc)
+    if auth == Data.ByteArray.convert authCalc
         then return  (Data.ByteArray.convert out)
         else CryptoFailed Crypto.Error.CryptoError_AuthenticationTagSizeInvalid
