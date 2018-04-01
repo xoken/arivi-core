@@ -55,19 +55,19 @@ getSecretKey seedString = Crypto.Error.throwCryptoError (Crypto.PubKey.Curve2551
 
 -- | Generates Public Key using the given Secret Key
 getPublicKey :: SecretKey -> PublicKey
-getPublicKey secretKey =  Crypto.PubKey.Curve25519.toPublic secretKey
+getPublicKey =  Crypto.PubKey.Curve25519.toPublic 
 
 
 -- | Takes PublicKey as input and extracts the string part of PublicKey
 toByteString :: PublicKey -> ByteString
-toByteString mPublicKey = ((Data.ByteArray.convert mPublicKey) :: ByteString)
+toByteString mPublicKey = Data.ByteArray.convert mPublicKey :: ByteString
 
 
 -- | This function generates (SecretKey,PublicKey) pair using Raaz's Random Seed
 -- generation 
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do 
-                 randomSeed <- (Crypto.Utils.Random.getRandomByteString 32)
+                 randomSeed <- Crypto.Utils.Random.getRandomByteString 32
                  let secretKey = getSecretKey randomSeed
                  let publicKey = getPublicKey secretKey
                  return (secretKey,publicKey)

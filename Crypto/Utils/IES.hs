@@ -40,7 +40,7 @@ curve = Proxy :: Proxy Curve_X25519
 -- | genIESParams takes Public Key of the receiver and generates IESParams 
 --  containing ephemeral public key and shared secret key tuple
 genIESParams receiversPK = do 
-                             ies <- (deriveEncrypt curve receiversPK)
+                             ies <- deriveEncrypt curve receiversPK
                              return (throwCryptoError ies)
 
 
@@ -48,7 +48,7 @@ genIESParams receiversPK = do
 -- | This is used at receiver's side , ephemeral Public Key and receiver's
 -- secret key is used to generate shared secret key of communication 
 
-generateSharedSecret ePubKey receiversSK = (throwCryptoError 
+generateSharedSecret ePubKey receiversSK = throwCryptoError 
                                             (deriveDecrypt curve ePubKey 
-                                                (throwCryptoError receiversSK)))
+                                                (throwCryptoError receiversSK))
 

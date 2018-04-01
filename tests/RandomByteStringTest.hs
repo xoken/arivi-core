@@ -12,4 +12,4 @@ main = do
     r <- mRandomByteString
     
 
-    print (r)
+    print r
