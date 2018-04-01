@@ -25,7 +25,7 @@ main = do
     -- | Sender will send ephemeral public key to Receiver, then Receiver will compute
     -- shared secret key using received ephemeral public key
 
-    let sharedSecretKey = (Data.ByteArray.convert (derivedSharedSecreatKey ePhPK resvSK) :: ByteString)
+    let sharedSecretKey = Data.ByteArray.convert (derivedSharedSecreatKey ePhPK resvSK) :: ByteString
 
 
 
@@ -43,7 +43,7 @@ main = do
 
     -- | Receiver separates actual cipher text and message authentication tag (MAC) parts
 
-    let (cipherText,authenticationTag) = (getCipherTextAuthPair (throwCryptoError cipherTextWithAuthTag))
+    let (cipherText,authenticationTag) = getCipherTextAuthPair (throwCryptoError cipherTextWithAuthTag)
 
     -- | Calculates plain text message if authenticationTag is valid
     print (chachaDecrypt mNounce sharedSecretKey mheader authenticationTag cipherText)
