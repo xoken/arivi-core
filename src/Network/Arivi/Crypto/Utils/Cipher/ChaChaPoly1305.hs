@@ -10,7 +10,7 @@
 -- using Poly1305
 -- 
 
-module Crypto.Utils.Cipher.ChaChaPoly1305 
+module Network.Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
 (
     chachaEncrypt,
     chachaDecrypt,

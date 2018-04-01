@@ -8,7 +8,7 @@
 -- This module is made for verifying messages between two parties
 -- 
 
-module Crypto.Utils.Keys.Signature
+module Network.Arivi.Crypto.Utils.Keys.Signature
 (
     getSecretKey,
     getPublicKey,
