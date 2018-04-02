@@ -1,14 +1,14 @@
 -- |
 -- Module      : Crypto.Utils.Keys.Signature
--- License     : 
+-- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :
--- Portability 
--- 
+-- Portability
+--
 -- This module is made for verifying messages between two parties
--- 
+--
 
-module Network.Arivi.Crypto.Utils.Keys.Signature
+module Arivi.Crypto.Utils.Keys.Signature
 (
     getSecretKey,
     getPublicKey,
@@ -29,7 +29,7 @@ import Crypto.Error (throwCryptoError)
 import Data.ByteString.Char8 (ByteString)
 import Data.ByteArray (convert)
 import Data.ByteString.Base16 (encode,decode)
-import Crypto.Utils.Random
+import Arivi.Crypto.Utils.Random
 
 -- | Takes a 32 bytes seed and produces SecretKey
 getSecretKey :: ByteString -> SecretKey
@@ -38,7 +38,7 @@ getSecretKey seedString = throwCryptoError (secretKey seedString)
 
 -- | Generates Public Key using the given Secret Key
 getPublicKey :: SecretKey -> PublicKey
-getPublicKey = toPublic 
+getPublicKey = toPublic
 
 
 -- | Takes PublicKey as input and extracts the string part of PublicKey
@@ -56,10 +56,10 @@ hexToPublicKey hexPublicKey = Crypto.Error.throwCryptoError (Crypto.PubKey.Ed255
 
 
 -- | This function generates (SecretKey,PublicKey) pair using Raaz's Random Seed
--- generation 
+-- generation
 generateKeyPair :: IO (SecretKey, PublicKey)
-generateKeyPair = do 
-                 randomSeed <- Crypto.Utils.Random.getRandomByteString 32
+generateKeyPair = do
+                 randomSeed <- Arivi.Crypto.Utils.Random.getRandomByteString 32
                  let secretKey = getSecretKey randomSeed
                  let publicKey = getPublicKey secretKey
                  return (secretKey,publicKey)

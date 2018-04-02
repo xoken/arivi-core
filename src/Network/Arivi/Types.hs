@@ -21,7 +21,7 @@ import           Data.Int              (Int16, Int64)
 import qualified Data.Map.Strict       as Map
 import           Data.UUID             (UUID)
 import           Network.Socket
-import           Network.Arivi.Crypto.Utils.Keys.Encryption
+import           Arivi.Crypto.Utils.Keys.Encryption
 
 type SessionId  = Int64
 type PayLoadLength = Int16
@@ -41,8 +41,8 @@ data Frame   =  HandshakeFrame {
                 ,   messageId          :: MessageId
                 ,   encodingModeList   :: [EncodingList]
                 ,   encryptionModeList :: [EncryptionModeList]
-                ,   ePhemeralPublicKey :: Network.Arivi.Crypto.Utils.Keys.Encryption.PublicKey
-                ,   remotePublicKey    :: Network.Arivi.Crypto.Utils.Keys.Encryption.PublicKey
+                ,   ePhemeralPublicKey :: Arivi.Crypto.Utils.Keys.Encryption.PublicKey
+                ,   remotePublicKey    :: Arivi.Crypto.Utils.Keys.Encryption.PublicKey
 
                }
                | RegularFrame  {

@@ -47,6 +47,6 @@ library
                        Network.Arivi.NetworkClient   
                        Network.Arivi.Multiplexer 
                        Network.Arivi.Instance
-                       Network.Arivi.Crypto.Utils.Keys.Encryption
-                       Network.Arivi.Crypto.Utils.Random
+                       Arivi.Crypto.Utils.Keys.Encryption
+                       Arivi.Crypto.Utils.Random
   default-language:    Haskell2010

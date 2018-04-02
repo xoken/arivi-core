@@ -1,29 +1,29 @@
 -- |
 -- Module      : Crypto.Utils.Keys.Encryption
--- License     : 
+-- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :
 -- Portability :
--- 
+--
 -- This module is made for encrypting communications between two parties
--- 
--- 
--- 
+--
+--
+--
 --  This is ECIES implementation using Elliptic Curve Diffie Hellman key exchange
--- inspired from Crypto.PubKey.ECIES <https://hackage.haskell.org/package/cryptonite-0.25/docs/Crypto-PubKey-ECIES.html>  
--- (why not use Crypto.PubKey.ECIES itself?. Since we are using randomByteString 
+-- inspired from Crypto.PubKey.ECIES <https://hackage.haskell.org/package/cryptonite-0.25/docs/Crypto-PubKey-ECIES.html>
+-- (why not use Crypto.PubKey.ECIES itself?. Since we are using randomByteString
 -- generation from Raaz Library for key generations)
--- 
---  Sender will compute ephemeral Key Pairs. He uses remotePublicKey and his 
--- computed ephemeralPrivateKey to compute SharedSecret for further  
+--
+--  Sender will compute ephemeral Key Pairs. He uses remotePublicKey and his
+-- computed ephemeralPrivateKey to compute SharedSecret for further
 -- communications, then he encrypts  ephemeralPublicKey using remotePublicKey
--- and sends to remote. Now remote will decrypt received ephemeralPublicKey 
--- using his secretKey and uses this ephemeralPublicKey and his secretKey to 
+-- and sends to remote. Now remote will decrypt received ephemeralPublicKey
+-- using his secretKey and uses this ephemeralPublicKey and his secretKey to
 -- get the SharedSecret (User has to take care of ephemeral Public Key encryption
 -- and decryption)
--- 
+--
 
-module Network.Arivi.Crypto.Utils.Keys.Encryption
+module Arivi.Crypto.Utils.Keys.Encryption
 (
     getSecretKey,
     getPublicKey,
@@ -43,7 +43,7 @@ import Data.ByteArray (convert)
 import Crypto.ECC (ecdh,Curve_X25519,SharedSecret)
 import Data.Proxy
 
-import Network.Arivi.Crypto.Utils.Random
+import Arivi.Crypto.Utils.Random
 
 
 
@@ -54,7 +54,7 @@ getSecretKey seedString = Crypto.Error.throwCryptoError (Crypto.PubKey.Curve2551
 
 -- | Generates Public Key using the given Secret Key
 getPublicKey :: SecretKey -> PublicKey
-getPublicKey =  Crypto.PubKey.Curve25519.toPublic 
+getPublicKey =  Crypto.PubKey.Curve25519.toPublic
 
 
 -- | Takes PublicKey as input and extracts the string part of PublicKey
@@ -63,10 +63,10 @@ toByteString mPublicKey = Data.ByteArray.convert mPublicKey :: ByteString
 
 
 -- | This function generates (SecretKey,PublicKey) pair using Raaz's Random Seed
--- generation 
+-- generation
 generateKeyPair :: IO (SecretKey, PublicKey)
-generateKeyPair = do 
-                 randomSeed <-  Network.Arivi.Crypto.Utils.Random.getRandomByteString 32
+generateKeyPair = do
+                 randomSeed <-  Arivi.Crypto.Utils.Random.getRandomByteString 32
                  let secretKey = getSecretKey randomSeed
                  let publicKey = getPublicKey secretKey
                  return (secretKey,publicKey)
@@ -88,8 +88,8 @@ createSharedSecreatKey = ecdh curveX25519
 
 
 
--- | Remote will decrypt received SharedSecret with his secretKey and gets 
--- ephemeralPublicKey and computes SecretKey using derivedSharedSecreatKey 
+-- | Remote will decrypt received SharedSecret with his secretKey and gets
+-- ephemeralPublicKey and computes SecretKey using derivedSharedSecreatKey
 -- function
 
 derivedSharedSecreatKey :: PublicKey -> SecretKey -> Crypto.ECC.SharedSecret

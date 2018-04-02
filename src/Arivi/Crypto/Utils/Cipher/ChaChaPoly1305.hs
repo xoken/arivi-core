@@ -1,23 +1,23 @@
 -- |
--- Module      : Crypto.Utils.Cipher.ChaChaPoly1305 
--- License     : 
+-- Module      : Crypto.Utils.Cipher.ChaChaPoly1305
+-- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :
 -- Portability :
--- 
+--
 -- This module is made for encrypting communications between two parties
--- using ChaCha20 algorithm and validation of message integrity, authenticity 
+-- using ChaCha20 algorithm and validation of message integrity, authenticity
 -- using Poly1305
--- 
+--
 
-module Network.Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
+module Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
 (
     chachaEncrypt,
     chachaDecrypt,
     getCipherTextAuthPair,
-) where 
+) where
 
-import Data.ByteString.Char8 as B 
+import Data.ByteString.Char8 as B
 import Data.ByteArray
 import Crypto.Error
 import Crypto.Cipher.ChaChaPoly1305 as ChachaPoly1305
@@ -43,12 +43,12 @@ chachaEncrypt nonce key header plaintext = do
     return $ out `B.append` Data.ByteArray.convert auth
 
 
--- | Receiver separates cipher text and authentication tag using `getCipherTextAuthPair` 
--- and decrypts cipher text using 12 Byte Nonce and shared secret key, if 
+-- | Receiver separates cipher text and authentication tag using `getCipherTextAuthPair`
+-- and decrypts cipher text using 12 Byte Nonce and shared secret key, if
 -- authentication tag is valid
 
 
-chachaDecrypt :: (ByteArrayAccess iv, ByteArrayAccess key, ByteArrayAccess header, ByteArray authenticationTag, ByteArray cipherTextMessage) 
+chachaDecrypt :: (ByteArrayAccess iv, ByteArrayAccess key, ByteArrayAccess header, ByteArray authenticationTag, ByteArray cipherTextMessage)
     => iv -> key -> header -> authenticationTag -> cipherTextMessage -> CryptoFailable ByteString
 
 chachaDecrypt nonce key header auth cipherText = do
