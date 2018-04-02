@@ -13,7 +13,8 @@ module Arivi.Network.Types
     Socket,
     SockAddr,
     PortNumber,
-    HostAddress
+    HostAddress,
+    Version
 ) where
 
 import qualified Data.ByteString.Char8
@@ -21,7 +22,7 @@ import           Data.Int              (Int16, Int64)
 import qualified Data.Map.Strict       as Map
 import           Data.UUID             (UUID)
 import           Network.Socket
-import           Arivi.Crypto.Utils.Keys.Encryption
+import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
 
 type SessionId  = Int64
 type PayLoadLength = Int16
@@ -41,8 +42,8 @@ data Frame   =  HandshakeFrame {
                 ,   messageId          :: MessageId
                 ,   encodingModeList   :: [EncodingList]
                 ,   encryptionModeList :: [EncryptionModeList]
-                ,   ePhemeralPublicKey :: Arivi.Crypto.Utils.Keys.Encryption.PublicKey
-                ,   remotePublicKey    :: Arivi.Crypto.Utils.Keys.Encryption.PublicKey
+                ,   ePhemeralPublicKey :: Encryption.PublicKey
+                ,   remotePublicKey    :: Encryption.PublicKey
 
                }
                | RegularFrame  {
