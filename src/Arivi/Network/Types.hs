@@ -1,5 +1,4 @@
-
-
+{-# LANGUAGE DeriveGeneric #-}
 module Arivi.Network.Types
 (   PayLoad        (..),
     Frame          (..),
@@ -17,12 +16,18 @@ module Arivi.Network.Types
     Version
 ) where
 
-import qualified Data.ByteString.Char8
-import           Data.Int              (Int16, Int64)
-import qualified Data.Map.Strict       as Map
-import           Data.UUID             (UUID)
-import           Network.Socket
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
+import           Codec.Serialise
+import           Codec.Serialise.Class
+import           Codec.Serialise.Decoding
+import           Codec.Serialise.Encoding
+import qualified Data.ByteString.Char8
+import           Data.Int                           (Int16, Int64)
+import qualified Data.Map.Strict                    as Map
+import           Data.Monoid
+import           Data.UUID                          (UUID)
+import           GHC.Generics
+import           Network.Socket
 
 type SessionId  = Int64
 type PayLoadLength = Int16
@@ -76,12 +81,12 @@ data Frame   =  HandshakeFrame {
                 ,   sessionId      :: SessionId
                 ,   messageId      :: MessageId
                }
-                deriving (Show)
+                deriving (Show,Generic)
 
 data Version
     = V0
     | V1
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show,Generic)
 
 data PublicFlags  = PublicFlags {
                     finalFragment :: Bool
@@ -89,12 +94,12 @@ data PublicFlags  = PublicFlags {
                 ,   ecncryption   :: EncryptionType
                 ,   encoding      :: EncodingType
                 ,   transport     :: Transport
-            } deriving (Show)
+            } deriving (Show,Generic)
 
 data EncryptionType = NONE
                       | AES256_CTR
                       | CHACHA_POLY
-                      deriving (Eq,Show)
+                      deriving (Eq,Show,Generic)
 
 data EncodingType =
                 UTF_8
@@ -102,11 +107,11 @@ data EncodingType =
                 | CBOR
                 | JSON
                 | PROTO_BUFF
-                deriving (Eq,Show)
+                deriving (Eq,Show,Generic)
 
 data Transport =   UDP
                  | TCP
-                 deriving (Eq,Show)
+                 deriving (Eq,Show,Generic)
 
 data Opcode       =   ERROR
                     | HANDSHAKE_REQUEST
@@ -116,12 +121,20 @@ data Opcode       =   ERROR
                     | CLOSE
                     | PING
                     | PONG
-                    deriving (Show)
+                    deriving (Show,Generic)
 
 
 newtype PayLoadMarker = PayLoadMarker {
                             subProtocol :: SubProtocol
-                    } deriving (Show)
+                    } deriving (Show,Generic)
 
 newtype PayLoad = PayLoad Data.ByteString.Char8.ByteString
-               deriving (Show)
+               deriving (Show,Generic)
+
+instance Serialise Version
+instance Serialise Opcode
+instance Serialise EncodingType
+instance Serialise Transport
+instance Serialise EncryptionType
+
+
