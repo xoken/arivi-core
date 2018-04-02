@@ -41,7 +41,7 @@ getPeerListFromKeyList [] k msg = []
 getPeerListFromKeyList (x:xs) k msg
     | ls >= k   = fst (Prelude.splitAt k plt)
     | otherwise = pl ++ getPeerListFromKeyList xs
-                    (k - (Prelude.length pl)) msg
+                    (k - Prelude.length pl) msg
 
     where
         ls   = Prelude.length (Map.lookup x msg)
