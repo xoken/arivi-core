@@ -35,22 +35,16 @@ data Config = Config {
     ,   logFilePath     :: String
     } deriving (Eq, Show)
 
+data KademliaHandle = KH {
+        nodeID :: T.NodeId
+    ,   ksock  :: T.Socket
+    ,   config :: Config
+}
 
-data KademliaInstance = KademliaInstance {
-                     nodeId                 :: T.NodeId
-                ,    secretKey              :: CS.SecretKey
-                ,    port                   :: String
-                ,    ip                     :: String
-                ,    kb                     :: Int
-                ,    kademliaResponseTime   :: Int
-                ,    kthreadSleepTime       :: Int
-                ,    kademliaBootStrapPeers :: [String]
-                ,    klogFilePath           :: String
-                } deriving (Show )
 
-genPublicKey seed sk
+genPublicKey sk seed
   | not (Prelude.null sk) =  (temp,CS.getPublicKey temp)
-  | otherwise                =  (temp2,temp3)
+  | otherwise             =  (temp2,temp3)
   where
     temp  = CS.hexToSecretKey (BC.pack sk)
     temp2 = CS.getSecretKey seed
@@ -61,27 +55,21 @@ writeLog nodeId logChan logFilePath = forkIO $ forever $ runFileLoggingT
     logFilePath $ do
 
   logMsg <- liftIO $ readChan logChan
-  let loc       = extractFirst2 logMsg
+  let loc       = extractFirst2  logMsg
       logSource = extractSecond2 logMsg
-      logLevel  = extractThird2 logMsg
-      logStr    = extractFourth logMsg
+      logLevel  = extractThird2  logMsg
+      logStr    = extractFourth  logMsg
 
   logInfoN (Data.Text.pack (show logStr))
 
-createKademliaInstance cfg = do
-    -- Assing the node a NodeID which is also the public id of the node
-    seed <- Kademlia.Random.getRandomByteString 32
-    let (sk,pk)    = genPublicKey seed (privateKey cfg)
-        -- tempNodeId = pk :: T.NodeId
-    let ki = KademliaInstance pk sk (localPortNo cfg) (localIpAddress cfg)
-                (k cfg)
-                (responseTime cfg)
-                (threadSleepTime cfg)
-                (bootStrapPeers cfg)
-                (logFilePath cfg)
-    return ki
+createKademliaInstance :: Config -> T.Socket -> IO KademliaHandle
+createKademliaInstance cfg ksocket = do
+    seed <- getRandomByteString 32
+    let nid = snd $ genPublicKey (privateKey cfg) seed
+    return (KH nid ksocket cfg)
 
-runKademliaInstance ki threadMvar  = do
+runKademliaInstance :: KademliaHandle -> IO()
+runKademliaInstance ki = do
 
     let workerCount = 5
 
@@ -91,17 +79,17 @@ runKademliaInstance ki threadMvar  = do
     logChan        <- newChan
     localSock      <- newEmptyMVar
 
-    addtoKbChanTids    <- mapM (addToKbChan kbChan peerChan logChan )
-                            [1..workerCount]
+    -- addtoKbChanTids    <- mapM (addToKbChan kbChan peerChan logChan )
+    --                         [1..workerCount]
 
-    pendingResChanTids <- mapM (maintainPendingResChan pendingResChan
-                            ((fromIntegral $ kademliaResponseTime ki)
-                            ::T.POSIXTime) (kthreadSleepTime ki) )
-                            [1..workerCount]
+    -- pendingResChanTids <- mapM (maintainPendingResChan pendingResChan
+    --                         ((fromIntegral $ kademliaResponseTime ki)
+    --                         ::T.POSIXTime) (kthreadSleepTime ki) )
+    --                         [1..workerCount]
 
-    writeLogTids       <- writeLog (nodeId ki) logChan (klogFilePath ki)
+    -- writeLogTids       <- writeLog (nodeId ki) logChan (klogFilePath ki)
 
-    let peerList        = kademliaBootStrapPeers ki
+    let peerList        = bootStrapPeers (config ki)
         defaultPeerList = Prelude.map convertToSockAddr peerList
 
-    print ""
+    return ()
