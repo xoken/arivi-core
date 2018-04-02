@@ -29,7 +29,7 @@ source-repository head
 library
   build-depends:       base >=4.9 && <4.10
                     ,  async
-                    ,  network >= 2.6.3.4
+                    ,  network
                     ,  stm >= 2.4.4.1
                     ,  bytestring
                     ,  split
@@ -42,6 +42,15 @@ library
                     ,  raaz >= 0.1.1
                     ,  base16-bytestring
                     ,  unordered-containers <= 0.2.9.0
+                    ,  configurator >= 0.3.0.0
+                    ,  serialise 
+                    ,  time 
+                    ,  bytes 
+                    ,  base16-bytestring 
+                    ,  crypto-api 
+                    ,  integer-gmp 
+                    ,  monad-logger
+                    ,  random 
   hs-source-dirs:      src
   exposed-modules:     Arivi.Network.Datagram
                        Arivi.Network.Stream
@@ -52,4 +61,13 @@ library
                        Arivi.Network.Session
                        Arivi.Crypto.Utils.Keys.Encryption
                        Arivi.Crypto.Utils.Random
+                       Arivi.Kademlia.Instance 
+                       Arivi.Kademlia.Node 
+                       Arivi.Kademlia.Query
+                       Arivi.Kademlia.Random 
+                       Arivi.Kademlia.Signature 
+                       Arivi.Kademlia.Types 
+                       Arivi.Kademlia.Utils 
+                       Arivi.Kademlia.XorDistance 
+
   default-language:    Haskell2010
