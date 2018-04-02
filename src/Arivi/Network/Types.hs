@@ -7,7 +7,7 @@ module Arivi.Network.Types
     MessageId      (..),
     EncryptionType (..),
     Transport      (..),
-    Encoding       (..),
+    EncodingType   (..),
     SubProtocol    (..),
     ContextID      (..),
     Socket,
@@ -86,7 +86,7 @@ data PublicFlags  = PublicFlags {
                     finalFragment :: Bool
                 ,   initiator     :: Bool
                 ,   ecncryption   :: EncryptionType
-                ,   encoding      :: Encoding
+                ,   encoding      :: EncodingType
                 ,   transport     :: Transport
             } deriving (Show)
 
@@ -95,7 +95,8 @@ data EncryptionType = NONE
                       | CHACHA_POLY
                       deriving (Eq,Show)
 
-data Encoding = UTF_8
+data EncodingType =
+                UTF_8
                 | ASCII
                 | CBOR
                 | JSON

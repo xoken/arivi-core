@@ -80,7 +80,7 @@ register :: AriviHandle
             -> SubProtocol
             -> Transport
             -> EncryptionType
-            -> Encoding
+            -> EncodingType
             -> ContextID
 
 register ah key value protocol transport encryptionType encoding = undefined
