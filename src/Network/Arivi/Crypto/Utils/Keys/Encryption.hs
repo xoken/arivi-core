@@ -84,7 +84,7 @@ curveX25519 = Proxy :: Proxy Curve_X25519
 -- and shares encrypted ephemeralPublicKey with remote
 
 createSharedSecreatKey :: SecretKey -> PublicKey ->  Crypto.ECC.SharedSecret
-createSharedSecreatKey ephemeralPrivateKey remotePublicKey = ecdh curveX25519 ephemeralPrivateKey remotePublicKey
+createSharedSecreatKey = ecdh curveX25519
 
 
 
