@@ -36,6 +36,7 @@ module Kademlia.Types
     getRandomSequence,
     PortNumber,
     HostAddress,
+    Socket,
     serialise,
     deserialise
   ) where
