@@ -1,5 +1,5 @@
 
-module Network.Arivi.Instance
+module Arivi.Network.Instance
 (
 AriviConfig (..),
 getAriviInstance ,
@@ -12,10 +12,10 @@ import           Control.Concurrent        (MVar, ThreadId, forkIO,
 import           Control.Concurrent.Async
 import           Control.Monad
 import qualified Data.Map.Strict           as Map
-import           Network.Arivi.Datagram
-import qualified Network.Arivi.Multiplexer as MP
-import           Network.Arivi.Stream
-import           Network.Arivi.Types
+import           Arivi.Network.Datagram
+import qualified Arivi.Network.Multiplexer as MP
+import           Arivi.Network.Stream
+import           Arivi.Network.Types
 import           Network.Socket
 
 

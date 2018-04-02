@@ -1,4 +1,4 @@
-module Network.Arivi.Datagram
+module Arivi.Network.Datagram
 (
     runUDPServerForever
 ) where
@@ -19,8 +19,8 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
 
 
-import qualified Network.Arivi.Multiplexer as MP
-import qualified Network.Arivi.Types       as T
+import qualified Arivi.Network.Multiplexer as MP
+import qualified Arivi.Network.Types       as T
 
 runUDPServerForever :: Socket
                     -> SockAddr
@@ -39,7 +39,3 @@ runUDPServerForever sock sockAddr registry = do
             -- pass msg to callback
             -- callb (mesg,socadr2)
             print ""
-
-
-
-

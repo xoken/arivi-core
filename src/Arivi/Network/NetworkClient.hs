@@ -1,4 +1,4 @@
-module Network.Arivi.NetworkClient
+module Arivi.Network.NetworkClient
 (
     networkClient
 ) where

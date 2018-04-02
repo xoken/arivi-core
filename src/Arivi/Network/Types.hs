@@ -1,6 +1,6 @@
 
 
-module Network.Arivi.Types
+module Arivi.Network.Types
 (   PayLoad        (..),
     Frame          (..),
     SessionId      (..),
