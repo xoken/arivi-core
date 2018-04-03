@@ -7,15 +7,15 @@ runAriviInstance ,
 AriviHandle (..),
 ) where
 
+import           Arivi.Network.Datagram
+import qualified Arivi.Network.Multiplexer as MP
+import           Arivi.Network.Stream
+import           Arivi.Network.Types
 import           Control.Concurrent        (MVar, ThreadId, forkIO,
                                             newEmptyMVar, putMVar, takeMVar)
 import           Control.Concurrent.Async
 import           Control.Monad
 import qualified Data.Map.Strict           as Map
-import           Arivi.Network.Datagram
-import qualified Arivi.Network.Multiplexer as MP
-import           Arivi.Network.Stream
-import           Arivi.Network.Types
 import           Network.Socket
 
 

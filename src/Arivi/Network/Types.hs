@@ -13,7 +13,9 @@ module Arivi.Network.Types
     SockAddr,
     PortNumber,
     HostAddress,
-    Version
+    Version,
+    serialise,
+    deserialise
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -21,6 +23,8 @@ import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
+import           Data.ByteArray
+import qualified Data.ByteString
 import qualified Data.ByteString.Char8
 import           Data.Int                           (Int16, Int64)
 import qualified Data.Map.Strict                    as Map
@@ -32,10 +36,8 @@ import           Network.Socket
 type SessionId  = Int64
 type PayLoadLength = Int16
 type FragmentNumber = Integer
-type MessageId  = UUID
+type MessageId  = String
 type SubProtocol = Int
-type EncodingList = Data.ByteString.Char8.ByteString
-type EncryptionModeList  = Data.ByteString.Char8.ByteString
 type Descriptor  = Data.ByteString.Char8.ByteString
 type ContextID  = Int
 
@@ -45,8 +47,8 @@ data Frame   =  HandshakeFrame {
                 ,   opcode             :: Opcode
                 ,   sessionId          :: SessionId
                 ,   messageId          :: MessageId
-                ,   encodingModeList   :: [EncodingList]
-                ,   encryptionModeList :: [EncryptionModeList]
+                ,   encodingModeList   :: [EncodingType]
+                ,   encryptionModeList :: [EncryptionType]
                 ,   ePhemeralPublicKey :: Encryption.PublicKey
                 ,   remotePublicKey    :: Encryption.PublicKey
 
@@ -136,5 +138,28 @@ instance Serialise Opcode
 instance Serialise EncodingType
 instance Serialise Transport
 instance Serialise EncryptionType
+instance Serialise PublicFlags
+instance Serialise PayLoadMarker
+instance Serialise PayLoad
+instance Serialise Frame
+
+-- Serialise intance for PublicKey
+instance Serialise PublicKey where
+    encode = encodePublicKey
+    decode = decodePublicKey
+
+encodePublicKey :: PublicKey -> Encoding
+encodePublicKey bytes = do
+    let temp = convert bytes :: Data.ByteString.ByteString
+    encodeListLen 2 <> encodeWord 0 <> encode temp
+
+decodePublicKey :: Decoder s PublicKey
+decodePublicKey = do
+    len <- decodeListLen
+    tag <- decodeWord
+    case (len,tag) of
+        (2,0)  -> throwCryptoError . publicKey <$>
+                    (decode :: Decoder s Data.ByteString.ByteString)
+        _      -> fail "invalid PublicKey encoding"
 
 

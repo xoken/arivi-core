@@ -246,6 +246,7 @@ decodePortNumber = do
         (2,0) -> PortNum <$> decode
         _     -> fail "Invalid PortNumber encoding"
 
+
 -- Serialise instance for MessageBody data type
 instance Serialise MessageBody where
     encode = encodeMessageBody
