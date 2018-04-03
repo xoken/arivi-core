@@ -1,5 +1,6 @@
 
 
+
 # ARIVI Wire Specification 
 
 ## 1) Handshake Frame
@@ -36,6 +37,7 @@ as part of negotiation,
 
 This is type of frame is used for regular messages containing application data payload that is typically encrypted (negotiated during handshake) per the application's needs. 
 
+![enter image description here](https://user-images.githubusercontent.com/8463082/38251925-66db2fc0-3770-11e8-9b8b-61aab6365639.png)
 ---
 
 ## 3) Reset/Close Frame
@@ -55,40 +57,39 @@ This frame contains information about the error in connection, the opcode of thi
 Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 , This field is 32 bit long.
 
 ---
-### Opcode: \[1 Byte\]
-
- - **ERROR - 0x00**
-
+### Opcode: \[2 Byte\]
+ - **Error - 0x00**
 Indicates an error processing a request. The Error descriptor of the message will contain an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
     
--   **HANDSHAKE_REQUEST 0x01**
-This opcode indicates that the given frame is HANDSHAKE_REQUEST step (1 of 3) in message handshake.
+-   **Handshake_Init 0x01**
+This opcode indicates that the given frame is Handshake_Init step in message handshake.
     
+-   **Handshake_Ack - 0x02**
+This opcode indicates that the given frame is Handshake_Ack step in message handshake.
 
--   **HANDSHAKE_RESPONSE 0x02**
-This opcode indicates that the given frame is HANDSHAKE_RESPONSE step (2 of 3) in message handshake.
-    
--   **HANDSHAKE_ACK - 0x03**
-This opcode indicates that the given frame is HANDSHAKE_ACK step (3 of 3) in message handshake.
-    
+-   **Data - 0x03**
+ 	This opcode indicates this frame is regular data carrying frame. 
 -   **Options 0x04**
 Asks the server to return what service options are supported. The body of an OPTIONS message should be empty and the server will respond with a SUPPORTED message such as services Kademlia,Chord,Block
 
--   **Reset, 0x05**
+-   **Supported 0x05**
+Indicates the descriptor field contains the list of supported services.
+
+-   **Reset, 0x06**
 Resets the connection session
     
--   **Close 0x06**
+-   **Close 0x07**
 Terminates the current connection with the server
-    
--   **Ping 0x07**
+
+-   **Ping 0x08**
 A Ping frame may serve either as a keepalive or as a means to verify that the remote endpoint is still alive.
     
--   **Pong 0x08**
+-   **Pong 0x09**
 A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolicited to serve an unidirectional heartbeat.  A response to an unsolicited Pong frame is not expected.
-    
+
 ----
 
-### Public Flags: \[1 Byte\]
+### Public Flags: \[2 Byte\]
 
 -   **Fragmentation** : This bit is set for fragmented messages. Unfragmented messages will not have this bit set.
     
@@ -134,7 +135,7 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
   
   
 
-### Message id: \[1 Byte\]  
+### Message id: \[2 Byte\]  
 - This field will be present only if fragmentation bit is set. All fragments of a given message will have the same message id.
   
 ---
