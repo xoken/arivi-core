@@ -1,11 +1,12 @@
 
+
 # ARIVI Wire Specification 
 
 ## 1) Handshake Frame
 
 This type of frame contains handshake of the connection.
 
- 1. **HANDSHAKE_INIT:** It follows an integrated handshake pattern where key exchange and version/ encryption negotiation happens simultaneously.  Handshake-Initiator sends the following encrypted using the public key of the recipient. 
+ 1. **HANDSHAKE_INIT:** It follows an integrated handshake pattern where key exchange and version/ encryption negotiation happens simultaneously.  Handshake-Init contains the following fields which are together encrypted using the remote party's public key. 
 as part of negotiation,
 	 - supported protocol version list 
 	 - supported encryption mode list
@@ -21,9 +22,9 @@ as part of negotiation,
     - received  remote-public-key  
     
 2.  **HANDSHAKE_ACK:**  
-    The recipient responds with the following,
-      - public key
-	 - ephemeral public
+    The Ack frame contains the following fileds which will be encrypted using the remote party's (initiator's) public key.
+     - public key
+     - ephemeral public
      - negotiated  protocol version 
      - negotiated  encryption mode
 
@@ -103,7 +104,7 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
 			10 - ChaChaPoly
 
 
--   **Encoding: **
+-   **Encoding:**
 	- This field is used to represent the encoding used for the message it can be UTF-8,CBOR,JSON,Google’s Protocol Buffer, etc
     
 
@@ -155,7 +156,13 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
  -  This denote the length of message in payload field. This field size is 3 Bytes which gives 2^(3*8) bits = 2 MB max size of payload but actual size will be 500KB
 
   ---
-  
+
+### Header-MAC \[16 Byte\] 
+
+ -  This denote the message authentication code for the 'header' contents which include all the above fields. This applies for Regular Frame only. It employs SHA-3 HMAC algorithm as below:
+ - SHA3( SHA3(Header) || Shared Secret)
+
+  ---
 ### Payload  \[Max 2MB, but actual 500KB\]
 
 - This is the actual payload of the frame which can be of max size 2MB but actual size is 500KB in TCP, 50KB in UDP
