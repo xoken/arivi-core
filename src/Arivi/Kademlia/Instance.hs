@@ -3,7 +3,8 @@ module Arivi.Kademlia.Instance
 (
     createKademliaInstance,
     runKademliaInstance,
-    Config      (..)
+    Config      (..),
+    T.NodeId
 ) where
 
 import           Arivi.Kademlia.Node
@@ -14,7 +15,7 @@ import           Arivi.Kademlia.Utils
 import           Control.Concurrent           (Chan, forkIO, newChan,
                                                newEmptyMVar, putMVar, readChan,
                                                takeMVar)
-import           Control.Concurrent.STM.TChan (newTChan)
+import           Control.Concurrent.STM.TChan (TChan, newTChan)
 import           Control.Monad                (forever)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger
@@ -22,12 +23,11 @@ import           Control.Monad.STM            (atomically)
 import qualified Data.ByteString.Char8        as BC
 import           Data.List                    (find, length, tail)
 import           Data.Text                    (pack)
+import           Network.Socket
 import           System.Environment
 
 data Config = Config {
-        localIpAddress  :: String
-    ,   localPortNo     :: String
-    ,   bootStrapPeers  :: [String]
+        bootStrapPeers  :: [String]
     ,   k               :: Int
     ,   privateKey      :: String
     ,   responseTime    :: Int
@@ -36,11 +36,11 @@ data Config = Config {
     } deriving (Eq, Show)
 
 data KademliaHandle = KH {
-        nodeID :: T.NodeId
-    ,   ksock  :: T.Socket
-    ,   config :: Config
+        nodeID       :: T.NodeId
+    ,   ksock        :: Socket
+    ,   config       :: Config
+    ,   outboundChan :: TChan (T.PayLoad,SockAddr)
 }
-
 
 genPublicKey sk seed
   | not (Prelude.null sk) =  (temp,CS.getPublicKey temp)
@@ -65,8 +65,9 @@ writeLog nodeId logChan logFilePath = forkIO $ forever $ runFileLoggingT
 createKademliaInstance :: Config -> T.Socket -> IO KademliaHandle
 createKademliaInstance cfg ksocket = do
     seed <- getRandomByteString 32
+    outBoundChan <- atomically newTChan
     let nid = snd $ genPublicKey (privateKey cfg) seed
-    return (KH nid ksocket cfg)
+    return (KH nid ksocket cfg outBoundChan)
 
 runKademliaInstance :: KademliaHandle -> IO()
 runKademliaInstance ki = do

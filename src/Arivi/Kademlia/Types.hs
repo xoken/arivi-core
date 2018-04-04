@@ -38,7 +38,7 @@ module Arivi.Kademlia.Types
     HostAddress,
     Socket,
     serialise,
-    deserialise
+    deserialise,
   ) where
 
 import           Arivi.Kademlia.Utils

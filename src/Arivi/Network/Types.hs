@@ -15,7 +15,8 @@ module Arivi.Network.Types
     HostAddress,
     Version,
     serialise,
-    deserialise
+    deserialise,
+    ServiceContext (..)
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -40,6 +41,7 @@ type MessageId  = String
 type SubProtocol = Int
 type Descriptor  = Data.ByteString.Char8.ByteString
 type ContextID  = Int
+type ServiceContext = Int
 
 
 data Frame   =  HandshakeFrame {

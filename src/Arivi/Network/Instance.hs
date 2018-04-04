@@ -5,14 +5,17 @@ AriviConfig (..),
 getAriviInstance ,
 runAriviInstance ,
 AriviHandle (..),
+KI.Config (..)
 ) where
 
+import qualified Arivi.Kademlia.Instance   as KI
 import           Arivi.Network.Datagram
 import qualified Arivi.Network.Multiplexer as MP
 import           Arivi.Network.Stream
 import           Arivi.Network.Types
 import           Control.Concurrent        (MVar, ThreadId, forkIO,
-                                            newEmptyMVar, putMVar, takeMVar)
+                                            newEmptyMVar, putMVar, readMVar,
+                                            takeMVar)
 import           Control.Concurrent.Async
 import           Control.Monad
 import qualified Data.Map.Strict           as Map
@@ -45,7 +48,7 @@ getAriviInstance ac = do
         tcpServeraddr = head $ tail addrinfos
 
     udpSock <- socket (addrFamily udpServeraddr) Datagram defaultProtocol
-    tcpSock <- socket (addrFamily tcpServeraddr) Datagram defaultProtocol
+    tcpSock <- socket (addrFamily tcpServeraddr) Stream defaultProtocol
 
     let ariviUdpSock = (udpSock,addrAddress udpServeraddr)
         arivitcpSock = (tcpSock,addrAddress tcpServeraddr)
@@ -57,16 +60,17 @@ getAriviInstance ac = do
 -- | Starts an arivi instance from ariviHandle which contains all the
 --   information required to run an arivi instance.
 runAriviInstance :: AriviHandle
+                 -> KI.Config
                  -> IO ()
 
-runAriviInstance ah = do
+runAriviInstance ah kcfg = do
     tid1 <- async $ uncurry runUDPServerForever (ariviUDPSock ah) (registry ah)
     tid2 <- async $ uncurry runTCPServerForever (ariviTCPSock ah) (registry ah)
 
     let threadIDUDP = asyncThreadId tid1
         threadIDTCP = asyncThreadId tid2
     putMVar (udpThread ah) threadIDUDP
-    putMVar (udpThread ah) threadIDTCP
+    putMVar (tcpThread ah) threadIDTCP
 
     wait tid1
     wait tid2
@@ -74,25 +78,31 @@ runAriviInstance ah = do
 -- | Register callback functions for subprotocols which will be fired when
 --   arivi recieves a message meant for a particular subprotocl essentially
 --   passing the control to subprotocol with the message.
-register :: AriviHandle
-            -> Int               -- Subprotocol Code
-            -> (PayLoad -> IO()) -- Subprotocol Message Handler
-            -> SubProtocol
-            -> Transport
-            -> EncryptionType
-            -> EncodingType
-            -> ContextID
 
-register ah key value protocol transport encryptionType encoding = undefined
+registerService :: AriviHandle
+                -> (PayLoad -> IO())
+                -> SubProtocol
+                -> ServiceContext
+
+registerService ah callback subprotocol = undefined
 
 -- | assigns a unique session for each connection & subprotocol between two
 --   nodes which is identified by a sessionID
-createSession :: PortNumber
+
+createSession :: ServiceContext
+              -> KI.NodeId
+              -> PortNumber
               -> HostAddress
-              -> ContextID
+              -> Transport
               -> SessionId
 
-createSession recPort recHost contextID = undefined
+createSession sc nid pnum haddr tp = undefined
+
+getSession :: ServiceContext
+           -> KI.NodeId
+           -> SessionId
+
+getSession sc nid = undefined
 
 sendMessage :: SessionId -> PayLoad -> IO ()
 sendMessage ssid message = undefined
@@ -100,5 +110,3 @@ sendMessage ssid message = undefined
 closeSession :: SessionId -> IO ()
 closeSession ssid = undefined
 
-resetSession :: SessionId -> IO ()
-resetSession ssid = undefined
