@@ -30,7 +30,7 @@ runUDPServerForever :: Socket
 runUDPServerForever sock sockAddr registry = do
 
     bind sock sockAddr
-    print ("UDP Server now listening for requests at : " ++ show (sockAddr))
+    print ("UDP Server now listening for requests at : " ++ show sockAddr)
     forever $
                 do
             (mesg, socaddr2) <- N.recvFrom sock 4096

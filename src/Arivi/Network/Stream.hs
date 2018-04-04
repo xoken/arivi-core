@@ -26,7 +26,7 @@ runTCPServerForever :: Socket
 
 runTCPServerForever sock sockAddr messageHandler = do
     bind sock sockAddr
-    print ("TCP Server now listening for requests at : " ++ show (sockAddr))
+    print ("TCP Server now listening for requests at : " ++ show sockAddr)
     forever $
          do
             (mesg, socaddr2) <- N.recvFrom sock 4096
