@@ -37,7 +37,7 @@ as part of negotiation,
 
 This is type of frame is used for regular messages containing application data payload that is typically encrypted (negotiated during handshake) per the application's needs. 
 
-![Regular Frame](https://user-images.githubusercontent.com/8463082/38365653-c1494f7e-38fa-11e8-826a-bfb0eeac55cb.png)
+![Regular Frame](https://user-images.githubusercontent.com/8463082/38368557-3886acdc-3903-11e8-8fda-06d9dbafddf3.png)
 
 ---
 
@@ -138,7 +138,8 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
 - Integer field value that will be incremented for each message. All fragments of a given message will have the same message id. Starts from 0 for given connection.
 ---
 
-### Fragment number \[1 or 2 Bytes\]
+### Fragment number \[0 to 2 Bytes\] (Optional)
+- This field is present only if Fragmentation flag is set. 
 - If the first bit is 0, then the next 7 bits indicate the fragment number, fragment counting starts from 1.
 - If the first bit is set to 1, then the next 15 bits indicate the fragment number.
 - If the first 8 bits are zeroes, then this fragment is considered to be the final fragment.
