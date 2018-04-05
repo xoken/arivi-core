@@ -32,18 +32,21 @@ module Arivi.Crypto.Utils.Keys.Encryption
     derivedSharedSecreatKey,
     SharedSecret,
     PublicKey,
-    SecretKey
+    SecretKey,
+    throwCryptoError,
+    publicKey
 ) where
 
 
-import Crypto.Error (throwCryptoError,CryptoFailable)
-import Crypto.PubKey.Curve25519 (SecretKey,PublicKey,secretKey,toPublic)
-import Data.ByteString.Char8  (ByteString)
-import Data.ByteArray (convert)
-import Crypto.ECC (ecdh,Curve_X25519,SharedSecret)
-import Data.Proxy
+import           Crypto.ECC                (Curve_X25519, SharedSecret, ecdh)
+import           Crypto.Error              (CryptoFailable, throwCryptoError)
+import           Crypto.PubKey.Curve25519  (PublicKey, SecretKey, publicKey,
+                                            secretKey, toPublic)
+import           Data.ByteArray            (convert)
+import           Data.ByteString.Char8     (ByteString)
+import           Data.Proxy
 
-import Arivi.Crypto.Utils.Random
+import           Arivi.Crypto.Utils.Random
 
 
 

@@ -3,20 +3,20 @@ module Arivi.Network.NetworkClient
     networkClient
 ) where
 
-import           Control.Concurrent                         (forkIO,ThreadId,newEmptyMVar,putMVar,
-                                                            takeMVar)
+import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
+                                            putMVar, takeMVar)
 import           Control.Concurrent.MVar
-import           Control.Monad                              (forever)
-import           Network.Socket
-import           Control.Concurrent.STM                     (atomically,TChan,TMVar,newTMVar,
-                                                            newTChan,writeTChan,readTChan,
-                                                            readTMVar)
-import qualified Network.Socket.ByteString          as N    (recvFrom,sendTo)
-import qualified Data.ByteString.Char8              as C
-import qualified Data.List.Split                    as S
+import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
+                                            newTMVar, readTChan, readTMVar,
+                                            writeTChan)
+import           Control.Monad             (forever)
+import qualified Data.ByteString.Char8     as C
+import qualified Data.List.Split           as S
+import qualified Data.Map.Strict           as Map
+import           Data.Maybe                (fromMaybe)
 import           Data.Word
-import           Data.Maybe                                  (fromMaybe)
-import qualified Data.Map.Strict                    as Map
+import           Network.Socket
+import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
 
 
 networkClient :: TChan (C.ByteString,SockAddr)

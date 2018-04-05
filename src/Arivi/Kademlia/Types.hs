@@ -38,7 +38,7 @@ module Arivi.Kademlia.Types
     HostAddress,
     Socket,
     serialise,
-    deserialise
+    deserialise,
   ) where
 
 import           Arivi.Kademlia.Utils
@@ -245,6 +245,7 @@ decodePortNumber = do
     case (len,tag) of
         (2,0) -> PortNum <$> decode
         _     -> fail "Invalid PortNumber encoding"
+
 
 -- Serialise instance for MessageBody data type
 instance Serialise MessageBody where
