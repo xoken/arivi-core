@@ -12,13 +12,14 @@ module Arivi.Network.Session
 (
     getUniqueSessionId,
     genSessionId,
-    SessionTuple (..)
+    SessionTuple (..),
+    createSession
 ) where
 
 
-import Data.ByteString.Char8 (ByteString)
+import Data.ByteString.Char8 (ByteString,pack)
 import Data.ByteString.Base16 (encode)
-import Data.HashMap.Strict (HashMap,member,empty)
+import Data.HashMap.Strict (HashMap,member,empty,insert)
 
 import Arivi.Crypto.Utils.Random
 import Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -54,3 +55,24 @@ getUniqueSessionId hashmap = do
                                     then  getUniqueSessionId hashmap
                                     else
                                         return sessionId
+
+
+
+
+-- | Creates Unique session and stores in given hashmap
+
+createSession :: Version -> SharedSecret
+             -> Encryption.PublicKey
+             -> EncodingType
+             -> HashMap ByteString SessionTuple
+             -> IO (HashMap ByteString SessionTuple)
+createSession negoVersion sharedSecret
+              remotePublicKey  encodingType sessionHashmap =
+
+                getUniqueSessionId sessionHashmap
+                    >>= \uniqueSessionId
+                    -> return
+                    (Data.HashMap.Strict.insert uniqueSessionId
+                                 (SessionTuple negoVersion sharedSecret
+                                           remotePublicKey encodingType)
+                              sessionHashmap)
