@@ -8,46 +8,58 @@
 --
 -- This module provides useful functions for managing sessions in Arivi
 -- communication
+
 module Arivi.Network.Session
 (
+    SessionId,
+    SessionInfo (..),
     getUniqueSessionId,
     genSessionId,
-    SessionTuple (..),
-    createSession
+    createSession,
+    closeSession
 ) where
 
 
-import Data.ByteString.Char8 (ByteString,pack)
-import Data.ByteString.Base16 (encode)
-import Data.HashMap.Strict (HashMap,member,empty,insert)
+import           Data.ByteString.Base16             (encode)
+import           Data.ByteString.Char8              (ByteString, pack)
+import           Data.HashMap.Strict                (HashMap, delete, empty,
+                                                     insert, member)
 
-import Arivi.Crypto.Utils.Random
-import Arivi.Crypto.Utils.Keys.Encryption as Encryption
-import Arivi.Network.Types (Version,EncodingType)
+import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
+import           Arivi.Crypto.Utils.Random          (getRandomByteString)
+import           Arivi.Kademlia.Types               (HostAddress, NodeId)
+import           Arivi.Network.Connection
+import           Arivi.Network.Types                (EncodingType,
+                                                     ServiceContext,
+                                                     TransportType)
 
+-- | SessionId is type synonym for ByteString
+type SessionId = ByteString
 
-
--- | (sessionId,SessionTuple) are (key,value) pair in HashMap that stores
+-- | (sessionId,SessionInfo) are (key,value) pair in HashMap that stores
 -- information about all the session uniquely
-data SessionTuple = SessionTuple {
-                          version         :: Version
-                        , sharedSecret    :: Encryption.SharedSecret
-                        , remotePublicKey :: Encryption.PublicKey
-                        , encodingType    :: EncodingType
+data SessionInfo = SessionInfo {
+                          sessionId      :: SessionId
+                        , serviceContext :: ServiceContext
+                        , connectionId   :: ConnectionId
+                        , encodingType   :: EncodingType
                         } deriving (Eq)
+
+
+
 
 
 
 -- | Generates a random 4 Byte SessionId using Raaz's random ByteString
 -- generation
-genSessionId :: IO ByteString
+genSessionId :: IO SessionId
 genSessionId = getRandomByteString 4 >>=
                                     \byteString -> return (encode byteString)
 
 
 -- | Generates unique SessionId by checking it is already present in given
 -- HashMap
-getUniqueSessionId :: HashMap ByteString SessionTuple -> IO ByteString
+getUniqueSessionId :: HashMap ByteString SessionInfo -> IO SessionId
 getUniqueSessionId hashmap = do
                                 sessionId <- genSessionId
 
@@ -59,20 +71,30 @@ getUniqueSessionId hashmap = do
 
 
 
--- | Creates Unique session and stores in given hashmap
+-- | Creates Unique session and stores in given HashMap
 
-createSession :: Version -> SharedSecret
-             -> Encryption.PublicKey
+createSession :: ServiceContext
+             -> ConnectionId
              -> EncodingType
-             -> HashMap ByteString SessionTuple
-             -> IO (HashMap ByteString SessionTuple)
-createSession negoVersion sharedSecret
-              remotePublicKey  encodingType sessionHashmap =
+             -> HashMap SessionId SessionInfo
+             -> IO (SessionId,HashMap SessionId SessionInfo)
+createSession serviceContext connectionId
+              encodingType sessionHashmap =
 
                 getUniqueSessionId sessionHashmap
                     >>= \uniqueSessionId
                     -> return
-                    (Data.HashMap.Strict.insert uniqueSessionId
-                                 (SessionTuple negoVersion sharedSecret
-                                           remotePublicKey encodingType)
+                   (uniqueSessionId,
+                    Data.HashMap.Strict.insert uniqueSessionId
+                                 (SessionInfo uniqueSessionId serviceContext
+                                    connectionId encodingType)
                               sessionHashmap)
+
+
+-- | Closes Session for given sessionId, which deletes the member of HashMap
+--  identified by SessionId
+
+closeSession :: SessionId
+             -> HashMap SessionId SessionInfo
+             -> HashMap SessionId SessionInfo
+closeSession = Data.HashMap.Strict.delete
