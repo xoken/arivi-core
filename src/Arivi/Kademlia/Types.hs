@@ -33,7 +33,6 @@ module Arivi.Kademlia.Types
     packPong,
     POSIXTime,
     getPOSIXTime,
-    getRandomSequence,
     PortNumber,
     HostAddress,
     Socket,
@@ -41,7 +40,7 @@ module Arivi.Kademlia.Types
     deserialise,
   ) where
 
-import           Arivi.Kademlia.Utils
+import           Arivi.Utils.Utils
 import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
@@ -51,6 +50,7 @@ import           Crypto.PubKey.Ed25519
 import           Data.ByteArray
 import           Data.ByteString
 import qualified Data.ByteString.Lazy      as BSL
+import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.List.Split           as S
 import           Data.Monoid
 import           Data.Time.Clock
@@ -61,9 +61,6 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (recv, recvFrom, sendAll,
                                                  sendAllTo, sendTo)
 import qualified Network.Socket.Internal   as M
-import           System.Random
-
-import qualified Data.ByteString.Lazy      as LBS
 
 -- Helper function to get timeStamp/ epoch
 getTimeStamp :: IO TimeStamp
@@ -234,6 +231,9 @@ instance Serialise PortNumber where
     encode = encodePortNumber
     decode = decodePortNumber
 
+-- ! Fix warnings generated due to use of PortNum which will be deprecated by
+-- ! Lib
+
 encodePortNumber :: PortNumber -> Encoding
 encodePortNumber (PortNum a) =
     encodeListLen 2 <> encodeWord 0 <> encode a
@@ -274,8 +274,3 @@ decodeMessageBody = do
         (4,2) -> FIND_NODE <$> decode <*> decode <*> decode
         (4,3) -> FN_RESP <$> decode <*> decode <*> decode
         _     -> fail "Invalid MessageBody encoding"
-
--- Generates a random number of type Word32
-getRandomSequence = a
-    where a = randomIO :: IO Word32
-

@@ -11,7 +11,7 @@ import           Arivi.Kademlia.Node
 import           Arivi.Kademlia.Random
 import           Arivi.Kademlia.Signature     as CS
 import qualified Arivi.Kademlia.Types         as T
-import           Arivi.Kademlia.Utils
+import           Arivi.Utils.Utils
 import           Control.Concurrent           (Chan, forkIO, newChan,
                                                newEmptyMVar, putMVar, readChan,
                                                takeMVar)

@@ -7,7 +7,7 @@ isNodeInKbucket
  ) where
 
 import qualified Arivi.Kademlia.Types         as T
-import           Arivi.Kademlia.Utils
+import           Arivi.Utils.Utils
 import           Control.Concurrent           (Chan, ThreadId, forkIO,
                                                isEmptyChan, newChan,
                                                newEmptyMVar, putMVar, readChan,

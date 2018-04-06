@@ -24,7 +24,7 @@ import qualified Arivi.Network.Types       as T
 
 runUDPServerForever :: Socket
                     -> SockAddr
-                    -> MP.Registry
+                    -> MVar MP.ServiceRegistry
                     -> IO ()
 
 runUDPServerForever sock sockAddr registry = do
