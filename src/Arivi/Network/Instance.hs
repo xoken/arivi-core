@@ -108,24 +108,6 @@ registerService ah callback sid = do
     swapMVar (registry ah) temp3
     getRandomSequence2
 
--- | assigns a unique session for each service between two nodes which is
---   identified by a sessionID
-
-createSession :: ServiceContext
-              -> KI.NodeId
-              -> PortNumber
-              -> HostAddress
-              -> Transport
-              -> SessionId
-
-createSession sc nid pnum haddr tp = undefined
-
-getSession :: ServiceContext
-           -> KI.NodeId
-           -> SessionId
-
-getSession sc nid = undefined
-
 sendMessage :: SessionId -> PayLoad -> IO ()
 sendMessage ssid message = undefined
 
