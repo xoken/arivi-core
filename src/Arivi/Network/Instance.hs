@@ -93,7 +93,7 @@ createSession :: ServiceContext
               -> KI.NodeId
               -> PortNumber
               -> HostAddress
-              -> Transport
+              -> TransportType
               -> SessionId
 
 createSession sc nid pnum haddr tp = undefined
