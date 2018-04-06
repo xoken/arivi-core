@@ -1,4 +1,19 @@
 -- {-# LANGUAGE OverloadedStrings #-}
+
+-- |
+-- Module      : Arivi.Kademlia.Instance
+-- Copyright   : (c) Xoken Labs
+-- License     : -
+--
+-- Maintainer  : Ankit Sing {ankitsiam@gmail.com}
+-- Stability   : experimental
+-- Portability : portable
+--
+-- This module provides access to a kademlia instance which can be initiated
+-- by supplying the appropriate configuration like size of k-buckets , the
+-- alpha parameter, nodeID to be used etc.
+--
+
 module Arivi.Kademlia.Instance
 (
     createKademliaInstance,
