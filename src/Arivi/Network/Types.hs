@@ -5,7 +5,7 @@ module Arivi.Network.Types
     SessionId      (..),
     MessageId      (..),
     EncryptionType (..),
-    Transport      (..),
+    TransportType  (..),
     EncodingType   (..),
     SubProtocol    (..),
     ContextID      (..),
@@ -97,7 +97,7 @@ data PublicFlags  = PublicFlags {
                 ,   initiator     :: Bool
                 ,   ecncryption   :: EncryptionType
                 ,   encoding      :: EncodingType
-                ,   transport     :: Transport
+                ,   transportType     :: TransportType
             } deriving (Show,Generic)
 
 data EncryptionType = NONE
@@ -113,7 +113,8 @@ data EncodingType =
                 | PROTO_BUFF
                 deriving (Eq,Show,Generic)
 
-data Transport =   UDP
+data TransportType =
+                   UDP
                  | TCP
                  deriving (Eq,Show,Generic)
 
@@ -138,7 +139,7 @@ newtype PayLoad = PayLoad Data.ByteString.Char8.ByteString
 instance Serialise Version
 instance Serialise Opcode
 instance Serialise EncodingType
-instance Serialise Transport
+instance Serialise TransportType
 instance Serialise EncryptionType
 instance Serialise PublicFlags
 instance Serialise PayLoadMarker
