@@ -16,3 +16,4 @@ cabal.sandbox.config
 .stack-work/
 .vscode/
 learn/*
+*.DS_Store
