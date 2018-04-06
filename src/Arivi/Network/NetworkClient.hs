@@ -1,6 +1,7 @@
 module Arivi.Network.NetworkClient
 (
-    networkClient
+    datagramClient,
+    streamClient
 ) where
 
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
@@ -19,14 +20,16 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
 
 
-networkClient :: TChan (C.ByteString,SockAddr)
-              -> TMVar (SockAddr,Socket)
+datagramClient :: TChan (C.ByteString,SockAddr)
+              -> (Socket,SockAddr)
               -> Int
               -> IO ThreadId
 
-networkClient outboundChan socketTMVar workerId = forkIO $ forever $ do
-    sockMsg <- atomically $ readTMVar socketTMVar
-    msg     <- atomically $ readTChan outboundChan
-    let pl = fst msg
+datagramClient outboundDatagramTChan socketTMVar workerId = undefined
 
-    N.sendTo (snd sockMsg) pl (fst sockMsg)
+streamClient :: TChan (C.ByteString,SockAddr)
+              -> (Socket,Sock)
+              -> Int
+              -> IO ThreadId
+
+streamClient outboundStreamTChan socketTMVar workerId = undefined

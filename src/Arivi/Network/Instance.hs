@@ -8,19 +8,22 @@ AriviHandle (..),
 KI.Config (..)
 ) where
 
-import qualified Arivi.Kademlia.Instance   as KI
+import qualified Arivi.Kademlia.Instance      as KI
 import           Arivi.Network.Datagram
-import qualified Arivi.Network.Multiplexer as MP
+import qualified Arivi.Network.Multiplexer    as MP
+import           Arivi.Network.NetworkClient
 import           Arivi.Network.Stream
 import           Arivi.Network.Types
 import           Arivi.Utils.Utils
-import           Control.Concurrent        (MVar, ThreadId, forkIO,
-                                            newEmptyMVar, newMVar, putMVar,
-                                            readMVar, swapMVar, takeMVar)
+import           Control.Concurrent           (MVar, ThreadId, forkIO,
+                                               newEmptyMVar, newMVar, putMVar,
+                                               readMVar, swapMVar, takeMVar)
 import           Control.Concurrent.Async
+import           Control.Concurrent.STM.TChan (TChan, newTChan)
 import           Control.Monad
+import           Control.Monad.STM            (atomically)
 import           Data.Int
-import qualified Data.Map.Strict           as Map
+import qualified Data.Map.Strict              as Map
 import           Network.Socket
 
 
@@ -77,8 +80,13 @@ runAriviInstance ah kcfg = do
     putMVar (tcpThread ah) threadIDTCP
 
     ki <- KI.createKademliaInstance kcfg (fst $ ariviUDPSock ah)
-
     tid3 <- async $ KI.runKademliaInstance ki
+
+    outboundDatagramTChan <- atomically newTChan
+    outboundStreamTChan   <- atomically newTChan
+
+    mapM_ (datagramClient outboundDatagramTChan (ariviUDPSock ah))  [1..10]
+    mapM_ (streamClient outboundStreamTChan (ariviTCPSock ah)) [1..10]
 
     wait tid1
     wait tid2
@@ -107,7 +115,7 @@ createSession :: ServiceContext
               -> KI.NodeId
               -> PortNumber
               -> HostAddress
-              -> TransportType
+              -> Transport
               -> SessionId
 
 createSession sc nid pnum haddr tp = undefined
@@ -123,3 +131,7 @@ sendMessage ssid message = undefined
 
 closeSession :: SessionId -> IO ()
 closeSession ssid = undefined
+
+
+
+
