@@ -30,7 +30,7 @@ class ConnectionState s where
     doPongNE              :: s -> FrameHeader -> IO ()
     doSendMessage         :: s -> T.PayLoad     -> IO ()
 
-data IDLE_STATE = IDLE_STATE
+data IDLE_STATE = IDLE
                      deriving (Show,Eq)
 
 data INVITED_STATE = INVITED
