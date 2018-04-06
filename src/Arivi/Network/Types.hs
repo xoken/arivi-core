@@ -97,7 +97,7 @@ data PublicFlags  = PublicFlags {
                 ,   initiator     :: Bool
                 ,   ecncryption   :: EncryptionType
                 ,   encoding      :: EncodingType
-                ,   transportType     :: TransportType
+                ,   transportType :: TransportType
             } deriving (Show,Generic)
 
 data EncryptionType = NONE

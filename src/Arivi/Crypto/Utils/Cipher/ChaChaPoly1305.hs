@@ -17,10 +17,10 @@ module Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
     getCipherTextAuthPair,
 ) where
 
-import Data.ByteString.Char8 as B
-import Data.ByteArray
-import Crypto.Error
-import Crypto.Cipher.ChaChaPoly1305 as ChachaPoly1305
+import           Crypto.Cipher.ChaChaPoly1305 as ChachaPoly1305
+import           Crypto.Error
+import           Data.ByteArray
+import           Data.ByteString.Char8        as B
 
 
 getCipherTextAuthPair :: ByteString -> (ByteString, ByteString)

@@ -23,12 +23,12 @@ module Arivi.Crypto.Utils.IES
 ) where
 
 
-import Crypto.PubKey.ECIES
-import Crypto.ECC
-import Crypto.Error
-import Crypto.PubKey.Curve25519
-import Data.Proxy
-import Data.ByteString.Char8
+import           Crypto.ECC
+import           Crypto.Error
+import           Crypto.PubKey.Curve25519
+import           Crypto.PubKey.ECIES
+import           Data.ByteString.Char8
+import           Data.Proxy
 
 
 -- |Proxy Curve representation this is standard curve known to both sender and

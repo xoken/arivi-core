@@ -24,10 +24,10 @@ module Arivi.Crypto.Utils.Random
 )
 where
 
-import Raaz.Random
-import Raaz.Core.Types
-import Raaz.Core.Memory
-import Data.ByteString
+import           Data.ByteString
+import           Raaz.Core.Memory
+import           Raaz.Core.Types
+import           Raaz.Random
 
 
 -- | Generates RandomByteString of length `len`

@@ -24,12 +24,13 @@ module Arivi.Crypto.Utils.Keys.Signature
 ) where
 
 
-import Crypto.PubKey.Ed25519 (SecretKey,PublicKey,secretKey,toPublic,sign,verify,publicKey,secretKey)
-import Crypto.Error (throwCryptoError)
-import Data.ByteString.Char8 (ByteString)
-import Data.ByteArray (convert)
-import Data.ByteString.Base16 (encode,decode)
-import Arivi.Crypto.Utils.Random
+import           Arivi.Crypto.Utils.Random
+import           Crypto.Error              (throwCryptoError)
+import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, publicKey,
+                                            secretKey, sign, toPublic, verify)
+import           Data.ByteArray            (convert)
+import           Data.ByteString.Base16    (decode, encode)
+import           Data.ByteString.Char8     (ByteString)
 
 -- | Takes a 32 bytes seed and produces SecretKey
 getSecretKey :: ByteString -> SecretKey

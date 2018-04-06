@@ -3,8 +3,8 @@ module Arivi.Network.Multiplexer
 Registry (..)
 ) where
 
-import qualified Data.Map.Strict                    as Map
-import qualified Arivi.Network.Types                as T
+import qualified Arivi.Network.Types as T
+import qualified Data.Map.Strict     as Map
 
 
 newtype Registry = Registry {

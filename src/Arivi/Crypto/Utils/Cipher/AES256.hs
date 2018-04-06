@@ -18,12 +18,17 @@ module Arivi.Crypto.Utils.Cipher.AES256
 )
 where
 
-import Crypto.Cipher.AES (AES256)
-import Crypto.Cipher.Types (ctrCombine,cipherInit,BlockCipher(..),IV,nullIV,ivAdd)
-import Data.ByteArray (convert,ByteArrayAccess,ByteArray)
-import Data.ByteString.Char8 (ByteString)
-import Crypto.Error (CryptoFailable(..),CryptoError(..),throwCryptoError)
-import Arivi.Crypto.Utils.Keys.Encryption (SharedSecret)
+import           Arivi.Crypto.Utils.Keys.Encryption (SharedSecret)
+import           Crypto.Cipher.AES                  (AES256)
+import           Crypto.Cipher.Types                (BlockCipher (..), IV,
+                                                     cipherInit, ctrCombine,
+                                                     ivAdd, nullIV)
+import           Crypto.Error                       (CryptoError (..),
+                                                     CryptoFailable (..),
+                                                     throwCryptoError)
+import           Data.ByteArray                     (ByteArray, ByteArrayAccess,
+                                                     convert)
+import           Data.ByteString.Char8              (ByteString)
 
 
 type PlainText = ByteString
