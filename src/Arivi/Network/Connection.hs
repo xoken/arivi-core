@@ -11,7 +11,7 @@
 module Arivi.Network.Connection
 (
     ConnectionId,
-    ConnectionInfo (..),
+    Connection (..),
     getUniqueConnectionId,
     genConnectionId,
     createConnection,
@@ -37,9 +37,9 @@ import           Arivi.Network.Types                (PortNumber, TransportType)
 type ConnectionId = ByteString
 type State = ByteString
 
--- | (ConnectionId,ConnectionInfo) are (key,value) pair in HashMap that stores
+-- | (ConnectionId,Connection) are (key,value) pair in HashMap that stores
 -- information about all the Connection uniquely
-data ConnectionInfo = ConnectionInfo {
+data Connection = Connection {
                           connectionId    :: ConnectionId
                         , nodeId          :: Keys.PublicKey
                         , ipAddress       :: HostAddress
@@ -59,9 +59,9 @@ genConnectionId = getRandomByteString 4 >>=
                                     \byteString -> return (encode byteString)
 
 
--- | Generates unique ConnectionInfo by checking it is already present in given
+-- | Generates unique Connection by checking it is already present in given
 -- HashMap
-getUniqueConnectionId :: HashMap ByteString ConnectionInfo -> IO ByteString
+getUniqueConnectionId :: HashMap ByteString Connection -> IO ByteString
 getUniqueConnectionId hashmap = do
                                 connectionId <- genConnectionId
 
@@ -82,8 +82,8 @@ createConnection :: Keys.PublicKey
                  -> TransportType
                  -> State
                  -> Keys.SharedSecret
-                 -> HashMap ConnectionId ConnectionInfo
-                 -> IO (ConnectionId,HashMap ConnectionId ConnectionInfo)
+                 -> HashMap ConnectionId Connection
+                 -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ePhemeralPubKey
                 transportType state sharedSecret connectionHashmap =
 
@@ -92,7 +92,7 @@ createConnection nodeId ipAddress port ePhemeralPubKey
                     -> return
                     (uniqueConnectionId,
                         Data.HashMap.Strict.insert uniqueConnectionId
-                                 (ConnectionInfo uniqueConnectionId nodeId
+                                 (Connection uniqueConnectionId nodeId
                                                 ipAddress port ePhemeralPubKey
                                              transportType state sharedSecret)
                               connectionHashmap)
@@ -104,6 +104,6 @@ createConnection nodeId ipAddress port ePhemeralPubKey
 -- HashMap identified by connectionId
 
 closeConnection :: ConnectionId
-             -> HashMap ConnectionId ConnectionInfo
-             -> HashMap ConnectionId ConnectionInfo
+             -> HashMap ConnectionId Connection
+             -> HashMap ConnectionId Connection
 closeConnection = Data.HashMap.Strict.delete

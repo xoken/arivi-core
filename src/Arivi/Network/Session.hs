@@ -12,7 +12,7 @@
 module Arivi.Network.Session
 (
     SessionId,
-    SessionInfo (..),
+    Session (..),
     getUniqueSessionId,
     genSessionId,
     createSession,
@@ -36,9 +36,9 @@ import           Arivi.Network.Types                (EncodingType,
 -- | SessionId is type synonym for ByteString
 type SessionId = ByteString
 
--- | (sessionId,SessionInfo) are (key,value) pair in HashMap that stores
+-- | (sessionId,Session) are (key,value) pair in HashMap that stores
 -- information about all the session uniquely
-data SessionInfo = SessionInfo {
+data Session = Session {
                           sessionId      :: SessionId
                         , serviceContext :: ServiceContext
                         , connectionId   :: ConnectionId
@@ -59,7 +59,7 @@ genSessionId = getRandomByteString 4 >>=
 
 -- | Generates unique SessionId by checking it is already present in given
 -- HashMap
-getUniqueSessionId :: HashMap ByteString SessionInfo -> IO SessionId
+getUniqueSessionId :: HashMap ByteString Session -> IO SessionId
 getUniqueSessionId hashmap = do
                                 sessionId <- genSessionId
 
@@ -76,8 +76,8 @@ getUniqueSessionId hashmap = do
 createSession :: ServiceContext
              -> ConnectionId
              -> EncodingType
-             -> HashMap SessionId SessionInfo
-             -> IO (SessionId,HashMap SessionId SessionInfo)
+             -> HashMap SessionId Session
+             -> IO (SessionId,HashMap SessionId Session)
 createSession serviceContext connectionId
               encodingType sessionHashmap =
 
@@ -86,7 +86,7 @@ createSession serviceContext connectionId
                     -> return
                    (uniqueSessionId,
                     Data.HashMap.Strict.insert uniqueSessionId
-                                 (SessionInfo uniqueSessionId serviceContext
+                                 (Session uniqueSessionId serviceContext
                                     connectionId encodingType)
                               sessionHashmap)
 
@@ -95,6 +95,6 @@ createSession serviceContext connectionId
 --  identified by SessionId
 
 closeSession :: SessionId
-             -> HashMap SessionId SessionInfo
-             -> HashMap SessionId SessionInfo
+             -> HashMap SessionId Session
+             -> HashMap SessionId Session
 closeSession = Data.HashMap.Strict.delete
