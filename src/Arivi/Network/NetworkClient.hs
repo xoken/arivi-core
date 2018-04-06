@@ -28,8 +28,9 @@ datagramClient :: TChan (C.ByteString,SockAddr)
 datagramClient outboundDatagramTChan socketTMVar workerId = undefined
 
 streamClient :: TChan (C.ByteString,SockAddr)
-              -> (Socket,Sock)
+              -> (Socket,SockAddr)
               -> Int
               -> IO ThreadId
 
 streamClient outboundStreamTChan socketTMVar workerId = undefined
+
