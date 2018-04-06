@@ -13,11 +13,13 @@ import           Arivi.Network.Datagram
 import qualified Arivi.Network.Multiplexer as MP
 import           Arivi.Network.Stream
 import           Arivi.Network.Types
+import           Arivi.Utils.Utils
 import           Control.Concurrent        (MVar, ThreadId, forkIO,
-                                            newEmptyMVar, putMVar, readMVar,
-                                            takeMVar)
+                                            newEmptyMVar, newMVar, putMVar,
+                                            readMVar, swapMVar, takeMVar)
 import           Control.Concurrent.Async
 import           Control.Monad
+import           Data.Int
 import qualified Data.Map.Strict           as Map
 import           Network.Socket
 
@@ -38,11 +40,11 @@ data AriviHandle    = AriviHandle {
                     ,   ariviTCPSock :: (Socket,SockAddr)
                     ,   udpThread    :: MVar ThreadId
                     ,   tcpThread    :: MVar ThreadId
-                    ,   registry     :: MP.Registry
+                    ,   registry     :: MVar MP.ServiceRegistry
             }
 
 getAriviInstance :: AriviConfig -> IO AriviHandle
-getAriviInstance ac = do
+getAriviInstance ac = withSocketsDo $ do
     addrinfos <- getAddrInfo Nothing (Just (hostip ac)) (Just (udpport ac))
     let udpServeraddr = head addrinfos
         tcpServeraddr = head $ tail addrinfos
@@ -52,9 +54,11 @@ getAriviInstance ac = do
 
     let ariviUdpSock = (udpSock,addrAddress udpServeraddr)
         arivitcpSock = (tcpSock,addrAddress tcpServeraddr)
-        registry     = MP.Registry Map.empty
-    udpt <- newEmptyMVar
-    tcpt <- newEmptyMVar
+
+    udpt     <- newEmptyMVar
+    tcpt     <- newEmptyMVar
+    registry <- newMVar $ MP.ServiceRegistry Map.empty
+
     return (AriviHandle ariviUdpSock arivitcpSock udpt tcpt registry)
 
 -- | Starts an arivi instance from ariviHandle which contains all the
@@ -72,8 +76,13 @@ runAriviInstance ah kcfg = do
     putMVar (udpThread ah) threadIDUDP
     putMVar (tcpThread ah) threadIDTCP
 
+    ki <- KI.createKademliaInstance kcfg (fst $ ariviUDPSock ah)
+
+    tid3 <- async $ KI.runKademliaInstance ki
+
     wait tid1
     wait tid2
+    wait tid3
 
 -- | Register callback functions for subprotocols which will be fired when
 --   arivi recieves a message meant for a particular subprotocl essentially
@@ -81,13 +90,18 @@ runAriviInstance ah kcfg = do
 
 registerService :: AriviHandle
                 -> (PayLoad -> IO())
-                -> SubProtocol
-                -> ServiceContext
+                -> ServiceId
+                -> IO ServiceContext
 
-registerService ah callback subprotocol = undefined
+registerService ah callback sid = do
+    temp <- readMVar $ registry ah
+    let temp2 = Map.insert sid callback (MP.serviceRegistry temp)
+        temp3 = MP.ServiceRegistry temp2
+    swapMVar (registry ah) temp3
+    getRandomSequence2
 
--- | assigns a unique session for each connection & subprotocol between two
---   nodes which is identified by a sessionID
+-- | assigns a unique session for each service between two nodes which is
+--   identified by a sessionID
 
 createSession :: ServiceContext
               -> KI.NodeId
@@ -109,4 +123,3 @@ sendMessage ssid message = undefined
 
 closeSession :: SessionId -> IO ()
 closeSession ssid = undefined
-

@@ -1,4 +1,4 @@
-module Arivi.Kademlia.Utils
+module Arivi.Utils.Utils
 (
     extractFirst,
     extractSecond,
@@ -12,16 +12,20 @@ module Arivi.Kademlia.Utils
     extractThird2,
     extractFourth,
     isNodeIdElem,
-    getSockAddr
+    getSockAddr,
+    getRandomSequence,
+    getRandomSequence2
 ) where
 
 import           Arivi.Kademlia.Signature
 import           Data.ByteArray
 import qualified Data.ByteString.Char8    as C
+import           Data.Int
 import qualified Data.List.Split          as S
 import           Data.Word
 import           Network.Socket
 import qualified Network.Socket.Internal  as M
+import           System.Random
 
 -- Helper functions to extract value from 3-tuple
 extractFirst :: (a, b, c) -> a
@@ -77,3 +81,9 @@ isNodeIdElem (x:xs) m
     | fst x == m     = True
     | otherwise        = isNodeIdElem xs m
 
+-- Generates a random number of type Word32
+getRandomSequence = a
+    where a = randomIO :: IO Word32
+
+getRandomSequence2 = a
+    where a = randomIO :: IO Int32

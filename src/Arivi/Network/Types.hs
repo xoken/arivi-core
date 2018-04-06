@@ -7,7 +7,6 @@ module Arivi.Network.Types
     EncryptionType (..),
     Transport      (..),
     EncodingType   (..),
-    SubProtocol    (..),
     ContextID      (..),
     Socket,
     SockAddr,
@@ -16,7 +15,9 @@ module Arivi.Network.Types
     Version,
     serialise,
     deserialise,
-    ServiceContext (..)
+    ServiceContext (..),
+    ServiceId (..),
+    ConnectionId
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -27,27 +28,29 @@ import           Codec.Serialise.Encoding
 import           Data.ByteArray
 import qualified Data.ByteString
 import qualified Data.ByteString.Char8
-import           Data.Int                           (Int16, Int64)
+import           Data.Int                           (Int16, Int32, Int64, Int8)
 import qualified Data.Map.Strict                    as Map
 import           Data.Monoid
 import           Data.UUID                          (UUID)
 import           GHC.Generics
 import           Network.Socket
 
-type SessionId  = Int64
-type PayLoadLength = Int16
-type FragmentNumber = Integer
-type MessageId  = String
-type SubProtocol = Int
-type Descriptor  = Data.ByteString.Char8.ByteString
-type ContextID  = Int
-type ServiceContext = Int
+type ConnectionId   = Int32
+type SessionId      = Int32
+-- need to be changed to Int24
+type PayLoadLength  = Int16
+type FragmentNumber = Int16
+type MessageId      = String
+type ServiceId      = Int8
+type Descriptor     = Data.ByteString.Char8.ByteString
+type ContextID      = Int
+type ServiceContext = Int32
 
 
 data Frame   =  HandshakeFrame {
                     versionList        :: [Version]
                 ,   opcode             :: Opcode
-                ,   sessionId          :: SessionId
+                ,   connectionId       :: ConnectionId
                 ,   messageId          :: MessageId
                 ,   encodingModeList   :: [EncodingType]
                 ,   encryptionModeList :: [EncryptionType]
@@ -62,7 +65,7 @@ data Frame   =  HandshakeFrame {
                 ,   messageId      :: MessageId
                 ,   payLoadMarker  :: PayLoadMarker
                 ,   fragmentNumber :: FragmentNumber
-                ,   sessionId      :: SessionId
+                ,   connectionId   :: ConnectionId
                 ,   payLoadLength  :: PayLoadLength
                 ,   payLoad        :: PayLoad
                }
@@ -74,7 +77,7 @@ data Frame   =  HandshakeFrame {
                 ,   messageId      :: MessageId
                 ,   fragmentNumber :: FragmentNumber
                 ,   descriptor     :: Descriptor
-                ,   sessionId      :: SessionId
+                ,   connectionId   :: ConnectionId
                }
 
                | ResetCloseFrame {
@@ -82,7 +85,7 @@ data Frame   =  HandshakeFrame {
                 ,   opcode         :: Opcode
                 ,   publicFlags    :: PublicFlags
                 ,   fragmentNumber :: FragmentNumber
-                ,   sessionId      :: SessionId
+                ,   connectionId   :: ConnectionId
                 ,   messageId      :: MessageId
                }
                 deriving (Show,Generic)
@@ -129,7 +132,7 @@ data Opcode       =   ERROR
 
 
 newtype PayLoadMarker = PayLoadMarker {
-                            subProtocol :: SubProtocol
+                            serviceId :: ServiceId
                     } deriving (Show,Generic)
 
 newtype PayLoad = PayLoad Data.ByteString.Char8.ByteString

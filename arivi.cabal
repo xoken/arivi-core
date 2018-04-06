@@ -67,7 +67,8 @@ library
                        Arivi.Kademlia.Random 
                        Arivi.Kademlia.Signature 
                        Arivi.Kademlia.Types 
-                       Arivi.Kademlia.Utils 
                        Arivi.Kademlia.XorDistance 
+                       Arivi.Utils.Utils 
+                       Arivi.Network.Connection
 
   default-language:    Haskell2010

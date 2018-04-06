@@ -16,8 +16,8 @@ import           Control.Concurrent           (Chan, MVar, ThreadId, forkIO,
 import qualified Arivi.Kademlia.Query         as Q
 import           Arivi.Kademlia.Signature
 import qualified Arivi.Kademlia.Types         as T
-import           Arivi.Kademlia.Utils
 import           Arivi.Kademlia.XorDistance
+import           Arivi.Utils.Utils
 import           Control.Concurrent.STM.TChan (TChan, isEmptyTChan, readTChan,
                                                writeTChan)
 import           Control.Monad                (forever, mapM_, replicateM)
@@ -118,7 +118,7 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
                                     do
                                         temp <- liftIO $
                                             replicateM (Prelude.length plist)
-                                            T.getRandomSequence
+                                            getRandomSequence
                                         let payl         = Prelude.map
                                                             (T.packFindMsg
                                                             nodeId sk localsock
@@ -215,7 +215,7 @@ loadDefaultPeers :: T.NodeId
 loadDefaultPeers nodeId sk peerList peerChan localSock pendingResChan =
     forkIO $ do
 
-    temp   <- replicateM (Prelude.length peerList) T.getRandomSequence
+    temp   <- replicateM (Prelude.length peerList) getRandomSequence
     socka  <- readMVar localSock
 
     let repl       = Prelude.replicate (Prelude.length peerList)
@@ -320,3 +320,5 @@ extractDistance localNodeId x  = (x,kbi)
           nid  = localNodeId :: PublicKey
           dis  = Data.ByteArray.xor temp nid :: C.ByteString
           kbi  = I# (integerLog2# (bs2i dis))
+
+

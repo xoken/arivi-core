@@ -17,13 +17,14 @@ module Arivi.Network.Session
 ) where
 
 
-import Data.ByteString.Char8 (ByteString,pack)
-import Data.ByteString.Base16 (encode)
-import Data.HashMap.Strict (HashMap,member,empty,insert)
+import           Data.ByteString.Base16             (encode)
+import           Data.ByteString.Char8              (ByteString, pack)
+import           Data.HashMap.Strict                (HashMap, empty, insert,
+                                                     member)
 
-import Arivi.Crypto.Utils.Random
-import Arivi.Crypto.Utils.Keys.Encryption as Encryption
-import Arivi.Network.Types (Version,EncodingType)
+import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
+import           Arivi.Crypto.Utils.Random
+import           Arivi.Network.Types                (EncodingType, Version)
 
 
 
