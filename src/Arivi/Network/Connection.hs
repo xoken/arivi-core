@@ -23,6 +23,7 @@ import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, pack)
 import           Data.HashMap.Strict                (HashMap, delete, empty,
                                                      insert, member)
+import           Network.Socket                     (Socket)
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
@@ -48,6 +49,7 @@ data Connection = Connection {
                         , transportType   :: TransportType
                         , state           :: State
                         , sharedSecret    :: Keys.SharedSecret
+                        , socket          :: Socket
                         } deriving (Eq)
 
 
@@ -82,10 +84,11 @@ createConnection :: Keys.PublicKey
                  -> TransportType
                  -> State
                  -> Keys.SharedSecret
+                 -> Socket
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ePhemeralPubKey
-                transportType state sharedSecret connectionHashmap =
+                transportType state sharedSecret socket connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -94,7 +97,8 @@ createConnection nodeId ipAddress port ePhemeralPubKey
                         Data.HashMap.Strict.insert uniqueConnectionId
                                  (Connection uniqueConnectionId nodeId
                                                 ipAddress port ePhemeralPubKey
-                                             transportType state sharedSecret)
+                                             transportType state sharedSecret
+                                             socket)
                               connectionHashmap)
 
 
