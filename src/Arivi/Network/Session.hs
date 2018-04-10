@@ -24,14 +24,12 @@ import           Data.HashMap.Strict      (HashMap, delete, empty, insert,
                                            member)
 
 import           Arivi.Network.Connection
-import           Arivi.Network.Types      (EncodingType, ServiceContext,
-                                           TransportType)
+import           Arivi.Network.Types      (EncodingType, ServiceCode,
+                                           ServiceContext, TransportType)
 
 -- | SessionId is type synonym for ByteString
 type SessionId = ByteString
 
--- | ServiceCode is type synonym for ByteString
-type ServiceCode = ByteString
 
 
 

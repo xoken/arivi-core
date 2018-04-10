@@ -17,7 +17,8 @@ module Arivi.Network.Types
     deserialise,
     ServiceContext (..),
     ServiceId (..),
-    ConnectionId
+    ConnectionId,
+    ServiceCode
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -27,7 +28,7 @@ import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Data.ByteArray
 import qualified Data.ByteString
-import qualified Data.ByteString.Char8
+import           Data.ByteString.Char8              (ByteString)
 import           Data.Int                           (Int16, Int32, Int64, Int8)
 import qualified Data.Map.Strict                    as Map
 import           Data.Monoid
@@ -46,6 +47,9 @@ type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
 
+
+-- | ServiceCode is type synonym for ByteString
+type ServiceCode = ByteString
 
 data Frame   =  HandshakeFrame {
                     versionList        :: [Version]
