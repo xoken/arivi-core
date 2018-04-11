@@ -6,7 +6,7 @@
 
 Arivi contains the following protocol layers:
 
-**Arivi Layer 1** - Offers a secure transport layer which handles key exchange (ephemeral keys using IES) and encryption/message authentication. This layer uses length prefixed frames over a TCP stream. The first 2 bytes specifies the payload length.
+**Arivi Layer 1** - Offers a secure transport layer which handles key exchange (ephemeral keys using IES) and encryption/message authentication. This layer uses length prefixed frames over a TCP stream. The first 3 bytes specifies the payload length.
 
 **Arivi Layer 2** - Handles service capability negotiation, service multiplexing & chunking/re-assembly of large payloads. The Arivi layer-2 frames containing header meta data and binary payload are encoded using CBOR binary format.
 
@@ -36,6 +36,10 @@ as part of negotiation,
      - negotiated  protocol version 
      - negotiated  encryption mode
 
+## Arivi Layer 1 Regular Frame
+
+ -  Arivi Layer 1 Regular Frame is made by payload (which is received from Arivi Level 2 and encrypted at Arivi Level 1) and its length.
+ 
  <!--
     
 ---
@@ -59,6 +63,7 @@ This frame contains information about the closing connection, If it is CLOSE the
 This frame contains information about the error in connection, the opcode of this type of frame is set to **ERROR** and the **ERROR Descriptor** field is present in this frame.  -->
 
 ---
+## Arivi Layer 2 Fields
 The following fields will be included in the Arivi Layer 2 CBOR encoded frames.
 
 ### Version: 
@@ -138,11 +143,12 @@ Indicates the descriptor field contains the list of supported services.
 ---
 
 ### Fragment number  (Optional)
-- This field is present only if there is Fragmentation  
-- If the first bit is 0, then the next 7 bits indicate the fragment number, fragment counting starts from 1.
+- This field is present only if there is Fragmentation 
+- If this field is present then it indicates the fragment no of chunked message.
+<!-- - If the first bit is 0, then the next 7 bits indicate the fragment number, fragment counting starts from 1.
 - If the first bit is set to 1, then the next 15 bits indicate the fragment number.
 - If the first 8 bits are zeros, then this fragment is considered to be the final fragment.
-
+-->
 ---
 
 ### Payload marker 
@@ -150,11 +156,11 @@ Indicates the descriptor field contains the list of supported services.
 
  ---
  
-### Payload-Length 
+<!-- ### Payload-Length 
 
  -  This denote the length of message in payload field. This field size is 3 Bytes which gives 2^(3*8) bits = 2 MB max size of payload but actual size will be 500KB
-
   ---
+-->
 <!--
 ### Header-MAC 
 
@@ -165,6 +171,7 @@ Indicates the descriptor field contains the list of supported services.
   -->
 ### Payload  
 
-- This is the actual payload of the frame which can be of max size 2MB but actual size is 500KB in TCP, 50KB in UDP
+- This is the actual payload of the frame which will be limited to max size of 500KB.
+
 
 ---
