@@ -1,13 +1,21 @@
 
 
 
-# ARIVI Wire Specification 
 
-## 1) Handshake Frame
+# ARIVI Protocol Specification 
+
+Arivi contains the following protocol layers:
+
+**Arivi Layer 1** - Offers a secure transport layer which handles key exchange (ephemeral keys using IES) and encryption/message authentication. This layer uses length prefixed frames over a TCP stream. The first 2 bytes specifies the payload length.
+
+**Arivi Layer 2** - Handles service capability negotiation, service multiplexing & chunking/re-assembly of large payloads. The Arivi layer-2 frames containing header meta data and binary payload are encoded using CBOR binary format.
+
+ 
+## Arivi Layer 1 Handshake
 
 This type of frame contains handshake of the connection.
 
- 1. **HANDSHAKE_INIT:** It follows an integrated handshake pattern where key exchange and version/ encryption negotiation happens simultaneously.  Handshake-Init contains the following fields which are together encrypted using the remote party's public key. 
+ 1. **Handshake Initiation:** It follows an integrated handshake pattern where key exchange and version/ encryption negotiation happens simultaneously.  Handshake-Init contains the following fields which are together encrypted using the remote party's public key. 
 as part of negotiation,
 	 - supported protocol version list 
 	 - supported encryption mode list
@@ -17,84 +25,74 @@ as part of negotiation,
 	  -  public key 
 	  - ephemeral public 
 	
-	The opcode field to be set to Handshake-Init.
     The recipient computes a shared secret key for subsequent encrypted communication using the below: 
     - freshly generated ephemeral key pair
     - received  remote-public-key  
     
-2.  **HANDSHAKE_ACK:**  
-    The Ack frame contains the following fileds which will be encrypted using the remote party's (initiator's) public key.
+2.  **Handshake Acknowledgement:**  
+    The Ack frame contains the following fields which will be encrypted using the remote party's (initiator's) public key.
      - public key
      - ephemeral public
      - negotiated  protocol version 
      - negotiated  encryption mode
 
-	The opcode field to be set to Handshake-Ack.
+ <!--
     
 ---
 
-## 2) Regular Frame
+ ## 2) Regular Frame
 
 This is type of frame is used for regular messages containing application data payload that is typically encrypted (negotiated during handshake) per the application's needs. 
 
-![Regular Frame](https://user-images.githubusercontent.com/8463082/38368557-3886acdc-3903-11e8-8fda-06d9dbafddf3.png)
 
----
 
-## 3) Close Frame
+ ## 3) Close Frame
 
 This frame contains information about the closing connection, If it is CLOSE then  connection will be closes.
 
 ---
-## 4) Error Frame
+
+ -->
+<!-- ## 4) Error Frame
 
 
-This frame contains information about the error in connection, the opcode of this type of frame is set to **ERROR** and the **ERROR Descriptor** field is present in this frame. 
-
----
-
-### Version: \[1 Byte\]
-
-Version of the Wire Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 .
+This frame contains information about the error in connection, the opcode of this type of frame is set to **ERROR** and the **ERROR Descriptor** field is present in this frame.  -->
 
 ---
-### Opcode: \[2 Byte\]
+The following fields will be included in the Arivi Layer 2 CBOR encoded frames.
+
+### Version: 
+
+Version of the protocol Spec this will be negotiated at the initial messages, Client and server will negotiated this by taking latest of common version, For Ex. Client has v1,v2 and Server has v1,v2,v3 then the communication version will be v2 .
+
+---
+### Opcode: 
  - **Error - 0x00**
 Indicates an error processing a request. The Error descriptor of the message will contain an error code followed by a error message. Then, depending on the exception, more content may follow. The error codes are defined in along with their additional content if any
     
--   **Handshake_Init 0x01**
-This opcode indicates that the given frame is Handshake_Init step in message handshake.
-    
--   **Handshake_Ack - 0x02**
-This opcode indicates that the given frame is Handshake_Ack step in message handshake.
-
--   **Data - 0x03**
+-   **Data - 0x01**
  	This opcode indicates this frame is regular data carrying frame. 
--   **Options 0x04**
+-   **Options 0x02**
 Asks the server to return what service options are supported. The body of an OPTIONS message should be empty and the server will respond with a SUPPORTED message such as services Kademlia,Chord,Block
 
--   **Supported 0x05**
+-   **Supported 0x03**
 Indicates the descriptor field contains the list of supported services.
 
     
--   **Close 0x06**
-Terminates the current connection with the server
-
--   **Ping 0x07**
-A Ping frame may serve either as a keep alive or as a means to verify that the remote endpoint is still alive.
-    
--   **Pong 0x08**
-A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolicited to serve an unidirectional heartbeat.  A response to an unsolicited Pong frame is not expected.
-
 ----
 
-### Public Flags: \[2 Byte\]
+<!-- ### Public Flags: -->
 
--   **Fragmentation** : This bit is set for fragmented messages. Unfragmented messages will not have this bit set.
-    
--   **Initiator:** This bit will be set to 1 if the Connection was initiated by this endpoint. Will be useful in maintain the counter/nonce exclusivity for certain symmetric encryption schemes like AES / Poly where unique nonce is needed.
-    
--   **Encryption  Type (0 None,1 AES CTR, 2 PolyChaCha)**
+<!-- ###  **Fragmentation** : 
+- This bit is set for fragmented messages. Unfragmented messages will not have this bit set.
+- -->
+ 
+### NodeType
+ - This indicates it is Initiator or Recipient. 
+ ---
+<!-- -   **Initiator:** This bit will be set to 1 if the Connection was initiated by this endpoint. Will be useful in maintain the counter/nonce exclusivity for certain symmetric encryption schemes like AES / Poly where unique nonce is needed.
+ -->
+<!--   **Encryption  Type (0 None,1 AES CTR, 2 PolyChaCha)**
 	- This defines the encryption method used for encryption of payload , two bits is allocated for this
 
 			00 - None
@@ -102,29 +100,30 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
 			01 - AES CTR Mode
 
 			10 - ChaChaPoly
+-->
 
-
--   **Encoding:**
-	- This field is used to represent the encoding used for the message it can be UTF-8,CBOR,JSON,Google’s Protocol Buffer, etc
+<!-- -   **Encoding:**
+	- This field is used to represent the encoding used for the message it can be UTF-8,CBOR,JSON,Google’s Protocol Buffer, etc -->
     
 
   
 
--   **TransportType:**
-	-  If this bit is set TCP otherwise UDP.
+###  **TransportType:**
+	
+  - Indicates TCP or UDP.
 
 ---
 
-### ConnectionId  \[4 Bytes\] 
-
+<!--  ### ConnectionId  
  - This is unique identifier which is generated by client using some random function. This is used to map negotiated protocol version,shared secret key used for encryption,negotiated encoding type of multiplexed service, public key of the other party.
  - We need to store key (ConnectionId) and value ( (protocolContext, port ,ip ,transport-type, encryption-format, app-encoding-type)) in connectionHashMap for further reference.
 
 ---
+-->
  
   
 
-### Descriptor \[2 Bytes\]
+### Descriptor 
 
  -  This is optional field in the frame. If opcode value is ERROR, then this field serves as an Error descriptor. 
  -  Else if the opcode value is SUPPORTED then this field will contain a list of supported Services. This field is not used for other opcodes.
@@ -134,36 +133,37 @@ A Pong frame sent in response to a Ping frame. A Pong frame may be sent unsolici
   
   
 
-### Message id/Sequence No: \[3 Byte\]  
+### Message id/Sequence No:
 - Integer field value that will be incremented for each message. All fragments of a given message will have the same message id. Starts from 0 for given connection.
 ---
 
-### Fragment number \[0 to 2 Bytes\] (Optional)
-- This field is present only if Fragmentation flag is set. 
+### Fragment number  (Optional)
+- This field is present only if there is Fragmentation  
 - If the first bit is 0, then the next 7 bits indicate the fragment number, fragment counting starts from 1.
 - If the first bit is set to 1, then the next 15 bits indicate the fragment number.
-- If the first 8 bits are zeroes, then this fragment is considered to be the final fragment.
+- If the first 8 bits are zeros, then this fragment is considered to be the final fragment.
 
 ---
 
-### Payload marker \[1 Byte\]
+### Payload marker 
 - Service being multiplexed.
 
  ---
  
-### Payload-Length \[3 Byte\] 
+### Payload-Length 
 
  -  This denote the length of message in payload field. This field size is 3 Bytes which gives 2^(3*8) bits = 2 MB max size of payload but actual size will be 500KB
 
   ---
-
-### Header-MAC \[16 Byte\] 
+<!--
+### Header-MAC 
 
  -  This denote the message authentication code for the 'header' contents which include all the above fields. This applies for Regular Frame only. It employs SHA-3 HMAC algorithm as below:
  - SHA3( SHA3(Header) || Shared Secret)
 
   ---
-### Payload  \[Max 2MB, but actual 500KB\]
+  -->
+### Payload  
 
 - This is the actual payload of the frame which can be of max size 2MB but actual size is 500KB in TCP, 50KB in UDP
 
