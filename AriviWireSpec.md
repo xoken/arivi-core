@@ -38,8 +38,7 @@ as part of negotiation,
 
 ## Arivi Layer 1 Regular Frame
 
- -  Arivi Layer 1 Regular Frame is made by payload (which is received from Arivi Level 2 and encrypted at Arivi Level 1) and its length.
- 
+ - The layer 1 frame is length prefixed, i.e. the first 3 bytes are reserved to specify the length in bytes of the ensuing payload. The Arivi Layer 2 frame (described below) will essentially be the payload which will be encrypted in Layer 1 using the negotiated symmetric encryption algorithm i.e. AES 256 in CTR mode, AEAD schemes such as ChaCha20Poly1305 , etc.
  <!--
     
 ---
