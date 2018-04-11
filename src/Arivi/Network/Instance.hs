@@ -92,21 +92,31 @@ runAriviInstance ah kcfg = do
     wait tid2
     wait tid3
 
--- | Register callback functions for subprotocols which will be fired when
---   arivi recieves a message meant for a particular subprotocl essentially
---   passing the control to subprotocol with the message.
+-- | Register service provides a service context to each application by
+--   creating two Chans i.e inbound and outbound Chan and registering
+--   them corresponding to a ServiceCode unique to each application
+--   therefore when Arivi Network protocol recieves any messages meant for
+--   a service it writes the message to these chans and application can then
+--   read these chans to read the message.
 
 registerService :: AriviHandle
-                -> (PayLoad -> IO())
-                -> ServiceId
+                -> ServiceCode
                 -> IO ServiceContext
 
-registerService ah callback sid = do
-    temp <- readMVar $ registry ah
-    let temp2 = Map.insert sid callback (MP.serviceRegistry temp)
-        temp3 = MP.ServiceRegistry temp2
-    swapMVar (registry ah) temp3
+registerService ah sc = do
+    inboundChan  <- atomically newTChan
+    outboundChan <- atomically newTChan
+    reg <- readMVar $ registry ah
+    let chanTuple = (inboundChan,outboundChan)
+        temp = MP.ServiceRegistry $ Map.insert sc chanTuple
+                    (MP.serviceRegistry temp)
+
+    swapMVar (registry ah ) temp
     getRandomSequence2
+
+
+recvMessages :: ServiceContext -> IO PayLoad
+recvMessages sc = undefined
 
 sendMessage :: SessionId -> PayLoad -> IO ()
 sendMessage ssid message = undefined
