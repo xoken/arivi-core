@@ -143,7 +143,7 @@ Indicates the descriptor field contains the list of supported services.
 ---
 
 ### Fragment number  (Optional)
-- This field is present only if there is Fragmentation 
+
 - If this field is present then it indicates the fragment no of chunked message.
 <!-- - If the first bit is 0, then the next 7 bits indicate the fragment number, fragment counting starts from 1.
 - If the first bit is set to 1, then the next 15 bits indicate the fragment number.
@@ -152,7 +152,7 @@ Indicates the descriptor field contains the list of supported services.
 ---
 
 ### Payload marker 
-- Service being multiplexed.
+- Indicates the service being multiplexed.
 
  ---
  
