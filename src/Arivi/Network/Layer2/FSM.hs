@@ -18,11 +18,13 @@ data Event =  InitServiceNegotiationEvent
                  {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
+             | CleanUpEvent
+
              | OfferMessageEvent {frame::Frame}
              | AnswerMessageEvent {frame::Frame}
              | ErrorMessageEvent {frame::Frame}
              | DataMessageEvent {frame::Frame}
-             | CleanUpEvent
+
 
           deriving (Show, Eq)
 
@@ -70,6 +72,17 @@ handle serviceRequestTChan frameTchan Idle
             let nextEvent = getNextEvent serviceRequestTChan frameTchan
 
             nextEvent >>= handle serviceRequestTChan frameTchan Offered
+
+
+handle serviceRequestTChan frameTchan Offered
+                    (AnswerMessageEvent frame)  =
+        do
+
+            let nextEvent = getNextEvent serviceRequestTChan frameTchan
+
+            nextEvent >>= handle serviceRequestTChan frameTchan Established
+
+
 
 
 --recipient
