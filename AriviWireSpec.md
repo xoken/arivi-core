@@ -27,11 +27,11 @@ as part of negotiation,
 	
     The recipient computes a shared secret key for subsequent encrypted communication using the below: 
     - freshly generated ephemeral key pair
-    - received  remote-public-key  
+    - received  remote-ephemeral-public-key  
     
 2.  **Handshake Acknowledgement:**  
     The Ack frame contains the following fields which will be encrypted using the remote party's (initiator's) public key.
-     - public key
+     <!-- - public key-->
      - ephemeral public
      - negotiated  protocol version 
      - negotiated  encryption mode
