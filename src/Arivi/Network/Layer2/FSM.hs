@@ -181,3 +181,21 @@ test = do
 
         async (handle serviceRequestTChan frameTchan Idle
                                   (InitServiceNegotiationEvent serviceRequest))
+
+
+
+
+-- TODO implement all the following functions
+
+-- TODO encodeCBOR
+encodeCBOR = print "Encoding CBOR"
+-- TODO decodeCBOR
+decodeCBOR = print "Decoding CBOR"
+-- TODO defragment
+defragment = print "Defragmenting"
+-- TODO fragment
+fragment = print "Fragmenting"
+-- TODO multiplex
+multiplex = print "Multiplexing"
+-- TODO demultiplex
+demultiplex = print "Demultiplexing"
