@@ -59,64 +59,64 @@ type Message = String
 handle :: ServiceContext -> Connection -> State -> Event -> IO State
 
 --initiator
-handle serviceContex connection Idle
+handle serviceContext connection Idle
                     (InitServiceNegotiationEvent serviceRequest)  =
         do
             print "Inside:handle Idle InitServiceNegotiationEvent"
 
-            let nextEvent = getNextEvent serviceContex connection
+            let nextEvent = getNextEvent serviceContext connection
 
-            nextEvent >>= handle serviceContex connection Offered
+            nextEvent >>= handle serviceContext connection Offered
 
 
-handle serviceContex connection Offered
+handle serviceContext connection Offered
                     (AnswerMessageEvent frame)  =
         do
 
-            let nextEvent = getNextEvent serviceContex connection
+            let nextEvent = getNextEvent serviceContext connection
 
-            nextEvent >>= handle serviceContex connection Established
+            nextEvent >>= handle serviceContext connection Established
 
 
 
 
 --recipient
-handle serviceContex connection Idle (OfferMessageEvent frame) =
+handle serviceContext connection Idle (OfferMessageEvent frame) =
         do
 
-            let nextEvent = getNextEvent serviceContex connection
+            let nextEvent = getNextEvent serviceContext connection
             -- Send an answer
-            nextEvent >>= handle serviceContex connection Established
+            nextEvent >>= handle serviceContext connection Established
 
 
-handle serviceContex connection Established (DataMessageEvent frame) =
+handle serviceContext connection Established (DataMessageEvent frame) =
         do
-            let nextEvent = getNextEvent serviceContex connection
+            let nextEvent = getNextEvent serviceContext connection
             -- TODO handleDataMessage frame --decodeCBOR - collectFragments -
             -- addToOutputChan
-            nextEvent >>= handle serviceContex connection Established
+            nextEvent >>= handle serviceContext connection Established
 
 
-handle serviceContex connection
+handle serviceContext connection
             Established (TerminateConnectionEvent frame)=
-        handle serviceContex connection Terminated CleanUpEvent
+        handle serviceContext connection Terminated CleanUpEvent
 
 
-handle serviceContex connection Terminated CleanUpEvent =
+handle serviceContext connection Terminated CleanUpEvent =
             --- do all cleanup here
             return Terminated
 
 
 
-handle serviceContex connection _ _  =
-            handle serviceContex connection Terminated CleanUpEvent
+handle serviceContext connection _ _  =
+            handle serviceContext connection Terminated CleanUpEvent
 
 
 getNextEvent
   :: Control.Monad.IO.Class.MonadIO m =>
      ServiceContext -> Connection -> m Event
 
-getNextEvent serviceContex connection = do
+getNextEvent serviceContext connection = do
             let serviceRequestTChan = getServiceRequestTChan connection
             let frameTChan = getFrameTChan connection
             let eitherEvent = readEitherTChan serviceRequestTChan frameTChan
@@ -178,7 +178,7 @@ getFrameTChan (Connection _ _ _ _ _ _ frame) = frame
 
 -- test :: IO (Async State)
 -- test = do
---         serviceContex <- atomically newTChan
+--         serviceContext <- atomically newTChan
 --         -- connection <- atomically newTChan
 
 --         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
