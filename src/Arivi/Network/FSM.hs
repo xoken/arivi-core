@@ -1,4 +1,4 @@
-module Arivi.Network.Layer2.FSM (
+module Arivi.Network.FSM (
 
 ) where
 
