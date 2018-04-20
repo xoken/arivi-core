@@ -1,5 +1,5 @@
 -- |
--- Module      : Crypto.Utils.Cipher.ChaChaPoly1305
+-- Module      : Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :

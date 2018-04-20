@@ -1,5 +1,5 @@
 -- |
--- Module 	   : Crypto.Utils.Cipher.AES256
+-- Module      : Arivi.Crypto.Utils.Cipher.AES256
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :

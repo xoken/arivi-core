@@ -1,5 +1,5 @@
 -- |
--- Module      : Crypto.Utils.IES
+-- Module      : Arivi.Crypto.Utils.IES
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :

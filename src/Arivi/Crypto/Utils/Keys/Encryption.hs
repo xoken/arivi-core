@@ -1,5 +1,5 @@
 -- |
--- Module      : Crypto.Utils.Keys.Encryption
+-- Module      : Arivi.Crypto.Utils.Keys.Encryption
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :

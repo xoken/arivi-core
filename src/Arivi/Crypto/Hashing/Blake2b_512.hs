@@ -1,5 +1,5 @@
 -- |
--- Module      : Crypto.Hashing.Blake2b_512
+-- Module      : Arivi.Crypto.Hashing.Blake2b_512
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :
@@ -9,7 +9,7 @@
 --
 
 
-module Crypto.Hashing.Blake2b_512
+module Arivi.Crypto.Hashing.Blake2b_512
 (
     makeHash
 ) where

@@ -1,5 +1,5 @@
 -- |
--- Module      : Crypto.Utils.Random
+-- Module      : Arivi.Crypto.Utils.Random
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
 -- Stability   :
