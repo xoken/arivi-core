@@ -6,9 +6,10 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Data.Either
+import Arivi.Network.Layer2.Connection
+import Arivi.Network.Layer2.ServiceRegistry
 
-
-data State = Idle
+data State =  Idle
             | Offered
             | Established
             | Terminated
@@ -36,17 +37,12 @@ data ServiceType =  OPEN
 
 
 type Message = String
-type IP = String
-type Port = String
-type NodeId = String
 
 data ServiceRequest = ServiceRequest {
-                         serviceType :: ServiceType
-                        ,message     :: Message
-                        ,ip          :: IP
-                        ,port        :: Port
-                        ,nodeid      :: NodeId
-                    } deriving (Show,Eq)
+                        serviceType :: ServiceType
+                       -- ,connection  :: Connection
+                       ,message     :: Message
+                      } deriving (Show,Eq)
 
 
 
@@ -61,68 +57,70 @@ newtype Frame = Frame {
                 opcode :: Opcode
             } deriving (Show,Eq)
 
-handle :: TChan ServiceRequest -> TChan Frame -> State -> Event -> IO State
+handle :: TChan ServiceContext -> Connection -> State -> Event -> IO State
 
 --initiator
-handle serviceRequestTChan frameTchan Idle
+handle serviceContex connection Idle
                     (InitServiceNegotiationEvent serviceRequest)  =
         do
             print "Inside:handle Idle InitServiceNegotiationEvent"
 
-            let nextEvent = getNextEvent serviceRequestTChan frameTchan
+            let nextEvent = getNextEvent serviceContex connection
 
-            nextEvent >>= handle serviceRequestTChan frameTchan Offered
+            nextEvent >>= handle serviceContex connection Offered
 
 
-handle serviceRequestTChan frameTchan Offered
+handle serviceContex connection Offered
                     (AnswerMessageEvent frame)  =
         do
 
-            let nextEvent = getNextEvent serviceRequestTChan frameTchan
+            let nextEvent = getNextEvent serviceContex connection
 
-            nextEvent >>= handle serviceRequestTChan frameTchan Established
+            nextEvent >>= handle serviceContex connection Established
 
 
 
 
 --recipient
-handle serviceRequestTChan frameTchan Idle (OfferMessageEvent frame) =
+handle serviceContex connection Idle (OfferMessageEvent frame) =
         do
 
-            let nextEvent = getNextEvent serviceRequestTChan frameTchan
+            let nextEvent = getNextEvent serviceContex connection
             -- Send an answer
-            nextEvent >>= handle serviceRequestTChan frameTchan Established
+            nextEvent >>= handle serviceContex connection Established
 
 
-handle serviceRequestTChan frameTchan Established (DataMessageEvent frame) =
+handle serviceContex connection Established (DataMessageEvent frame) =
         do
-            let nextEvent = getNextEvent serviceRequestTChan frameTchan
+            let nextEvent = getNextEvent serviceContex connection
             -- TODO handleDataMessage frame --decodeCBOR - collectFragments -
             -- addToOutputChan
-            nextEvent >>= handle serviceRequestTChan frameTchan Established
+            nextEvent >>= handle serviceContex connection Established
 
 
-handle serviceRequestTChan frameTchan
+handle serviceContex connection
             Established (TerminateConnectionEvent frame)=
-        handle serviceRequestTChan frameTchan Terminated CleanUpEvent
+        handle serviceContex connection Terminated CleanUpEvent
 
 
-handle serviceRequestTChan frameTchan Terminated CleanUpEvent =
+handle serviceContex connection Terminated CleanUpEvent =
             --- do all cleanup here
             return Terminated
 
 
 
-handle serviceRequestTChan frameTchan _ _  =
-            handle serviceRequestTChan frameTchan Terminated CleanUpEvent
+handle serviceContex connection _ _  =
+            handle serviceContex connection Terminated CleanUpEvent
 
 
 getNextEvent
   :: Control.Monad.IO.Class.MonadIO m =>
-     TChan ServiceRequest -> TChan Frame -> m Event
+     ServiceContext -> Connection -> m Event
 
-getNextEvent serviceRequestTChan frameTchan = do
-            let eitherEvent = readEitherTChan serviceRequestTChan frameTchan
+getNextEvent serviceContex connection = do
+            let serviceRequestTChan = getServiceRequestTChan connection
+            let frameTChan = getFrameTChan connection
+            let eitherEvent = readEitherTChan serviceRequestTChan frameTChan
 
             e <- liftIO $ atomically eitherEvent
 
@@ -169,17 +167,24 @@ getOpcode :: Frame -> Opcode
 getOpcode (Frame opcode) = opcode
 
 getServiceType:: ServiceRequest -> ServiceType
-getServiceType (ServiceRequest serviceType _ _ _ _ ) = serviceType
+getServiceType (ServiceRequest serviceType _  ) = serviceType
+
+
+getServiceRequestTChan (Connection _ _ _ _ serviceRequestTChan _) =
+                    serviceRequestTChan
+
+
+getFrameTChan (Connection _ _ _ _ _ frame) = frame
 
 
 test :: IO (Async State)
 test = do
-        serviceRequestTChan <- atomically newTChan
-        frameTchan <- atomically newTChan
+        serviceContex <- atomically newTChan
+        connection <- atomically newTChan
 
-        let serviceRequest = ServiceRequest OPEN "Message" "IP" "Port" "NodeId"
+        let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
 
-        async (handle serviceRequestTChan frameTchan Idle
+        async (handle serviceContex connection Idle
                                   (InitServiceNegotiationEvent serviceRequest))
 
 
