@@ -2,8 +2,8 @@ module Arivi.P2P.FSM (
 
 ) where
 
-import           Arivi.Network.P2P.Connection
-import           Arivi.Network.P2P.ServiceRegistry
+import           Arivi.P2P.Connection
+import           Arivi.P2P.ServiceRegistry
 import           Arivi.Network.Types                  -- (Frame (HandshakeFrame),Opcode)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
