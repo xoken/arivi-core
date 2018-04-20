@@ -2,12 +2,13 @@ module Arivi.Network.Layer2.FSM (
 
 ) where
 
+import           Arivi.Network.Layer2.Connection
+import           Arivi.Network.Layer2.ServiceRegistry
+import           Arivi.Network.Types                  -- (Frame (HandshakeFrame),Opcode)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Data.Either
-import Arivi.Network.Layer2.Connection
-import Arivi.Network.Layer2.ServiceRegistry
 
 data State =  Idle
             | Offered
@@ -25,39 +26,37 @@ data Event =  InitServiceNegotiationEvent
              | AnswerMessageEvent {frame::Frame}
              | ErrorMessageEvent {frame::Frame}
              | DataMessageEvent {frame::Frame}
+             deriving (Show)
 
 
-          deriving (Show, Eq)
-
-
-data ServiceType =  OPEN
-                  | CLOSED
-                  | SENDMSG
-                  deriving (Show,Eq)
+-- data ServiceType =  OPEN
+--                   | CLOSED
+--                   | SENDMSG
+--                   deriving (Show,Eq)
 
 
 type Message = String
 
-data ServiceRequest = ServiceRequest {
-                        serviceType :: ServiceType
-                       -- ,connection  :: Connection
-                       ,message     :: Message
-                      } deriving (Show,Eq)
+-- data ServiceRequest = ServiceRequest {
+--                         serviceType :: ServiceType
+--                        -- ,connection  :: Connection
+--                        ,message     :: Message
+--                       } deriving (Show,Eq)
 
 
 
-data Opcode = ERROR
-            | DATA
-            | OFFER
-            | ANSWER
-            deriving (Show,Eq)
+-- data Opcode = ERROR
+--             | DATA
+--             | OFFER
+--             | ANSWER
+--             deriving (Show,Eq)
 
 
-newtype Frame = Frame {
-                opcode :: Opcode
-            } deriving (Show,Eq)
+-- newtype Frame = Frame {
+--                 opcode :: Opcode
+--             } deriving (Show,Eq)
 
-handle :: TChan ServiceContext -> Connection -> State -> Event -> IO State
+handle :: ServiceContext -> Connection -> State -> Event -> IO State
 
 --initiator
 handle serviceContex connection Idle
@@ -164,28 +163,29 @@ takeRight (Right right) = right
 
 
 getOpcode :: Frame -> Opcode
-getOpcode (Frame opcode) = opcode
+getOpcode (HandshakeFrame _ opcode _ _ _ _ _ _) = opcode
 
 getServiceType:: ServiceRequest -> ServiceType
 getServiceType (ServiceRequest serviceType _  ) = serviceType
 
 
-getServiceRequestTChan (Connection _ _ _ _ serviceRequestTChan _) =
-                    serviceRequestTChan
+getServiceRequestTChan (Connection _ _ _ _ _ serviceRequestTChan _) =
+                                                           serviceRequestTChan
 
 
-getFrameTChan (Connection _ _ _ _ _ frame) = frame
+getFrameTChan (Connection _ _ _ _ _ _ frame) = frame
 
 
-test :: IO (Async State)
-test = do
-        serviceContex <- atomically newTChan
-        connection <- atomically newTChan
+-- test :: IO (Async State)
+-- test = do
+--         serviceContex <- atomically newTChan
+--         -- connection <- atomically newTChan
 
-        let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
+--         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
+--         serviceContexTChan <- writeTChan serviceContexTChan serviceRequest
 
-        async (handle serviceContex connection Idle
-                                  (InitServiceNegotiationEvent serviceRequest))
+--         async (handle serviceContexTChan connection Idle
+--                                   (InitServiceNegotiationEvent serviceRequest))
 
 
 
