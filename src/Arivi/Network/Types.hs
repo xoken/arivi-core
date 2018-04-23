@@ -15,10 +15,11 @@ module Arivi.Network.Types
     Version,
     serialise,
     deserialise,
-    ServiceContext (..),
+    -- ServiceContext (..),
     ServiceId (..),
     ConnectionId,
-    ServiceCode
+    ServiceCode,
+    Opcode(..)
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -45,7 +46,7 @@ type MessageId      = String
 type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
-type ServiceContext = Int32
+-- type ServiceContext = Int32
 
 
 -- | ServiceCode is type synonym for ByteString
@@ -125,15 +126,12 @@ data TransportType =
                  | TCP
                  deriving (Eq,Show,Generic)
 
-data Opcode       =   ERROR
-                    | HANDSHAKE_REQUEST
-                    | HANDSHAKE_REPONSE
-                    | OPTIONS
-                    | RESET
-                    | CLOSE
-                    | PING
-                    | PONG
-                    deriving (Show,Generic)
+
+data Opcode = ERROR
+            | DATA
+            | OFFER
+            | ANSWER
+            deriving (Show,Eq,Generic)
 
 
 newtype PayLoadMarker = PayLoadMarker {
