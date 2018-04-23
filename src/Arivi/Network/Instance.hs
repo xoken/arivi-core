@@ -29,7 +29,7 @@ import           Network.Socket
 
 -- | Strcuture to hold the arivi configurations can also contain more
 --   parameters but for now just contain 3
-data AriviConfig    = AriviConfig {
+data NetworkConfig    = NetworkConfig {
                         hostip  :: String
                     ,   udpport :: String
                     ,   tcpPort :: String
@@ -39,7 +39,7 @@ data AriviConfig    = AriviConfig {
 -- | Strcuture which holds all the information about a running arivi Instance
 --   and can be passed around to different functions to differentiate betweeen
 --   different instances of arivi.
-data AriviHandle    = AriviHandle {
+data NetworkHandle    = NetworkHandle {
                     --     ariviUDPSock :: (Socket,SockAddr)
                     -- ,   ariviTCPSock :: (Socket,SockAddr)
                     -- ,   udpThread    :: MVar ThreadId
