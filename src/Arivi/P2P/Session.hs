@@ -26,8 +26,9 @@ import           Data.HashMap.Strict      (HashMap, delete, empty, insert,
 import qualified Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Network.Connection
 import           Arivi.Network.Types      (EncodingType, ServiceCode,
-                                           ServiceContext, TransportType,
-                                           HostAddress,PortNumber)
+                                           TransportType,HostAddress,
+                                           PortNumber)
+import           Arivi.P2P.ServiceRegistry (ServiceContext)
 
 -- | SessionId is type synonym for ByteString
 type SessionId = ByteString

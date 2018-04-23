@@ -56,7 +56,7 @@ library
                        Arivi.Crypto.Hashing.Blake2b_512
                        Arivi.Crypto.Utils.Cipher.AES256
                        Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
-                       Arivi.Crypto.Utils.IES
+                       -- Arivi.Crypto.Utils.IES
                        Arivi.Crypto.Utils.Keys.Encryption
                        Arivi.Crypto.Utils.Keys.Signature
                        Arivi.Crypto.Utils.Random
@@ -69,12 +69,14 @@ library
                        Arivi.Kademlia.XorDistance
                        Arivi.Network.Connection
                        Arivi.Network.Datagram
-                       Arivi.Network.Instance
-                       Arivi.Network.Multiplexer
+                       -- Arivi.Network.Instance
                        Arivi.Network.NetworkClient
-                       Arivi.Network.Session
                        Arivi.Network.Stream
                        Arivi.Network.Types
+                       Arivi.P2P.Connection
+                       Arivi.P2P.FSM
+                       Arivi.P2P.Session
+                       Arivi.P2P.ServiceRegistry
                        Arivi.Utils.Utils
 
   default-language:    Haskell2010
