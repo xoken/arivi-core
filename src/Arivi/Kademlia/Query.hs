@@ -31,7 +31,7 @@ import           Network.Socket
 import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
                                                     sendAllTo, sendTo)
 
--- Helper function to extract "k-closest" peers from a given list of keys
+-- | Helper function to extract "k-closest" peers from a given list of keys
 getPeerListFromKeyList :: [Int]
                        -> Int
                        -> Map.Map Int [(T.NodeId,T.NodeEndPoint)]
@@ -48,7 +48,7 @@ getPeerListFromKeyList (x:xs) k msg
         pl   = fst (Prelude.splitAt k plt)
         plt  = fromMaybe [] (Map.lookup x msg)
 
-
+-- | Checks if NodeId is present in KBuckets
 isNodeInKbucket :: TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
                 -> T.NodeId
                 -> Int
@@ -101,6 +101,6 @@ queryKBucket localNodeId targetNodeId k kbChan localSock remoteSock sk seq = do
                     (LBS.toStrict (T.serialise msgS) ) :: T.Sign
         payl     = T.PayLoad msgS sgn
 
-    -- / Arivi.send (payl,remoteSock)
+    --  Arivi.send (payl,remoteSock)
     print ""
 

@@ -71,7 +71,6 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
             senderPublicKey = senderNodeId :: PublicKey
             msgSeq          = T.sequence (T.message incMsg)
 
-            -- | Calculates distance and corresponding k-bucket index
             dis             =  Data.ByteArray.xor senderNodeId nodeId
                                 :: C.ByteString
             kbi             = I# (integerLog2# (bs2i dis))
@@ -81,30 +80,30 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
 
         case T.messageType (T.message incMsg)  of
 
-            -- | handles the case when message type is MSG01 i.e PING
+            -- handles the case when message type is MSG01 i.e PING
             T.MSG01 -> do
                 let payl = T.packPong nodeId sk localsock 1
-                -- / Arivi.send (payl,remoteSock)
+                -- Arivi.send (payl,remoteSock)
                 liftIO $ print ""
 
-            -- | handles the case when message type is MSG02 i.e PONG
+            -- handles the case when message type is MSG02 i.e PONG
             T.MSG02 -> do
                 let payl = T.packPing nodeId sk localsock 1
-                -- / Arivi.send (payl,remoteSock)
+                --  Arivi.send (payl,remoteSock)
                 liftIO $ print ""
 
-            -- | handles the case when message type is MSG03 i.e FIND_NODE
-            -- | Adds peer issuing FIND_NODE to it's appropriate k-bucket
+            -- handles the case when message type is MSG03 i.e FIND_NODE
+            -- Adds peer issuing FIND_NODE to it's appropriate k-bucket
             T.MSG03 -> do
                 liftIO $ atomically $ writeTChan peerChan
                     ((senderNodeId,senderEndPoint),kbi)
 
-                -- | Queries k-buckets and send k-closest buckets
+                -- Queries k-buckets and send k-closest buckets
                 liftIO $ threadDelay 1000
                 liftIO $ Q.queryKBucket nodeId senderNodeId k kbChan localsock
                     remoteSock sk msgSeq
 
-            -- | handles the case when message type is MSG04 i.e FN_RESP
+            -- handles the case when message type is MSG04 i.e FN_RESP
             T.MSG04 -> do
                 let plist   = T.peerList (T.messageBody(T.message incMsg))
                     kbil    = map (extractDistance nodeId) plist
@@ -189,7 +188,7 @@ addToKbChan kbChan peerChan logChan workerId = forkIO $ forever $
         else do
             let temp    = Map.lookup (snd msg) kb
                 temp2   = fromMaybe [] temp
-                -- | Checks if the nodeId already exists in the HashMap
+                -- Checks if the nodeId already exists in the HashMap
             if not (isNodeIdElem temp2 (fst temp4))
             then do
                 let temp3   = temp2 ++ [temp4]
@@ -222,13 +221,13 @@ loadDefaultPeers nodeId sk peerList peerChan localSock pendingResChan =
         peerList2  = Prelude.map snd peerList
         nodeIdList = Prelude.map fst peerList
 
-        -- | Message containing FIND_NODE : Self
+        -- Message containing FIND_NODE : Self
         payl  = Prelude.map (T.packFindMsg nodeId sk socka nodeId) temp
 
-    -- | First messages are sent out and then tracked by adding them to
+    -- First messages are sent out and then tracked by adding them to
     --   pendingrespChan
     mapM_ (addToPendingResChan pendingResChan) (zip payl nodeIdList)
-    -- / mapM_ (Arivi.send) (zip payl peerList2)
+    -- mapM_ (Arivi.send) (zip payl peerList2)
     print ""
 
 addToPendingResChan :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])

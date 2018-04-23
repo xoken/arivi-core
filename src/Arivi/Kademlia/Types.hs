@@ -231,8 +231,8 @@ instance Serialise PortNumber where
     encode = encodePortNumber
     decode = decodePortNumber
 
--- ! Fix warnings generated due to use of PortNum which will be deprecated by
--- ! Lib
+-- | Fix warnings generated due to use of PortNum which will be deprecated by
+-- | Lib
 
 encodePortNumber :: PortNumber -> Encoding
 encodePortNumber (PortNum a) =
