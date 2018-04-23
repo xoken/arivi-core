@@ -33,17 +33,19 @@ data AriviConfig    = AriviConfig {
                         hostip  :: String
                     ,   udpport :: String
                     ,   tcpPort :: String
+                    -- , TODO   transportType :: TransportType and only one port
                     } deriving (Show)
 
 -- | Strcuture which holds all the information about a running arivi Instance
 --   and can be passed around to different functions to differentiate betweeen
 --   different instances of arivi.
 data AriviHandle    = AriviHandle {
-                        ariviUDPSock :: (Socket,SockAddr)
-                    ,   ariviTCPSock :: (Socket,SockAddr)
-                    ,   udpThread    :: MVar ThreadId
-                    ,   tcpThread    :: MVar ThreadId
-                    ,   registry     :: MVar MP.ServiceRegistry
+                    --     ariviUDPSock :: (Socket,SockAddr)
+                    -- ,   ariviTCPSock :: (Socket,SockAddr)
+                    -- ,   udpThread    :: MVar ThreadId
+                    -- ,   tcpThread    :: MVar ThreadId
+                    -- ,
+                    registry     :: MVar MP.ServiceRegistry
             }
 
 getAriviInstance :: AriviConfig -> IO AriviHandle
