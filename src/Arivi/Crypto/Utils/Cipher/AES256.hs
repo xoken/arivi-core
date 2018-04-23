@@ -14,7 +14,9 @@ module Arivi.Crypto.Utils.Cipher.AES256
     aesDecrypt,
     nullIV,
     ivAdd,
-    IV
+    IV,
+    CipherText,
+    PlainText
 )
 where
 
@@ -30,8 +32,9 @@ import           Data.ByteArray                     (ByteArray, ByteArrayAccess,
                                                      convert)
 import           Data.ByteString.Char8              (ByteString)
 
-
+-- | PlainText is ByteString
 type PlainText = ByteString
+-- | PlainText is ByteString
 type CipherText = ByteString
 
 

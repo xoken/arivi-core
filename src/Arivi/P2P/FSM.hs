@@ -1,21 +1,50 @@
+-- |
+-- Module      :  Arivi.P2P.FSM
+-- Copyright   :
+-- License     :
+-- Maintainer  :  Mahesh Uligade <maheshsuligade@gmail.com>
+-- Stability   :
+-- Portability :
+--
+-- This module provides Finite State Machine for running Arivi P2P protocol
+
 module Arivi.P2P.FSM (
+     Event(..)
+   , State(..)
+   , Message
+   , getNextEvent
+   , handle
+   , readEitherTChan
+   , takeLeft
+   , takeRight
 
 ) where
 
-import           Arivi.P2P.Connection
-import           Arivi.P2P.ServiceRegistry
-import           Arivi.Network.Types                  -- (Frame (HandshakeFrame),Opcode)
-import           Control.Concurrent.Async
-import           Control.Concurrent.STM
-import           Control.Monad.IO.Class
-import           Data.Either
+import           Arivi.Network.Types       (Frame (..), Opcode (..))
+import           Arivi.P2P.Connection      (Connection (..),
+                                            ServiceRequest (..),
+                                            ServiceType (..))
+import           Arivi.P2P.ServiceRegistry (ServiceContext (..))
+import           Control.Concurrent.Async  (async)
+import           Control.Concurrent.STM    (STM, TChan, atomically, orElse,
+                                            readTChan)
+import           Control.Monad.IO.Class    (MonadIO, liftIO)
+import           Data.Either               (Either (Left, Right), isLeft,
+                                            isRight)
 
-data State =  Idle
-            | Offered
-            | Established
-            | Terminated
+-- | These are the states of Finite State Machine.
+data State =  Idle        -- ^ Idle state of Finite State Machine
+            | Offered     -- ^ Offered state indicates the Negotiation if
+                          --   offered
+            | Established -- ^ On Successful completion of
+                          --  `InitServiceNegotiationEvent` FSM goes to
+                          --   Established state. At this state FSM is ready to
+                          --   Exchange Data
+            | Terminated  -- ^ On receiving `CLOSED` serviceType or On receiving
+                          --  `ERROR` frame FSM will go to Terminated State
             deriving (Show, Eq)
 
+-- | These are the events of Finite State Machine for state transition.
 data Event =  InitServiceNegotiationEvent
                  {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
@@ -28,37 +57,16 @@ data Event =  InitServiceNegotiationEvent
              | DataMessageEvent {frame::Frame}
              deriving (Show)
 
-
--- data ServiceType =  OPEN
---                   | CLOSED
---                   | SENDMSG
---                   deriving (Show,Eq)
-
-
+-- | Message is type synonyms for String
 type Message = String
-
--- data ServiceRequest = ServiceRequest {
---                         serviceType :: ServiceType
---                        -- ,connection  :: Connection
---                        ,message     :: Message
---                       } deriving (Show,Eq)
-
-
-
--- data Opcode = ERROR
---             | DATA
---             | OFFER
---             | ANSWER
---             deriving (Show,Eq)
-
-
--- newtype Frame = Frame {
---                 opcode :: Opcode
---             } deriving (Show,Eq)
 
 handle :: ServiceContext -> Connection -> State -> Event -> IO State
 
 --initiator
+-- |  This handles the state transition from one state of FSM to another
+--    on the  basis of received events
+
+
 handle serviceContext connection Idle
                     (InitServiceNegotiationEvent serviceRequest)  =
         do
@@ -112,6 +120,7 @@ handle serviceContext connection _ _  =
             handle serviceContext connection Terminated CleanUpEvent
 
 
+-- | This gives nextEvent for FSM transition
 getNextEvent
   :: Control.Monad.IO.Class.MonadIO m =>
      ServiceContext -> Connection -> m Event
@@ -147,17 +156,18 @@ getNextEvent serviceContext connection = do
 
 
 
-
+-- | Reads from TChans whichever is present
 readEitherTChan  ::  TChan a -> TChan b -> STM (Either a b)
 readEitherTChan a b =
                 fmap  Left (readTChan a)
                 `orElse`
                 fmap  Right (readTChan b)
 
-
+-- | Give the left part of Either a b
 takeLeft :: Either a b -> a
 takeLeft (Left left) = left
 
+-- | Give the right part of Either a b
 takeRight :: Either a b -> b
 takeRight (Right right) = right
 

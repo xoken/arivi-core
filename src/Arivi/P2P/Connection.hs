@@ -12,12 +12,13 @@ module Arivi.P2P.Connection
 (
     ConnectionId,
     Connection (..),
-    getUniqueConnectionId,
-    genConnectionId,
+    ServiceRequest(..),
+    ServiceType(..),
+    Message,
     createConnection,
     closeConnection,
-    ServiceRequest(..),
-    ServiceType(..)
+    genConnectionId,
+    getUniqueConnectionId
 ) where
 
 
@@ -40,13 +41,15 @@ import           Arivi.Network.Types                (PortNumber, TransportType,F
 -- | ConnectionId is type synonym for ByteString
 type ConnectionId = ByteString
 
-type State = ByteString
+-- type State = ByteString
 
 
 data ServiceType =  OPEN
                   | CLOSED
                   | SENDMSG
                   deriving (Show,Eq)
+
+-- | Message is ByteString
 type Message = ByteString
 -- type ServiceType = ByteString
 
@@ -76,6 +79,7 @@ data Connection = Connection {
                     , transportType         :: TransportType
                     , serviceRequestTChan   :: TChan ServiceRequest
                     , frameTChan            :: TChan Frame -- TODO change frame to payload
+                    -- TODO initiator or not
                     } deriving (Eq)
 
 

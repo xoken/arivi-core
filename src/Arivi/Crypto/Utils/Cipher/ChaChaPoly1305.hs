@@ -22,9 +22,11 @@ import           Crypto.Error
 import           Data.ByteArray
 import           Data.ByteString.Char8        as B
 
-
+-- | This separates the cipherText and authentication part and returns
+--   (cipherText,Auth) pair last 16 bytes of received message is Auth Part
 getCipherTextAuthPair :: ByteString -> (ByteString, ByteString)
-getCipherTextAuthPair mCipherText = B.splitAt (B.length mCipherText - 16) mCipherText
+getCipherTextAuthPair mCipherText = B.splitAt
+                                        (B.length mCipherText - 16) mCipherText
 
 
 
@@ -33,7 +35,14 @@ getCipherTextAuthPair mCipherText = B.splitAt (B.length mCipherText - 16) mCiphe
 -- | Sender encrypts plain text using shared secret key
 -- and calculated 12 Byte Nonce, appends Poly1305 authentication tag end of cipher text
 
-chachaEncrypt :: (ByteArrayAccess iv, ByteArrayAccess key, ByteArrayAccess header) => iv -> key -> header -> ByteString -> CryptoFailable ByteString
+chachaEncrypt :: (ByteArrayAccess iv,
+                  ByteArrayAccess key,
+                  ByteArrayAccess header)
+                  => iv
+                  -> key
+                  -> header
+                  -> ByteString
+                  -> CryptoFailable ByteString
 chachaEncrypt nonce key header plaintext = do
     initialState <-ChachaPoly1305.nonce12 nonce >>= ChachaPoly1305.initialize key
     let
@@ -48,8 +57,17 @@ chachaEncrypt nonce key header plaintext = do
 -- authentication tag is valid
 
 
-chachaDecrypt :: (ByteArrayAccess iv, ByteArrayAccess key, ByteArrayAccess header, ByteArray authenticationTag, ByteArray cipherTextMessage)
-    => iv -> key -> header -> authenticationTag -> cipherTextMessage -> CryptoFailable ByteString
+chachaDecrypt :: (ByteArrayAccess iv,
+                  ByteArrayAccess key,
+                  ByteArrayAccess header,
+                  ByteArray authenticationTag,
+                  ByteArray cipherTextMessage)
+                  => iv
+                  -> key
+                  -> header
+                  -> authenticationTag
+                  -> cipherTextMessage
+                  -> CryptoFailable ByteString
 
 chachaDecrypt nonce key header auth cipherText = do
     initialState <-ChachaPoly1305.nonce12 nonce >>= ChachaPoly1305.initialize key
