@@ -3,7 +3,6 @@ module Arivi.Network.Stream
     runTCPServerForever
 ) where
 
-import qualified Arivi.Network.Multiplexer as MP (ServiceRegistry)
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
                                             putMVar, takeMVar)
 import           Control.Concurrent.MVar
@@ -21,14 +20,13 @@ import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
 
 runTCPServerForever :: Socket
                     -> SockAddr
-                    -> MVar MP.ServiceRegistry
                     -> IO ()
 
-runTCPServerForever sock sockAddr messageHandler = do
+runTCPServerForever sock sockAddr = do
     bind sock sockAddr
     listen sock 3
-    -- * int above specifies the maximum number of queued connections and should
-    -- ? be at least 1; the maximum value is system-dependent (usually 5).
+    --  int above specifies the maximum number of queued connections and should
+    --  be at least 1; the maximum value is system-dependent (usually 5).
 
     print ("TCP Server now listening for requests at : " ++ show sockAddr)
     forever $

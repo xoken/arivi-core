@@ -19,15 +19,13 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
 
 
-import qualified Arivi.Network.Multiplexer as MP
 import qualified Arivi.Network.Types       as T
 
 runUDPServerForever :: Socket
                     -> SockAddr
-                    -> MVar MP.ServiceRegistry
                     -> IO ()
 
-runUDPServerForever sock sockAddr registry = do
+runUDPServerForever sock sockAddr  = do
 
     bind sock sockAddr
     print ("UDP Server now listening for requests at : " ++ show sockAddr)
