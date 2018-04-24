@@ -57,34 +57,7 @@ data Connection = Connection {
                         , serviceRequestTChannel :: TChan ServiceRequest
                         , frameTChannel      :: TChan Frame
                         } deriving (Eq)
--- connectionsid = id || port || transportType
--- data ServiceType =  OPEN
---                   | CLOSED
---                   | SENDMSG
---                   deriving (Show,Eq)
--- type Message = String
--- type IP = String
--- type Port = String
--- type NodeId = String
 
--- data ServiceRequest = ServiceRequest {
---                          serviceType :: ServiceType
---                         ,message     :: Message
---                         ,ipAddress   :: HostAddress
---                         , port       :: PortNumber
---                         , nodeId     :: Keys.PublicKey
---                     } deriving (Show,Eq)
-
-
-
--- data ConnectionLayer2 = ConnectionLayer2 {
---                          connectionId           :: ConnectionId
---                         , transportType         :: TransportType
---                         , nodeId                :: Keys.PublicKey
---                         , ipAddress             :: HostAddress
---                         , serviceRequesttTChan  :: TChan ServiceRequest
---                         , frameTChan            :: TChan Frame
---                         }
 
 
 -- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString

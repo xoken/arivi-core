@@ -2,148 +2,135 @@ module Arivi.Network.FSM (
 
 ) where
 
-import           Arivi.Network.Layer2.Connection
-import           Arivi.Network.Layer2.ServiceRegistry
-import           Arivi.Network.Types                  -- (Frame (HandshakeFrame),Opcode)
+import           Arivi.Network.Connection
+import           Arivi.Network.Types
+-- (Frame (..), ServiceRequest(..), ServiceType(..), Opcode(..),)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Data.Either
 
+
+-- The different states that any thread in layer 1 can be in
 data State =  Idle
-            | Offered
-            | Established
+            | VersionInitiated
+            | VersionNegotiated
+            | KeyExchangeInitiated
+            | SecureTransportEstablished
             | Terminated
             deriving (Show, Eq)
 
-data Event =  InitServiceNegotiationEvent
-                 {serviceRequest::ServiceRequest}
+-- The different events in layer 1 that cause state change
+data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
+             | VersionNegotiationInitEvent {frame::Frame}
+             | VersionNegotiationRespEvent {frame::Frame}
+             | KeyExchangeInitEvent {frame::Frame}
+             | KeyExchangeRespEvent {frame::Frame}
+             | ReceiveDataEvent {frame::Frame}
              | CleanUpEvent
-
-             | OfferMessageEvent {frame::Frame}
-             | AnswerMessageEvent {frame::Frame}
-             | ErrorMessageEvent {frame::Frame}
-             | DataMessageEvent {frame::Frame}
-             deriving (Show)
+          deriving (Show)
 
 
--- data ServiceType =  OPEN
---                   | CLOSED
---                   | SENDMSG
---                   deriving (Show,Eq)
+handle :: Connection -> State -> Event -> IO State
 
-
-type Message = String
-
--- data ServiceRequest = ServiceRequest {
---                         serviceType :: ServiceType
---                        -- ,connection  :: Connection
---                        ,message     :: Message
---                       } deriving (Show,Eq)
-
-
-
--- data Opcode = ERROR
---             | DATA
---             | OFFER
---             | ANSWER
---             deriving (Show,Eq)
-
-
--- newtype Frame = Frame {
---                 opcode :: Opcode
---             } deriving (Show,Eq)
-
-handle :: ServiceContext -> Connection -> State -> Event -> IO State
-
---initiator
-handle serviceContext connection Idle
-                    (InitServiceNegotiationEvent serviceRequest)  =
+-- initiator will initiate the handshake
+handle connection Idle
+                    (InitHandshakeEvent serviceRequest)  =
         do
-            print "Inside:handle Idle InitServiceNegotiationEvent"
+            let nextEvent = getNextEvent connection
+            nextEvent >>= handle connection VersionInitiated
 
-            let nextEvent = getNextEvent serviceContext connection
-
-            nextEvent >>= handle serviceContext connection Offered
-
-
-handle serviceContext connection Offered
-                    (AnswerMessageEvent frame)  =
+--recipient will go from Idle to VersionNegotiatedState
+handle connection Idle (VersionNegotiationInitEvent frame) =
         do
-
-            let nextEvent = getNextEvent serviceContext connection
-
-            nextEvent >>= handle serviceContext connection Established
+            let nextEvent = getNextEvent connection
+            nextEvent >>= handle connection VersionNegotiated
 
 
-
-
---recipient
-handle serviceContext connection Idle (OfferMessageEvent frame) =
+--initiator will go from VersionInitiated to KeyExchangeInitiatedState
+-- (since VersionNegotiated is a transient event for initiator)
+handle connection VersionInitiated
+                    (VersionNegotiationRespEvent frame)  =
         do
+            let nextEvent = getNextEvent connection
+            nextEvent >>= handle connection VersionNegotiated
 
-            let nextEvent = getNextEvent serviceContext connection
-            -- Send an answer
-            nextEvent >>= handle serviceContext connection Established
+-- initiator will to KeyExchangeInitiated state
+handle connection VersionNegotiated (KeyExchangeInitEvent frame) =
+    case peerType connection of
+        INITIATOR -> handle connection KeyExchangeInitiated (KeyExchangeInitEvent frame)
+        RECIPIENT -> do
+                let nextEvent = getNextEvent connection
+                nextEvent >>= handle connection SecureTransportEstablished
 
 
-handle serviceContext connection Established (DataMessageEvent frame) =
+--initiator will go to SecureTransport from KeyExchangeInitiated state
+handle connection KeyExchangeInitiated
+                    (KeyExchangeRespEvent frame)  =
         do
-            let nextEvent = getNextEvent serviceContext connection
+            let nextEvent = getNextEvent connection
+            nextEvent >>= handle connection SecureTransportEstablished
+
+-- Receive message from the network
+handle connection SecureTransportEstablished (ReceiveDataEvent frame) =
+        do
+            let nextEvent = getNextEvent connection
             -- TODO handleDataMessage frame --decodeCBOR - collectFragments -
             -- addToOutputChan
-            nextEvent >>= handle serviceContext connection Established
+            nextEvent >>= handle connection SecureTransportEstablished
 
+-- Receive message from p2p layer
+handle connection SecureTransportEstablished (SendDataEvent serviceRequest) =
+        do
+            -- TODO chunk message, encodeCBOR, encrypt, send
+            let nextEvent = getNextEvent connection
+            nextEvent >>= handle connection SecureTransportEstablished
 
-handle serviceContext connection
-            Established (TerminateConnectionEvent frame)=
-        handle serviceContext connection Terminated CleanUpEvent
+handle connection SecureTransportEstablished (TerminateConnectionEvent frame) =
+        handle connection Terminated CleanUpEvent
 
-
-handle serviceContext connection Terminated CleanUpEvent =
+handle connection Terminated CleanUpEvent =
             --- do all cleanup here
             return Terminated
 
+handle connection _ _  =
+            handle connection Terminated CleanUpEvent
 
-
-handle serviceContext connection _ _  =
-            handle serviceContext connection Terminated CleanUpEvent
 
 
 getNextEvent
-  :: Control.Monad.IO.Class.MonadIO m =>
-     ServiceContext -> Connection -> m Event
+  :: Control.Monad.IO.Class.MonadIO m => Connection -> m Event
 
-getNextEvent serviceContext connection = do
-            let serviceRequestTChan = getServiceRequestTChan connection
-            let frameTChan = getFrameTChan connection
+getNextEvent connection = do
+            let serviceRequestTChan = serviceRequestTChannel connection
+            let frameTChan = frameTChannel connection
             let eitherEvent = readEitherTChan serviceRequestTChan frameTChan
-
             e <- liftIO $ atomically eitherEvent
 
             if isLeft e
                 then
                     do
-                        let serviceType = getServiceType (takeLeft e)
+                        let serviceType = service (takeLeft e)
 
                         case serviceType of
-                            OPEN -> return (InitServiceNegotiationEvent
+                            INITIATE -> return (InitHandshakeEvent
                                                             (takeLeft e))
-                            CLOSED -> return (TerminateConnectionEvent
+                            TERMINATE -> return (TerminateConnectionEvent
                                                             (takeLeft e))
                             SENDMSG -> return (SendDataEvent
                                                             (takeLeft e))
             else
                 do
-                    let opcode = getOpcode (takeRight e)
+                    let opcodeType = opcode (takeRight e)
 
-                    case opcode of
-                        ERROR  -> return (ErrorMessageEvent (takeRight e))
-                        DATA   -> return (DataMessageEvent (takeRight e))
-                        OFFER  -> return (OfferMessageEvent (takeRight e))
-                        ANSWER -> return (AnswerMessageEvent (takeRight e))
+                    case opcodeType of
+                        VERSION_INIT -> return (VersionNegotiationInitEvent (takeRight e))
+                        VERSION_RESP  -> return (VersionNegotiationRespEvent (takeRight e))
+                        KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
+                        KEY_EXCHANGE_RESP -> return (KeyExchangeRespEvent (takeRight e))
+                        DATA -> return (ReceiveDataEvent (takeRight e))
 
 
 
@@ -162,23 +149,10 @@ takeRight :: Either a b -> b
 takeRight (Right right) = right
 
 
-getOpcode :: Frame -> Opcode
-getOpcode (HandshakeFrame _ opcode _ _ _ _ _ _) = opcode
-
-getServiceType:: ServiceRequest -> ServiceType
-getServiceType (ServiceRequest serviceType _  ) = serviceType
-
-
-getServiceRequestTChan (Connection _ _ _ _ _ serviceRequestTChan _) =
-                                                           serviceRequestTChan
-
-
-getFrameTChan (Connection _ _ _ _ _ _ frame) = frame
-
 
 -- test :: IO (Async State)
 -- test = do
---         serviceContext <- atomically newTChan
+--         <- atomically newTChan
 --         -- connection <- atomically newTChan
 
 --         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
@@ -203,4 +177,4 @@ fragment = print "Fragmenting"
 -- TODO multiplex
 multiplex = print "Multiplexing"
 -- TODO demultiplex
-demultiplex = print "Demultiplexing"
+demultiplex1 = print "Demultiplexing"

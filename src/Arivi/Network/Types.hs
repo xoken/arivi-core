@@ -19,7 +19,10 @@ module Arivi.Network.Types
     ServiceId (..),
     ConnectionId,
     ServiceCode,
-    Opcode(..)
+    ServiceRequest(..),
+    ServiceType(..),
+    Opcode(..),
+    Message
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -46,11 +49,33 @@ type MessageId      = String
 type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
--- type ServiceContext = Int32
-
+type ServiceContext = Int32
+type Message = String
 
 -- | ServiceCode is type synonym for ByteString
 type ServiceCode = ByteString
+
+-- The type of message we get from the p2p layer
+data ServiceType =  INITIATE
+                  | TERMINATE
+                  | SENDMSG
+                  deriving (Show,Eq)
+
+-- ServiceType plus optional message
+data ServiceRequest = ServiceRequest {
+                        service     :: ServiceType
+                       ,message     :: Message
+                      } deriving (Show,Eq)
+
+
+-- The different messages we can get from the network
+data Opcode = VERSION_INIT
+            | VERSION_RESP
+            | KEY_EXCHANGE_INIT
+            | KEY_EXCHANGE_RESP
+            | DATA
+            deriving (Show,Eq, Generic)
+
 
 data Frame   =  HandshakeFrame {
                     versionList        :: [Version]
@@ -126,12 +151,15 @@ data TransportType =
                  | TCP
                  deriving (Eq,Show,Generic)
 
-
-data Opcode = ERROR
-            | DATA
-            | OFFER
-            | ANSWER
-            deriving (Show,Eq,Generic)
+-- data Opcode       =   ERROR
+--                     | HANDSHAKE_REQUEST
+--                     | HANDSHAKE_REPONSE
+--                     | OPTIONS
+--                     | RESET
+--                     | CLOSE
+--                     | PING
+--                     | PONG
+--                     deriving (Show,Generic)
 
 
 newtype PayLoadMarker = PayLoadMarker {
@@ -169,5 +197,4 @@ decodePublicKey = do
         (2,0)  -> throwCryptoError . publicKey <$>
                     (decode :: Decoder s Data.ByteString.ByteString)
         _      -> fail "invalid PublicKey encoding"
-
 
