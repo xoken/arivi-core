@@ -11,6 +11,7 @@
 module Arivi.Network.Connection
 (
     ConnectionId,
+    PeerType (..),
     Connection (..),
     getUniqueConnectionId,
     genConnectionId,
@@ -28,8 +29,8 @@ import           Network.Socket                     (Socket)
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress, NodeId)
-import           Arivi.Network.Types                (PortNumber, TransportType)
-
+import           Arivi.Network.Types                (PortNumber, TransportType, Frame(..), ServiceRequest)
+import           Control.Concurrent.STM.TChan       (TChan)
 
 
 
@@ -37,6 +38,8 @@ import           Arivi.Network.Types                (PortNumber, TransportType)
 -- | ConnectionId is type synonym for ByteString
 type ConnectionId = ByteString
 type State = ByteString
+data PeerType = INITIATOR | RECIPIENT
+                deriving (Eq)
 
 -- | (ConnectionId,Connection) are (key,value) pair in HashMap that stores
 -- information about all the Connection uniquely
@@ -48,10 +51,40 @@ data Connection = Connection {
                         , ePhemeralPubKey :: Keys.PublicKey
                         , transportType   :: TransportType
                         , state           :: State
+                        , peerType        :: PeerType
                         , sharedSecret    :: Keys.SharedSecret
                         , socket          :: Socket
+                        , serviceRequestTChannel :: TChan ServiceRequest
+                        , frameTChannel      :: TChan Frame
                         } deriving (Eq)
+-- connectionsid = id || port || transportType
+-- data ServiceType =  OPEN
+--                   | CLOSED
+--                   | SENDMSG
+--                   deriving (Show,Eq)
+-- type Message = String
+-- type IP = String
+-- type Port = String
+-- type NodeId = String
 
+-- data ServiceRequest = ServiceRequest {
+--                          serviceType :: ServiceType
+--                         ,message     :: Message
+--                         ,ipAddress   :: HostAddress
+--                         , port       :: PortNumber
+--                         , nodeId     :: Keys.PublicKey
+--                     } deriving (Show,Eq)
+
+
+
+-- data ConnectionLayer2 = ConnectionLayer2 {
+--                          connectionId           :: ConnectionId
+--                         , transportType         :: TransportType
+--                         , nodeId                :: Keys.PublicKey
+--                         , ipAddress             :: HostAddress
+--                         , serviceRequesttTChan  :: TChan ServiceRequest
+--                         , frameTChan            :: TChan Frame
+--                         }
 
 
 -- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString
@@ -83,12 +116,15 @@ createConnection :: Keys.PublicKey
                  -> Keys.PublicKey
                  -> TransportType
                  -> State
+                 -> PeerType
                  -> Keys.SharedSecret
                  -> Socket
                  -> HashMap ConnectionId Connection
+                 -> TChan ServiceRequest
+                 -> TChan Frame
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ePhemeralPubKey
-                transportType state sharedSecret socket connectionHashmap =
+                transportType state peerType sharedSecret socket connectionHashmap serviceRequestTChan frameTChan =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -97,8 +133,8 @@ createConnection nodeId ipAddress port ePhemeralPubKey
                         Data.HashMap.Strict.insert uniqueConnectionId
                                  (Connection uniqueConnectionId nodeId
                                                 ipAddress port ePhemeralPubKey
-                                             transportType state sharedSecret
-                                             socket)
+                                             transportType state peerType sharedSecret
+                                             socket serviceRequestTChan frameTChan)
                               connectionHashmap)
 
 
