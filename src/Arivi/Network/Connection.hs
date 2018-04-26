@@ -11,7 +11,6 @@
 module Arivi.Network.Connection
 (
     ConnectionId,
-    PeerType (..),
     Connection (..),
     getUniqueConnectionId,
     genConnectionId,
@@ -20,27 +19,26 @@ module Arivi.Network.Connection
 ) where
 
 
+import           Arivi.Crypto.Utils.Keys.Encryption as Keys
+import           Arivi.Crypto.Utils.Random
+import           Arivi.Kademlia.Types               (HostAddress, NodeId)
+import           Arivi.Network.Types                (Parcel (..), PortNumber,
+                                                     SequenceNum, TransportType,PeerType(..))
+import           Arivi.P2P.Types                    (P2PRequest (..))
+import           Control.Concurrent.STM.TChan       (TChan)
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, pack)
 import           Data.HashMap.Strict                (HashMap, delete, empty,
                                                      insert, member)
 import           Network.Socket                     (Socket)
 
-import           Arivi.Crypto.Utils.Keys.Encryption as Keys
-import           Arivi.Crypto.Utils.Random
-import           Arivi.Kademlia.Types               (HostAddress, NodeId)
-import           Arivi.Network.Types                (PortNumber, TransportType, Frame(..), ServiceRequest)
-import           Control.Concurrent.STM.TChan       (TChan)
-
-
 
 
 -- | ConnectionId is type synonym for ByteString
 type ConnectionId = ByteString
-type State = ByteString
-data PeerType = INITIATOR | RECIPIENT
-                deriving (Eq)
+-- type State = ByteString
 
+-- type ServiceRequest = ByteString
 -- | (ConnectionId,Connection) are (key,value) pair in HashMap that stores
 -- information about all the Connection uniquely
 data Connection = Connection {
@@ -50,12 +48,14 @@ data Connection = Connection {
                         , port            :: PortNumber
                         , ePhemeralPubKey :: Keys.PublicKey
                         , transportType   :: TransportType
-                        , state           :: State
+                        -- , state           :: State
                         , peerType        :: PeerType
                         , sharedSecret    :: Keys.SharedSecret
                         , socket          :: Socket
-                        , serviceRequestTChannel :: TChan ServiceRequest
-                        , frameTChannel      :: TChan Frame
+                        , p2pReqTChan     :: TChan P2PRequest
+                        , parcelTChan     :: TChan Parcel
+                        , egressSeqNum    :: SequenceNum
+                        , ingressSeqNum   :: SequenceNum
                         } deriving (Eq)
 
 
@@ -88,16 +88,18 @@ createConnection :: Keys.PublicKey
                  -> PortNumber
                  -> Keys.PublicKey
                  -> TransportType
-                 -> State
                  -> PeerType
                  -> Keys.SharedSecret
                  -> Socket
                  -> HashMap ConnectionId Connection
-                 -> TChan ServiceRequest
-                 -> TChan Frame
+                 -> TChan P2PRequest
+                 -> TChan Parcel
+                 -> SequenceNum
+                 -> SequenceNum
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ePhemeralPubKey
-                transportType state peerType sharedSecret socket connectionHashmap serviceRequestTChan frameTChan =
+                transportType  peerType sharedSecret socket connectionHashmap
+                p2pReqTChan parcelTChan egressSeqNum ingressSeqNum =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -106,8 +108,9 @@ createConnection nodeId ipAddress port ePhemeralPubKey
                         Data.HashMap.Strict.insert uniqueConnectionId
                                  (Connection uniqueConnectionId nodeId
                                                 ipAddress port ePhemeralPubKey
-                                             transportType state peerType sharedSecret
-                                             socket serviceRequestTChan frameTChan)
+                                             transportType peerType sharedSecret
+                                             socket p2pReqTChan parcelTChan
+                                             egressSeqNum ingressSeqNum)
                               connectionHashmap)
 
 
