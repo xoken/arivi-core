@@ -30,7 +30,7 @@ main = do
 
 
     -- | sender will compute 12 Bytes Nonce 
-    mNounce <-  Crypto.Utils.Random.getRandomByteString 12
+    mNonce <-  Crypto.Utils.Random.getRandomByteString 12
 
     let mheader = Data.ByteString.Char8.pack "this is header"
     let mPlaintext = Data.ByteString.Char8.pack "Hello World"
@@ -38,7 +38,7 @@ main = do
 
     -- | sender encrypts plain text using Nonce sharedSecretKey and header 
 
-    let cipherTextWithAuthTag = chachaEncrypt mNounce sharedSecretKey mheader mPlaintext
+    let cipherTextWithAuthTag = chachaEncrypt mNonce sharedSecretKey mheader mPlaintext
     
 
     -- | Receiver separates actual cipher text and message authentication tag (MAC) parts
@@ -46,7 +46,7 @@ main = do
     let (cipherText,authenticationTag) = getCipherTextAuthPair (throwCryptoError cipherTextWithAuthTag)
 
     -- | Calculates plain text message if authenticationTag is valid
-    print (chachaDecrypt mNounce sharedSecretKey mheader authenticationTag cipherText)
+    print (chachaDecrypt mNonce sharedSecretKey mheader authenticationTag cipherText)
 
 
     -- | Message is tampered 
@@ -54,5 +54,5 @@ main = do
 
     -- | If message is tampered, gives an error 
 
-    print (chachaDecrypt mNounce sharedSecretKey mheader authenticationTag tamperdCipherTextMessage)
+    print (chachaDecrypt mNonce sharedSecretKey mheader authenticationTag tamperdCipherTextMessage)
     
