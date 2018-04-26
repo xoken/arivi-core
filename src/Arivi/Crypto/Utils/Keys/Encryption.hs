@@ -10,7 +10,8 @@
 --
 --
 --  This is ECIES implementation using Elliptic Curve Diffie Hellman key exchange
--- inspired from Crypto.PubKey.ECIES <https://hackage.haskell.org/package/cryptonite-0.25/docs/Crypto-PubKey-ECIES.html>
+-- inspired from Crypto.PubKey.ECIES
+-- <https://hackage.haskell.org/package/cryptonite-0.25/docs/Crypto-PubKey-ECIES.html>
 -- (why not use Crypto.PubKey.ECIES itself?. Since we are using randomByteString
 -- generation from Raaz Library for key generations)
 --
@@ -28,8 +29,8 @@ module Arivi.Crypto.Utils.Keys.Encryption
     getSecretKey,
     getPublicKey,
     generateKeyPair,
-    createSharedSecreatKey,
-    derivedSharedSecreatKey,
+    createSharedSecretKey,
+    derivedSharedSecretKey,
     SharedSecret,
     PublicKey,
     SecretKey,
@@ -86,8 +87,8 @@ curveX25519 = Proxy :: Proxy Curve_X25519
 -- | Using createSharedSecreatKey sender will create SharedSecret for himself
 -- and shares encrypted ephemeralPublicKey with remote
 
-createSharedSecreatKey :: SecretKey -> PublicKey ->  Crypto.ECC.SharedSecret
-createSharedSecreatKey = ecdh curveX25519
+createSharedSecretKey :: SecretKey -> PublicKey ->  Crypto.ECC.SharedSecret
+createSharedSecretKey = ecdh curveX25519
 
 
 
@@ -95,5 +96,5 @@ createSharedSecreatKey = ecdh curveX25519
 -- ephemeralPublicKey and computes SecretKey using derivedSharedSecreatKey
 -- function
 
-derivedSharedSecreatKey :: PublicKey -> SecretKey -> Crypto.ECC.SharedSecret
-derivedSharedSecreatKey ephemeralPublicKey remotePrivateKey =  ecdh curveX25519 remotePrivateKey ephemeralPublicKey
+derivedSharedSecretKey :: PublicKey -> SecretKey -> Crypto.ECC.SharedSecret
+derivedSharedSecretKey ephemeralPublicKey remotePrivateKey =  ecdh curveX25519 remotePrivateKey ephemeralPublicKey
