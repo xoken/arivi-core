@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Arivi.Network.Types
-(   PayLoad        (..),
-    Frame          (..),
+(   Payload        (..),
+    Parcel         (..),
+    PeerType (..),
     SessionId      (..),
     MessageId      (..),
     EncryptionType (..),
@@ -18,11 +19,12 @@ module Arivi.Network.Types
     -- ServiceContext (..),
     ServiceId (..),
     ConnectionId,
-    ServiceCode,
-    ServiceRequest(..),
-    ServiceType(..),
+    -- ServiceCode,
+    -- ServiceRequest(..),
+    -- ServiceType(..),
     Opcode(..),
-    Message
+    SequenceNum
+    -- Message
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
@@ -43,29 +45,31 @@ import           Network.Socket
 type ConnectionId   = Int32
 type SessionId      = Int32
 -- need to be changed to Int24
-type PayLoadLength  = Int16
+type PayloadLength  = Int16
 type FragmentNumber = Int16
 type MessageId      = String
 type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
-type Message = String
+
+type SequenceNum = Integer
+-- type Message = String
 
 -- | ServiceCode is type synonym for ByteString
-type ServiceCode = ByteString
+-- type ServiceCode = ByteString
 
 -- The type of message we get from the p2p layer
-data ServiceType =  INITIATE
-                  | TERMINATE
-                  | SENDMSG
-                  deriving (Show,Eq)
+-- data ServiceType =  INITIATE
+--                   | TERMINATE
+--                   | SENDMSG
+--                   deriving (Show,Eq)
 
 -- ServiceType plus optional message
-data ServiceRequest = ServiceRequest {
-                        service     :: ServiceType
-                       ,message     :: Message
-                      } deriving (Show,Eq)
+-- data ServiceRequest = ServiceRequest {
+--                         service     :: ServiceType
+--                        ,message     :: Message
+--                       } deriving (Show,Eq)
 
 
 -- The different messages we can get from the network
@@ -77,61 +81,67 @@ data Opcode = VERSION_INIT
             deriving (Show,Eq, Generic)
 
 
-data Frame   =  HandshakeFrame {
-                    versionList        :: [Version]
-                ,   opcode             :: Opcode
+data Parcel   =  VersionParcel {
+                    opcode             :: Opcode
+                ,   versionList        :: [Version]
                 ,   connectionId       :: ConnectionId
-                ,   messageId          :: MessageId
-                ,   encodingModeList   :: [EncodingType]
-                ,   encryptionModeList :: [EncryptionType]
+                }
+               |KeyExDHInitParcel {
+                    opcode             :: Opcode
+                ,   versionList        :: [Version]
+                ,   connectionId       :: ConnectionId
                 ,   ePhemeralPublicKey :: Encryption.PublicKey
-                ,   remotePublicKey    :: Encryption.PublicKey
+                ,   nodePublicKey      :: Encryption.PublicKey
 
                }
-               | RegularFrame  {
-                    version        :: Version
-                ,   opcode         :: Opcode
-                ,   publicFlags    :: PublicFlags
+               |KeyExDHResponseParcel {
+                    opcode             :: Opcode
+                ,   versionList        :: [Version]
+                ,   connectionId       :: ConnectionId
+                ,   ePhemeralPublicKey :: Encryption.PublicKey
+                ,   nodePublicKey      :: Encryption.PublicKey
+
+               }
+               | DataParcel  {
+                    opcode         :: Opcode
                 ,   messageId      :: MessageId
-                ,   payLoadMarker  :: PayLoadMarker
                 ,   fragmentNumber :: FragmentNumber
                 ,   connectionId   :: ConnectionId
-                ,   payLoadLength  :: PayLoadLength
-                ,   payLoad        :: PayLoad
+                ,   payloadLength  :: PayloadLength
+                ,   payload        :: Payload
                }
 
-               | ErrorFrame {
-                    version        :: Version
-                ,   opcode         :: Opcode
-                ,   publicFlags    :: PublicFlags
+               | ErrorParcel {
+                    opcode         :: Opcode
                 ,   messageId      :: MessageId
                 ,   fragmentNumber :: FragmentNumber
                 ,   descriptor     :: Descriptor
                 ,   connectionId   :: ConnectionId
                }
 
-               | ResetCloseFrame {
-                    version        :: Version
-                ,   opcode         :: Opcode
-                ,   publicFlags    :: PublicFlags
+               | ByeParcel {
+                    opcode         :: Opcode
                 ,   fragmentNumber :: FragmentNumber
                 ,   connectionId   :: ConnectionId
                 ,   messageId      :: MessageId
                }
-                deriving (Show,Generic)
+                deriving (Show,Eq,Generic)
+
+data PeerType = INITIATOR | RECIPIENT
+                deriving (Eq)
 
 data Version
     = V0
     | V1
     deriving (Eq, Ord, Show,Generic)
 
-data PublicFlags  = PublicFlags {
-                    finalFragment :: Bool
-                ,   initiator     :: Bool
-                ,   ecncryption   :: EncryptionType
-                ,   encoding      :: EncodingType
-                ,   transportType :: TransportType
-            } deriving (Show,Generic)
+-- data PublicFlags  = PublicFlags {
+--                     finalFragment :: Bool
+--                 ,   initiator     :: Bool
+--                 ,   ecncryption   :: EncryptionType
+--                 ,   encoding      :: EncodingType
+--                 ,   transportType :: TransportType
+--             } deriving (Show,Generic)
 
 data EncryptionType = NONE
                       | AES256_CTR
@@ -162,22 +172,22 @@ data TransportType =
 --                     deriving (Show,Generic)
 
 
-newtype PayLoadMarker = PayLoadMarker {
-                            serviceId :: ServiceId
-                    } deriving (Show,Generic)
+-- newtype PayloadMarker = PayloadMarker {
+--                             serviceId :: ServiceId
+--                     } deriving (Show,Generic)
 
-newtype PayLoad = PayLoad Data.ByteString.Char8.ByteString
-               deriving (Show,Generic)
+newtype Payload = Payload Data.ByteString.Char8.ByteString
+               deriving (Show,Eq,Generic)
 
 instance Serialise Version
 instance Serialise Opcode
 instance Serialise EncodingType
 instance Serialise TransportType
 instance Serialise EncryptionType
-instance Serialise PublicFlags
-instance Serialise PayLoadMarker
-instance Serialise PayLoad
-instance Serialise Frame
+-- instance Serialise PublicFlags
+-- instance Serialise PayloadMarker
+instance Serialise Payload
+instance Serialise Parcel
 
 -- Serialise intance for PublicKey
 instance Serialise PublicKey where

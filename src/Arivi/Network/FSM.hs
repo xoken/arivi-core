@@ -4,7 +4,7 @@ module Arivi.Network.FSM (
 
 import           Arivi.Network.Connection
 import           Arivi.Network.Types
--- (Frame (..), ServiceRequest(..), ServiceType(..), Opcode(..),)
+import           Arivi.P2P.Types (P2PRequest(..),ServiceType(..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
@@ -21,14 +21,14 @@ data State =  Idle
             deriving (Show, Eq)
 
 -- The different events in layer 1 that cause state change
-data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
-             | TerminateConnectionEvent {serviceRequest::ServiceRequest}
-             | SendDataEvent {serviceRequest::ServiceRequest}
-             | VersionNegotiationInitEvent {frame::Frame}
-             | VersionNegotiationRespEvent {frame::Frame}
-             | KeyExchangeInitEvent {frame::Frame}
-             | KeyExchangeRespEvent {frame::Frame}
-             | ReceiveDataEvent {frame::Frame}
+data Event =  InitHandshakeEvent {p2pRequest::P2PRequest}
+             | TerminateConnectionEvent {p2pRequest::P2PRequest}
+             | SendDataEvent {p2pRequest::P2PRequest}
+             | VersionNegotiationInitEvent {parcel::Parcel}
+             | VersionNegotiationRespEvent {parcel::Parcel}
+             | KeyExchangeInitEvent {parcel::Parcel}
+             | KeyExchangeRespEvent {parcel::Parcel}
+             | ReceiveDataEvent {parcel::Parcel}
              | CleanUpEvent
           deriving (Show)
 
@@ -37,13 +37,13 @@ handle :: Connection -> State -> Event -> IO State
 
 -- initiator will initiate the handshake
 handle connection Idle
-                    (InitHandshakeEvent serviceRequest)  =
+                    (InitHandshakeEvent p2pRequest)  =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handle connection VersionInitiated
 
 --recipient will go from Idle to VersionNegotiatedState
-handle connection Idle (VersionNegotiationInitEvent frame) =
+handle connection Idle (VersionNegotiationInitEvent parcel) =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handle connection VersionNegotiated
@@ -52,15 +52,15 @@ handle connection Idle (VersionNegotiationInitEvent frame) =
 --initiator will go from VersionInitiated to KeyExchangeInitiatedState
 -- (since VersionNegotiated is a transient event for initiator)
 handle connection VersionInitiated
-                    (VersionNegotiationRespEvent frame)  =
+                    (VersionNegotiationRespEvent parcel)  =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handle connection VersionNegotiated
 
 -- initiator will to KeyExchangeInitiated state
-handle connection VersionNegotiated (KeyExchangeInitEvent frame) =
+handle connection VersionNegotiated (KeyExchangeInitEvent parcel) =
     case peerType connection of
-        INITIATOR -> handle connection KeyExchangeInitiated (KeyExchangeInitEvent frame)
+        INITIATOR -> handle connection KeyExchangeInitiated (KeyExchangeInitEvent parcel)
         RECIPIENT -> do
                 let nextEvent = getNextEvent connection
                 nextEvent >>= handle connection SecureTransportEstablished
@@ -68,27 +68,27 @@ handle connection VersionNegotiated (KeyExchangeInitEvent frame) =
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
 handle connection KeyExchangeInitiated
-                    (KeyExchangeRespEvent frame)  =
+                    (KeyExchangeRespEvent parcel)  =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handle connection SecureTransportEstablished
 
 -- Receive message from the network
-handle connection SecureTransportEstablished (ReceiveDataEvent frame) =
+handle connection SecureTransportEstablished (ReceiveDataEvent parcel) =
         do
             let nextEvent = getNextEvent connection
-            -- TODO handleDataMessage frame --decodeCBOR - collectFragments -
+            -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
             nextEvent >>= handle connection SecureTransportEstablished
 
 -- Receive message from p2p layer
-handle connection SecureTransportEstablished (SendDataEvent serviceRequest) =
+handle connection SecureTransportEstablished (SendDataEvent p2pRequest) =
         do
             -- TODO chunk message, encodeCBOR, encrypt, send
             let nextEvent = getNextEvent connection
             nextEvent >>= handle connection SecureTransportEstablished
 
-handle connection SecureTransportEstablished (TerminateConnectionEvent frame) =
+handle connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
         handle connection Terminated CleanUpEvent
 
 handle connection Terminated CleanUpEvent =
@@ -104,20 +104,20 @@ getNextEvent
   :: Control.Monad.IO.Class.MonadIO m => Connection -> m Event
 
 getNextEvent connection = do
-            let serviceRequestTChan = serviceRequestTChannel connection
-            let frameTChan = frameTChannel connection
-            let eitherEvent = readEitherTChan serviceRequestTChan frameTChan
+            let p2pReqTChannel = p2pReqTChan connection
+            let parcelTChannel = parcelTChan connection
+            let eitherEvent = readEitherTChan p2pReqTChannel parcelTChannel
             e <- liftIO $ atomically eitherEvent
 
             if isLeft e
                 then
                     do
-                        let serviceType = service (takeLeft e)
+                        let service = serviceType (takeLeft e)
 
-                        case serviceType of
-                            INITIATE -> return (InitHandshakeEvent
+                        case service of
+                            OPEN  -> return (InitHandshakeEvent
                                                             (takeLeft e))
-                            TERMINATE -> return (TerminateConnectionEvent
+                            CLOSED -> return (TerminateConnectionEvent
                                                             (takeLeft e))
                             SENDMSG -> return (SendDataEvent
                                                             (takeLeft e))
@@ -155,11 +155,11 @@ takeRight (Right right) = right
 --         <- atomically newTChan
 --         -- connection <- atomically newTChan
 
---         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
---         serviceContexTChan <- writeTChan serviceContexTChan serviceRequest
+--         -- let p2pRequest = P2PRequest OPEN "Message" -- "IP" "Port" "NodeId"
+--         serviceContexTChan <- writeTChan serviceContexTChan p2pRequest
 
 --         async (handle serviceContexTChan connection Idle
---                                   (InitServiceNegotiationEvent serviceRequest))
+--                                   (InitServiceNegotiationEvent p2pRequest))
 
 
 
