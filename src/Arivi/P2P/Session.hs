@@ -19,16 +19,16 @@ module  Arivi.P2P.Session
 ) where
 
 
-import           Data.ByteString.Char8    (ByteString, append, pack)
-import           Data.HashMap.Strict      (HashMap, delete, empty, insert,
-                                           member)
+import           Data.ByteString.Char8              (ByteString, append, pack)
+import           Data.HashMap.Strict                (HashMap, delete, empty,
+                                                     insert, member)
 
 import qualified Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Network.Connection
-import           Arivi.Network.Types      (EncodingType, ServiceCode,
-                                           TransportType,HostAddress,
-                                           PortNumber)
-import           Arivi.P2P.ServiceRegistry (ServiceContext)
+import           Arivi.Network.Types                (EncodingType, HostAddress,
+                                                     PortNumber, TransportType)
+import           Arivi.P2P.ServiceRegistry          (ServiceContext)
+import           Arivi.P2P.Types                    (ServiceCode)
 
 -- | SessionId is type synonym for ByteString
 type SessionId = ByteString
