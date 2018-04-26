@@ -12,59 +12,29 @@ module Arivi.P2P.Connection
 (
     ConnectionId,
     Connection (..),
-    ServiceRequest(..),
-    ServiceType(..),
+    P2PRequest(..),
     Message,
-    createConnection,
     closeConnection,
+    concatenate,
+    createConnection,
     genConnectionId,
-    getUniqueConnectionId
+    getUniqueConnectionId,
+    makeConnectionId
 ) where
 
-
-import           Data.ByteString.Base16             (encode)
-import           Data.ByteString.Char8              (ByteString, pack,append)
-import           Data.HashMap.Strict                (HashMap, delete, empty,
-                                                     insert, member)
-import           Network.Socket                     (Socket)
-import           Control.Concurrent.STM.TChan
 
 import qualified Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress, NodeId)
-import           Arivi.Network.Types                (PortNumber, TransportType,Frame)
-
-
-
-
-
--- | ConnectionId is type synonym for ByteString
-type ConnectionId = ByteString
-
--- type State = ByteString
-
-
-data ServiceType =  OPEN
-                  | CLOSED
-                  | SENDMSG
-                  deriving (Show,Eq)
-
--- | Message is ByteString
-type Message = ByteString
--- type ServiceType = ByteString
-
-
-data ServiceRequest = ServiceRequest {
-                          -- requestType :: RequestType
-                          serviceType :: ServiceType
-                        , message     :: Message
-                        -- , connection   :: Connection
-                        -- , nodeId1                :: Keys.PublicKey
-                        -- , ipAddress1             :: HostAddress
-                        -- , port1                  :: PortNumber
-                        -- , transportType1         :: TransportType
-
-                    } deriving (Show,Eq)
+import           Arivi.Network.Types                (PortNumber, TransportType)
+import           Arivi.P2P.Types                    (ConnectionId, Message (..),
+                                                     P2PRequest (..))
+import           Control.Concurrent.STM.TChan
+import           Data.ByteString.Base16             (encode)
+import           Data.ByteString.Char8              (ByteString, append, pack)
+import           Data.HashMap.Strict                (HashMap, delete, empty,
+                                                     insert, member)
+import           Network.Socket                     (Socket)
 
 
 
@@ -72,14 +42,14 @@ data ServiceRequest = ServiceRequest {
 --   information about all the Connection uniquely
 
 data Connection = Connection {
-                      connectionId          :: ConnectionId
-                    , nodeId                :: Keys.PublicKey
-                    , ipAddress             :: HostAddress
-                    , port                  :: PortNumber
-                    , transportType         :: TransportType
-                    , serviceRequestTChan   :: TChan ServiceRequest
-                    , frameTChan            :: TChan Frame -- TODO change frame to payload
-                    -- TODO initiator or not
+                      connectionId        :: ConnectionId
+                    , nodeId              :: Keys.PublicKey
+                    , ipAddress           :: HostAddress
+                    , port                :: PortNumber
+                    , transportType       :: TransportType
+                    , serviceRequestTChan :: TChan P2PRequest
+                    , messageTChan        :: TChan Message
+                    , isInitiator         :: Bool
                     } deriving (Eq)
 
 
@@ -103,14 +73,22 @@ getUniqueConnectionId hashmap = do
                                     else
                                         return connectionId
 
+-- | ConnectionId is concatenation of IP Address, PortNumber and TransportType
+makeConnectionId :: (Monad m)
+                 => HostAddress
+                 -> PortNumber
+                 -> TransportType
+                 -> m ConnectionId
 makeConnectionId ipAddress port transportType =
-                        return (concanate
-                                  (concanate (concanate ipAddress "|")
-                                             (concanate port "|"))
-                                  (concanate transportType "|"))
+                        return (concatenate
+                                  (concatenate (concatenate ipAddress "|")
+                                               (concatenate port "|"))
+                                  (concatenate transportType "|"))
 
 
-concanate first second = Data.ByteString.Char8.append
+-- | Takes two arguments converts them into ByteString and concatenates them
+concatenate :: (Show first, Show second) => first -> second -> ByteString
+concatenate first second = Data.ByteString.Char8.append
                             (Data.ByteString.Char8.pack $ show first)
                             (Data.ByteString.Char8.pack $ show second)
 
@@ -118,16 +96,19 @@ concanate first second = Data.ByteString.Char8.append
 
 -- | Creates Unique Connection  and stores in given HashMap
 
--- createConnection :: Keys.PublicKey
---                  -> HostAddress
---                  -> PortNumber
---                  -> TransportType
---                  -> TChan ServiceRequest
---                  -> TChan Frame
---                  -> HashMap ConnectionId Connection
---                  -> IO (ConnectionId,HashMap ConnectionId Connection)
+createConnection:: Monad m =>
+        Keys.PublicKey
+     -> HostAddress
+     -> PortNumber
+     -> TransportType
+     -> TChan P2PRequest
+     -> TChan Message
+     -> Bool
+     -> HashMap ConnectionId Connection
+     -> m (ConnectionId,HashMap ConnectionId Connection)
+
 createConnection nodeId ipAddress port transportType serviceRequestTChan
-                    frameTChan connectionHashmap =
+                    frameTChan isInitiator connectionHashmap =
 
                 makeConnectionId ipAddress port transportType
                     >>= \uniqueConnectionId
@@ -140,7 +121,8 @@ createConnection nodeId ipAddress port transportType serviceRequestTChan
                                              port
                                              transportType
                                              serviceRequestTChan
-                                             frameTChan)
+                                             frameTChan
+                                             isInitiator)
                                  connectionHashmap)
 
 
