@@ -16,8 +16,9 @@ module Arivi.P2P.ServiceRegistry
     ServiceContext(..)
 ) where
 
-import           Arivi.Network.Types          (ServiceCode, TransportType(..))
+import           Arivi.Network.Types          (TransportType(..))
 import           Arivi.P2P.Connection         (Connection, ConnectionId)
+import           Arivi.P2P.Types              (ServiceCode)
 import           Control.Concurrent.MVar      (MVar)
 import           Control.Concurrent.STM.TChan (TChan)
 import           Data.HashMap.Strict          (HashMap)
