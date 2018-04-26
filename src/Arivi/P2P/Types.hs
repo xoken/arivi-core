@@ -18,6 +18,7 @@ module Arivi.P2P.Types
   , Opcode(..)
   , P2PRequest(..)
   , ServiceCode
+  , ServiceName
   , ServiceType(..)
 )
 
