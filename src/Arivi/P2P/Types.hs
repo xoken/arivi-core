@@ -69,9 +69,20 @@ data Message   =  ServiceNegotiationOffer {
                 ,  opcode        :: Opcode         -- ^ Denotes the opcode
                 ,  fromNodeId    :: NodeId
                 ,  supportedList :: [(ServiceName,ServiceCode)]
+                                                    -- ^ Tuple of `ServiceName`
+                                                    --   and `ServiceCode`
                 }
 
                | DataMessage  {
+                  connectionId :: ConnectionId    -- ^ It is concatenation of
+                                                  --   IP Address, PortNumber
+                                                  --   and TransportType
+                , opcode       :: Opcode          -- ^ Denotes the opcode
+                , service      :: ServiceCode     -- ^ Type of service
+                                                  --   needed
+               }
+
+              | ErrorMessage  {
                   connectionId :: ConnectionId    -- ^ It is concatenation of
                                                   --   IP Address, PortNumber
                                                   --   and TransportType
