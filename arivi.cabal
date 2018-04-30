@@ -59,6 +59,9 @@ library
                        -- Arivi.Crypto.Utils.IES
                        Arivi.Crypto.Utils.Keys.Encryption
                        Arivi.Crypto.Utils.Keys.Signature
+                       Arivi.Crypto.Utils.PublicKey.Signature
+                       Arivi.Crypto.Utils.PublicKey.Encryption
+                       Arivi.Crypto.Utils.PublicKey.NodeKeys
                        Arivi.Crypto.Utils.Random
                        Arivi.Kademlia.Instance
                        Arivi.Kademlia.Node
