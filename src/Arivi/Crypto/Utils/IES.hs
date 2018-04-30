@@ -27,9 +27,9 @@ import           Crypto.ECC
 import           Crypto.Error
 import           Crypto.PubKey.Curve25519
 import           Crypto.PubKey.ECIES
+import           Crypto.Random.Types
 import           Data.ByteString.Char8
 import           Data.Proxy
-
 
 -- |Proxy Curve representation this is standard curve known to both sender and
 -- receiver
@@ -39,15 +39,16 @@ curve = Proxy :: Proxy Curve_X25519
 
 -- | genIESParams takes Public Key of the receiver and generates IESParams
 --  containing ephemeral public key and shared secret key tuple
+genIESParams :: MonadRandom m => PublicKey -> m (PublicKey, SharedSecret)
 genIESParams receiversPK = do
                              ies <- deriveEncrypt curve receiversPK
-                             return (throwCryptoError ies)
+                             return  ies
 
 
 
 -- | This is used at receiver's side , ephemeral Public Key and receiver's
 -- secret key is used to generate shared secret key of communication
-
-generateSharedSecret ePubKey receiversSK = throwCryptoError
-                                            (deriveDecrypt curve ePubKey
-                                                (throwCryptoError receiversSK))
+generateSharedSecret :: PublicKey -> CryptoFailable SecretKey -> SharedSecret
+generateSharedSecret ePubKey receiversSK =
+                                            deriveDecrypt curve ePubKey
+                                                (throwCryptoError receiversSK)
