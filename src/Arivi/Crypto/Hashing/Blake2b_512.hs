@@ -1,7 +1,7 @@
 -- |
 -- Module      : Arivi.Crypto.Hashing.Blake2b_512
 -- License     :
--- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
+-- Maintainer  : Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
 --

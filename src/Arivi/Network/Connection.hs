@@ -2,7 +2,7 @@
 -- Module      :  Arivi.Network.Connection
 -- Copyright   :
 -- License     :
--- Maintainer  :  Mahesh Uligade <maheshsuligade@gmail.com>
+-- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
 --

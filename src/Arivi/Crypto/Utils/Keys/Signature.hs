@@ -1,7 +1,7 @@
 -- |
 -- Module      : Arivi.Crypto.Utils.Keys.Signature
 -- License     :
--- Maintainer  : Mahesh Uligade <maheshsuligade@gmail.com>
+-- Maintainer  : Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability
 --
