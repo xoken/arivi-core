@@ -54,8 +54,8 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
-                       Arivi.Crypto.Utils.Cipher.AES256
-                       Arivi.Crypto.Utils.Cipher.ChaChaPoly1305
+                       Arivi.Crypto.Cipher.AES256
+                       Arivi.Crypto.Cipher.ChaChaPoly1305
                        -- Arivi.Crypto.Utils.IES
                        Arivi.Crypto.Utils.Keys.Encryption
                        Arivi.Crypto.Utils.Keys.Signature

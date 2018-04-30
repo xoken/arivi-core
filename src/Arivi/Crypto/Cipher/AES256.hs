@@ -1,5 +1,5 @@
 -- |
--- Module      : Arivi.Crypto.Utils.Cipher.AES256
+-- Module      : Arivi.Crypto.Cipher.AES256
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
@@ -8,7 +8,7 @@
 -- This module is provides Encryption and Decryption using AES256 in CTR mode
 --
 
-module Arivi.Crypto.Utils.Cipher.AES256
+module Arivi.Crypto.Cipher.AES256
 (
     aesEncrypt,
     aesDecrypt,
