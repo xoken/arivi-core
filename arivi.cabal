@@ -76,6 +76,7 @@ library
                        Arivi.Network.Types
                        Arivi.P2P.Connection
                        Arivi.P2P.FSM
+                       Arivi.P2P.PubSub
                        Arivi.P2P.Session
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
