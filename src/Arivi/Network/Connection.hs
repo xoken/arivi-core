@@ -22,9 +22,10 @@ module Arivi.Network.Connection
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress, NodeId)
-import           Arivi.Network.Types                (Parcel (..), PortNumber,
-                                                     SequenceNum, TransportType,PeerType(..))
-import           Arivi.P2P.Types                    (P2PRequest (..))
+import           Arivi.Network.Types                (Parcel (..), PeerType (..),
+                                                     PortNumber, SequenceNum,
+                                                     TransportType)
+import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, pack)
@@ -52,7 +53,7 @@ data Connection = Connection {
                         , peerType        :: PeerType
                         , sharedSecret    :: Keys.SharedSecret
                         , socket          :: Socket
-                        , p2pReqTChan     :: TChan P2PRequest
+                        , serviceReqTChan :: TChan ServiceRequest
                         , parcelTChan     :: TChan Parcel
                         , egressSeqNum    :: SequenceNum
                         , ingressSeqNum   :: SequenceNum
@@ -92,14 +93,14 @@ createConnection :: Keys.PublicKey
                  -> Keys.SharedSecret
                  -> Socket
                  -> HashMap ConnectionId Connection
-                 -> TChan P2PRequest
+                 -> TChan ServiceRequest
                  -> TChan Parcel
                  -> SequenceNum
                  -> SequenceNum
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ePhemeralPubKey
                 transportType  peerType sharedSecret socket connectionHashmap
-                p2pReqTChan parcelTChan egressSeqNum ingressSeqNum =
+                serviceRequestTChan parcelTChan egressSeqNum ingressSeqNum =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -109,7 +110,8 @@ createConnection nodeId ipAddress port ePhemeralPubKey
                                  (Connection uniqueConnectionId nodeId
                                                 ipAddress port ePhemeralPubKey
                                              transportType peerType sharedSecret
-                                             socket p2pReqTChan parcelTChan
+                                             socket serviceRequestTChan
+                                             parcelTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 

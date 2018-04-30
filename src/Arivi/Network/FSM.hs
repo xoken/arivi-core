@@ -4,7 +4,8 @@ module Arivi.Network.FSM (
 
 import           Arivi.Network.Connection
 import           Arivi.Network.Types
-import           Arivi.P2P.Types (P2PRequest(..),ServiceType(..))
+import           Arivi.P2P.Types          (ServiceRequest (..),
+                                           ServiceType (..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
@@ -21,9 +22,9 @@ data State =  Idle
             deriving (Show, Eq)
 
 -- The different events in layer 1 that cause state change
-data Event =  InitHandshakeEvent {p2pRequest::P2PRequest}
-             | TerminateConnectionEvent {p2pRequest::P2PRequest}
-             | SendDataEvent {p2pRequest::P2PRequest}
+data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
+             | TerminateConnectionEvent {serviceRequest::ServiceRequest}
+             | SendDataEvent {serviceRequest::ServiceRequest}
              | VersionNegotiationInitEvent {parcel::Parcel}
              | VersionNegotiationRespEvent {parcel::Parcel}
              | KeyExchangeInitEvent {parcel::Parcel}
@@ -37,7 +38,7 @@ handle :: Connection -> State -> Event -> IO State
 
 -- initiator will initiate the handshake
 handle connection Idle
-                    (InitHandshakeEvent p2pRequest)  =
+                    (InitHandshakeEvent serviceRequest)  =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handle connection VersionInitiated
@@ -82,7 +83,7 @@ handle connection SecureTransportEstablished (ReceiveDataEvent parcel) =
             nextEvent >>= handle connection SecureTransportEstablished
 
 -- Receive message from p2p layer
-handle connection SecureTransportEstablished (SendDataEvent p2pRequest) =
+handle connection SecureTransportEstablished (SendDataEvent serviceRequest) =
         do
             -- TODO chunk message, encodeCBOR, encrypt, send
             let nextEvent = getNextEvent connection
@@ -104,9 +105,9 @@ getNextEvent
   :: Control.Monad.IO.Class.MonadIO m => Connection -> m Event
 
 getNextEvent connection = do
-            let p2pReqTChannel = p2pReqTChan connection
+            let serReqTChannel  = serviceReqTChan connection
             let parcelTChannel = parcelTChan connection
-            let eitherEvent = readEitherTChan p2pReqTChannel parcelTChannel
+            let eitherEvent = readEitherTChan serReqTChannel parcelTChannel
             e <- liftIO $ atomically eitherEvent
 
             if isLeft e
@@ -117,7 +118,7 @@ getNextEvent connection = do
                         case service of
                             OPEN  -> return (InitHandshakeEvent
                                                             (takeLeft e))
-                            CLOSED -> return (TerminateConnectionEvent
+                            CLOSE -> return (TerminateConnectionEvent
                                                             (takeLeft e))
                             SENDMSG -> return (SendDataEvent
                                                             (takeLeft e))
@@ -155,11 +156,11 @@ takeRight (Right right) = right
 --         <- atomically newTChan
 --         -- connection <- atomically newTChan
 
---         -- let p2pRequest = P2PRequest OPEN "Message" -- "IP" "Port" "NodeId"
---         serviceContexTChan <- writeTChan serviceContexTChan p2pRequest
+--         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
+--         serviceContexTChan <- writeTChan serviceContexTChan serviceRequest
 
 --         async (handle serviceContexTChan connection Idle
---                                   (InitServiceNegotiationEvent p2pRequest))
+--                                   (InitServiceNegotiationEvent serviceRequest))
 
 
 

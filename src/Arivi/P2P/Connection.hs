@@ -12,8 +12,8 @@ module Arivi.P2P.Connection
 (
     ConnectionId,
     Connection (..),
-    P2PRequest(..),
-    Message,
+    -- P2PRequest(..),
+    -- Message,
     closeConnection,
     concatenate,
     createConnection,
@@ -27,8 +27,9 @@ import qualified Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress, NodeId)
 import           Arivi.Network.Types                (PortNumber, TransportType)
-import           Arivi.P2P.Types                    (ConnectionId, Message (..),
-                                                     P2PRequest (..))
+import           Arivi.P2P.Types                    (ConnectionId,
+                                                     P2PMessage (..),
+                                                     ServiceRequest (..))
 import           Control.Concurrent.STM.TChan
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
@@ -47,8 +48,8 @@ data Connection = Connection {
                     , ipAddress           :: HostAddress
                     , port                :: PortNumber
                     , transportType       :: TransportType
-                    , serviceRequestTChan :: TChan P2PRequest
-                    , messageTChan        :: TChan Message
+                    , serviceRequestTChan :: TChan ServiceRequest
+                    , messageTChan        :: TChan P2PMessage
                     , isInitiator         :: Bool
                     } deriving (Eq)
 
@@ -101,8 +102,8 @@ createConnection:: Monad m =>
      -> HostAddress
      -> PortNumber
      -> TransportType
-     -> TChan P2PRequest
-     -> TChan Message
+     -> TChan ServiceRequest
+     -> TChan P2PMessage
      -> Bool
      -> HashMap ConnectionId Connection
      -> m (ConnectionId,HashMap ConnectionId Connection)

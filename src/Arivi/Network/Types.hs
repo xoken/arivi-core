@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Arivi.Network.Types
 (   Payload        (..),
     Parcel         (..),
@@ -17,26 +16,29 @@ module Arivi.Network.Types
     Version,
     serialise,
     deserialise,
+    -- ServiceContext (..),
     ServiceId (..),
     ConnectionId,
+    -- ServiceCode,
+    -- ServiceRequest(..),
+    -- ServiceType(..),
     Opcode(..),
     SequenceNum
+    -- Message
 ) where
 
+import           Arivi.Crypto.Utils.Keys.Encryption as Encryption
 import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-import           Crypto.Error
-import           Crypto.PubKey.Curve25519 (PublicKey, publicKey)
-import           Crypto.PubKey.Ed25519    (Signature, signature)
 import           Data.ByteArray
 import qualified Data.ByteString
-import           Data.ByteString.Char8    (ByteString)
-import           Data.Int                 (Int16, Int32, Int64, Int8)
-import qualified Data.Map.Strict          as Map
+import           Data.ByteString.Char8              (ByteString)
+import           Data.Int                           (Int16, Int32, Int64, Int8)
+import qualified Data.Map.Strict                    as Map
 import           Data.Monoid
-import           Data.UUID                (UUID)
+import           Data.UUID                          (UUID)
 import           GHC.Generics
 import           Network.Socket
 
@@ -52,40 +54,54 @@ type ContextID      = Int
 type ServiceContext = Int32
 
 type SequenceNum = Integer
-type InitiatorNonce = Integer -- 1++
-type RecipientNonce = Integer -- 2^32++
+-- type Message = String
+
+-- | ServiceCode is type synonym for ByteString
+-- type ServiceCode = ByteString
+
+-- The type of message we get from the p2p layer
+-- data ServiceType =  INITIATE
+--                   | TERMINATE
+--                   | SENDMSG
+--                   deriving (Show,Eq)
+
+-- ServiceType plus optional message
+-- data ServiceRequest = ServiceRequest {
+--                         service     :: ServiceType
+--                        ,message     :: Message
+--                       } deriving (Show,Eq)
+
+
 -- The different messages we can get from the network
-data Opcode = KEY_EXCHANGE_INIT
+data Opcode = VERSION_INIT
+            | VERSION_RESP
+            | KEY_EXCHANGE_INIT
             | KEY_EXCHANGE_RESP
             | DATA
             deriving (Show,Eq, Generic)
 
--- | This message is encrypted and sent in the handshake message
-data HandshakeInitMasked = HandshakeMessage {
-      versionList   :: [Version]
-    , connectionId  :: ConnectionId
-    , nonce         :: InitiatorNonce
-    , nodePublicKey :: PublicKey
-    , signature     :: Signature
-} deriving (Show, Eq, Generic)
 
-data HandshakeRespMasked = HandshakeRespMsg {
-    versionList :: [Version]
-    , nonce :: RecipientNonce
-    , connectionId :: ConnectionId
-} deriving (Show, Eq, Generic)
+data Parcel   =  VersionParcel {
+                    opcode       :: Opcode
+                ,   versionList  :: [Version]
+                ,   connectionId :: ConnectionId
+                }
+               |KeyExDHInitParcel {
+                    opcode             :: Opcode
+                ,   versionList        :: [Version]
+                ,   connectionId       :: ConnectionId
+                ,   ePhemeralPublicKey :: Encryption.PublicKey
+                ,   nodePublicKey      :: Encryption.PublicKey
 
--- | This is the structure that goes out on the wire
-data Parcel   =  KeyExInitParcel {
-                handshakeInitCiphertext :: ByteString
-                ,   ephemeralPublicKey  :: PublicKey
-                ,   aeadNonce           :: ByteString
                }
-               | KeyExResponseParcel {
-                    handshakeRespCiphertext :: ByteString
-                ,   aeadNonce               :: ByteString
-               }
+               |KeyExDHResponseParcel {
+                    opcode             :: Opcode
+                ,   versionList        :: [Version]
+                ,   connectionId       :: ConnectionId
+                ,   ePhemeralPublicKey :: Encryption.PublicKey
+                ,   nodePublicKey      :: Encryption.PublicKey
 
+               }
                | DataParcel  {
                     opcode         :: Opcode
                 ,   messageId      :: MessageId
@@ -119,6 +135,13 @@ data Version
     | V1
     deriving (Eq, Ord, Show,Generic)
 
+-- data PublicFlags  = PublicFlags {
+--                     finalFragment :: Bool
+--                 ,   initiator     :: Bool
+--                 ,   ecncryption   :: EncryptionType
+--                 ,   encoding      :: EncodingType
+--                 ,   transportType :: TransportType
+--             } deriving (Show,Generic)
 
 data EncryptionType = NONE
                       | AES256_CTR
@@ -138,6 +161,21 @@ data TransportType =
                  | TCP
                  deriving (Eq,Show,Generic)
 
+-- data Opcode       =   ERROR
+--                     | HANDSHAKE_REQUEST
+--                     | HANDSHAKE_REPONSE
+--                     | OPTIONS
+--                     | RESET
+--                     | CLOSE
+--                     | PING
+--                     | PONG
+--                     deriving (Show,Generic)
+
+
+-- newtype PayloadMarker = PayloadMarker {
+--                             serviceId :: ServiceId
+--                     } deriving (Show,Generic)
+
 newtype Payload = Payload Data.ByteString.Char8.ByteString
                deriving (Show,Eq,Generic)
 
@@ -146,6 +184,8 @@ instance Serialise Opcode
 instance Serialise EncodingType
 instance Serialise TransportType
 instance Serialise EncryptionType
+-- instance Serialise PublicFlags
+-- instance Serialise PayloadMarker
 instance Serialise Payload
 instance Serialise Parcel
 
@@ -167,23 +207,3 @@ decodePublicKey = do
         (2,0)  -> throwCryptoError . publicKey <$>
                     (decode :: Decoder s Data.ByteString.ByteString)
         _      -> fail "invalid PublicKey encoding"
-
-
--- Serilaise instance for Signature
-instance Serialise Signature where
-    encode = encodeSignature
-    decode = decodeSignature
-
-encodeSignature :: Signature -> Encoding
-encodeSignature bytes = do
-    let temp = convert bytes :: ByteString
-    encodeListLen 2 <> encodeWord 0 <> encode temp
-
-decodeSignature :: Decoder s Signature
-decodeSignature = do
-    len <- decodeListLen
-    tag <- decodeWord
-    case (len,tag) of
-        (2,0) ->  throwCryptoError . Crypto.PubKey.Ed25519.signature <$>
-                    (decode :: Decoder s ByteString)
-        _      -> fail "invalid Signature encoding"

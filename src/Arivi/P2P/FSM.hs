@@ -2,7 +2,7 @@
 -- Module      :  Arivi.P2P.FSM
 -- Copyright   :
 -- License     :
--- Maintainer  :  Mahesh Uligade <maheshsuligade@gmail.com>
+-- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
 --
@@ -13,7 +13,7 @@ module Arivi.P2P.FSM (
    , State(..)
    , getNextEvent
    , getOpcode
-   , getP2PRequestTChan
+   , getServiceRequestTChan
    , getServiceType
    , handle
    , readEitherTChan
@@ -24,8 +24,9 @@ module Arivi.P2P.FSM (
 
 import           Arivi.P2P.Connection      (Connection (..))
 import           Arivi.P2P.ServiceRegistry (ServiceContext (..))
-import           Arivi.P2P.Types           (Message (..), Opcode (..),
-                                            P2PRequest (..), ServiceType (..))
+import           Arivi.P2P.Types           (Opcode (..), P2PMessage (..),
+                                            ServiceRequest (..),
+                                            ServiceType (..))
 import           Control.Concurrent.Async  (async)
 import           Control.Concurrent.STM    (STM, TChan, atomically, orElse,
                                             readTChan)
@@ -50,21 +51,21 @@ data State =  Idle        -- ^ Idle state of Finite State Machine
 
 
 -- | These are the events of Finite State Machine for state transition.
-data Event =  InitServiceNegotiationEvent {serviceRequest::P2PRequest}
+data Event =  InitServiceNegotiationEvent {serviceRequest:: ServiceRequest}
               -- ^ Event that Initiates the Service Negotiation
-             | TerminateConnectionEvent {serviceRequest::P2PRequest}
+             | TerminateConnectionEvent {serviceRequest::ServiceRequest}
               -- ^ Event that Terminates the Connection
-             | SendDataEvent {serviceRequest::P2PRequest}
+             | SendDataEvent {serviceRequest::ServiceRequest}
               -- ^ Event used for sending data
              | CleanUpEvent
               -- ^ Event that CleanUps the Connection
-             | OfferMessageEvent {frame::Message}
+             | OfferMessageEvent {frame::P2PMessage}
               -- ^ Show the give message is of an Offer
-             | AnswerMessageEvent {frame::Message}
+             | AnswerMessageEvent {frame::P2PMessage}
               -- ^ Show the give message is of an Answer for given Offer
-             | ErrorMessageEvent {frame::Message}
+             | ErrorMessageEvent {frame::P2PMessage}
               -- ^ Show the give message is of an Error Type
-             | DataMessageEvent {frame::Message}
+             | DataMessageEvent {frame::P2PMessage}
               -- ^ This Message is a Normal Data Exchange Type
              deriving (Show)
 
@@ -137,7 +138,7 @@ getNextEvent
      ServiceContext -> Connection -> m Event
 
 getNextEvent serviceContext connection = do
-            let serviceRequestTChan = getP2PRequestTChan connection
+            let serviceRequestTChan = getServiceRequestTChan connection
             let frameTChan = getMessageTChan connection
             let eitherEvent = readEitherTChan serviceRequestTChan frameTChan
 
@@ -151,7 +152,7 @@ getNextEvent serviceContext connection = do
                         case service of
                             OPEN -> return (InitServiceNegotiationEvent
                                                             (takeLeft e))
-                            CLOSED -> return (TerminateConnectionEvent
+                            CLOSE -> return (TerminateConnectionEvent
                                                             (takeLeft e))
                             SENDMSG -> return (SendDataEvent
                                                             (takeLeft e))
@@ -183,21 +184,21 @@ takeRight :: Either a b -> b
 takeRight (Right right) = right
 
 -- | Takes Message as input and extracts Opcode from it.
-getOpcode :: Message -> Opcode
+getOpcode :: P2PMessage -> Opcode
 getOpcode = opcode
 
--- | Takes P2PRequest as input and extracts ServiceType from it.
-getServiceType:: P2PRequest -> ServiceType
+-- | Takes ServiceRequest as input and extracts ServiceType from it.
+getServiceType:: ServiceRequest -> ServiceType
 getServiceType = serviceType
 
 
 
--- | Takes Connection as input and extracts TChan P2PRequest from it.
-getP2PRequestTChan :: Connection -> TChan P2PRequest
-getP2PRequestTChan = serviceRequestTChan
+-- | Takes Connection as input and extracts TChan ServiceRequest from it.
+getServiceRequestTChan :: Connection -> TChan ServiceRequest
+getServiceRequestTChan = serviceRequestTChan
 
 -- | Takes Connection as input and extracts TChan Message from it.
-getMessageTChan :: Connection -> TChan Message
+getMessageTChan :: Connection -> TChan P2PMessage
 getMessageTChan = messageTChan
 
 -- test :: IO (Async State)
@@ -205,7 +206,7 @@ getMessageTChan = messageTChan
 --         serviceContext <- atomically newTChan
          -- connection <- atomically newTChan
 
---     -- let serviceRequest = P2PRequest OPEN "Message" -- "IP" "Port" "NodeId"
+--     -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
 --        serviceContexTChan <- writeTChan serviceContexTChan serviceRequest
 
 --        async (handle serviceContexTChan connection Idle

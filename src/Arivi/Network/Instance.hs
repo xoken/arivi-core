@@ -39,7 +39,7 @@ data NetworkConfig    = NetworkConfig {
 -- | Strcuture which holds all the information about a running arivi Instance
 --   and can be passed around to different functions to differentiate betweeen
 --   different instances of arivi.
-data NetworkHandle    = NetworkHandle {
+newtype NetworkHandle    = NetworkHandle {
                     --     ariviUDPSock :: (Socket,SockAddr)
                     -- ,   ariviTCPSock :: (Socket,SockAddr)
                     -- ,   udpThread    :: MVar ThreadId

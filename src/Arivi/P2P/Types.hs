@@ -3,7 +3,7 @@
 -- Module      :  Arivi.P2P.Types
 -- Copyright   :
 -- License     :
--- Maintainer  :  Mahesh Uligade <maheshsuligade@gmail.com>
+-- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
 --
@@ -14,12 +14,12 @@
 module Arivi.P2P.Types
 (
     ConnectionId
-  , Message(..)
+  , P2PMessage(..)
   , Opcode(..)
-  , P2PRequest(..)
   , ServiceCode
   , ServiceName
   , ServiceType(..)
+  , ServiceRequest(..)
 )
 
 where
@@ -51,8 +51,8 @@ type ConnectionId = ByteString
 -- | Message is the actual frame for the Arivi P2P Layer. Arivi Network Layer
 --   will receive Parcel on wire, after removing the size field and decrypting
 --   this Message will will given to the Arivi P2P Layer.
-data Message   =  ServiceNegotiationOffer {
-                     connectionId :: ConnectionId   -- ^ It is concatenation of
+data P2PMessage   =  ServiceNegotiationOffer {
+                    connectionId  :: ConnectionId    -- ^ It is concatenation of
                                                     --   IP Address, PortNumber
                                                     --   and TransportType
                 ,   opcode        :: Opcode         -- ^ Denotes the opcode
@@ -63,7 +63,7 @@ data Message   =  ServiceNegotiationOffer {
                 }
 
                 | ServiceNegotiationResponse {
-                   connectionId  :: ConnectionId    -- ^ It is concatenation of
+                   connectionId  :: ConnectionId   -- ^ It is concatenation of
                                                    --   IP Address, PortNumber
                                                    --   and TransportType
                 ,  opcode        :: Opcode         -- ^ Denotes the opcode
@@ -80,6 +80,7 @@ data Message   =  ServiceNegotiationOffer {
                 , opcode       :: Opcode          -- ^ Denotes the opcode
                 , service      :: ServiceCode     -- ^ Type of service
                                                   --   needed
+                , payload      :: Payload         -- ^ Payload
                }
 
               | ErrorMessage  {
@@ -105,15 +106,15 @@ type ServiceName = ByteString
 
 -- | Indicates the ServiceType to execute
 data ServiceType =  OPEN    -- ^ Used for Initiating Service Negotiation
-                  | CLOSED  -- ^ Used for Terminating the connection
+                  | CLOSE   -- ^ Used for Terminating the connection
                   | SENDMSG -- ^ Used for Data Exchanges
                   deriving (Show,Eq)
 
 -- | This is request contains the ServiceType and payload will be given to Arivi
 --   Network Layer
-data P2PRequest = P2PRequest {
+newtype ServiceRequest = ServiceRequest {
 
                            serviceType :: ServiceType  -- ^ Type of service
                                                        --   needed
-                         , payload     :: Payload      -- ^ Actual Payload
+                         -- , payload     :: Payload      -- ^ Actual Payload
                        }   deriving (Show,Eq)

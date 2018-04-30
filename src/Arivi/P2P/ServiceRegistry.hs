@@ -2,7 +2,7 @@
 -- Module      :  Arivi.P2P.ServiceRegistry
 -- Copyright   :
 -- License     :
--- Maintainer  :  Mahesh Uligade <maheshsuligade@gmail.com>
+-- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
 --
@@ -16,8 +16,9 @@ module Arivi.P2P.ServiceRegistry
     ServiceContext(..)
 ) where
 
-import           Arivi.Network.Types          (TransportType(..))
+import           Arivi.Network.Types          (TransportType (..))
 import           Arivi.P2P.Connection         (Connection, ConnectionId)
+import           Arivi.P2P.PubSub             (Topic)
 import           Arivi.P2P.Types              (ServiceCode)
 import           Control.Concurrent.MVar      (MVar)
 import           Control.Concurrent.STM.TChan (TChan)
@@ -36,19 +37,20 @@ data ConnectionCommand = ConnectionCommand {
 -- | Keeps information about Services
 data ServiceContext = ServiceContext {
        contextId              :: ContextId               -- ^ Context Identifier
-                                                         --   for services
+                                                --   for services
       ,serviceCode            :: ServiceCode             -- ^ Service Code like
-                                                         --   KDM,BSY,etc
+                                                --   KDM,BSY,etc
       ,transportType          :: TransportType           -- ^ Transport Type
-                                                         --   like `UDP` or
-                                                         --   `TCP`
+                                                --   like `UDP` or
+                                                --   `TCP`
       ,outputTChan            :: TChan String            -- ^ This `TChan` is
-                                                         --   used for receiving
-                                                         --   message after
-                                                         --   fragmentation
-      ,connectionCommandTChan :: TChan ConnectionCommand -- ^ This `TChan` gives
-                                                         --   ConnectionCommand
-                                                         --   for
+                                                --   used for receiving
+                                                --   message after
+                                                --   fragmentation
+      , serviceTopicDirectory :: HashMap ServiceCode [Topic]
+      -- ,connectionCommandTChan :: TChan ConnectionCommand -- ^ This `TChan` gives
+      --                                                    --   ConnectionCommand
+      --                                                    --   for
     } deriving (Eq)
 
 
