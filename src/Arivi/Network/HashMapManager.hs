@@ -1,4 +1,4 @@
-module Arivi.P2P.HashMapManager
+module Arivi.Network.HashMapManager
 (
 
 ) where
