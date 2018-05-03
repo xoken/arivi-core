@@ -127,8 +127,6 @@ getNextEvent connection = do
                     let opcodeType = opcode (takeRight e)
 
                     case opcodeType of
---                        VERSION_INIT -> return (VersionNegotiationInitEvent (takeRight e))
---                        VERSION_RESP  -> return (VersionNegotiationRespEvent (takeRight e))
                         KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
                         KEY_EXCHANGE_RESP -> return (KeyExchangeRespEvent (takeRight e))
                         DATA -> return (ReceiveDataEvent (takeRight e))
@@ -145,8 +143,8 @@ readEitherTChan a b =
 
 takeLeft :: Either a b -> a
 takeLeft (Left left) = left
-takeRight :: Either a b -> b
 
+takeRight :: Either a b -> b
 takeRight (Right right) = right
 
 

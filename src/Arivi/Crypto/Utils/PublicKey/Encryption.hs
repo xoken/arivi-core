@@ -1,22 +1,27 @@
 module Arivi.Crypto.Utils.PublicKey.Encryption
 (
-	generateKeyPair, 
-	toByteString
+    generateKeyPair,
+    toByteString,
+    createSharedSecretKey,
+    derivedSharedSecretKey
 ) where
 
 
-import           Crypto.ECC                (Curve_X25519, SharedSecret, ecdh)
-import           Crypto.Error              (CryptoFailable, throwCryptoError)
-import qualified Crypto.PubKey.Curve25519  (PublicKey, SecretKey, publicKey,
-                                            secretKey, toPublic)
-import           Data.ByteArray            (convert)
-import           Data.ByteString.Char8     (ByteString)
+import           Crypto.ECC                             (Curve_X25519,
+                                                         SharedSecret, ecdh)
+import           Crypto.Error                           (CryptoFailable,
+                                                         throwCryptoError)
+import qualified Crypto.PubKey.Curve25519               (PublicKey, SecretKey,
+                                                         publicKey, secretKey,
+                                                         toPublic)
+import           Data.ByteArray                         (convert)
+import           Data.ByteString.Char8                  (ByteString)
 import           Data.Proxy
 
-import           Arivi.Crypto.Utils.Random
-import qualified Crypto.PubKey.Ed25519     (PublicKey, SecretKey)
-import           Crypto.Hash               (SHA256, Digest, hash)
 import qualified Arivi.Crypto.Utils.PublicKey.Signature
+import           Arivi.Crypto.Utils.Random
+import           Crypto.Hash                            (Digest, SHA256, hash)
+import qualified Crypto.PubKey.Ed25519                  (PublicKey, SecretKey)
 
 sha256 :: ByteString -> Digest SHA256
 sha256 = hash
@@ -27,10 +32,10 @@ encryptionSecretDerivationFunction = sha256
 -- | Generate secret key for encryption using secret key of signing
 generateSecretKey :: Crypto.PubKey.Ed25519.SecretKey -> Crypto.PubKey.Curve25519.SecretKey
 
-generateSecretKey signingSecretKey = throwCryptoError secretKey 
-	where
-		bsSecretKey = encryptionSecretDerivationFunction (Data.ByteArray.convert signingSecretKey :: ByteString)
-		secretKey = Crypto.PubKey.Curve25519.secretKey bsSecretKey
+generateSecretKey signingSecretKey = throwCryptoError secretKey
+    where
+        bsSecretKey = encryptionSecretDerivationFunction (Data.ByteArray.convert signingSecretKey :: ByteString)
+        secretKey = Crypto.PubKey.Curve25519.secretKey bsSecretKey
 
 -- | Get curve25519 public key for corresponding sk
 getPublicKey :: Crypto.PubKey.Curve25519.SecretKey -> Crypto.PubKey.Curve25519.PublicKey
@@ -44,9 +49,9 @@ toByteString mPublicKey = Data.ByteArray.convert mPublicKey :: ByteString
 generateKeyPair :: Crypto.PubKey.Ed25519.SecretKey -> IO(Crypto.PubKey.Curve25519.SecretKey, Crypto.PubKey.Curve25519.PublicKey)
 
 generateKeyPair sk = do
-	let encryptSK = generateSecretKey sk
-	let encryptPK = getPublicKey encryptSK
-	return (encryptSK, encryptPK)
+    let encryptSK = generateSecretKey sk
+    let encryptPK = getPublicKey encryptSK
+    return (encryptSK, encryptPK)
 
 -- | This is Elliptic curve. user of this library don't have to worry about this
 

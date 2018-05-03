@@ -1,16 +1,16 @@
 module Arivi.Crypto.Utils.PublicKey.Signature
 (
-	generateKeyPair,
-	toByteString
+    generateKeyPair,
+    toByteString
 ) where
 
+import           Arivi.Crypto.Utils.Random
 import           Crypto.Error              (CryptoFailable, throwCryptoError)
+import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, publicKey,
+                                            secretKey, toPublic)
 import           Data.ByteArray            (convert)
 import           Data.ByteString.Char8     (ByteString)
 import           Data.Proxy
-import           Arivi.Crypto.Utils.Random
-import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, publicKey,
-                                            secretKey, sign, toPublic, verify)
 
 
 -- | Takes a 32 bytes seed and produces SecretKey
