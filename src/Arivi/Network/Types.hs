@@ -14,13 +14,15 @@ module Arivi.Network.Types
     SockAddr,
     PortNumber,
     HostAddress,
-    Version,
+    Version(..),
     serialise,
     deserialise,
     ServiceId (..),
     ConnectionId,
     Opcode(..),
-    SequenceNum
+    SequenceNum,
+    HandshakeInitMasked(..),
+    HandshakeRespMasked(..)
 ) where
 
 import           Codec.Serialise
@@ -54,6 +56,8 @@ type ServiceContext = Int32
 type SequenceNum = Integer
 type InitiatorNonce = Integer -- 1++
 type RecipientNonce = Integer -- 2^32++
+
+type NodeId = ByteString
 -- The different messages we can get from the network
 data Opcode = KEY_EXCHANGE_INIT
             | KEY_EXCHANGE_RESP
@@ -65,7 +69,7 @@ data HandshakeInitMasked = HandshakeMessage {
       versionList   :: [Version]
     , connectionId  :: ConnectionId
     , nonce         :: InitiatorNonce
-    , nodePublicKey :: PublicKey
+    , nodePublicKey :: NodeId
     , signature     :: Signature
 } deriving (Show, Eq, Generic)
 
@@ -77,12 +81,14 @@ data HandshakeRespMasked = HandshakeRespMsg {
 
 -- | This is the structure that goes out on the wire
 data Parcel   =  KeyExInitParcel {
-                handshakeInitCiphertext :: ByteString
-                ,   ephemeralPublicKey  :: PublicKey
+                    opcode                  :: Opcode
+                ,   handshakeInitCiphertext :: ByteString
+                ,   ephemeralPublicKey  :: NodeId
                 ,   aeadNonce           :: ByteString
                }
                | KeyExResponseParcel {
-                    handshakeRespCiphertext :: ByteString
+                    opcode                  :: Opcode
+                ,   handshakeRespCiphertext :: ByteString
                 ,   aeadNonce               :: ByteString
                }
 
@@ -148,6 +154,8 @@ instance Serialise TransportType
 instance Serialise EncryptionType
 instance Serialise Payload
 instance Serialise Parcel
+instance Serialise HandshakeInitMasked
+instance Serialise HandshakeRespMasked
 
 -- Serialise intance for PublicKey
 instance Serialise PublicKey where

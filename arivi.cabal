@@ -61,7 +61,7 @@ library
                        Arivi.Crypto.Utils.Keys.Signature
                        Arivi.Crypto.Utils.PublicKey.Signature
                        Arivi.Crypto.Utils.PublicKey.Encryption
-                       Arivi.Crypto.Utils.PublicKey.NodeKeys
+                       Arivi.Crypto.Utils.PublicKey.Utils
                        Arivi.Crypto.Utils.Random
                        Arivi.Kademlia.Instance
                        Arivi.Kademlia.Node
@@ -73,13 +73,14 @@ library
                        Arivi.Network.Connection
                        Arivi.Network.Datagram
                        Arivi.Network.FSM
+                       Arivi.Network.Handshake
                        -- Arivi.Network.Instance
                        Arivi.Network.NetworkClient
                        Arivi.Network.Stream
                        Arivi.Network.Types
-                       Arivi.P2P.FSM
-                       Arivi.P2P.PubSub
-                       Arivi.P2P.ServiceRegistry
+                       -- Arivi.P2P.FSM
+                       -- Arivi.P2P.PubSub
+                       -- Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.Utils.Utils
 

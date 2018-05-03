@@ -5,7 +5,8 @@ module Arivi.Crypto.Utils.PublicKey.Encryption
     getPublicKey,
     toByteString, 
     createSharedSecretKey, 
-    derivedSharedSecretKey
+    derivedSharedSecretKey,
+    sharedSecretToByteString
 ) where
 
 
@@ -60,7 +61,9 @@ curveX25519 = Proxy :: Proxy Curve_X25519
 createSharedSecretKey :: Curve25519.SecretKey -> Curve25519.PublicKey ->  Crypto.ECC.SharedSecret
 createSharedSecretKey = ecdh curveX25519
 
-
+-- | Convert a shared secret to bytestring
+sharedSecretToByteString :: SharedSecret -> ByteString
+sharedSecretToByteString secret = Data.ByteArray.convert secret :: ByteString
 
 -- | Remote will decrypt received SharedSecret with his secretKey and gets
 -- ephemeralPublicKey and computes SecretKey using derivedSharedSecreatKey

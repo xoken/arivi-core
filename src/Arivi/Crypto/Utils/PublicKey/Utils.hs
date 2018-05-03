@@ -3,11 +3,14 @@ module Arivi.Crypto.Utils.PublicKey.Utils
     getSignaturePublicKey,
     getSignaturePublicKeyFromNodeId,
     signMsg,
+    verifyMsg,
     getEncryptionSecretKey,
     getEncryptionPublicKey,
     getEncryptionPublicKeyFromNodeId,
     createSharedSecretKey,
-    deriveSharedSecretKey
+    deriveSharedSecretKey,
+    generateSigningKeyPair,
+    generateNodeId
 ) where
 
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
@@ -74,6 +77,10 @@ signMsg :: Ed25519.SecretKey -> ByteString -> Ed25519.Signature
 signMsg sk msg  = Ed25519.sign sk pk msg where
     pk = getSignaturePublicKey sk
 
+verifyMsg :: ByteString -> ByteString -> Ed25519.Signature -> Bool
+verifyMsg nodeId msg signature = Ed25519.verify pk msg signature where
+    pk = getSignaturePublicKeyFromNodeId nodeId
+
 -- | Wrapper function for getting EncryptionSecretKey from SignatureSecretKey
 getEncryptionSecretKey :: Ed25519.SecretKey -> Curve25519.SecretKey
 getEncryptionSecretKey sk = Encryption.getSecretKey sk
@@ -89,7 +96,7 @@ getEncryptionPublicKeyFromNodeId nodeId = throwCryptoError pk where
     pkBs = snd pkPair
     pk = Curve25519.publicKey pkBs
 
--- | Takes the master secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
+-- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
 createSharedSecretKey :: Ed25519.SecretKey -> ByteString -> SharedSecret
 createSharedSecretKey signSK remoteNodeId = Encryption.createSharedSecretKey encryptSK encryptPK where
         encryptSK = getEncryptionSecretKey signSK
@@ -102,11 +109,14 @@ deriveSharedSecretKey remoteNodeId signSK = Encryption.derivedSharedSecretKey en
         encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
 
 
+generateSigningKeyPair :: IO (Ed25519.SecretKey, Ed25519.PublicKey)
+generateSigningKeyPair = Signature.generateKeyPair
 
 
-
-
-
+generateNodeId :: Ed25519.SecretKey -> ByteString
+generateNodeId signsk = Data.ByteString.Char8.concat [signingPK, encryptionPK] where
+    signingPK = Signature.toByteString (getSignaturePublicKey signsk)
+    encryptionPK = Encryption.toByteString (getEncryptionPublicKey (getEncryptionSecretKey signsk))
 
 
 
