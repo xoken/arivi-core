@@ -1,19 +1,21 @@
-module Arivi.Crypto.Utils.PublicKey.NodeKeys
+module Arivi.Crypto.Utils.PublicKey.Utils
 (
     getSignaturePublicKey,
     getSignaturePublicKeyFromNodeId,
     signMsg,
     getEncryptionSecretKey,
     getEncryptionPublicKey,
-    getEncryptionPublicKeyFromNodeId
-
+    getEncryptionPublicKeyFromNodeId,
+    createSharedSecretKey,
+    deriveSharedSecretKey
 ) where
 
-import           Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
-import           Arivi.Crypto.Utils.PublicKey.Signature  as Signature
+import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
+import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
 import           Arivi.Crypto.Utils.Random
 import           Crypto.Error                            (CryptoFailable,
                                                           throwCryptoError)
+import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Hash                             (Digest, SHA256, hash)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
@@ -86,3 +88,25 @@ getEncryptionPublicKeyFromNodeId nodeId = throwCryptoError pk where
     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
     pkBs = snd pkPair
     pk = Curve25519.publicKey pkBs
+
+-- | Takes the master secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
+createSharedSecretKey :: Ed25519.SecretKey -> ByteString -> SharedSecret
+createSharedSecretKey signSK remoteNodeId = Encryption.createSharedSecretKey encryptSK encryptPK where
+        encryptSK = getEncryptionSecretKey signSK
+        encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
+
+-- | Takes the master secret key (signSK) and the nodeId of remote and calls the Encryption.deriveSharedSecretKey with appropriate arguements
+deriveSharedSecretKey :: ByteString -> Ed25519.SecretKey -> SharedSecret
+deriveSharedSecretKey remoteNodeId signSK = Encryption.derivedSharedSecretKey encryptPK encryptSK where
+        encryptSK = getEncryptionSecretKey signSK
+        encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
+
+
+
+
+
+
+
+
+
+
