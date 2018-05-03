@@ -41,6 +41,8 @@ import           Data.Monoid
 import           Data.UUID                (UUID)
 import           GHC.Generics
 import           Network.Socket
+import qualified Data.ByteString.Lazy     as BSL
+import qualified Data.Word
 
 type ConnectionId   = Int32
 type SessionId      = Int32
