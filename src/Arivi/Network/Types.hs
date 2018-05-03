@@ -10,11 +10,11 @@ module Arivi.Network.Types
     TransportType  (..),
     EncodingType   (..),
     ContextID      (..),
+    Version        (..),
     Socket,
     SockAddr,
     PortNumber,
     HostAddress,
-    Version(..),
     serialise,
     deserialise,
     ServiceId (..),
@@ -80,6 +80,7 @@ data HandshakeRespMasked = HandshakeRespMsg {
 } deriving (Show, Eq, Generic)
 
 -- | This is the structure that goes out on the wire
+-- Has been tested for cborg encoding, decoding successfully
 data Parcel   =  KeyExInitParcel {
                     opcode                  :: Opcode
                 ,   handshakeInitCiphertext :: ByteString
@@ -195,3 +196,12 @@ decodeSignature = do
         (2,0) ->  throwCryptoError . Crypto.PubKey.Ed25519.signature <$>
                     (decode :: Decoder s ByteString)
         _      -> fail "invalid Signature encoding"
+
+
+-- | creates frame(prefixes length) from parcel
+-- | that has been serialised to cborg
+createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
+                                where
+                                    len = BSL.length parcelSerialised
+                                    lenw8 = fromIntegral len :: Data.Word.Word8
+                                    lenSer = BSL.pack [lenw8]
