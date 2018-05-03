@@ -14,7 +14,7 @@ module Arivi.Network.Types
     SockAddr,
     PortNumber,
     HostAddress,
-    Version,
+    Version (..) ,
     serialise,
     deserialise,
     ServiceId (..),
@@ -76,6 +76,7 @@ data HandshakeRespMasked = HandshakeRespMsg {
 } deriving (Show, Eq, Generic)
 
 -- | This is the structure that goes out on the wire
+-- Has been tested for cborg encoding, decoding successfully
 data Parcel   =  KeyExInitParcel {
                 handshakeInitCiphertext :: ByteString
                 ,   ephemeralPublicKey  :: PublicKey

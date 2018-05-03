@@ -1,10 +1,8 @@
 module Arivi.Crypto.Utils.PublicKey.Encryption
 (
     generateKeyPair,
-    getSecretKey, 
-    getPublicKey,
-    toByteString, 
-    createSharedSecretKey, 
+    toByteString,
+    createSharedSecretKey,
     derivedSharedSecretKey
 ) where
 
