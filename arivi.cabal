@@ -77,9 +77,9 @@ library
                        Arivi.Network.NetworkClient
                        Arivi.Network.Stream
                        Arivi.Network.Types
-                       Arivi.P2P.FSM
-                       Arivi.P2P.PubSub
-                       Arivi.P2P.ServiceRegistry
+                       --Arivi.P2P.FSM
+                       --Arivi.P2P.PubSub
+                       --Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.Utils.Utils
 
