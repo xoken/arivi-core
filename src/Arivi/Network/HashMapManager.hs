@@ -81,7 +81,7 @@ runHashMapManager = do
 
         connectionHashMap <- Data.HashTable.IO.new
 
-        operationRequestTChan <- atomically $ newTChan
+        operationRequestTChan <- atomically newTChan
 
         forever $
             do
