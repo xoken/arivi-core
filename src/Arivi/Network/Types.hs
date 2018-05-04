@@ -15,8 +15,7 @@ module Arivi.Network.Types
     SockAddr,
     PortNumber,
     HostAddress,
-    serialise,
-    deserialise,
+    NodeId,
     ServiceId (..),
     ConnectionId,
     Opcode(..),
@@ -44,7 +43,7 @@ import           Network.Socket
 import qualified Data.ByteString.Lazy     as BSL
 import qualified Data.Word
 
-type ConnectionId   = Int32
+type ConnectionId   = ByteString
 type SessionId      = Int32
 -- need to be changed to Int24
 type PayloadLength  = Int16
@@ -67,7 +66,7 @@ data Opcode = KEY_EXCHANGE_INIT
             deriving (Show,Eq, Generic)
 
 -- | This message is encrypted and sent in the handshake message
-data HandshakeInitMasked = HandshakeMessage {
+data HandshakeInitMasked = HandshakeInitMessage {
       versionList   :: [Version]
     , connectionId  :: ConnectionId
     , nonce         :: InitiatorNonce
@@ -83,17 +82,17 @@ data HandshakeRespMasked = HandshakeRespMsg {
 
 -- | This is the structure that goes out on the wire
 -- Has been tested for cborg encoding, decoding successfully
-data Parcel   =  KeyExInitParcel {
+data Parcel   =  KeyExParcel {
                     opcode                  :: Opcode
                 ,   handshakeInitCiphertext :: ByteString
                 ,   ephemeralPublicKey  :: NodeId
                 ,   aeadNonce           :: ByteString
                }
-               | KeyExResponseParcel {
-                    opcode                  :: Opcode
-                ,   handshakeRespCiphertext :: ByteString
-                ,   aeadNonce               :: ByteString
-               }
+               -- | KeyExResponseParcel {
+               --      opcode                  :: Opcode
+               --  ,   handshakeRespCiphertext :: ByteString
+               --  ,   aeadNonce               :: ByteString
+               -- }
 
                | DataParcel  {
                     opcode         :: Opcode
