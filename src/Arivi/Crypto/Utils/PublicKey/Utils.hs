@@ -16,9 +16,9 @@ module Arivi.Crypto.Utils.PublicKey.Utils
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
 import           Arivi.Crypto.Utils.Random
+import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error                            (CryptoFailable,
                                                           throwCryptoError)
-import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Hash                             (Digest, SHA256, hash)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
@@ -74,16 +74,16 @@ getSignaturePublicKeyFromNodeId nodeId = throwCryptoError pk where
 
 -- | Wrapper function for signing a message given just the sk and msg
 signMsg :: Ed25519.SecretKey -> ByteString -> Ed25519.Signature
-signMsg sk msg  = Ed25519.sign sk pk msg where
+signMsg sk = Ed25519.sign sk pk where
     pk = getSignaturePublicKey sk
 
 verifyMsg :: ByteString -> ByteString -> Ed25519.Signature -> Bool
-verifyMsg nodeId msg signature = Ed25519.verify pk msg signature where
+verifyMsg nodeId = Ed25519.verify pk where
     pk = getSignaturePublicKeyFromNodeId nodeId
 
 -- | Wrapper function for getting EncryptionSecretKey from SignatureSecretKey
 getEncryptionSecretKey :: Ed25519.SecretKey -> Curve25519.SecretKey
-getEncryptionSecretKey sk = Encryption.getSecretKey sk
+getEncryptionSecretKey = Encryption.getSecretKey
 
 -- | Wrapper function for getting the encryption public key, given private key
 getEncryptionPublicKey :: Curve25519.SecretKey -> Curve25519.PublicKey

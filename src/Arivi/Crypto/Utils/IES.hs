@@ -40,9 +40,8 @@ curve = Proxy :: Proxy Curve_X25519
 -- | genIESParams takes Public Key of the receiver and generates IESParams
 --  containing ephemeral public key and shared secret key tuple
 genIESParams :: MonadRandom m => PublicKey -> m (PublicKey, SharedSecret)
-genIESParams receiversPK = do
-                             ies <- deriveEncrypt curve receiversPK
-                             return  ies
+genIESParams = deriveEncrypt curve
+
 
 
 

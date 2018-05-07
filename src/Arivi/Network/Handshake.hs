@@ -8,10 +8,13 @@ module Arivi.Network.Handshake
 import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
-import           Arivi.Crypto.Utils.PublicKey.Utils 
-import           Codec.Serialise
+import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Types                      (Parcel (..), HandshakeInitMasked(..), HandshakeRespMasked(..), Opcode(..))
+import           Arivi.Network.Types                     (HandshakeInitMasked (..),
+                                                          HandshakeRespMasked (..),
+                                                          Opcode (..),
+                                                          Parcel (..))
+import           Codec.Serialise
 import           Crypto.Error
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
@@ -46,7 +49,7 @@ doInitHandshake versions connId nodeId staticSK remoteNodeId = do
 
 -- | Minimal testing
 receiveHandshake nodeId staticSK dataParcel = do
-    let parcel = (deserialise dataParcel) :: Parcel
+    let parcel = deserialise dataParcel :: Parcel
     let ciphertextWithMac = handshakeInitCiphertext parcel
     let senderNodeId = ephemeralPublicKey parcel
     let encryptionNonce = aeadNonce parcel
