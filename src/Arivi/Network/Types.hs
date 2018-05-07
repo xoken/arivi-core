@@ -201,7 +201,8 @@ decodeSignature = do
 
 
 -- | creates frame(prefixes length) from parcel
--- | that has been serialised to cborg
+-- that has been serialised to cborg
+createFrame :: ByteString -> ByteString
 createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
                                 where
                                     len = BSL.length parcelSerialised
