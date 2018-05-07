@@ -34,14 +34,14 @@ import           Crypto.PubKey.Ed25519    (Signature, signature)
 import           Data.ByteArray
 import qualified Data.ByteString
 import           Data.ByteString.Char8    (ByteString)
+import qualified Data.ByteString.Lazy     as BSL
 import           Data.Int                 (Int16, Int32, Int64, Int8)
 import qualified Data.Map.Strict          as Map
 import           Data.Monoid
 import           Data.UUID                (UUID)
+import qualified Data.Word
 import           GHC.Generics
 import           Network.Socket
-import qualified Data.ByteString.Lazy     as BSL
-import qualified Data.Word
 
 type ConnectionId   = ByteString
 type SessionId      = Int32
@@ -75,16 +75,16 @@ data HandshakeInitMasked = HandshakeInitMessage {
 } deriving (Show, Eq, Generic)
 
 data HandshakeRespMasked = HandshakeRespMsg {
-    versionList :: [Version]
-    , nonce :: RecipientNonce
+    versionList    :: [Version]
+    , nonce        :: RecipientNonce
     , connectionId :: ConnectionId
 } deriving (Show, Eq, Generic)
 
 -- | This is the structure that goes out on the wire
 -- Has been tested for cborg encoding, decoding successfully
 data Parcel   =  KeyExParcel {
-                    opcode                  :: Opcode
-                ,   handshakeInitCiphertext :: ByteString
+                    opcode              :: Opcode
+                ,   handshakeCiphertext :: ByteString
                 ,   ephemeralPublicKey  :: NodeId
                 ,   aeadNonce           :: ByteString
                }
