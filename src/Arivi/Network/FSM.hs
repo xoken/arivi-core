@@ -14,8 +14,6 @@ import           Data.Either
 
 -- The different states that any thread in layer 1 can be in
 data State =  Idle
-            | VersionInitiated
-            | VersionNegotiated
             | KeyExchangeInitiated
             | SecureTransportEstablished
             | Terminated
@@ -25,8 +23,6 @@ data State =  Idle
 data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
-             | VersionNegotiationInitEvent {parcel::Parcel}
-             | VersionNegotiationRespEvent {parcel::Parcel}
              | KeyExchangeInitEvent {parcel::Parcel}
              | KeyExchangeRespEvent {parcel::Parcel}
              | ReceiveDataEvent {parcel::Parcel}
@@ -41,30 +37,13 @@ handle connection Idle
                     (InitHandshakeEvent serviceRequest)  =
         do
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection VersionInitiated
+            nextEvent >>= handle connection KeyExchangeInitiated
 
---recipient will go from Idle to VersionNegotiatedState
-handle connection Idle (VersionNegotiationInitEvent parcel) =
+--recipient will go from Idle to SecureTransportEstablished
+handle connection Idle (KeyExchangeInitEvent parcel) =
         do
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection VersionNegotiated
-
-
---initiator will go from VersionInitiated to KeyExchangeInitiatedState
--- (since VersionNegotiated is a transient event for initiator)
-handle connection VersionInitiated
-                    (VersionNegotiationRespEvent parcel)  =
-        do
-            let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection VersionNegotiated
-
--- initiator will to KeyExchangeInitiated state
-handle connection VersionNegotiated (KeyExchangeInitEvent parcel) =
-    case peerType connection of
-        INITIATOR -> handle connection KeyExchangeInitiated (KeyExchangeInitEvent parcel)
-        RECIPIENT -> do
-                let nextEvent = getNextEvent connection
-                nextEvent >>= handle connection SecureTransportEstablished
+            nextEvent >>= handle connection SecureTransportEstablished
 
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
