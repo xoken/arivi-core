@@ -16,8 +16,8 @@ main = do
     let senderConn = Connection connId recvNodeId undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
     let recvConn = Connection connId  undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
     (sentParcel, senderConn1) <- initiatorHandshake senderSK senderConn
-    (recvParcel, recvConn1) <- receiverHandshake recvSK recvConn sentParcel 
-    senderConn2 <- receiveHandshakeResponse senderConn1 recvParcel
+    (recvParcel, recvConn1) <- recipientHandshake recvSK recvConn sentParcel 
+    let senderConn2 = receiveHandshakeResponse senderConn1 recvParcel
     
     let sSSK = sharedSecret senderConn2
     let rSSK = sharedSecret recvConn1
