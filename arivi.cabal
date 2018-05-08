@@ -74,6 +74,7 @@ library
                        Arivi.Network.Datagram
                        Arivi.Network.FSM
                        Arivi.Network.Handshake
+                       Arivi.Network.HandshakeUtils
                        -- Arivi.Network.Instance
                        Arivi.Network.NetworkClient
                        Arivi.Network.Stream

@@ -88,11 +88,6 @@ data Parcel   =  KeyExParcel {
                 ,   ephemeralPublicKey  :: NodeId
                 ,   aeadNonce           :: ByteString
                }
-               -- | KeyExResponseParcel {
-               --      opcode                  :: Opcode
-               --  ,   handshakeRespCiphertext :: ByteString
-               --  ,   aeadNonce               :: ByteString
-               -- }
 
                | DataParcel  {
                     opcode         :: Opcode
