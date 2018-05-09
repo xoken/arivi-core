@@ -88,6 +88,7 @@ handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcelCipher
 handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest) =
         do
             -- TODO chunk message, encodeCBOR, encrypt, send
+            -- async processPayload payload --lazy bytestring
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
 
