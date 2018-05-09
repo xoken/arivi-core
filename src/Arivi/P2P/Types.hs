@@ -24,10 +24,10 @@ module Arivi.P2P.Types
 
 where
 
-import           Arivi.Kademlia.Types  (NodeId)
-import           Arivi.Network.Types   (Payload (..))
-
-import           Data.ByteString.Char8 (ByteString)
+import           Arivi.Crypto.Utils.Keys.Encryption
+import           Arivi.Kademlia.Types               (NodeId)
+import           Arivi.Network.Types                (Payload (..))
+import           Data.ByteString.Char8              (ByteString)
 import           GHC.Generics
 
 
@@ -112,9 +112,20 @@ data ServiceType =  OPEN    -- ^ Used for Initiating Service Negotiation
 
 -- | This is request contains the ServiceType and payload will be given to Arivi
 --   Network Layer
-newtype ServiceRequest = ServiceRequest {
+data ServiceRequest =  SendMessageServiceRequest {
 
                            serviceType :: ServiceType  -- ^ Type of service
                                                        --   needed
-                         -- , payload     :: Payload      -- ^ Actual Payload
-                       }   deriving (Show,Eq)
+                         , payloadData :: Payload      -- ^ Actual Payload
+                       }
+                      | OpenConnectionServiceRequest {
+
+                           serviceType :: ServiceType  -- ^ Type of service
+                                                       --   needed
+                         , payloadData :: Payload      -- ^ Actual Payload
+                       }
+
+                       | CloseServiceRequest {
+                           serviceType :: ServiceType  -- ^ Type of service
+                       }
+                       deriving (Show,Eq)
