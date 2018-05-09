@@ -12,6 +12,7 @@ module Arivi.Network.Connection
 (
     ConnectionId,
     Connection (..),
+    ParcelCipher,
     getUniqueConnectionId,
     genConnectionId,
     createConnection,
@@ -22,16 +23,16 @@ module Arivi.Network.Connection
 
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
-import qualified Crypto.PubKey.Ed25519               as Ed25519
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress)
-import           Arivi.Network.Types                (Parcel (..), PeerType (..),
-                                                     PortNumber, SequenceNum,
-                                                     TransportType, NodeId, ConnectionId)
+import           Arivi.Network.Types                (ConnectionId, NodeId,
+                                                     PeerType (..), PortNumber,
+                                                     SequenceNum, TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
+import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
-import           Data.ByteString.Char8              (ByteString,append, pack)
+import           Data.ByteString.Char8              (ByteString, append, pack)
 import           Data.HashMap.Strict                (HashMap, delete, empty,
                                                      insert, member)
 import           Network.Socket                     (Socket)
@@ -43,21 +44,23 @@ import           Network.Socket                     (Socket)
 -- type ServiceRequest = ByteString
 -- | (ConnectionId,Connection) are (key,value) pair in HashMap that stores
 -- information about all the Connection uniquely
+type ParcelCipher = ByteString
+
 data Connection = Connection {
-                          connectionId    :: ConnectionId
-                        , remoteNodeId    :: NodeId
-                        , ipAddress       :: HostAddress
-                        , port            :: PortNumber
-                        , ephemeralPubKey :: NodeId
-                        , ephemeralPrivKey:: Ed25519.SecretKey
-                        , transportType   :: TransportType
-                        , peerType        :: PeerType
-                        , socket          :: Socket
-                        , sharedSecret    :: Keys.SharedSecret
-                        , serviceReqTChan :: TChan ServiceRequest
-                        , parcelTChan     :: TChan Parcel
-                        , egressSeqNum    :: SequenceNum
-                        , ingressSeqNum   :: SequenceNum
+                          connectionId      :: ConnectionId
+                        , remoteNodeId      :: NodeId
+                        , ipAddress         :: HostAddress
+                        , port              :: PortNumber
+                        , ephemeralPubKey   :: NodeId
+                        , ephemeralPrivKey  :: Ed25519.SecretKey
+                        , transportType     :: TransportType
+                        , peerType          :: PeerType
+                        , socket            :: Socket
+                        , sharedSecret      :: Keys.SharedSecret
+                        , serviceReqTChan   :: TChan ServiceRequest
+                        , parcelCipherTChan :: TChan ParcelCipher
+                        , egressSeqNum      :: SequenceNum
+                        , ingressSeqNum     :: SequenceNum
                         } deriving (Eq)
 
 
@@ -113,14 +116,14 @@ createConnection :: NodeId
                  -> Socket
                  -> Keys.SharedSecret
                  -> TChan ServiceRequest
-                 -> TChan Parcel
+                 -> TChan ParcelCipher
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                 transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelTChan egressSeqNum ingressSeqNum connectionHashmap =
+                parcelCipherTChan egressSeqNum ingressSeqNum connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -132,7 +135,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                                 ephemeralPrivKey
                                              transportType peerType socket
                                              sharedSecret serviceRequestTChan
-                                             parcelTChan
+                                             parcelCipherTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 

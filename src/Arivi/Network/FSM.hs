@@ -1,5 +1,7 @@
 module Arivi.Network.FSM (
-
+    Event(..)
+  , State(..)
+  , handleEvent
 ) where
 
 import           Arivi.Network.Connection
@@ -25,79 +27,79 @@ data State =  Idle
 data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
-             | VersionNegotiationInitEvent {parcel::Parcel}
-             | VersionNegotiationRespEvent {parcel::Parcel}
-             | KeyExchangeInitEvent {parcel::Parcel}
-             | KeyExchangeRespEvent {parcel::Parcel}
-             | ReceiveDataEvent {parcel::Parcel}
+             | VersionNegotiationInitEvent {parcelCipher::ParcelCipher}
+             | VersionNegotiationRespEvent {parcelCipher::ParcelCipher}
+             | KeyExchangeInitEvent {parcelCipher::ParcelCipher}
+             | KeyExchangeRespEvent {parcelCipher::ParcelCipher}
+             | ReceiveDataEvent {parcelCipher::ParcelCipher}
              | CleanUpEvent
           deriving (Show)
 
 
-handle :: Connection -> State -> Event -> IO State
+handleEvent :: Connection -> State -> Event -> IO State
 
 -- initiator will initiate the handshake
-handle connection Idle
+handleEvent connection Idle
                     (InitHandshakeEvent serviceRequest)  =
         do
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection VersionInitiated
+            nextEvent >>= handleEvent connection VersionInitiated
 
 --recipient will go from Idle to VersionNegotiatedState
-handle connection Idle (VersionNegotiationInitEvent parcel) =
+handleEvent connection Idle (VersionNegotiationInitEvent parcelCipher) =
         do
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection VersionNegotiated
+            nextEvent >>= handleEvent connection VersionNegotiated
 
 
 --initiator will go from VersionInitiated to KeyExchangeInitiatedState
 -- (since VersionNegotiated is a transient event for initiator)
-handle connection VersionInitiated
-                    (VersionNegotiationRespEvent parcel)  =
+handleEvent connection VersionInitiated
+                    (VersionNegotiationRespEvent parcelCipher)  =
         do
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection VersionNegotiated
+            nextEvent >>= handleEvent connection VersionNegotiated
 
 -- initiator will to KeyExchangeInitiated state
-handle connection VersionNegotiated (KeyExchangeInitEvent parcel) =
+handleEvent connection VersionNegotiated (KeyExchangeInitEvent parcelCipher) =
     case peerType connection of
-        INITIATOR -> handle connection KeyExchangeInitiated (KeyExchangeInitEvent parcel)
+        INITIATOR -> handleEvent connection KeyExchangeInitiated (KeyExchangeInitEvent parcelCipher)
         RECIPIENT -> do
                 let nextEvent = getNextEvent connection
-                nextEvent >>= handle connection SecureTransportEstablished
+                nextEvent >>= handleEvent connection SecureTransportEstablished
 
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
-handle connection KeyExchangeInitiated
-                    (KeyExchangeRespEvent parcel)  =
+handleEvent connection KeyExchangeInitiated
+                    (KeyExchangeRespEvent parcelCipher)  =
         do
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection SecureTransportEstablished
+            nextEvent >>= handleEvent connection SecureTransportEstablished
 
 -- Receive message from the network
-handle connection SecureTransportEstablished (ReceiveDataEvent parcel) =
+handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcelCipher) =
         do
             let nextEvent = getNextEvent connection
-            -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
+            -- TODO handleDataMessage parcelCipher --decodeCBOR - collectFragments -
             -- addToOutputChan
-            nextEvent >>= handle connection SecureTransportEstablished
+            nextEvent >>= handleEvent connection SecureTransportEstablished
 
 -- Receive message from p2p layer
-handle connection SecureTransportEstablished (SendDataEvent serviceRequest) =
+handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest) =
         do
             -- TODO chunk message, encodeCBOR, encrypt, send
             let nextEvent = getNextEvent connection
-            nextEvent >>= handle connection SecureTransportEstablished
+            nextEvent >>= handleEvent connection SecureTransportEstablished
 
-handle connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
-        handle connection Terminated CleanUpEvent
+handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcelCipher) =
+        handleEvent connection Terminated CleanUpEvent
 
-handle connection Terminated CleanUpEvent =
+handleEvent connection Terminated CleanUpEvent =
             --- do all cleanup here
             return Terminated
 
-handle connection _ _  =
-            handle connection Terminated CleanUpEvent
+handleEvent connection _ _  =
+            handleEvent connection Terminated CleanUpEvent
 
 
 
@@ -106,8 +108,8 @@ getNextEvent
 
 getNextEvent connection = do
             let serReqTChannel  = serviceReqTChan connection
-            let parcelTChannel = parcelTChan connection
-            let eitherEvent = readEitherTChan serReqTChannel parcelTChannel
+            let parcelCipherTChannel = parcelCipherTChan connection
+            let eitherEvent = readEitherTChan serReqTChannel parcelCipherTChannel
             e <- liftIO $ atomically eitherEvent
 
             if isLeft e
@@ -124,7 +126,7 @@ getNextEvent connection = do
                                                             (takeLeft e))
             else
                 do
-                    let opcodeType = opcode (takeRight e)
+                    let opcodeType = opcode (decryptParcelCipher(takeRight e))
 
                     case opcodeType of
                         KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
@@ -148,6 +150,9 @@ takeRight :: Either a b -> b
 takeRight (Right right) = right
 
 
+-- | TODO replace this with actual decryption function
+decryptParcelCipher parcelCipher = KeyExParcel undefined undefined
+                                          undefined undefined
 
 -- test :: IO (Async State)
 -- test = do
@@ -157,7 +162,7 @@ takeRight (Right right) = right
 --         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
 --         serviceContexTChan <- writeTChan serviceContexTChan serviceRequest
 
---         async (handle serviceContexTChan connection Idle
+--         async (handleEvent serviceContexTChan connection Idle
 --                                   (InitServiceNegotiationEvent serviceRequest))
 
 
