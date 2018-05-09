@@ -63,7 +63,7 @@ inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
                                                         connectionId
                                                         frameDispatchHashMap)
                 atomically $ writeTChan parcelCipherTChan encryptedPayload
-                return frameDispatchHashMap
+                inboundFrameDispatcher inboundTChan frameDispatchHashMap
         else
             do
                 parcelCipherTChan <- atomically newTChan
@@ -87,7 +87,7 @@ inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
                 fsmHandle <- async (FSM.handleEvent connection FSM.Idle
                                 (FSM.KeyExchangeInitEvent encryptedPayload))
                 wait fsmHandle
-                return updatedFrameDispatchHashMap
+                inboundFrameDispatcher inboundTChan updatedFrameDispatchHashMap
 
 -- | Given `SockAddr` retrieves `HostAddress`
 getIPAddress :: SockAddr -> HostAddress
