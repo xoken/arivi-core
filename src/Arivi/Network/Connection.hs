@@ -27,7 +27,7 @@ import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress)
 import           Arivi.Network.Types                (ConnectionId, NodeId,
                                                      PeerType (..), PortNumber,
-                                                     SequenceNum, TransportType, OutboundMsg)
+                                                     SequenceNum, TransportType, OutboundChunk)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
 import qualified Crypto.PubKey.Ed25519              as Ed25519
@@ -47,21 +47,21 @@ import           Network.Socket                     (Socket)
 type ParcelCipher = ByteString
 
 data Connection = Connection {
-                          connectionId      :: ConnectionId
-                        , remoteNodeId      :: NodeId
-                        , ipAddress         :: HostAddress
-                        , port              :: PortNumber
-                        , ephemeralPubKey   :: NodeId
-                        , ephemeralPrivKey  :: Ed25519.SecretKey
-                        , transportType     :: TransportType
-                        , peerType          :: PeerType
-                        , socket            :: Socket
-                        , sharedSecret      :: Keys.SharedSecret
-                        , serviceReqTChan   :: TChan ServiceRequest
-                        , parcelCipherTChan :: TChan ParcelCipher
-                        , outboundMsgTChan  :: TChan OutboundMsg
-                        , egressSeqNum      :: SequenceNum
-                        , ingressSeqNum     :: SequenceNum
+                          connectionId       :: ConnectionId
+                        , remoteNodeId       :: NodeId
+                        , ipAddress          :: HostAddress
+                        , port               :: PortNumber
+                        , ephemeralPubKey    :: NodeId
+                        , ephemeralPrivKey   :: Ed25519.SecretKey
+                        , transportType      :: TransportType
+                        , peerType           :: PeerType
+                        , socket             :: Socket
+                        , sharedSecret       :: Keys.SharedSecret
+                        , serviceReqTChan    :: TChan ServiceRequest
+                        , parcelCipherTChan  :: TChan ParcelCipher
+                        , outboundChunkTChan :: TChan OutboundChunk
+                        , egressSeqNum       :: SequenceNum
+                        , ingressSeqNum      :: SequenceNum
                         } deriving (Eq)
 
 
@@ -118,14 +118,14 @@ createConnection :: NodeId
                  -> Keys.SharedSecret
                  -> TChan ServiceRequest
                  -> TChan ParcelCipher
-                 -> TChan OutboundMsg
+                 -> TChan OutboundChunk
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                 transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelCipherTChan outboundMsgTChan egressSeqNum ingressSeqNum connectionHashmap =
+                parcelCipherTChan outboundChunkTChan egressSeqNum ingressSeqNum connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -137,7 +137,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                                 ephemeralPrivKey
                                              transportType peerType socket
                                              sharedSecret serviceRequestTChan
-                                             parcelCipherTChan outboundMsgTChan
+                                             parcelCipherTChan outboundChunkTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 

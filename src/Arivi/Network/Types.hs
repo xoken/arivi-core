@@ -16,12 +16,13 @@ module Arivi.Network.Types
     PortNumber,
     HostAddress,
     NodeId,
-    OutboundMsg,
+    OutboundChunk,
     ServiceId (..),
     ConnectionId,
     Opcode(..),
     SequenceNum,
     FragmentNumber,
+    FragmentCount,
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
     makeDataParcel
@@ -127,7 +128,7 @@ makeDataParcel :: Opcode
                -> Parcel
 makeDataParcel = DataParcel
 
-type OutboundMsg = (MessageId, FragmentNumber, FragmentCount, Payload)
+type OutboundChunk = (MessageId, FragmentNumber, FragmentCount, Payload)
 
 data PeerType = INITIATOR | RECIPIENT
                 deriving (Eq)
