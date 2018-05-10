@@ -10,12 +10,16 @@ import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
                                             newTMVar, readTChan, readTMVar,
                                             writeTChan)
 import           Control.Monad             (forever)
-import qualified Data.ByteString.Char8     as C
-import qualified Data.List.Split           as S
+import qualified Data.ByteString.Char8   as C
+import qualified Data.ByteString.Lazy    as BSL
+import qualified Data.ByteString         as BS
+import qualified Data.List.Split         as S
 import           Data.Maybe                (fromMaybe)
 import           Data.Word
-import           Network.Socket
-import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
+import Network.Socket hiding (recv)
+import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
+import Data.Binary
+import Data.Int
 
 
 runTCPServerForever :: Socket
@@ -62,7 +66,7 @@ getSocket ipAdd port transportType = withSocketsDo $ do
 
 sendByteTo :: Socket -> C.ByteString -> IO ()
 sendByteTo sock databs = do
-    sendAll sock databs
+    N.sendAll sock databs
 
 
 -- | creates frame(prefixes length) from parcel
@@ -95,15 +99,15 @@ runTCPserver port= withSocketsDo $ do
 
 
 -- Converts length in byteString to Num
-getFrameLength :: Num b => S.ByteString -> b
+getFrameLength :: Num b => BS.ByteString -> b
 getFrameLength len = fromIntegral lenInt16 where
                      lenInt16 = decode lenbs :: Int16
                      lenbs = BSL.fromStrict len
 
--- Reads frame a given socket
-getFrame :: Socket -> IO S.ByteString
+-- | Reads frame a given socket
+getFrame :: Socket -> IO BS.ByteString
 getFrame sock = do
     --(conn, peer) <- accept sock
-    lenbs <- recv conn 2
-    parcelCipher <- recv conn $ getFrameLength lenbs
+    lenbs <- N.recv sock 2
+    parcelCipher <- N.recv sock $ getFrameLength lenbs
     return parcelCipher

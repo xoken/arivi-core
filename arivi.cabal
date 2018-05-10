@@ -37,6 +37,7 @@ library
                     ,  uuid
                     ,  monad-logger
                     ,  text
+                    ,  binary >= 0.8.3.0
                     ,  cryptonite >= 0.23
                     ,  memory >= 0.14.11
                     ,  raaz >= 0.1.1
