@@ -5,7 +5,7 @@ module Arivi.Network.Types
     Parcel         (..),
     PeerType (..),
     SessionId      (..),
-    MessageId      (..),
+    MessageId,
     EncryptionType (..),
     TransportType  (..),
     EncodingType   (..),
@@ -16,12 +16,15 @@ module Arivi.Network.Types
     PortNumber,
     HostAddress,
     NodeId,
+    OutboundMsg,
     ServiceId (..),
     ConnectionId,
     Opcode(..),
     SequenceNum,
+    FragmentNumber,
     HandshakeInitMasked(..),
-    HandshakeRespMasked(..)
+    HandshakeRespMasked(..),
+    makeDataParcel
 ) where
 
 import           Codec.Serialise
@@ -48,7 +51,8 @@ type SessionId      = Int32
 -- need to be changed to Int24
 type PayloadLength  = Int16
 type FragmentNumber = Int16
-type MessageId      = String
+type FragmentCount  = Int16
+type MessageId      = ByteString
 type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
@@ -114,6 +118,11 @@ data Parcel   =  KeyExParcel {
                }
                 deriving (Show,Eq,Generic)
 
+makeDataParcel :: Opcode -> MessageId -> FragmentNumber -> ConnectionId -> PayloadLength -> Payload -> Parcel
+makeDataParcel opcode msgId fragmentNum connectionId payloadLength payload = DataParcel opcode msgId fragmentNum connectionId payloadLength payload
+
+type OutboundMsg = (MessageId, FragmentNumber, FragmentCount, Payload)
+
 data PeerType = INITIATOR | RECIPIENT
                 deriving (Eq)
 
@@ -141,8 +150,9 @@ data TransportType =
                  | TCP
                  deriving (Eq,Show,Generic)
 
-newtype Payload = Payload Data.ByteString.Char8.ByteString
+newtype Payload = Payload {getPayload :: BSL.ByteString}
                deriving (Show,Eq,Generic)
+
 
 instance Serialise Version
 instance Serialise Opcode

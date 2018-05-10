@@ -27,7 +27,7 @@ import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress)
 import           Arivi.Network.Types                (ConnectionId, NodeId,
                                                      PeerType (..), PortNumber,
-                                                     SequenceNum, TransportType)
+                                                     SequenceNum, TransportType, OutboundMsg)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
 import qualified Crypto.PubKey.Ed25519              as Ed25519
@@ -59,6 +59,7 @@ data Connection = Connection {
                         , sharedSecret      :: Keys.SharedSecret
                         , serviceReqTChan   :: TChan ServiceRequest
                         , parcelCipherTChan :: TChan ParcelCipher
+                        , outboundMsgTChan :: TChan OutboundMsg
                         , egressSeqNum      :: SequenceNum
                         , ingressSeqNum     :: SequenceNum
                         } deriving (Eq)
@@ -117,13 +118,14 @@ createConnection :: NodeId
                  -> Keys.SharedSecret
                  -> TChan ServiceRequest
                  -> TChan ParcelCipher
+                 -> TChan OutboundMsg
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                 transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelCipherTChan egressSeqNum ingressSeqNum connectionHashmap =
+                parcelCipherTChan outboundMsgTChan egressSeqNum ingressSeqNum connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -135,7 +137,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                                 ephemeralPrivKey
                                              transportType peerType socket
                                              sharedSecret serviceRequestTChan
-                                             parcelCipherTChan
+                                             parcelCipherTChan outboundMsgTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 
