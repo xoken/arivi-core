@@ -65,6 +65,34 @@ sendByteTo sock databs = do
     sendAll sock databs
 
 
+-- | creates frame(prefixes length) from parcel
+-- that has been serialised to cborg
+createFrame :: BSL.ByteString -> BSL.ByteString
+createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
+                                where
+                      len = BSL.length parcelSerialised
+                      lenw16 = (fromIntegral len) :: Int16
+                      lenSer = encode lenw16
+
+
+
+
+
+
+-- Functions for Server
+-- NEEDS CHANGE : FOREVER LOOP TO BE ADDED
+runTCPserver :: String -> IO Socket
+runTCPserver port= withSocketsDo $ do
+    let hints = defaultHints { addrFlags = [AI_PASSIVE]
+                             , addrSocketType = Stream  }
+    addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
+
+    sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
+    setSocketOption sock ReuseAddr 1
+    bind sock (addrAddress addr)
+    listen sock 5
+    return sock
+
 
 -- Converts length in byteString to Num
 getFrameLength :: Num b => S.ByteString -> b
@@ -75,6 +103,7 @@ getFrameLength len = fromIntegral lenInt16 where
 -- Reads frame a given socket
 getFrame :: Socket -> IO S.ByteString
 getFrame sock = do
+    --(conn, peer) <- accept sock
     lenbs <- recv conn 2
     parcelCipher <- recv conn $ getFrameLength lenbs
     return parcelCipher
