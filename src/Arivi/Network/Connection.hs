@@ -59,7 +59,7 @@ data Connection = Connection {
                         , sharedSecret      :: Keys.SharedSecret
                         , serviceReqTChan   :: TChan ServiceRequest
                         , parcelCipherTChan :: TChan ParcelCipher
-                        , outboundMsgTChan :: TChan OutboundMsg
+                        , outboundMsgTChan  :: TChan OutboundMsg
                         , egressSeqNum      :: SequenceNum
                         , ingressSeqNum     :: SequenceNum
                         } deriving (Eq)

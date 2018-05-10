@@ -69,6 +69,7 @@ inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
                 parcelCipherTChan <- atomically newTChan
                 atomically $ writeTChan parcelCipherTChan encryptedPayload
                 serviceReqTChan <- atomically newTChan
+                outboundTChan <- atomically newTChan
 
                 let connection = NetworkConnection.Connection
                                                connectionId undefined
@@ -77,7 +78,8 @@ inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
                                                transportType undefined
                                                socket undefined
                                                serviceReqTChan parcelCipherTChan
-                                               undefined undefined
+                                               outboundTChan undefined
+                                               undefined
 
                 let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert
                                                   connectionId

@@ -10,16 +10,17 @@ import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
                                             newTMVar, readTChan, readTMVar,
                                             writeTChan)
 import           Control.Monad             (forever)
-import qualified Data.ByteString.Char8   as C
-import qualified Data.ByteString.Lazy    as BSL
-import qualified Data.ByteString         as BS
-import qualified Data.List.Split         as S
+import           Data.Binary
+import qualified Data.ByteString           as BS
+import qualified Data.ByteString.Char8     as C
+import qualified Data.ByteString.Lazy      as BSL
+import           Data.Int
+import qualified Data.List.Split           as S
 import           Data.Maybe                (fromMaybe)
 import           Data.Word
-import Network.Socket hiding (recv)
-import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
-import Data.Binary
-import Data.Int
+import           Network.Socket
+import qualified Network.Socket.ByteString as N (recv, recvFrom, sendAll,
+                                                 sendTo)
 
 
 runTCPServerForever :: Socket
@@ -56,7 +57,7 @@ getAddressType  transportType = if transportType==TCP then
 getSocket :: String -> Int -> TransportType -> IO Socket
 getSocket ipAdd port transportType = withSocketsDo $ do
     let portNo = Just (show port)
-    let transport_type = (getAddressType transportType)
+    let transport_type = getAddressType transportType
     let hints = defaultHints {addrSocketType = transport_type}
     addr:_ <- getAddrInfo (Just hints) (Just ipAdd) portNo
     sock <- socket AF_INET transport_type (addrProtocol addr)
@@ -65,8 +66,7 @@ getSocket ipAdd port transportType = withSocketsDo $ do
 
 
 sendByteTo :: Socket -> C.ByteString -> IO ()
-sendByteTo sock databs = do
-    N.sendAll sock databs
+sendByteTo = N.sendAll
 
 
 -- | creates frame(prefixes length) from parcel
@@ -75,7 +75,7 @@ createFrame :: BSL.ByteString -> BSL.ByteString
 createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
                                 where
                       len = BSL.length parcelSerialised
-                      lenw16 = (fromIntegral len) :: Int16
+                      lenw16 = fromIntegral len :: Int16
                       lenSer = encode lenw16
 
 
@@ -109,5 +109,4 @@ getFrame :: Socket -> IO BS.ByteString
 getFrame sock = do
     --(conn, peer) <- accept sock
     lenbs <- N.recv sock 2
-    parcelCipher <- N.recv sock $ getFrameLength lenbs
-    return parcelCipher
+    N.recv sock $ getFrameLength lenbs

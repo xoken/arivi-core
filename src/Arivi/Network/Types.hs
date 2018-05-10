@@ -58,7 +58,7 @@ type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
 
-type SequenceNum = Integer
+type SequenceNum = Integer -- | TODO Control.Concurrent.STM.Counter
 type InitiatorNonce = Integer -- 1++
 type RecipientNonce = Integer -- 2^32++
 
@@ -118,8 +118,14 @@ data Parcel   =  KeyExParcel {
                }
                 deriving (Show,Eq,Generic)
 
-makeDataParcel :: Opcode -> MessageId -> FragmentNumber -> ConnectionId -> PayloadLength -> Payload -> Parcel
-makeDataParcel opcode msgId fragmentNum connectionId payloadLength payload = DataParcel opcode msgId fragmentNum connectionId payloadLength payload
+makeDataParcel :: Opcode
+               -> MessageId
+               -> FragmentNumber
+               -> ConnectionId
+               -> PayloadLength
+               -> Payload
+               -> Parcel
+makeDataParcel = DataParcel
 
 type OutboundMsg = (MessageId, FragmentNumber, FragmentCount, Payload)
 
