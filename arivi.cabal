@@ -51,6 +51,7 @@ library
                     ,  integer-gmp
                     ,  monad-logger
                     ,  random
+                    ,  hashtables <= 1.2.6.1
   hs-source-dirs:      src
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
@@ -72,15 +73,16 @@ library
                        Arivi.Kademlia.XorDistance
                        Arivi.Network.Connection
                        Arivi.Network.Datagram
+                       Arivi.Network.FrameDispatcher
                        Arivi.Network.FSM
-                       Arivi.Network.Handshake
-                       -- Arivi.Network.Instance
+                       Arivi.Network.HashMapManager
+                       Arivi.Network.Instance
                        Arivi.Network.NetworkClient
                        Arivi.Network.Stream
                        Arivi.Network.Types
                        -- Arivi.P2P.FSM
-                       -- Arivi.P2P.PubSub
-                       -- Arivi.P2P.ServiceRegistry
+                       Arivi.P2P.PubSub
+                       Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.Utils.Utils
 

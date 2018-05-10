@@ -7,8 +7,9 @@ module Arivi.Crypto.Utils.PublicKey.Signature
 
 import           Arivi.Crypto.Utils.Random
 import           Crypto.Error              (CryptoFailable, throwCryptoError)
-import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, Signature, publicKey,
-                                            secretKey, toPublic, sign)
+import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, Signature,
+                                            publicKey, secretKey, sign,
+                                            toPublic)
 import           Data.ByteArray            (convert)
 import           Data.ByteString.Char8     (ByteString)
 import           Data.Proxy
