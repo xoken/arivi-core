@@ -4,22 +4,24 @@ module Arivi.Network.Stream
 ) where
 
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
-                                            putMVar, takeMVar)
+                                            putMVar, takeMVar, forkFinally)
 import           Control.Concurrent.MVar
+import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
                                             newTMVar, readTChan, readTMVar,
-                                            writeTChan)
-import           Control.Monad             (forever)
+                                            writeTChan, STM)
+import           Control.Monad             (forever,void)
 import qualified Data.ByteString.Char8   as C
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.ByteString         as BS
+import           Data.ByteString.Internal (unpackBytes)
 import qualified Data.List.Split         as S
 import           Data.Maybe                (fromMaybe)
 import           Data.Word
-import Network.Socket hiding (recv)
+import           Network.Socket hiding (recv)
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
-import Data.Binary
-import Data.Int
+import           Data.Binary
+import           Data.Int
 
 
 runTCPServerForever :: Socket
@@ -85,8 +87,8 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
 
 -- Functions for Server
 -- NEEDS CHANGE : FOREVER LOOP TO BE ADDED
-runTCPserver :: String -> IO Socket
-runTCPserver port= withSocketsDo $ do
+--runTCPserver :: String -> IO Socket
+runTCPserverFor port inboundTChan = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
@@ -95,7 +97,15 @@ runTCPserver port= withSocketsDo $ do
     setSocketOption sock ReuseAddr 1
     bind sock (addrAddress addr)
     listen sock 5
-    return sock
+    forever $ do
+        (conn, peer) <- accept sock
+        putStrLn $ "Connection from " ++ show peer
+        void $ forkFinally (talk conn inboundTChan) (\_ -> close conn)
+        where
+        talk conn inboundTChan = do
+            parcelCipher <- getFrame conn
+            atomically $ writeTChan inboundTChan (conn,parcelCipher)
+            talk conn inboundTChan
 
 
 -- Converts length in byteString to Num
@@ -105,9 +115,35 @@ getFrameLength len = fromIntegral lenInt16 where
                      lenbs = BSL.fromStrict len
 
 -- | Reads frame a given socket
-getFrame :: Socket -> IO BS.ByteString
+getFrame :: Socket -> IO BSL.ByteString
 getFrame sock = do
     --(conn, peer) <- accept sock
     lenbs <- N.recv sock 2
     parcelCipher <- N.recv sock $ getFrameLength lenbs
-    return parcelCipher
+    return BSL.pack $ unpackBytes parcelCipher
+
+
+
+
+
+
+-- FOR TESTING ONLY------
+sampleParcel :: String -> BSL.ByteString
+sampleParcel msg = createFrame b
+                    where
+                        s = unpackBytes $ C.pack msg
+                        b = BSL.pack s
+sendSample:: Socket -> String -> IO()
+sendSample soc msgStr = do
+    soc <- getSocket "127.0.0.1" 3000 TCP
+    let msg = sampleParcel msgStr
+    sendByteTo soc (BSL.toStrict msg)
+
+test :: Socket -> IO (Socket, BSL.ByteString)
+test sock= do
+    let a = newTChan ::STM (TChan (Socket,BSL.ByteString))
+    b <- atomically $ a
+    atomically $ writeTChan b (sock, (sampleParcel "text"))
+    f <- atomically $ readTChan b
+    runTCPserverFor "3000" b
+    return f
