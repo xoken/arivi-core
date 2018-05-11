@@ -5,7 +5,7 @@ module Arivi.Network.Types
     Parcel         (..),
     PeerType (..),
     SessionId      (..),
-    MessageId      (..),
+    MessageId,
     EncryptionType (..),
     TransportType  (..),
     EncodingType   (..),
@@ -16,12 +16,16 @@ module Arivi.Network.Types
     PortNumber,
     HostAddress,
     NodeId,
+    OutboundFragment,
     ServiceId (..),
     ConnectionId,
     Opcode(..),
     SequenceNum,
+    FragmentNumber,
+    FragmentCount,
     HandshakeInitMasked(..),
-    HandshakeRespMasked(..)
+    HandshakeRespMasked(..),
+    makeDataParcel
 ) where
 
 import           Codec.Serialise
@@ -48,16 +52,16 @@ type SessionId      = Int32
 -- need to be changed to Int24
 type PayloadLength  = Int16
 type FragmentNumber = Int16
-type MessageId      = String
+type FragmentCount  = Int16
+type MessageId      = ByteString
 type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
 
-type SequenceNum = Integer
+type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
 type InitiatorNonce = Integer -- 1++
 type RecipientNonce = Integer -- 2^32++
-
 type NodeId = ByteString
 -- The different messages we can get from the network
 data Opcode = KEY_EXCHANGE_INIT
@@ -90,29 +94,44 @@ data Parcel   =  KeyExParcel {
                }
 
                | DataParcel  {
-                    opcode         :: Opcode
-                ,   messageId      :: MessageId
-                ,   fragmentNumber :: FragmentNumber
-                ,   connectionId   :: ConnectionId
-                ,   payloadLength  :: PayloadLength
-                ,   payload        :: Payload
+                    opcode          :: Opcode
+                ,   messageId       :: MessageId
+                ,   fragmentNumber  :: FragmentNumber
+                ,   totalFragements :: FragmentCount
+                ,   connectionId    :: ConnectionId
+                ,   payloadLength   :: PayloadLength
+                ,   payload         :: Payload
                }
 
                | ErrorParcel {
-                    opcode         :: Opcode
-                ,   messageId      :: MessageId
-                ,   fragmentNumber :: FragmentNumber
-                ,   descriptor     :: Descriptor
-                ,   connectionId   :: ConnectionId
+                    opcode          :: Opcode
+                ,   messageId       :: MessageId
+                ,   fragmentNumber  :: FragmentNumber
+                ,   totalFragements :: FragmentCount
+                ,   descriptor      :: Descriptor
+                ,   connectionId    :: ConnectionId
                }
 
                | ByeParcel {
-                    opcode         :: Opcode
-                ,   fragmentNumber :: FragmentNumber
-                ,   connectionId   :: ConnectionId
-                ,   messageId      :: MessageId
+                    opcode          :: Opcode
+                ,   fragmentNumber  :: FragmentNumber
+                ,   totalFragements :: FragmentCount
+                ,   connectionId    :: ConnectionId
+                ,   messageId       :: MessageId
                }
                 deriving (Show,Eq,Generic)
+
+makeDataParcel :: Opcode
+               -> MessageId
+               -> FragmentNumber
+               -> FragmentCount
+               -> ConnectionId
+               -> PayloadLength
+               -> Payload
+               -> Parcel
+makeDataParcel = DataParcel
+
+type OutboundFragment = (MessageId, FragmentNumber, FragmentCount, Payload)
 
 data PeerType = INITIATOR | RECIPIENT
                 deriving (Eq)
@@ -141,8 +160,9 @@ data TransportType =
                  | TCP
                  deriving (Eq,Show,Generic)
 
-newtype Payload = Payload Data.ByteString.Char8.ByteString
+newtype Payload = Payload {getPayload :: BSL.ByteString}
                deriving (Show,Eq,Generic)
+
 
 instance Serialise Version
 instance Serialise Opcode

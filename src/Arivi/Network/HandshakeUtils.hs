@@ -16,7 +16,7 @@ import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Crypto.Utils.Random
 import qualified Arivi.Network.Connection                as Conn
-import           Arivi.Network.Types                     (ConnectionId, HandshakeInitMasked (..),
+import           Arivi.Network.Types                     (HandshakeInitMasked (..),
                                                           HandshakeRespMasked (..),
                                                           NodeId, Opcode (..),
                                                           Parcel (..),
@@ -25,9 +25,9 @@ import           Codec.Serialise
 import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
-import           Data.ByteArray
 import           Data.ByteString.Char8                   as B
 import qualified Data.ByteString.Lazy                    as L
+
 
 generateAeadNonce :: IO ByteString
 generateAeadNonce = getRandomByteString 12
@@ -44,9 +44,11 @@ generateRecipientNonce = 100
 getHeader :: B.ByteString
 getHeader = B.empty
 
+
+
 generateEphemeralKeys :: Conn.Connection -> IO Conn.Connection
 generateEphemeralKeys conn = do
-    (eSKSign, ePKSign) <- generateSigningKeyPair
+    (eSKSign, _) <- generateSigningKeyPair
     let ephermeralNodeId = generateNodeId eSKSign
     let newconn = conn {Conn.ephemeralPubKey = ephermeralNodeId, Conn.ephemeralPrivKey = eSKSign}
     return newconn
@@ -65,9 +67,9 @@ createHandshakeInitMsg sk conn = (serialise hsInitMsg, updatedConn) where
     ssk = createSharedSecretKey eSKSign remoteNodeId
     staticssk = createSharedSecretKey sk remoteNodeId
 
-    signature = signMsg eSKSign (Encryption.sharedSecretToByteString staticssk)
+    sign = signMsg eSKSign (Encryption.sharedSecretToByteString staticssk)
     initNonce = generateInitiatorNonce
-    hsInitMsg = HandshakeInitMessage getVersion (Conn.connectionId conn)initNonce myNodeId signature
+    hsInitMsg = HandshakeInitMessage getVersion (Conn.connectionId conn)initNonce myNodeId sign
     -- Consider using lenses for updation
     updatedConn = updateCryptoParams conn ephermeralNodeId eSKSign ssk
 
@@ -76,15 +78,6 @@ createHandshakeRespMsg :: Conn.Connection -> L.ByteString
 createHandshakeRespMsg conn = serialise hsRespMsg where
     hsRespMsg = HandshakeRespMsg getVersion generateRecipientNonce (Conn.connectionId conn)
 
--- | Simple wrapper over chacha encryption
-encryptMsg :: B.ByteString -> SharedSecret -> B.ByteString -> B.ByteString -> B.ByteString
-encryptMsg aeadnonce ssk header msg = throwCryptoError $ chachaEncrypt aeadnonce sskBS header msg where
-        sskBS = Encryption.sharedSecretToByteString ssk
-
--- | Simple wrapper over chacha decryption
-decryptMsg :: B.ByteString -> SharedSecret -> B.ByteString -> B.ByteString -> B.ByteString -> B.ByteString
-decryptMsg aeadnonce ssk header tag ct = throwCryptoError $ chachaDecrypt aeadnonce sskBS header tag ct where
-        sskBS = Encryption.sharedSecretToByteString ssk
 
 -- | Get parcel fields
 getParcelFields :: B.ByteString -> Conn.Connection -> IO (B.ByteString, NodeId, B.ByteString)

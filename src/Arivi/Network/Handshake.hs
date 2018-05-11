@@ -19,11 +19,14 @@ import           Data.ByteArray
 import           Data.ByteString.Char8              as B
 import qualified Data.ByteString.Lazy               as L
 
+
+
 -- | Takes the static secret key and connection object and returns a serialized KeyExParcel along with the updated connection object
 initiatorHandshake :: Ed25519.SecretKey -> Conn.Connection -> IO (L.ByteString, Conn.Connection)
 initiatorHandshake sk conn = do
-        -- | Generate the serialised handshake init message
+        -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
         newconn <- generateEphemeralKeys conn
+        -- Get handshake init message and updated connection object with temp shared secret key
         let (hsInitMsg, updatedConn) = createHandshakeInitMsg sk newconn
         hsParcel <- generateInitParcel (L.toStrict hsInitMsg) updatedConn
         return (serialise hsParcel, updatedConn)
@@ -31,9 +34,9 @@ initiatorHandshake sk conn = do
 -- | Takes receiver static secret key, connection object and the received msg and returns a Lazy Bytestring along with the updated connection object
 recipientHandshake :: Ed25519.SecretKey -> Conn.Connection -> L.ByteString -> IO (L.ByteString, Conn.Connection)
 recipientHandshake sk conn msg = do
-    let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn msg 
+    let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn msg
     --if verification returns false, do something
-    print $ verifySignature sk senderEphNodeId hsInitMsg 
+    print $ verifySignature sk senderEphNodeId hsInitMsg
     -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
     newconn <- generateEphemeralKeys conn
     let eSKSign = Conn.ephemeralPrivKey newconn

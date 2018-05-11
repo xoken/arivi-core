@@ -7,12 +7,6 @@ pipeline {
                 echo 'Building..'
                 sh 'hlint --extension=hs .'
                 sh 'stack build'
-                emailext (
-                    subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                    body: """<p>STARTED: Job '${env.DEFAULT_RECIPIENTS} [${env.DEFAULT_REPLYTO}]':</p>
-                      <p>Check console output at &QUOT;<a href='${env.ABC}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-                    to: "xokensjenkins@flockgroups.com"
-              )
             }
         }
         stage('Test') {

@@ -10,9 +10,12 @@ module Arivi.Crypto.Utils.PublicKey.Utils
     createSharedSecretKey,
     deriveSharedSecretKey,
     generateSigningKeyPair,
-    generateNodeId
+    generateNodeId,
+    encryptMsg,
+    decryptMsg
 ) where
 
+import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
 import           Arivi.Crypto.Utils.Random
@@ -26,40 +29,6 @@ import           Data.ByteArray                          (convert)
 import           Data.ByteString.Char8                   (ByteString, concat,
                                                           length, splitAt,
                                                           unpack)
-
--- type EncryptionPubKey = Crypto.PubKey.Curve25519.PublicKey
--- type EncryptionPrivKey = Crypto.PubKey.Curve25519.SecretKey
--- type SigningPubKey = Crypto.PubKey.Ed25519.PublicKey
--- type SigningPrivKey = Crypto.PubKey.Ed25519.SecretKey
-
--- -- | Generates signing and encryption keypair for a node
--- generateNodeKeys :: IO (SigningPrivKey, SigningPubKey, EncryptionPrivKey, EncryptionPubKey)
-
--- generateNodeKeys = do
---     (signSK, signPK) <- Arivi.Crypto.Utils.PublicKey.Signature.generateKeyPair
---     (encryptSK, encryptPK) <- Arivi.Crypto.Utils.PublicKey.Encryption.generateKeyPair signSK
---     return (signSK, signPK, encryptSK, encryptPK)
-
--- -- | NodeId representation = signPK || encryptPK
--- getNodeId :: IO ByteString
--- getNodeId = do
---     (signSK, signPK, encryptSK, encryptPK) <- generateNodeKeys
---     let nodeId = Data.ByteString.Char8.concat [Arivi.Crypto.Utils.PublicKey.Signature.toByteString signPK, Arivi.Crypto.Utils.PublicKey.Encryption.toByteString encryptPK]
---     return (nodeId)
-
--- -- | Extract the signing public key from the nodeId
--- getSigningPublicKey :: ByteString -> IO Crypto.PubKey.Ed25519.PublicKey
--- getSigningPublicKey nodeId = return (throwCryptoError pk) where
---     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
---     pkBs = fst pkPair
---     pk = Crypto.PubKey.Ed25519.publicKey pkBs
-
--- -- | Extract the encryption public key from the nodeId
--- getEncryptionPublicKey :: ByteString -> IO Crypto.PubKey.Curve25519.PublicKey
--- getEncryptionPublicKey nodeId = return (throwCryptoError pk) where
---     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
---     pkBs = fst pkPair
---     pk = Crypto.PubKey.Curve25519.publicKey pkBs
 
 -- | Wrapper function for getting the signature public key, given private key
 getSignaturePublicKey :: Ed25519.SecretKey -> Ed25519.PublicKey
@@ -118,5 +87,13 @@ generateNodeId signsk = Data.ByteString.Char8.concat [signingPK, encryptionPK] w
     signingPK = Signature.toByteString (getSignaturePublicKey signsk)
     encryptionPK = Encryption.toByteString (getEncryptionPublicKey (getEncryptionSecretKey signsk))
 
+-- | Simple wrapper over chacha encryption
+encryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString
+encryptMsg aeadnonce ssk header msg = throwCryptoError $ chachaEncrypt aeadnonce sskBS header msg where
+        sskBS = Encryption.sharedSecretToByteString ssk
 
+-- | Simple wrapper over chacha decryption
+decryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString -> ByteString
+decryptMsg aeadnonce ssk header tag ct = throwCryptoError $ chachaDecrypt aeadnonce sskBS header tag ct where
+        sskBS = Encryption.sharedSecretToByteString ssk
 

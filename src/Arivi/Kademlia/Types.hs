@@ -62,11 +62,9 @@ import qualified Network.Socket.ByteString as N (recv, recvFrom, sendAll,
                                                  sendAllTo, sendTo)
 import qualified Network.Socket.Internal   as M
 
--- Helper function to get timeStamp/ epoch
+-- | Helper function to get timeStamp/ epoch
 getTimeStamp :: IO TimeStamp
-getTimeStamp = do
-    tStamp <- getPOSIXTime
-    return $ TimeStamp tStamp
+getTimeStamp = TimeStamp <$> getPOSIXTime
 
 data NodeEndPoint = NodeEndPoint {
         nodeIp  :: HostAddress
