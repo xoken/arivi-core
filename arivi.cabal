@@ -82,6 +82,7 @@ library
                        Arivi.Network.NetworkClient
                        Arivi.Network.Stream
                        Arivi.Network.Types
+                       Arivi.Network.Utils
                        -- Arivi.P2P.FSM
                        Arivi.P2P.PubSub
                        Arivi.P2P.ServiceRegistry
