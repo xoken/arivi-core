@@ -62,7 +62,6 @@ type ServiceContext = Int32
 type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
 type InitiatorNonce = Integer -- 1++
 type RecipientNonce = Integer -- 2^32++
-type
 type NodeId = ByteString
 -- The different messages we can get from the network
 data Opcode = KEY_EXCHANGE_INIT
@@ -95,30 +94,30 @@ data Parcel   =  KeyExParcel {
                }
 
                | DataParcel  {
-                    opcode         :: Opcode
-                ,   messageId      :: MessageId
-                ,   fragmentNumber :: FragmentNumber
+                    opcode          :: Opcode
+                ,   messageId       :: MessageId
+                ,   fragmentNumber  :: FragmentNumber
                 ,   totalFragements :: FragmentCount
-                ,   connectionId   :: ConnectionId
-                ,   payloadLength  :: PayloadLength
-                ,   payload        :: Payload
+                ,   connectionId    :: ConnectionId
+                ,   payloadLength   :: PayloadLength
+                ,   payload         :: Payload
                }
 
                | ErrorParcel {
-                    opcode         :: Opcode
-                ,   messageId      :: MessageId
-                ,   fragmentNumber :: FragmentNumber
+                    opcode          :: Opcode
+                ,   messageId       :: MessageId
+                ,   fragmentNumber  :: FragmentNumber
                 ,   totalFragements :: FragmentCount
-                ,   descriptor     :: Descriptor
-                ,   connectionId   :: ConnectionId
+                ,   descriptor      :: Descriptor
+                ,   connectionId    :: ConnectionId
                }
 
                | ByeParcel {
-                    opcode         :: Opcode
-                ,   fragmentNumber :: FragmentNumber
+                    opcode          :: Opcode
+                ,   fragmentNumber  :: FragmentNumber
                 ,   totalFragements :: FragmentCount
-                ,   connectionId   :: ConnectionId
-                ,   messageId      :: MessageId
+                ,   connectionId    :: ConnectionId
+                ,   messageId       :: MessageId
                }
                 deriving (Show,Eq,Generic)
 
