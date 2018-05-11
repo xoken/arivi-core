@@ -124,6 +124,7 @@ data Parcel   =  KeyExParcel {
 makeDataParcel :: Opcode
                -> MessageId
                -> FragmentNumber
+               -> FragmentCount
                -> ConnectionId
                -> PayloadLength
                -> Payload
