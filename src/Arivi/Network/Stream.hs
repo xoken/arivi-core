@@ -22,7 +22,7 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
 import           Data.Binary
 import           Data.Int
---import           System.Posix.Unistd -- for testing only
+import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
 
@@ -58,7 +58,7 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
 -- Functions for Server
 
 -- | Creates server Thread that spawns new thread for listening.
-runTCPserver :: String -> TChan (Socket, BSL.ByteString) -> IO ()
+runTCPserver :: String -> TChan Socket -> IO ()
 runTCPserver port inboundTChan = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
@@ -68,20 +68,17 @@ runTCPserver port inboundTChan = withSocketsDo $ do
     setSocketOption sock ReuseAddr 1
     bind sock (addrAddress addr)
     listen sock 5
-    void $ forkFinally (serverLoop sock inboundTChan) (\_ -> close sock)
+    void $ forkFinally (collectIncomingSocket sock inboundTChan) (\_ -> close sock)
     putStrLn "Server started..."
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
-serverLoop :: Socket -> TChan (Socket, BSL.ByteString) -> IO ()
-serverLoop sock inboundTChan = forever $ do
+collectIncomingSocket :: Socket -> TChan Socket -> IO ()
+collectIncomingSocket sock inboundTChan = forever $ do
         (conn, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
-        void $ forkFinally (recieveParcel conn inboundTChan) (\_ -> close conn)
-        where recieveParcel conn inboundTChan = do
-                parcelCipher <- getFrame conn
-                atomically $ writeTChan inboundTChan (conn,parcelCipher)
-                recieveParcel conn inboundTChan
+        atomically $ writeTChan inboundTChan conn
+        collectIncomingSocket sock inboundTChan
 
 -- | Converts length in byteString to Num
 getFrameLength :: Num b => BS.ByteString -> b
@@ -98,9 +95,6 @@ getFrame sock = do
     return parcelCipherLazy
 
 
-
-
-
 {-
 -- FOR TESTING ONLY------
 sampleParcel :: String -> BSL.ByteString
@@ -108,43 +102,22 @@ sampleParcel msg = createFrame b
                     where
                         s = unpackBytes $ C.pack msg
                         b = BSL.pack s
-sendSample:: String -> IO()
-sendSample msgStr = do
-    soc <- createSocket "127.0.0.1" 3000 TCP
-    let msg = sampleParcel msgStr
-    sendFrame soc (BSL.toStrict msg)
+
+-- sendSample:: String -> IO()
+clientRead = do
+    sock <- createSocket "127.0.0.1" 3000 TCP
+    bsParcel <- getFrame sock
+    putStrLn $ "Recieved : " ++ (show bsParcel)
 
 --test :: Socket -> IO (Socket, BSL.ByteString)
 test = do
-    let a = newTChan ::STM (TChan (Socket,BSL.ByteString))
+    let a = newTChan :: STM (TChan Socket)
     b <- atomically $ a
     putStrLn "Starting Server..."
     runTCPserver "3000" b
-    sleep 10
-    (s1,b1) <- atomically $ readTChan b
-    (s2,b2) <- atomically $ readTChan b
-    (s3,b3) <- atomically $ readTChan b
-    putStrLn $ "B1=" ++ (show b1)
-    putStrLn $ "B2=" ++ (show b2)
-    putStrLn $ "B3=" ++ (show b3)
-
-
-
--- OLDER CODE
-runTCPserverever :: Socket
-                    -> SockAddr
-                    -> IO ()
-runTCPserverever sock sockAddr = do
-    bind sock sockAddr
-    listen sock 3
-    --  int above specifies the maximum number of queued connections and should
-    --  be at least 1; the maximum value is system-dependent (usually 5).
-
-    print "TCP Server now listening for requests at : " -- ++ show sockAddr)
-    forever $
-         do
-            (conn,addr) <- accept sock
-            (mesg, socaddr2) <- N.recvFrom sock 4096
-            close conn
-            close sock
+    --sleep 10
+    s1 <- atomically $ readTChan b
+    s2 <- atomically $ readTChan b
+    s3 <- atomically $ readTChan b
+    sendFrame s2 (BSL.toStrict (sampleParcel "some text"))
 -}
