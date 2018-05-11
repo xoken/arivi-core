@@ -22,7 +22,7 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
 import           Data.Binary
 import           Data.Int
-import           System.Posix.Unistd -- for testing only
+--import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
 
