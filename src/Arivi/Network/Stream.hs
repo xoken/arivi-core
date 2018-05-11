@@ -44,7 +44,7 @@ createSocket ipAdd port transportType = withSocketsDo $ do
     return sock
 
 sendFrame :: Socket -> C.ByteString -> IO ()
-sendFrame sock databs = N.sendAll sock databs
+sendFrame = N.sendAll
 
 -- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString
