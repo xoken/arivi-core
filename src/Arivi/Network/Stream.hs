@@ -1,6 +1,6 @@
 module Arivi.Network.Stream
 (
-    runTCPServerForever
+    runTCPserverFor
 ) where
 
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
@@ -22,31 +22,9 @@ import           Network.Socket hiding (recv)
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
 import           Data.Binary
 import           Data.Int
-
-
-runTCPServerForever :: Socket
-                    -> SockAddr
-                    -> IO ()
-
-runTCPServerForever sock sockAddr = do
-    bind sock sockAddr
-    listen sock 3
-    --  int above specifies the maximum number of queued connections and should
-    --  be at least 1; the maximum value is system-dependent (usually 5).
-
-    print "TCP Server now listening for requests at : " -- ++ show sockAddr)
-    forever $
-         do
-            (conn,addr) <- accept sock
-            (mesg, socaddr2) <- N.recvFrom sock 4096
-            close conn
-            close sock
-
-
-
+import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
-
 
 data TransportType =  UDP|TCP deriving(Eq)
 
@@ -54,9 +32,9 @@ getAddressType:: TransportType -> SocketType
 getAddressType  transportType = if transportType==TCP then
                                 Stream else Datagram
 
--- Example getSocket "127.0.0.1" 3000 TCP
-getSocket :: String -> Int -> TransportType -> IO Socket
-getSocket ipAdd port transportType = withSocketsDo $ do
+-- Example createSocket "127.0.0.1" 3000 TCP
+createSocket :: String -> Int -> TransportType -> IO Socket
+createSocket ipAdd port transportType = withSocketsDo $ do
     let portNo = Just (show port)
     let transport_type = (getAddressType transportType)
     let hints = defaultHints {addrSocketType = transport_type}
@@ -65,11 +43,9 @@ getSocket ipAdd port transportType = withSocketsDo $ do
     connect sock (addrAddress addr)
     return sock
 
-
-sendByteTo :: Socket -> C.ByteString -> IO ()
-sendByteTo sock databs = do
+sendFrame :: Socket -> C.ByteString -> IO ()
+sendFrame sock databs = do
     N.sendAll sock databs
-
 
 -- | creates frame(prefixes length) from parcel
 -- that has been serialised to cborg
@@ -79,10 +55,6 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
                       len = BSL.length parcelSerialised
                       lenw16 = (fromIntegral len) :: Int16
                       lenSer = encode lenw16
-
-
-
-
 
 
 -- Functions for Server
@@ -97,17 +69,18 @@ runTCPserverFor port inboundTChan = withSocketsDo $ do
     setSocketOption sock ReuseAddr 1
     bind sock (addrAddress addr)
     listen sock 5
-    forever $ do
+    void $ forkFinally (serverLoop sock inboundTChan) (\_ -> close sock)
+    putStrLn "Server started..."
+
+serverLoop sock inboundTChan = forever $ do
         (conn, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
-        void $ forkFinally (talk conn inboundTChan) (\_ -> close conn)
+        void $ forkFinally (recieveParcel conn inboundTChan) (\_ -> close conn)
         where
-        talk conn inboundTChan = do
-            parcelCipher <- getFrame conn
-            atomically $ writeTChan inboundTChan (conn,parcelCipher)
-            talk conn inboundTChan
-
-
+            recieveParcel conn inboundTChan = do
+                parcelCipher <- getFrame conn
+                atomically $ writeTChan inboundTChan (conn,parcelCipher)
+                recieveParcel conn inboundTChan
 
 -- Converts length in byteString to Num
 getFrameLength :: Num b => BS.ByteString -> b
@@ -137,17 +110,44 @@ sampleParcel msg = createFrame b
                         b = BSL.pack s
 sendSample:: String -> IO()
 sendSample msgStr = do
-    soc <- getSocket "127.0.0.1" 3000 TCP
+    soc <- createSocket "127.0.0.1" 3000 TCP
     let msg = sampleParcel msgStr
-    sendByteTo soc (BSL.toStrict msg)
+    sendFrame soc (BSL.toStrict msg)
 
 --test :: Socket -> IO (Socket, BSL.ByteString)
 test = do
     let a = newTChan ::STM (TChan (Socket,BSL.ByteString))
     b <- atomically $ a
-    --soc <- getSocket "127.0.0.1" 3516 TCP
-    --atomically $ writeTChan b (sock, (sampleParcel "text"))
-    --f <- atomically $ readTChan b
     putStrLn "Starting Server..."
     runTCPserverFor "3000" b
-    --return f
+    sleep 10
+    (s1,b1) <- atomically $ readTChan b
+    (s2,b2) <- atomically $ readTChan b
+    (s3,b3) <- atomically $ readTChan b
+    putStrLn $ "B1=" ++ (show b1)
+    putStrLn $ "B2=" ++ (show b2)
+    putStrLn $ "B3=" ++ (show b3)
+
+
+
+
+
+-- OLDER CODE
+{-
+runTCPServerForever :: Socket
+                    -> SockAddr
+                    -> IO ()
+runTCPServerForever sock sockAddr = do
+    bind sock sockAddr
+    listen sock 3
+    --  int above specifies the maximum number of queued connections and should
+    --  be at least 1; the maximum value is system-dependent (usually 5).
+
+    print "TCP Server now listening for requests at : " -- ++ show sockAddr)
+    forever $
+         do
+            (conn,addr) <- accept sock
+            (mesg, socaddr2) <- N.recvFrom sock 4096
+            close conn
+            close sock
+-}
