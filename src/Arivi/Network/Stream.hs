@@ -108,6 +108,7 @@ runTCPserverFor port inboundTChan = withSocketsDo $ do
             talk conn inboundTChan
 
 
+
 -- Converts length in byteString to Num
 getFrameLength :: Num b => BS.ByteString -> b
 getFrameLength len = fromIntegral lenInt16 where
@@ -120,7 +121,8 @@ getFrame sock = do
     --(conn, peer) <- accept sock
     lenbs <- N.recv sock 2
     parcelCipher <- N.recv sock $ getFrameLength lenbs
-    return BSL.pack $ unpackBytes parcelCipher
+    let parcelCipherLazy = BSL.pack $ unpackBytes parcelCipher
+    return parcelCipherLazy
 
 
 
@@ -133,17 +135,19 @@ sampleParcel msg = createFrame b
                     where
                         s = unpackBytes $ C.pack msg
                         b = BSL.pack s
-sendSample:: Socket -> String -> IO()
-sendSample soc msgStr = do
+sendSample:: String -> IO()
+sendSample msgStr = do
     soc <- getSocket "127.0.0.1" 3000 TCP
     let msg = sampleParcel msgStr
     sendByteTo soc (BSL.toStrict msg)
 
-test :: Socket -> IO (Socket, BSL.ByteString)
-test sock= do
+--test :: Socket -> IO (Socket, BSL.ByteString)
+test = do
     let a = newTChan ::STM (TChan (Socket,BSL.ByteString))
     b <- atomically $ a
-    atomically $ writeTChan b (sock, (sampleParcel "text"))
-    f <- atomically $ readTChan b
+    --soc <- getSocket "127.0.0.1" 3516 TCP
+    --atomically $ writeTChan b (sock, (sampleParcel "text"))
+    --f <- atomically $ readTChan b
+    putStrLn "Starting Server..."
     runTCPserverFor "3000" b
-    return f
+    --return f
