@@ -1,6 +1,6 @@
 module Arivi.Network.Stream
 (
-    runTCPserverFor
+    runTCPserver
 ) where
 
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
@@ -22,7 +22,7 @@ import           Network.Socket hiding (recv)
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
 import           Data.Binary
 import           Data.Int
-import           System.Posix.Unistd -- for testing only
+--import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
 
@@ -32,7 +32,7 @@ getAddressType:: TransportType -> SocketType
 getAddressType  transportType = if transportType==TCP then
                                 Stream else Datagram
 
--- Example createSocket "127.0.0.1" 3000 TCP
+-- | Eg: createSocket "127.0.0.1" 3000 TCP
 createSocket :: String -> Int -> TransportType -> IO Socket
 createSocket ipAdd port transportType = withSocketsDo $ do
     let portNo = Just (show port)
@@ -47,8 +47,7 @@ sendFrame :: Socket -> C.ByteString -> IO ()
 sendFrame sock databs = do
     N.sendAll sock databs
 
--- | creates frame(prefixes length) from parcel
--- that has been serialised to cborg
+-- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString
 createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
                                 where
@@ -58,9 +57,10 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
 
 
 -- Functions for Server
--- NEEDS CHANGE : FOREVER LOOP TO BE ADDED
---runTCPserver :: String -> IO Socket
-runTCPserverFor port inboundTChan = withSocketsDo $ do
+
+-- | Creates server Thread that spawns new thread for listening.
+runTCPserver :: String -> TChan (Socket, BSL.ByteString) -> IO ()
+runTCPserver port inboundTChan = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
@@ -72,17 +72,19 @@ runTCPserverFor port inboundTChan = withSocketsDo $ do
     void $ forkFinally (serverLoop sock inboundTChan) (\_ -> close sock)
     putStrLn "Server started..."
 
+-- | Server Thread that spawns new thread to
+-- | listen to client and put it to inboundTChan
+serverLoop :: Socket -> TChan (Socket, BSL.ByteString) -> IO ()
 serverLoop sock inboundTChan = forever $ do
         (conn, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
         void $ forkFinally (recieveParcel conn inboundTChan) (\_ -> close conn)
-        where
-            recieveParcel conn inboundTChan = do
+        where recieveParcel conn inboundTChan = do
                 parcelCipher <- getFrame conn
                 atomically $ writeTChan inboundTChan (conn,parcelCipher)
                 recieveParcel conn inboundTChan
 
--- Converts length in byteString to Num
+-- | Converts length in byteString to Num
 getFrameLength :: Num b => BS.ByteString -> b
 getFrameLength len = fromIntegral lenInt16 where
                      lenInt16 = decode lenbs :: Int16
@@ -91,7 +93,6 @@ getFrameLength len = fromIntegral lenInt16 where
 -- | Reads frame a given socket
 getFrame :: Socket -> IO BSL.ByteString
 getFrame sock = do
-    --(conn, peer) <- accept sock
     lenbs <- N.recv sock 2
     parcelCipher <- N.recv sock $ getFrameLength lenbs
     let parcelCipherLazy = BSL.pack $ unpackBytes parcelCipher
@@ -101,7 +102,7 @@ getFrame sock = do
 
 
 
-
+{-
 -- FOR TESTING ONLY------
 sampleParcel :: String -> BSL.ByteString
 sampleParcel msg = createFrame b
@@ -119,7 +120,7 @@ test = do
     let a = newTChan ::STM (TChan (Socket,BSL.ByteString))
     b <- atomically $ a
     putStrLn "Starting Server..."
-    runTCPserverFor "3000" b
+    runTCPserver "3000" b
     sleep 10
     (s1,b1) <- atomically $ readTChan b
     (s2,b2) <- atomically $ readTChan b
@@ -130,14 +131,11 @@ test = do
 
 
 
-
-
 -- OLDER CODE
-{-
-runTCPServerForever :: Socket
+runTCPserverever :: Socket
                     -> SockAddr
                     -> IO ()
-runTCPServerForever sock sockAddr = do
+runTCPserverever sock sockAddr = do
     bind sock sockAddr
     listen sock 3
     --  int above specifies the maximum number of queued connections and should
