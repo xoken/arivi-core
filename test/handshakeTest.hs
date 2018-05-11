@@ -1,11 +1,13 @@
-import Arivi.Network.Handshake
-import Arivi.Network.Types
-import Arivi.Network.Connection
-import Arivi.Crypto.Utils.PublicKey.Utils
-import Data.ByteString.Char8 as B
-import Arivi.Crypto.Cipher.ChaChaPoly1305
-import Crypto.Error
-import Arivi.Crypto.Utils.Random
+import           Arivi.Crypto.Cipher.ChaChaPoly1305
+import           Arivi.Crypto.Utils.PublicKey.Utils
+import           Arivi.Crypto.Utils.Random
+import           Arivi.Network.Connection
+import           Arivi.Network.Handshake
+import           Arivi.Network.Types
+import           Crypto.Error
+import           Data.ByteString.Char8              as B
+
+main::IO()
 
 main = do
     (senderSK, senderPK) <- generateSigningKeyPair
@@ -16,9 +18,9 @@ main = do
     let senderConn = Connection connId recvNodeId undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
     let recvConn = Connection connId  undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
     (sentParcel, senderConn1) <- initiatorHandshake senderSK senderConn
-    (recvParcel, recvConn1) <- recipientHandshake recvSK recvConn sentParcel 
+    (recvParcel, recvConn1) <- recipientHandshake recvSK recvConn sentParcel
     let senderConn2 = receiveHandshakeResponse senderConn1 recvParcel
-    
+
     let sSSK = sharedSecret senderConn2
     let rSSK = sharedSecret recvConn1
 
