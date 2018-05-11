@@ -9,15 +9,16 @@ KI.Config (..)
 ) where
 
 import qualified Arivi.Kademlia.Instance      as KI
+import           Arivi.Network.Connection     (Connection (..),
+                                               makeConnectionId)
 import           Arivi.Network.Datagram
-import           Arivi.Network.Connection      (Connection(..),makeConnectionId)
 -- import qualified Arivi.Network.Multiplexer    as MP
+import qualified Arivi.Network.FSM            as FSM
 import           Arivi.Network.NetworkClient
-import qualified Arivi.Network.FSM as FSM
 import           Arivi.Network.Stream
 import           Arivi.Network.Types
-import           Arivi.P2P.Types              (ServiceRequest(..),
-                                               ServiceType(..))
+import           Arivi.P2P.Types              (ServiceRequest (..),
+                                               ServiceType (..))
 import           Arivi.Utils.Utils
 import           Control.Concurrent           (MVar, ThreadId, forkIO,
                                                newEmptyMVar, newMVar, putMVar,
