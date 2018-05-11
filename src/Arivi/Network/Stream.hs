@@ -18,7 +18,7 @@ import           Data.ByteString.Internal (unpackBytes)
 import qualified Data.List.Split         as S
 import           Data.Maybe                (fromMaybe)
 import           Data.Word
-import           Network.Socket hiding (recv)
+import           Network.Socket
 import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
 import           Data.Binary
 import           Data.Int
@@ -36,7 +36,7 @@ getAddressType  transportType = if transportType==TCP then
 createSocket :: String -> Int -> TransportType -> IO Socket
 createSocket ipAdd port transportType = withSocketsDo $ do
     let portNo = Just (show port)
-    let transport_type = (getAddressType transportType)
+    let transport_type = getAddressType transportType
     let hints = defaultHints {addrSocketType = transport_type}
     addr:_ <- getAddrInfo (Just hints) (Just ipAdd) portNo
     sock <- socket AF_INET transport_type (addrProtocol addr)
@@ -44,15 +44,14 @@ createSocket ipAdd port transportType = withSocketsDo $ do
     return sock
 
 sendFrame :: Socket -> C.ByteString -> IO ()
-sendFrame sock databs = do
-    N.sendAll sock databs
+sendFrame sock databs = N.sendAll sock databs
 
 -- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString
 createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
-                                where
+                    where
                       len = BSL.length parcelSerialised
-                      lenw16 = (fromIntegral len) :: Int16
+                      lenw16 = fromIntegral len :: Int16
                       lenSer = encode lenw16
 
 
