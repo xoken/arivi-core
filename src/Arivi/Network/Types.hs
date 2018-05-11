@@ -59,10 +59,10 @@ type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
 
-type SequenceNum = Integer -- | TODO Control.Concurrent.STM.Counter
+type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
 type InitiatorNonce = Integer -- 1++
 type RecipientNonce = Integer -- 2^32++
-
+type
 type NodeId = ByteString
 -- The different messages we can get from the network
 data Opcode = KEY_EXCHANGE_INIT
@@ -98,6 +98,7 @@ data Parcel   =  KeyExParcel {
                     opcode         :: Opcode
                 ,   messageId      :: MessageId
                 ,   fragmentNumber :: FragmentNumber
+                ,   totalFragements :: FragmentCount
                 ,   connectionId   :: ConnectionId
                 ,   payloadLength  :: PayloadLength
                 ,   payload        :: Payload
@@ -107,6 +108,7 @@ data Parcel   =  KeyExParcel {
                     opcode         :: Opcode
                 ,   messageId      :: MessageId
                 ,   fragmentNumber :: FragmentNumber
+                ,   totalFragements :: FragmentCount
                 ,   descriptor     :: Descriptor
                 ,   connectionId   :: ConnectionId
                }
@@ -114,6 +116,7 @@ data Parcel   =  KeyExParcel {
                | ByeParcel {
                     opcode         :: Opcode
                 ,   fragmentNumber :: FragmentNumber
+                ,   totalFragements :: FragmentCount
                 ,   connectionId   :: ConnectionId
                 ,   messageId      :: MessageId
                }
