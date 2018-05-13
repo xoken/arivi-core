@@ -80,6 +80,7 @@ library
                        Arivi.Network.HashMapManager
                        Arivi.Network.Instance
                        Arivi.Network.NetworkClient
+                       Arivi.Network.Reassembler
                        Arivi.Network.Stream
                        Arivi.Network.Types
                        Arivi.Network.Utils
