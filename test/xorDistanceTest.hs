@@ -11,4 +11,3 @@ main = do
     print(getRawXor firstKey secondKey)
     print(getXorDistance firstKey secondKey)
     print(getXorDistance firstKey firstKey)
-

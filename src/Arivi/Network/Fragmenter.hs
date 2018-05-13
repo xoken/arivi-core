@@ -54,5 +54,3 @@ fragmentPayload payload conn msgId fragmentNum fragmentCount =
     -- | Generating a random 8 byte bytestring for msgId
 generateMessageId :: IO B.ByteString
 generateMessageId = getRandomByteString 8
-
-

@@ -55,4 +55,3 @@ main = do
     -- | If message is tampered, gives an error
 
     print (chachaDecrypt mNonce sharedSecretKey mheader authenticationTag tamperdCipherTextMessage)
-
