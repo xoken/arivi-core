@@ -25,7 +25,8 @@ module Arivi.Network.Types
     FragmentCount,
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
-    makeDataParcel
+    makeDataParcel,
+    createFrame
 ) where
 
 import           Codec.Serialise
