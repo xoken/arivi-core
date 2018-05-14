@@ -2,6 +2,7 @@ module Arivi.Network.FSM (
     Event(..)
   , State(..)
   , handleEvent
+  , initFSM
 ) where
 
 import           Arivi.Network.Connection
@@ -31,6 +32,12 @@ data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | CleanUpEvent
           deriving (Show)
 
+-- | Initiate FSM
+initFSM :: Connection -> IO State
+initFSM connection =
+    do
+        let nextEvent = getNextEvent connection
+        nextEvent >>= handleEvent connection Idle
 
 handleEvent :: Connection -> State -> Event -> IO State
 

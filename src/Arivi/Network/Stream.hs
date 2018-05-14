@@ -1,6 +1,7 @@
 module Arivi.Network.Stream
 (
-    runTCPserver
+    createSocket
+  , runTCPserver
 ) where
 
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,

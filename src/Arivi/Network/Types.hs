@@ -25,7 +25,8 @@ module Arivi.Network.Types
     FragmentCount,
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
-    makeDataParcel
+    makeDataParcel,
+    createFrame
 ) where
 
 import           Codec.Serialise
@@ -60,8 +61,11 @@ type ContextID      = Int
 type ServiceContext = Int32
 
 type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
+-- | Following are the ranges for the aead nonces
 type InitiatorNonce = Integer -- 1++
 type RecipientNonce = Integer -- 2^32++
+-- | This is the nonce for preventing replays. Don't need ranges for sender and receiver
+type Nonce = Integer
 type NodeId = ByteString
 -- The different messages we can get from the network
 data Opcode = KEY_EXCHANGE_INIT
@@ -101,6 +105,7 @@ data Parcel   =  KeyExParcel {
                 ,   connectionId    :: ConnectionId
                 ,   payloadLength   :: PayloadLength
                 ,   payload         :: Payload
+                ,   nonce           :: Nonce
                }
 
                | ErrorParcel {
@@ -128,6 +133,7 @@ makeDataParcel :: Opcode
                -> ConnectionId
                -> PayloadLength
                -> Payload
+               -> Nonce
                -> Parcel
 makeDataParcel = DataParcel
 

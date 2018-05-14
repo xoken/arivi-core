@@ -122,7 +122,7 @@ data ServiceRequest =  SendMessageServiceRequest {
 
                            serviceType :: ServiceType  -- ^ Type of service
                                                        --   needed
-                         , payloadData :: Payload      -- ^ Actual Payload
+                         , secretKey   :: SecretKey    -- ^ Actual Payload
                        }
 
                        | CloseServiceRequest {
