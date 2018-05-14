@@ -2,28 +2,30 @@ module Arivi.Network.Stream
 (
     createSocket
   , runTCPserver
+  , sendFrame
 ) where
 
-import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
-                                            putMVar, takeMVar, forkFinally)
-import           Control.Concurrent.MVar
+import           Control.Concurrent           (ThreadId, forkFinally, forkIO,
+                                               newEmptyMVar, putMVar, takeMVar)
 import           Control.Concurrent.Async
+import           Control.Concurrent.MVar
+import           Control.Concurrent.STM       (STM, TChan, TMVar, atomically,
+                                               newTChan, newTMVar, readTChan,
+                                               readTMVar, writeTChan)
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
-                                            newTMVar, readTChan, readTMVar,
-                                            writeTChan, STM)
-import           Control.Monad             (forever,void)
-import qualified Data.ByteString.Char8   as C
-import qualified Data.ByteString.Lazy    as BSL
-import qualified Data.ByteString         as BS
-import           Data.ByteString.Internal (unpackBytes)
-import qualified Data.List.Split         as S
-import           Data.Maybe                (fromMaybe)
+import           Control.Monad                (forever, void)
+import           Data.Binary
+import qualified Data.ByteString              as BS
+import qualified Data.ByteString.Char8        as C
+import           Data.ByteString.Internal     (unpackBytes)
+import qualified Data.ByteString.Lazy         as BSL
+import           Data.Int
+import qualified Data.List.Split              as S
+import           Data.Maybe                   (fromMaybe)
 import           Data.Word
 import           Network.Socket
-import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
-import           Data.Binary
-import           Data.Int
+import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
+                                                    sendTo)
 --import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
