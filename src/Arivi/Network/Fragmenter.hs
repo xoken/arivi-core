@@ -52,6 +52,6 @@ fragmentPayload payload conn msgId fragmentNum fragmentCount =
         processFragment fragment conn msgId fragmentNum fragmentCount
         fragmentPayload rest conn msgId (fragmentNum + 1) fragmentCount
 
-    -- | Generating a random 8 byte bytestring for msgId
+-- | Generating a random 8 byte bytestring for msgId
 generateMessageId :: IO B.ByteString
 generateMessageId = getRandomByteString 8

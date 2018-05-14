@@ -1,3 +1,14 @@
+-- |
+-- Module      :  Arivi.Network.FSM
+-- Copyright   :
+-- License     :
+-- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
+-- Stability   :
+-- Portability :
+--
+-- This module provides functions for Finite State Machine in Arivi Network
+-- Layer
+--
 module Arivi.Network.FSM (
     Event(..)
   , State(..)
@@ -15,14 +26,14 @@ import           Control.Monad.IO.Class
 import           Data.Either
 
 
--- The different states that any thread in layer 1 can be in
+-- | The different states that any thread in layer 1 can be in
 data State =  Idle
             | KeyExchangeInitiated
             | SecureTransportEstablished
             | Terminated
             deriving (Show, Eq)
 
--- The different events in layer 1 that cause state change
+-- | The different events in layer 1 that cause state change
 data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
@@ -39,6 +50,9 @@ initFSM connection =
         let nextEvent = getNextEvent connection
         nextEvent >>= handleEvent connection Idle
 
+
+-- | This handles the state transition from one state of FSM to another
+--   on the  basis of received events
 handleEvent :: Connection -> State -> Event -> IO State
 
 -- initiator will initiate the handshake
