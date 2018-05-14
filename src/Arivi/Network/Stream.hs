@@ -60,7 +60,7 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
 -- Functions for Server
 
 -- | Creates server Thread that spawns new thread for listening.
-runTCPserver :: String -> TChan Socket -> IO ()
+--runTCPserver :: String -> TChan Socket -> IO ()
 runTCPserver port inboundTChan = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
@@ -75,11 +75,12 @@ runTCPserver port inboundTChan = withSocketsDo $ do
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
-collectIncomingSocket :: Socket -> TChan Socket -> IO ()
+--collectIncomingSocket :: Socket -> TChan Socket -> IO ()
 collectIncomingSocket sock inboundTChan = forever $ do
         (conn, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
-        atomically $ writeTChan inboundTChan conn
+        let parcelQ = newTChan :: STM (TChan BSL.ByteString)
+        atomically $ writeTChan inboundTChan (conn,parcelQ)
         collectIncomingSocket sock inboundTChan
 
 -- | Converts length in byteString to Num
@@ -112,22 +113,22 @@ sendMsgFromclient msg = do
     -- bsParcel <- getFrame sock
     --putStrLn $ "Recieved : " ++ (show bsParcel)
     sendFrame sock (sampleParcel msg)
--}
+
 
 --test :: Socket -> IO (Socket, BSL.ByteString)
 test = do
-    let a = newTChan :: STM (TChan Socket)
-    b <- atomically $ a
+    let parcelQ = newTChan :: STM (TChan BSL.ByteString)
+    let sockQ = newTChan :: STM (TChan (Socket,parcelQ) )
+    sampleTchan <- atomically $ sockQ
     putStrLn "Starting Server..."
-    runTCPserver "3000" b
-    forkIO (readerLoop b)
-
+    runTCPserver "3000" sampleTchan
+    forkIO (readerLoop sampleTchan)
+-}
 
 readerLoop sockTChan = forever $ do
-    sock <- atomically $ readTChan sockTChan
-    async (readSock sock)
+    (sock,parcelCipherTChan) <- atomically $ readTChan sockTChan
+    async (readSock sock parcelCipherTChan)
     --putStrLn ("listening on thread " ++  (show threadNo) )
-    where readSock sock = forever $ do
-                fra <- getFrame sock
-                --putStrLn "Recieving :"
-                putStrLn (show fra)
+    where readSock sock parcelCipherTChan = forever $ do
+                parcelCipher <- getFrame sock
+                atomically $ writeTChan parcelCipherTChan parcelCipher
