@@ -21,13 +21,13 @@ import           Arivi.Network.Types                     (HandshakeInitMasked (.
                                                           NodeId, Opcode (..),
                                                           Parcel (..),
                                                           Version (..))
+import           Arivi.Network.Utils
 import           Codec.Serialise
 import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
 import           Data.ByteString.Char8                   as B
 import qualified Data.ByteString.Lazy                    as L
-
 
 generateAeadNonce :: IO ByteString
 generateAeadNonce = getRandomByteString 12
@@ -118,7 +118,7 @@ readHandshakeMsg sk conn msg = (hsInitMsg, senderEphNodeId) where
     ssk = createSharedSecretKey sk senderEphNodeId
     (ct, tag) = getCipherTextAuthPair ciphertextWithMac
     hsInitMsgSerialised = throwCryptoError $ chachaDecrypt aeadnonce ssk B.empty tag ct
-    hsInitMsg = deserialise (L.fromStrict hsInitMsgSerialised) :: HandshakeInitMasked
+    hsInitMsg = deserialise (strictToLazy hsInitMsgSerialised) :: HandshakeInitMasked
 
 verifySignature :: Ed25519.SecretKey -> NodeId ->HandshakeInitMasked -> Bool
 verifySignature sk senderEphNodeId msg = verifyMsg senderEphNodeId (Encryption.sharedSecretToByteString staticssk) sign where
@@ -139,4 +139,4 @@ readHandshakeResp conn msg = (hsInitMsg, updatedConn) where
     updatedConn = extractSecrets conn receiverEphNodeId (Conn.ephemeralPrivKey conn)
     (ct, tag) = getCipherTextAuthPair ciphertextWithMac
     hsInitMsgSerialised = throwCryptoError $ chachaDecrypt aeadnonce (Conn.sharedSecret updatedConn) B.empty tag ct
-    hsInitMsg = deserialise (L.fromStrict hsInitMsgSerialised) :: HandshakeRespMasked
+    hsInitMsg = deserialise (strictToLazy hsInitMsgSerialised) :: HandshakeRespMasked
