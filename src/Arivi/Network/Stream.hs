@@ -6,6 +6,7 @@ module Arivi.Network.Stream
 import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
                                             putMVar, takeMVar, forkFinally)
 import           Control.Concurrent.MVar
+import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
                                             newTMVar, readTChan, readTMVar,
@@ -43,8 +44,8 @@ createSocket ipAdd port transportType = withSocketsDo $ do
     connect sock (addrAddress addr)
     return sock
 
-sendFrame :: Socket -> C.ByteString -> IO ()
-sendFrame = N.sendAll
+sendFrame :: Socket -> BSL.ByteString -> IO ()
+sendFrame sock msg = N.sendAll sock (BSL.toStrict msg)
 
 -- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString
@@ -95,8 +96,9 @@ getFrame sock = do
     return parcelCipherLazy
 
 
-{-
+
 -- FOR TESTING ONLY------
+{-
 sampleParcel :: String -> BSL.ByteString
 sampleParcel msg = createFrame b
                     where
@@ -104,10 +106,12 @@ sampleParcel msg = createFrame b
                         b = BSL.pack s
 
 -- sendSample:: String -> IO()
-clientRead = do
+sendMsgFromclient msg = do
     sock <- createSocket "127.0.0.1" 3000 TCP
-    bsParcel <- getFrame sock
-    putStrLn $ "Recieved : " ++ (show bsParcel)
+    -- bsParcel <- getFrame sock
+    --putStrLn $ "Recieved : " ++ (show bsParcel)
+    sendFrame sock (sampleParcel msg)
+-}
 
 --test :: Socket -> IO (Socket, BSL.ByteString)
 test = do
@@ -115,9 +119,14 @@ test = do
     b <- atomically $ a
     putStrLn "Starting Server..."
     runTCPserver "3000" b
-    --sleep 10
-    s1 <- atomically $ readTChan b
-    s2 <- atomically $ readTChan b
-    s3 <- atomically $ readTChan b
-    sendFrame s2 (BSL.toStrict (sampleParcel "some text"))
--}
+    forkIO (readerLoop b)
+
+
+readerLoop sockTChan = forever $ do
+    sock <- atomically $ readTChan sockTChan
+    async (readSock sock)
+    --putStrLn ("listening on thread " ++  (show threadNo) )
+    where readSock sock = forever $ do
+                fra <- getFrame sock
+                --putStrLn "Recieving :"
+                putStrLn (show fra)
