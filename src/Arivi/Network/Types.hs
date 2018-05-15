@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 module Arivi.Network.Types
-(   Payload        (..),
+(
+    Header         (..),
+    Payload        (..),
     Parcel         (..),
     PeerType (..),
     SessionId      (..),
@@ -22,7 +24,7 @@ module Arivi.Network.Types
     Opcode(..),
     SequenceNum,
     FragmentNumber,
-    FragmentCount,
+    -- FragmentCount,
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
     makeDataParcel,
@@ -53,12 +55,13 @@ type SessionId      = Int32
 -- need to be changed to Int24
 type PayloadLength  = Int16
 type FragmentNumber = Int16
-type FragmentCount  = Int16
+-- type FragmentCount  = Int16
 type MessageId      = ByteString
 type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
+
 
 type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
 -- | Following are the ranges for the aead nonces
@@ -88,56 +91,135 @@ data HandshakeRespMasked = HandshakeRespMsg {
     , connectionId :: ConnectionId
 } deriving (Show, Eq, Generic)
 
+
+-- | These are the different types of Headers for different types of Parcels
+data Header = HandshakeHeader {
+                    opcode             :: Opcode      -- ^ Denotes `Opcode`
+                ,   ephemeralPublicKey :: NodeId      -- ^ `PublicKey` for
+                                                      --    current Session
+                ,   aeadNonce          :: ByteString  -- ^ 12 Byte Nonce used
+                                                      --   for encryption
+            }
+            | DataHeader {
+                    opcode          :: Opcode         -- ^ Denotes `Opcode`
+                ,   messageId       :: MessageId      -- ^ Unique Message
+                                                      --   Identifier
+                ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
+                ,   totalFragements :: FragmentNumber -- ^ Total fragments in
+                                                      --   current Message
+                ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
+                                                      --   for particular
+                                                      --   connection
+                ,   nonce           :: Nonce          -- ^ Nonce which
+                                                      --   increments by one
+                                                      --   after each message
+                                                      --   is sent. Useful for
+                                                      --   preventing Replay
+                                                      --   Attacks
+            }
+            | ErrorHeader {
+                    opcode          :: Opcode         -- ^ Denotes `Opcode`
+                ,   messageId       :: MessageId      -- ^ Unique Message
+                                                      --   Identifier
+                ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
+                ,   totalFragements :: FragmentNumber -- ^ Total fragments in
+                                                      --   current Message
+                ,   descriptor      :: Descriptor     -- ^ Shows type of error
+                                                      --   and other fields
+                ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
+                                                      --   for particular
+                                                      --   connection
+            }
+            | ByeHeader {
+                    opcode          :: Opcode         -- ^ Denotes `Opcode`
+                ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
+                ,   totalFragements :: FragmentNumber -- ^ Total fragments in
+                                                      --   current Message
+                ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
+                                                      --   for particular
+                                                      --   connection
+                ,   messageId       :: MessageId      -- ^ Unique Message
+                                                      --   Identifier
+            }
+
+             deriving (Show,Eq,Generic)
+
+-- | This is pseudo frame which contains `Header` and `CipherText`.These fields
+--   will be encoded using CBOR format. `CipherText` is encrypted `P2PMessage`
+--   which is received from the Arivi P2P Layer. `Header` will not be encrypted
+--   so it will be useful at the receiving side to know which type of Parcel is
+--   this. After encoding these fields length of the parcel in Plain Text is
+--   appended before sending on the Network.
+
+data Parcel = HandshakeParcel {
+                header           :: Header      -- ^ Header of the Parcel
+              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
+            }
+            | DataParcel {
+                header           :: Header      -- ^ Header of the Parcel
+              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
+            }
+           | ErrorParcel {
+                header           :: Header      -- ^ Header of the Parcel
+              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
+           }
+           | ByeParcel {
+                header           :: Header      -- ^ Header of the Parcel
+              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
+            } deriving (Show,Eq,Generic)
+
+
+
 -- | This is the structure that goes out on the wire
 -- Has been tested for cborg encoding, decoding successfully
-data Parcel   =  KeyExParcel {
-                    opcode              :: Opcode
-                ,   handshakeCiphertext :: ByteString
-                ,   ephemeralPublicKey  :: NodeId
-                ,   aeadNonce           :: ByteString
-               }
+-- data Parcel   =  KeyExParcel {
+--                     opcode              :: Opcode
+--                 ,   handshakeCiphertext :: ByteString
+--                 ,   ephemeralPublicKey  :: NodeId
+--                 ,   aeadNonce           :: ByteString
+--                }
 
-               | DataParcel  {
-                    opcode          :: Opcode
-                ,   messageId       :: MessageId
-                ,   fragmentNumber  :: FragmentNumber
-                ,   totalFragements :: FragmentCount
-                ,   connectionId    :: ConnectionId
-                ,   payloadLength   :: PayloadLength
-                ,   payload         :: Payload
-                ,   nonce           :: Nonce
-               }
+--                | DataParcel  {
+--                     opcode          :: Opcode
+--                 ,   messageId       :: MessageId
+--                 ,   fragmentNumber  :: FragmentNumber
+--                 ,   totalFragements :: FragmentCount
+--                 ,   connectionId    :: ConnectionId
+--                 ,   payloadLength   :: PayloadLength
+--                 ,   payload         :: Payload
+--                 ,   nonce           :: Nonce
+--                }
 
-               | ErrorParcel {
-                    opcode          :: Opcode
-                ,   messageId       :: MessageId
-                ,   fragmentNumber  :: FragmentNumber
-                ,   totalFragements :: FragmentCount
-                ,   descriptor      :: Descriptor
-                ,   connectionId    :: ConnectionId
-               }
+--                | ErrorParcel {
+--                     opcode          :: Opcode
+--                 ,   messageId       :: MessageId
+--                 ,   fragmentNumber  :: FragmentNumber
+--                 ,   totalFragements :: FragmentCount
+--                 ,   descriptor      :: Descriptor
+--                 ,   connectionId    :: ConnectionId
+--                }
 
-               | ByeParcel {
-                    opcode          :: Opcode
-                ,   fragmentNumber  :: FragmentNumber
-                ,   totalFragements :: FragmentCount
-                ,   connectionId    :: ConnectionId
-                ,   messageId       :: MessageId
-               }
-                deriving (Show,Eq,Generic)
+--                | ByeParcel {
+--                     opcode          :: Opcode
+--                 ,   fragmentNumber  :: FragmentNumber
+--                 ,   totalFragements :: FragmentCount
+--                 ,   connectionId    :: ConnectionId
+--                 ,   messageId       :: MessageId
+--                }
+--                 deriving (Show,Eq,Generic)
 
-makeDataParcel :: Opcode
-               -> MessageId
-               -> FragmentNumber
-               -> FragmentCount
-               -> ConnectionId
-               -> PayloadLength
-               -> Payload
-               -> Nonce
-               -> Parcel
+-- makeDataParcel :: Opcode
+--                -> MessageId
+--                -> FragmentNumber
+--                -> FragmentNumber
+--                -> ConnectionId
+--                -> PayloadLength
+--                -> Payload
+--                -> Nonce
+--                -> Parcel
 makeDataParcel = DataParcel
 
-type OutboundFragment = (MessageId, FragmentNumber, FragmentCount, Payload)
+type OutboundFragment = (MessageId, FragmentNumber, FragmentNumber, Payload)
 
 data PeerType = INITIATOR | RECIPIENT
                 deriving (Eq)
@@ -176,6 +258,7 @@ instance Serialise EncodingType
 instance Serialise TransportType
 instance Serialise EncryptionType
 instance Serialise Payload
+instance Serialise Header
 instance Serialise Parcel
 instance Serialise HandshakeInitMasked
 instance Serialise HandshakeRespMasked
