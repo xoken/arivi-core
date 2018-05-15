@@ -151,22 +151,11 @@ data Header = HandshakeHeader {
 --   this. After encoding these fields length of the parcel in Plain Text is
 --   appended before sending on the Network.
 
-data Parcel = HandshakeParcel {
+data Parcel = Parcel {
                 header           :: Header      -- ^ Header of the Parcel
               , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
             }
-            | DataParcel {
-                header           :: Header      -- ^ Header of the Parcel
-              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
-            }
-           | ErrorParcel {
-                header           :: Header      -- ^ Header of the Parcel
-              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
-           }
-           | ByeParcel {
-                header           :: Header      -- ^ Header of the Parcel
-              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
-            } deriving (Show,Eq,Generic)
+            deriving (Show,Eq,Generic)
 
 
 
@@ -217,7 +206,7 @@ data Parcel = HandshakeParcel {
 --                -> Payload
 --                -> Nonce
 --                -> Parcel
-makeDataParcel = DataParcel
+makeDataParcel = Parcel
 
 type OutboundFragment = (MessageId, FragmentNumber, FragmentNumber, Payload)
 
