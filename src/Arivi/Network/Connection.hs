@@ -12,7 +12,7 @@ module Arivi.Network.Connection
 (
     ConnectionId,
     Connection (..),
-    ParcelCipher,
+    -- ParcelCipher,
     getUniqueConnectionId,
     genConnectionId,
     createConnection,
@@ -26,7 +26,7 @@ import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Kademlia.Types               (HostAddress)
 import           Arivi.Network.Types                (ConnectionId, NodeId,
-                                                     OutboundFragment,
+                                                     OutboundFragment,Parcel(..),
                                                      PeerType (..), PortNumber,
                                                      SequenceNum, TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
@@ -45,7 +45,7 @@ import           Network.Socket                     (Socket)
 -- type ServiceRequest = ByteString
 -- | (ConnectionId,Connection) are (key,value) pair in HashMap that stores
 -- information about all the Connection uniquely
-type ParcelCipher = ByteString
+-- type ParcelCipher = ByteString
 
 data Connection = Connection {
                           connectionId          :: ConnectionId
@@ -59,7 +59,7 @@ data Connection = Connection {
                         , socket                :: Socket
                         , sharedSecret          :: Keys.SharedSecret
                         , serviceReqTChan       :: TChan ServiceRequest
-                        , parcelCipherTChan     :: TChan ParcelCipher
+                        , parcelTChan           :: TChan Parcel
                         , outboundFragmentTChan :: TChan OutboundFragment
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
@@ -118,7 +118,7 @@ createConnection :: NodeId
                  -> Socket
                  -> Keys.SharedSecret
                  -> TChan ServiceRequest
-                 -> TChan ParcelCipher
+                 -> TChan Parcel
                  -> TChan OutboundFragment
                  -> SequenceNum
                  -> SequenceNum
@@ -126,7 +126,8 @@ createConnection :: NodeId
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                 transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelCipherTChan outboundFragmentTChan egressSeqNum ingressSeqNum connectionHashmap =
+                parcelTChan outboundFragmentTChan egressSeqNum ingressSeqNum
+                                                         connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
                     >>= \uniqueConnectionId
@@ -138,7 +139,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                                 ephemeralPrivKey
                                              transportType peerType socket
                                              sharedSecret serviceRequestTChan
-                                             parcelCipherTChan outboundFragmentTChan
+                                             parcelTChan outboundFragmentTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 

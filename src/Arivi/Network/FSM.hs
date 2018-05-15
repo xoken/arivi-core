@@ -37,9 +37,9 @@ data State =  Idle
 data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
-             | KeyExchangeInitEvent {parcelCipher::ParcelCipher}
-             | KeyExchangeRespEvent {parcelCipher::ParcelCipher}
-             | ReceiveDataEvent {parcelCipher::ParcelCipher}
+             | KeyExchangeInitEvent {parcel::Parcel}
+             | KeyExchangeRespEvent {parcel::Parcel}
+             | ReceiveDataEvent {parcel::Parcel}
              | CleanUpEvent
           deriving (Show)
 
@@ -63,7 +63,7 @@ handleEvent connection Idle
             nextEvent >>= handleEvent connection KeyExchangeInitiated
 
 --recipient will go from Idle to VersionNegotiatedState
-handleEvent connection Idle (KeyExchangeInitEvent parcelCipher) =
+handleEvent connection Idle (KeyExchangeInitEvent parcel) =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
@@ -71,16 +71,16 @@ handleEvent connection Idle (KeyExchangeInitEvent parcelCipher) =
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
 handleEvent connection KeyExchangeInitiated
-                    (KeyExchangeRespEvent parcelCipher)  =
+                    (KeyExchangeRespEvent parcel)  =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
 
 -- Receive message from the network
-handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcelCipher) =
+handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
         do
             let nextEvent = getNextEvent connection
-            -- TODO handleDataMessage parcelCipher --decodeCBOR - collectFragments -
+            -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
             nextEvent >>= handleEvent connection SecureTransportEstablished
 
@@ -91,7 +91,7 @@ handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest)
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
 
-handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcelCipher) =
+handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
         handleEvent connection Terminated CleanUpEvent
 
 handleEvent connection Terminated CleanUpEvent =
@@ -108,8 +108,8 @@ getNextEvent
 
 getNextEvent connection = do
             let serReqTChannel  = serviceReqTChan connection
-            let parcelCipherTChannel = parcelCipherTChan connection
-            let eitherEvent = readEitherTChan serReqTChannel parcelCipherTChannel
+            let parcelTChannel = parcelTChan connection
+            let eitherEvent = readEitherTChan serReqTChannel parcelTChannel
             e <- liftIO $ atomically eitherEvent
 
             if isLeft e
@@ -126,7 +126,7 @@ getNextEvent connection = do
                                                             (takeLeft e))
             else
                 do
-                    let opcodeType = opcode (decryptParcelCipher(takeRight e))
+                    let opcodeType = opcode (header (takeRight e))
 
                     case opcodeType of
                         KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
@@ -151,8 +151,8 @@ takeRight (Right right) = right
 
 
 -- | TODO replace this with actual decryption function
-decryptParcelCipher parcelCipher = KeyExParcel undefined undefined
-                                          undefined undefined
+-- decryptParcel parcel = KeyExParcel undefined undefined
+--                                           undefined undefined
 
 -- test :: IO (Async State)
 -- test = do
