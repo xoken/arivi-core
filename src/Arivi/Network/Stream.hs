@@ -2,28 +2,30 @@ module Arivi.Network.Stream
 (
     createSocket
   , runTCPserver
+  , sendFrame
 ) where
 
-import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
-                                            putMVar, takeMVar, forkFinally)
-import           Control.Concurrent.MVar
+import           Control.Concurrent           (ThreadId, forkFinally, forkIO,
+                                               newEmptyMVar, putMVar, takeMVar)
 import           Control.Concurrent.Async
+import           Control.Concurrent.MVar
+import           Control.Concurrent.STM       (STM, TChan, TMVar, atomically,
+                                               newTChan, newTMVar, readTChan,
+                                               readTMVar, writeTChan)
 import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
-                                            newTMVar, readTChan, readTMVar,
-                                            writeTChan, STM)
-import           Control.Monad             (forever,void)
-import qualified Data.ByteString.Char8   as C
-import qualified Data.ByteString.Lazy    as BSL
-import qualified Data.ByteString         as BS
-import           Data.ByteString.Internal (unpackBytes)
-import qualified Data.List.Split         as S
-import           Data.Maybe                (fromMaybe)
+import           Control.Monad                (forever, void)
+import           Data.Binary
+import qualified Data.ByteString              as BS
+import qualified Data.ByteString.Char8        as C
+import           Data.ByteString.Internal     (unpackBytes)
+import qualified Data.ByteString.Lazy         as BSL
+import           Data.Int
+import qualified Data.List.Split              as S
+import           Data.Maybe                   (fromMaybe)
 import           Data.Word
 import           Network.Socket
-import qualified Network.Socket.ByteString as N (recvFrom, sendTo, recv, sendAll)
-import           Data.Binary
-import           Data.Int
+import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
+                                                    sendTo)
 --import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
@@ -60,7 +62,7 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
 -- Functions for Server
 
 -- | Creates server Thread that spawns new thread for listening.
-runTCPserver :: String -> TChan Socket -> IO ()
+--runTCPserver :: String -> TChan Socket -> IO ()
 runTCPserver port inboundTChan = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
@@ -75,11 +77,12 @@ runTCPserver port inboundTChan = withSocketsDo $ do
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
-collectIncomingSocket :: Socket -> TChan Socket -> IO ()
+--collectIncomingSocket :: Socket -> TChan Socket -> IO ()
 collectIncomingSocket sock inboundTChan = forever $ do
         (conn, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
-        atomically $ writeTChan inboundTChan conn
+        let parcelQ = newTChan :: STM (TChan BSL.ByteString)
+        atomically $ writeTChan inboundTChan (conn,parcelQ)
         collectIncomingSocket sock inboundTChan
 
 -- | Converts length in byteString to Num
@@ -112,22 +115,22 @@ sendMsgFromclient msg = do
     -- bsParcel <- getFrame sock
     --putStrLn $ "Recieved : " ++ (show bsParcel)
     sendFrame sock (sampleParcel msg)
--}
+
 
 --test :: Socket -> IO (Socket, BSL.ByteString)
 test = do
-    let a = newTChan :: STM (TChan Socket)
-    b <- atomically $ a
+    let parcelQ = newTChan :: STM (TChan BSL.ByteString)
+    let sockQ = newTChan :: STM (TChan (Socket,parcelQ) )
+    sampleTchan <- atomically $ sockQ
     putStrLn "Starting Server..."
-    runTCPserver "3000" b
-    forkIO (readerLoop b)
-
+    runTCPserver "3000" sampleTchan
+    forkIO (readerLoop sampleTchan)
+-}
 
 readerLoop sockTChan = forever $ do
-    sock <- atomically $ readTChan sockTChan
-    async (readSock sock)
+    (sock,parcelCipherTChan) <- atomically $ readTChan sockTChan
+    async (readSock sock parcelCipherTChan)
     --putStrLn ("listening on thread " ++  (show threadNo) )
-    where readSock sock = forever $ do
-                fra <- getFrame sock
-                --putStrLn "Recieving :"
-                putStrLn (show fra)
+    where readSock sock parcelCipherTChan = forever $ do
+                parcelCipher <- getFrame sock
+                atomically $ writeTChan parcelCipherTChan parcelCipher
