@@ -6,7 +6,7 @@ module Arivi.Network.Fragmenter
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Crypto.Utils.Random
 import qualified Arivi.Network.Connection           as Conn
-import           Arivi.Network.Types                (FragmentCount,
+import           Arivi.Network.Types                (FragmentNumber,
                                                      FragmentNumber, MessageId,
                                                      Opcode (..), Parcel (..),
                                                      Payload (..),
@@ -35,7 +35,7 @@ processPayload payload conn = do
     fragmentPayload payload conn msgId fragmentNum fragmentCount
 
 -- | Enqueue the msg onto the outboundTChan
-processFragment :: BSL.ByteString -> Conn.Connection -> MessageId -> FragmentNumber -> FragmentCount -> IO()
+processFragment :: BSL.ByteString -> Conn.Connection -> MessageId -> FragmentNumber -> FragmentNumber -> IO()
 processFragment fragment conn msgId fragmentNum fragmentCount = do
     -- make outbound msg
     let outboundMsg = (msgId, fragmentNum, fragmentCount, Payload fragment)
@@ -43,7 +43,7 @@ processFragment fragment conn msgId fragmentNum fragmentCount = do
     atomically $ writeTChan (Conn.outboundFragmentTChan conn) outboundMsg
 
 -- | Fragments the payload, calls processFragment on the fragment and recursively calls the remaining payload
-fragmentPayload :: BSL.ByteString -> Conn.Connection -> MessageId -> FragmentNumber -> FragmentCount -> IO() -- Does it have to return IO?!
+fragmentPayload :: BSL.ByteString -> Conn.Connection -> MessageId -> FragmentNumber -> FragmentNumber -> IO() -- Does it have to return IO?!
 fragmentPayload payload conn msgId fragmentNum fragmentCount =
     if BSL.null payload then
         return ()

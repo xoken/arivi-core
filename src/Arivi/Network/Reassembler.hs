@@ -15,8 +15,8 @@ module Arivi.Network.Reassembler
   reassembleFrames
 ) where
 
-import           Arivi.Network.Types    (ConnectionId, MessageId, Parcel (..),
-                                         Payload (..))
+import           Arivi.Network.Types    (ConnectionId, Header (..), MessageId,
+                                         Parcel (..), Payload (..))
 import           Control.Concurrent.STM (TChan, atomically, readTChan,
                                          writeTChan)
 import qualified Data.ByteString.Lazy   as Lazy (ByteString, concat)
@@ -36,9 +36,9 @@ reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
 
     parcel <- atomically $ readTChan reassemblyTChan
 
-    let messageIdNo = messageId parcel
+    let messageIdNo = messageId (header parcel)
 
-    let payloadMessage = getPayload (payload parcel)
+    let payloadMessage = getPayload (encryptedPayload parcel)
 
     let messages = fromJust (StrictHashMap.lookup messageIdNo fragmentsHashMap)
 
@@ -48,12 +48,12 @@ reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
                                                        appendedMessage
                                                        fragmentsHashMap
 
-    let currentFragmentNo = fragmentNumber parcel
+    let currentFragmentNo = fragmentNumber (header parcel)
 
-    if currentFragmentNo ==  totalFragements parcel
+    if currentFragmentNo ==  totalFragements (header parcel)
       then
         do
-           let parcelConnectionId = connectionId parcel
+           let parcelConnectionId = connectionId (header parcel)
            atomically $ writeTChan
                           p2pMessageTChan (parcelConnectionId,appendedMessage)
 

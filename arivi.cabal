@@ -75,10 +75,10 @@ library
                        Arivi.Network.Connection
                        Arivi.Network.Datagram
                        Arivi.Network.Fragmenter
-                       Arivi.Network.FrameDispatcher
+                       -- Arivi.Network.FrameDispatcher
                        Arivi.Network.FSM
                        Arivi.Network.HashMapManager
-                       Arivi.Network.Instance
+                       -- Arivi.Network.Instance
                        Arivi.Network.NetworkClient
                        Arivi.Network.Reassembler
                        Arivi.Network.Stream
