@@ -24,11 +24,11 @@ module Arivi.Network.Connection
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Kademlia.Types               (HostAddress)
 import           Arivi.Network.Types                (ConnectionId, NodeId,
-                                                     OutboundFragment,Parcel(..),
-                                                     PeerType (..), PortNumber,
-                                                     SequenceNum, TransportType)
+                                                     OutboundFragment,
+                                                     Parcel (..), PeerType (..),
+                                                     PortNumber, SequenceNum,
+                                                     TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
 import qualified Crypto.PubKey.Ed25519              as Ed25519
@@ -36,7 +36,8 @@ import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
 import           Data.HashMap.Strict                (HashMap, delete, empty,
                                                      insert, member)
-import           Network.Socket                     (Socket)
+import qualified Network.Socket                     as Network (HostAddress,
+                                                                Socket)
 
 
 
@@ -50,13 +51,13 @@ import           Network.Socket                     (Socket)
 data Connection = Connection {
                           connectionId          :: ConnectionId
                         , remoteNodeId          :: NodeId
-                        , ipAddress             :: HostAddress
+                        , ipAddress             :: Network.HostAddress
                         , port                  :: PortNumber
                         , ephemeralPubKey       :: NodeId
                         , ephemeralPrivKey      :: Ed25519.SecretKey
                         , transportType         :: TransportType
                         , peerType              :: PeerType
-                        , socket                :: Socket
+                        , socket                :: Network.Socket
                         , sharedSecret          :: Keys.SharedSecret
                         , serviceReqTChan       :: TChan ServiceRequest
                         , parcelTChan           :: TChan Parcel
@@ -96,7 +97,7 @@ concatenate first second = Data.ByteString.Char8.append
 
 -- | ConnectionId is concatenation of IP Address, PortNumber and TransportType
 makeConnectionId :: (Monad m)
-                 => HostAddress
+                 => Network.HostAddress
                  -> PortNumber
                  -> TransportType
                  -> m ConnectionId
@@ -109,13 +110,13 @@ makeConnectionId ipAddress port transportType =
 -- | Creates Unique Connection  and stores in given HashMap
 
 createConnection :: NodeId
-                 -> HostAddress
+                 -> Network.HostAddress
                  -> PortNumber
                  -> NodeId
                  -> Ed25519.SecretKey
                  -> TransportType
                  -> PeerType
-                 -> Socket
+                 -> Network.Socket
                  -> Keys.SharedSecret
                  -> TChan ServiceRequest
                  -> TChan Parcel

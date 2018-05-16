@@ -128,9 +128,9 @@ test = do
 -}
 
 readerLoop sockTChan = forever $ do
-    (sock,parcelCipherTChan) <- atomically $ readTChan sockTChan
-    async (readSock sock parcelCipherTChan)
+    (sock,parcelTChan) <- atomically $ readTChan sockTChan
+    async (readSock sock parcelTChan)
     --putStrLn ("listening on thread " ++  (show threadNo) )
-    where readSock sock parcelCipherTChan = forever $ do
+    where readSock sock parcelTChan = forever $ do
                 parcelCipher <- getFrame sock
-                atomically $ writeTChan parcelCipherTChan parcelCipher
+                atomically $ writeTChan parcelTChan parcelCipher
