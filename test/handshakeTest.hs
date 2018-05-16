@@ -15,8 +15,8 @@ main = do
     let senderNodeId = generateNodeId senderSK
     let recvNodeId = generateNodeId recvSK
     let connId = B.pack "1"
-    let senderConn = Connection connId recvNodeId undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
-    let recvConn = Connection connId  undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
+    let senderConn = Connection connId recvNodeId undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
+    let recvConn = Connection connId  undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined
     (sentParcel, senderConn1) <- initiatorHandshake senderSK senderConn
     (recvParcel, recvConn1) <- recipientHandshake recvSK recvConn sentParcel
     let senderConn2 = receiveHandshakeResponse senderConn1 recvParcel
