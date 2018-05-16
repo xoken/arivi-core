@@ -22,6 +22,7 @@ import           Arivi.Network.Types                     (HandshakeInitMasked (.
                                                           Opcode (..),
                                                           Parcel (..),
                                                           Payload (..),
+                                                          SerialisedMsg,
                                                           Version (..))
 import           Arivi.Network.Utils
 import           Codec.Serialise
@@ -60,7 +61,7 @@ updateCryptoParams :: Conn.Connection -> NodeId -> Ed25519.SecretKey -> SharedSe
 updateCryptoParams conn epk esk ssk = conn {Conn.ephemeralPubKey = epk, Conn.ephemeralPrivKey = esk, Conn.sharedSecret = ssk}
 
 -- | Takes the static secret key and connectionId and returns an encoded handshakeInitMsg as a lazy bytestring along with the updated connection object
-createHandshakeInitMsg :: Ed25519.SecretKey -> Conn.Connection -> (L.ByteString, Conn.Connection)
+createHandshakeInitMsg :: Ed25519.SecretKey -> Conn.Connection -> (SerialisedMsg, Conn.Connection)
 createHandshakeInitMsg sk conn = (serialise hsInitMsg, updatedConn) where
     eSKSign = Conn.ephemeralPrivKey conn
     remoteNodeId = Conn.remoteNodeId conn
@@ -77,29 +78,28 @@ createHandshakeInitMsg sk conn = (serialise hsInitMsg, updatedConn) where
     updatedConn = updateCryptoParams conn ephermeralNodeId eSKSign ssk
 
 -- Takes the connection object and creates the response msg
-createHandshakeRespMsg :: Conn.Connection -> L.ByteString
+createHandshakeRespMsg :: Conn.Connection -> SerialisedMsg
 createHandshakeRespMsg conn = serialise hsRespMsg where
     hsRespMsg = HandshakeRespMsg getVersion generateRecipientNonce (Conn.connectionId conn)
 
-
-generateInitParcel :: B.ByteString -> Conn.Connection -> IO Parcel
-generateInitParcel msg conn = do
+generateParcel :: SerialisedMsg -> Conn.Connection -> IO(Header, B.ByteString)
+generateParcel msg conn = do
     aeadnonce <- generateAeadNonce
-    let header = HandshakeHeader KEY_EXCHANGE_INIT (Conn.ephemeralPubKey conn) aeadnonce
+    let headerData = HandshakeHeader KEY_EXCHANGE_INIT (Conn.ephemeralPubKey conn) aeadnonce
     let ssk = Conn.sharedSecret conn
-    let ctWithMac = encryptMsg aeadnonce ssk (lazyToStrict (serialise header)) msg
-    let parcel = Parcel header (Payload $ strictToLazy ctWithMac)
-    return parcel
+    let ctWithMac = encryptMsg aeadnonce ssk headerData (lazyToStrict msg)
+    return (headerData, ctWithMac)
+
+generateInitParcel :: SerialisedMsg -> Conn.Connection -> IO Parcel
+generateInitParcel msg conn = do
+    (headerData, ctWithMac) <- generateParcel msg conn
+    return $ Parcel headerData (Payload $ strictToLazy ctWithMac)
 
 -- | Encrypt the given message and return a response parcel
-generateRespParcel :: B.ByteString -> Conn.Connection -> IO Parcel
+generateRespParcel :: SerialisedMsg -> Conn.Connection -> IO Parcel
 generateRespParcel msg conn = do
-    aeadnonce <- generateAeadNonce
-    let header = HandshakeHeader KEY_EXCHANGE_RESP (Conn.ephemeralPubKey conn) aeadnonce
-    let ssk = Conn.sharedSecret conn
-    let ctWithMac = strictToLazy $ encryptMsg aeadnonce ssk (lazyToStrict (serialise header)) msg
-    let parcel = Parcel header (Payload ctWithMac)
-    return parcel
+    (headerData, ctWithMac) <- generateParcel msg conn
+    return $ Parcel headerData (Payload $ strictToLazy ctWithMac)
 
 
 -- Update the connection object with the final shared secret key
@@ -108,38 +108,39 @@ extractSecrets conn remoteEphNodeId myEphemeralSK = updatedConn where
     sskFinal = createSharedSecretKey myEphemeralSK remoteEphNodeId
     updatedConn = conn {Conn.sharedSecret = sskFinal}
 
--- | Receiver handshake
-readHandshakeMsg :: Ed25519.SecretKey -> Conn.Connection -> L.ByteString -> (HandshakeInitMasked, NodeId)
-readHandshakeMsg sk conn msg = (hsInitMsg, senderEphNodeId) where
+-- | Read msg and return the header, ct, ephNodeId and aeadNonce
+readMsg :: SerialisedMsg -> (Header, L.ByteString, NodeId, B.ByteString)
+readMsg msg = (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) where
     hsParcel = deserialise msg :: Parcel
     -- Need to check for right opcode. If not throw exception which should be caught appropriately. Currently, assume that we get KEY_EXCHANGE_INIT.
     hsHeader = header hsParcel
     ciphertextWithMac = getPayload $ encryptedPayload hsParcel
     senderEphNodeId = ephemeralPublicKey hsHeader
     aeadnonce = aeadNonce hsHeader
+
+-- | Receiver handshake
+readHandshakeMsg :: Ed25519.SecretKey -> Conn.Connection -> SerialisedMsg -> (HandshakeInitMasked, NodeId)
+readHandshakeMsg sk conn msg = (hsInitMsg, senderEphNodeId) where
+    (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) = readMsg msg
     ssk = createSharedSecretKey sk senderEphNodeId
     (ct, tag) = getCipherTextAuthPair (lazyToStrict ciphertextWithMac)
     hsInitMsgSerialised = throwCryptoError $ chachaDecrypt aeadnonce ssk (lazyToStrict (serialise hsHeader)) tag ct
     hsInitMsg = deserialise (strictToLazy hsInitMsgSerialised) :: HandshakeInitMasked
 
-verifySignature :: Ed25519.SecretKey -> NodeId ->HandshakeInitMasked -> Bool
-verifySignature sk senderEphNodeId msg = verifyMsg senderEphNodeId (Encryption.sharedSecretToByteString staticssk) sign where
-    sign = signature msg
-    remoteStaticNodeId = nodePublicKey msg
-    staticssk = createSharedSecretKey sk remoteStaticNodeId
-
--- Reads the handshake response from the receiver and returns the message along with the updated connection object which stores the final ssk
-readHandshakeResp :: Conn.Connection -> L.ByteString -> (HandshakeRespMasked, Conn.Connection)
+-- | Reads the handshake response from the receiver and returns the message along with the updated connection object which stores the final ssk
+readHandshakeResp :: Conn.Connection -> SerialisedMsg -> (HandshakeRespMasked, Conn.Connection)
 readHandshakeResp conn msg = (hsInitMsg, updatedConn) where
-    hsParcel = deserialise msg :: Parcel
-    -- Need to check for right opcode. If not throw exception which should be caught appropriately. Currently, assume that we get KEY_EXCHANGE_RESP.
-    hsHeader = header hsParcel
-    ciphertextWithMac = getPayload $ encryptedPayload hsParcel
-    receiverEphNodeId = ephemeralPublicKey hsHeader
-    aeadnonce = aeadNonce hsHeader
+    (_, ciphertextWithMac, receiverEphNodeId, aeadnonce) = readMsg msg
     -- The final shared secret is derived and put into the connection object
     -- NOTE: Need to delete the ephemeral key pair from the connection object as it is not needed once shared secret key is derived
     updatedConn = extractSecrets conn receiverEphNodeId (Conn.ephemeralPrivKey conn)
     (ct, tag) = getCipherTextAuthPair (lazyToStrict ciphertextWithMac)
     hsInitMsgSerialised = throwCryptoError $ chachaDecrypt aeadnonce (Conn.sharedSecret updatedConn) B.empty tag ct
     hsInitMsg = deserialise (strictToLazy hsInitMsgSerialised) :: HandshakeRespMasked
+
+
+verifySignature :: Ed25519.SecretKey -> NodeId ->HandshakeInitMasked -> Bool
+verifySignature sk senderEphNodeId msg = verifyMsg senderEphNodeId (Encryption.sharedSecretToByteString staticssk) sign where
+    sign = signature msg
+    remoteStaticNodeId = nodePublicKey msg
+    staticssk = createSharedSecretKey sk remoteStaticNodeId

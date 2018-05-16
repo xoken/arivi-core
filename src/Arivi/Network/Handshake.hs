@@ -28,7 +28,7 @@ initiatorHandshake sk conn = do
         newconn <- generateEphemeralKeys conn
         -- Get handshake init message and updated connection object with temp shared secret key
         let (hsInitMsg, updatedConn) = createHandshakeInitMsg sk newconn
-        hsParcel <- generateInitParcel (lazyToStrict hsInitMsg) updatedConn
+        hsParcel <- generateInitParcel hsInitMsg updatedConn
         return (serialise hsParcel, updatedConn)
 
 -- | Takes receiver static secret key, connection object and the received msg and returns a Lazy Bytestring along with the updated connection object
@@ -44,7 +44,7 @@ recipientHandshake sk conn msg = do
     let updatedConn = extractSecrets newconn senderEphNodeId eSKSign
     -- NOTE: Need to delete the ephemeral key pair from the connection object as it is not needed once shared secret key is derived
     let hsRespMsg = createHandshakeRespMsg updatedConn
-    hsRespParcel <- generateRespParcel (lazyToStrict hsRespMsg) updatedConn
+    hsRespParcel <- generateRespParcel hsRespMsg updatedConn
     return (serialise hsRespParcel, updatedConn)
 
 
