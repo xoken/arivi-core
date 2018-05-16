@@ -17,6 +17,9 @@ module Arivi.Network.Types
     SockAddr,
     PortNumber,
     HostAddress,
+    SerialisedMsg,
+    PlainText,
+    CipherText,
     NodeId,
     OutboundFragment,
     ServiceId (..),
@@ -61,7 +64,7 @@ type ServiceId      = Int8
 type Descriptor     = Data.ByteString.Char8.ByteString
 type ContextID      = Int
 type ServiceContext = Int32
-
+type SerialisedMsg = BSL.ByteString
 
 type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
 -- | Following are the ranges for the aead nonces
@@ -70,6 +73,8 @@ type RecipientNonce = Integer -- 2^32++
 -- | This is the nonce for preventing replays. Don't need ranges for sender and receiver
 type Nonce = Integer
 type NodeId = ByteString
+type PlainText = ByteString
+type CipherText = ByteString
 -- The different messages we can get from the network
 data Opcode = KEY_EXCHANGE_INIT
             | KEY_EXCHANGE_RESP
