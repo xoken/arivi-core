@@ -1,60 +1,43 @@
 -- This module defines some of the most fundamental data types that will be used
--- throughout this kademlia implementation, there are sevelral advantages of
--- this first being it enables the utilization of haskell's poweful type system
--- and scond it makes code cleaner and structured.
+-- throughout this Kademlia implementation, there are several advantages of
+-- this first being it enables the utilization of haskell's powerful type system
+-- and second it makes code cleaner and structured.
 
 {-# LANGUAGE DeriveGeneric #-}
 module Arivi.Kademlia.Types
-  ( getTimeStamp,
-    Message (Message),
-    messageType,
-    messageBody,
-    Arivi.Kademlia.Types.sequence,
-    nodeId,
-    fromEndPoint,
-    targetNodeId,
-    nodeIp,
-    udpPort,
-    tcpPort,
-    message,
-    peerList,
-    Arivi.Kademlia.Types.signature,
-    Arivi.Kademlia.Types.Sequence,
-    NodeId,
-    Sign,
-    NodeEndPoint(NodeEndPoint),
-    TimeStamp(TimeStamp),
-    MessageType(MSG01,MSG02,MSG03,MSG04),
-    MessageBody(PING,PONG,FIND_NODE,FN_RESP),
-    PayLoad (PayLoad),
-    packFindMsg,
-    packFnR,
-    packPing,
-    packPong,
-    POSIXTime,
-    getPOSIXTime,
-    PortNumber,
-    HostAddress,
-    Socket,
-    serialise,
-    deserialise,
+  (
+     Message(..)
+   , MessageBody(..)
+   , MessageType(..)
+   , NodeEndPoint(..)
+   , NodeId
+   , PayLoad(..)
+   , Sign
+   , Sequence
+   , TimeStamp
+   , getTimeStamp
+   , packFindMsg
+   , packFnR
+   , packPing
+   , packPong
+   , serialise
+   , deserialise
   ) where
 
-import           Arivi.Utils.Utils
-import           Codec.Serialise
-import           Codec.Serialise.Class
+import           Arivi.Utils.Utils         (sockAddrToHostAddr,
+                                            sockAddrToPortNumber)
+import           Codec.Serialise           (deserialise, serialise)
+import           Codec.Serialise.Class     (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519
-import           Data.ByteArray
+import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, Signature,
+                                            publicKey, sign, signature)
+import           Data.ByteArray            (convert)
 import           Data.ByteString
-import qualified Data.ByteString.Lazy      as BSL
-import qualified Data.ByteString.Lazy      as LBS
-import qualified Data.List.Split           as S
+import qualified Data.ByteString.Lazy      as Lazy (toStrict)
 import           Data.Monoid
-import           Data.Time.Clock
-import           Data.Time.Clock.POSIX
+import           Data.Time.Clock.POSIX     (POSIXTime, getPOSIXTime)
 import           Data.Word
 import           GHC.Generics
 import           Network.Socket
@@ -82,7 +65,7 @@ data MessageType = MSG01
                    |MSG03
                    |MSG04
                    deriving (Show,Generic)
--- Custom data type to send & recieve message
+-- Custom data type to send & receive message
 data MessageBody = PING {
                     nodeId       :: NodeId
                 ,   fromEndPoint :: NodeEndPoint
@@ -115,7 +98,8 @@ data PayLoad = PayLoad {
                 } deriving (Show,Generic)
 
 
--- Heper functions to create messages
+-- Helper functions to create messages
+packPing :: NodeId -> SecretKey -> SockAddr -> Sequence -> PayLoad
 packPing nodeId sk sockAddr msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
@@ -124,8 +108,9 @@ packPing nodeId sk sockAddr msgSeq = PayLoad msg sgn
         msgBody = PING nodeId fromep
         msg     = Message MSG01 msgBody msgSeq
         sgn     = sign sk (nodeId :: PublicKey)
-                    (LBS.toStrict (serialise msg)) :: Sign
+                    (Lazy.toStrict (serialise msg)) :: Sign
 
+packPong :: NodeId -> SecretKey -> SockAddr -> Sequence -> PayLoad
 packPong nodeId sk sockAddr msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
@@ -134,8 +119,9 @@ packPong nodeId sk sockAddr msgSeq = PayLoad msg sgn
         msgBody = PONG nodeId fromep
         msg     = Message MSG02 msgBody msgSeq
         sgn     = sign sk (nodeId :: PublicKey)
-                    (LBS.toStrict (serialise msg)) ::Sign
+                    (Lazy.toStrict (serialise msg)) ::Sign
 
+packFindMsg :: NodeId -> SecretKey -> SockAddr -> NodeId -> Sequence -> PayLoad
 packFindMsg nodeId sk sockAddr targetNode msgSeq  = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
@@ -144,8 +130,9 @@ packFindMsg nodeId sk sockAddr targetNode msgSeq  = PayLoad msg sgn
         msgBody = FIND_NODE nodeId targetNode fromep
         msg     = Message MSG03 msgBody msgSeq
         sgn     = sign sk (nodeId :: PublicKey)
-                    (LBS.toStrict (serialise msg)) :: Sign
+                    (Lazy.toStrict (serialise msg)) :: Sign
 
+packFnR :: NodeId -> SecretKey -> SockAddr -> NodeId -> Sequence -> PayLoad
 packFnR nodeId sk sockAddr peerList msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
@@ -154,11 +141,11 @@ packFnR nodeId sk sockAddr peerList msgSeq = PayLoad msg sgn
         msgBody = FIND_NODE nodeId peerList fromep
         msg     = Message MSG04 msgBody msgSeq
         sgn     = sign sk (nodeId :: PublicKey)
-                    (LBS.toStrict (serialise msg)) :: Sign
+                    (Lazy.toStrict (serialise msg)) :: Sign
 
 -- Serialise instance of different custom types so that they can be encoded
--- and decoded using serialise library which further allows these types
--- to be serialised and thuse makes it possible to be sent across network
+-- and decoded using serialize library which further allows these types
+-- to be serialized and thus makes it possible to be sent across network
 
 -- instance Serialise NodeId
 instance Serialise NodeEndPoint
@@ -168,7 +155,7 @@ instance Serialise MessageType
 instance Serialise Message
 
 
--- Serialise intance for PublicKey
+-- Serialise instance for PublicKey
 instance Serialise PublicKey where
     encode = encodePublicKey
     decode = decodePublicKey

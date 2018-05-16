@@ -39,7 +39,7 @@ import           GHC.Integer.Logarithms
 import           Network.Socket
 import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
                                                     sendAllTo, sendTo)
-
+import qualified Data.Time.Clock.POSIX        as Clock (POSIXTime,getPOSIXTime)
 -- | Process all the incoming messages to server and write the response to
 --   outboundChan whenever a findNode message is recieved it write that peer to
 --   peerChan
@@ -49,7 +49,7 @@ messageHandler :: T.NodeId
                -> (T.PayLoad,SockAddr)
                -> TChan ((T.NodeId,T.NodeEndPoint),Int)
                -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
-               -> TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
+               -> TChan (Map.Map C.ByteString [(T.Sequence,Clock.POSIXTime)])
                -> Chan (Loc, LogSource, LogLevel, LogStr)
                -> Int
                -> Int
@@ -61,7 +61,7 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
         logInfoN (DT.pack ("Reading inboundChan, WorkderID : "
             ++ show workerId))
 
-        ts        <- liftIO T.getPOSIXTime
+        ts        <- liftIO Clock.getPOSIXTime
         localsock <- liftIO $ readMVar localSock
 
         let incMsg          = fst msg
@@ -208,7 +208,7 @@ loadDefaultPeers :: T.NodeId
                  -> [(T.NodeId,SockAddr)]
                  -> TChan ((T.NodeId,T.NodeEndPoint),Int)
                  -> MVar SockAddr
-                 -> TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
+                 -> TChan (Map.Map C.ByteString [(T.Sequence,Clock.POSIXTime)])
                  -> IO ThreadId
 
 loadDefaultPeers nodeId sk peerList peerChan localSock pendingResChan =
@@ -230,7 +230,7 @@ loadDefaultPeers nodeId sk peerList peerChan localSock pendingResChan =
     -- mapM_ (Arivi.send) (zip payl peerList2)
     print ""
 
-addToPendingResChan :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
+addToPendingResChan :: TChan (Map.Map C.ByteString [(T.Sequence,Clock.POSIXTime)])
                     -> (T.PayLoad,T.NodeId)
                     -> IO ThreadId
 
@@ -243,7 +243,7 @@ addToPendingResChan pendingResChan peerInfo = forkIO $ do
         recvrNodeId = publicKeytoHex (snd msg)
 
     rl <- atomically $ isEmptyTChan pendingResChan
-    ts <- T.getPOSIXTime
+    ts <- Clock.getPOSIXTime
 
     if rl then
         do
@@ -266,9 +266,9 @@ addToPendingResChan pendingResChan peerInfo = forkIO $ do
                         temp7 = Map.insert recvrNodeId (temp5 ++ [temp6]) msg2
                     atomically $ writeTChan pendingResChan temp7
 
-checkResponseValidity :: TChan (Map.Map C.ByteString [(T.Sequence,T.POSIXTime)])
+checkResponseValidity :: TChan (Map.Map C.ByteString [(T.Sequence,Clock.POSIXTime)])
                       -> (T.NodeId,T.Sequence)
-                      -> IO (Bool,T.POSIXTime)
+                      -> IO (Bool,Clock.POSIXTime)
 
 checkResponseValidity pendingResChan peerInfo = do
     msg <- atomically $ readTChan pendingResChan
@@ -281,23 +281,23 @@ checkResponseValidity pendingResChan peerInfo = do
     case tempf of
         True    -> return (True,tstemp)
                    where tstemp = fromMaybe 0 (L.lookup msgSeq peerSeqList)
-        _       -> return (False,0::T.POSIXTime)
+        _       -> return (False,0::Clock.POSIXTime)
 
-isExpired :: T.POSIXTime -> T.POSIXTime -> T.POSIXTime -> Bool
+isExpired :: Clock.POSIXTime -> Clock.POSIXTime -> Clock.POSIXTime -> Bool
 isExpired ts1 ts2 rt
     | Prelude.abs (ts1 - ts2) > rt = True
     | otherwise                      = False
 
 removeIfExpired pendingResChan rt map key = do
-    ts  <- T.getPOSIXTime
+    ts  <- Clock.getPOSIXTime
     let peerInfoTupleList = fromMaybe [] $ Map.lookup key map
         temp = [x | x <- peerInfoTupleList , not $ isExpired ts (snd x) rt]
         temp2 = Map.insert key temp map
     atomically $ writeTChan pendingResChan temp2
 
 maintainPendingResChan :: TChan (Map.Map C.ByteString
-                            [(T.Sequence,T.POSIXTime)])
-                       -> T.POSIXTime
+                            [(T.Sequence,Clock.POSIXTime)])
+                       -> Clock.POSIXTime
                        -> Int
                        -> Int
                        -> IO ThreadId

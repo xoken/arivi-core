@@ -38,7 +38,7 @@ import           Control.Monad.STM            (atomically)
 import qualified Data.ByteString.Char8        as BC
 import           Data.List                    (find, length, tail)
 import           Data.Text                    (pack)
-import           Network.Socket
+import qualified Network.Socket               as Network (SockAddr, Socket)
 import           System.Environment
 
 data Config = Config {
@@ -52,9 +52,9 @@ data Config = Config {
 
 data KademliaHandle = KH {
         nodeID       :: T.NodeId
-    ,   ksock        :: Socket
+    ,   ksock        :: Network.Socket
     ,   config       :: Config
-    ,   outboundChan :: TChan (T.PayLoad,SockAddr)
+    ,   outboundChan :: TChan (T.PayLoad,Network.SockAddr)
 }
 
 genPublicKey sk seed
@@ -77,7 +77,7 @@ writeLog nodeId logChan logFilePath = forkIO $ forever $ runFileLoggingT
 
   logInfoN (Data.Text.pack (show logStr))
 
-createKademliaInstance :: Config -> T.Socket -> IO KademliaHandle
+createKademliaInstance :: Config -> Network.Socket -> IO KademliaHandle
 createKademliaInstance cfg ksocket = do
     seed <- getRandomByteString 32
     outBoundChan <- atomically newTChan
