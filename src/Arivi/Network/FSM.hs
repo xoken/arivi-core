@@ -17,18 +17,21 @@ module Arivi.Network.FSM (
 ) where
 
 import           Arivi.Network.Connection
-import           Arivi.Network.FrameDispatcher
+import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
+import           Arivi.Network.OutboundDispatcher
 import           Arivi.Network.Stream
 import           Arivi.Network.Types
-import           Arivi.P2P.Types               (ServiceRequest (..),
-                                                ServiceType (..))
+import           Arivi.Network.Utils
+import           Arivi.P2P.Types                  (ServiceRequest (..),
+                                                   ServiceType (..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
-import           Crypto.PubKey.Ed25519         (SecretKey)
+import           Crypto.PubKey.Ed25519            (SecretKey)
+import qualified Data.Binary                      as Binary (decode, encode)
+import           Data.ByteString.Char8            as B (ByteString)
 import           Data.Either
-
 -- | The different states that any thread in layer 1 can be in
 data State =  Idle
             | KeyExchangeInitiated
@@ -55,7 +58,7 @@ initFSM connection =
 
 -- Initial Aead nonce passed to the outboundFrameDispatcher
 getAeadNonce :: B.ByteString
-getAeadNonce = encode 2
+getAeadNonce = lazyToStrict $ Binary.encode (2::Integer)
 
 -- Initial Aead nonce passed to the outboundFrameDispatcher
 getReplayNonce :: Integer
@@ -120,7 +123,6 @@ handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest)
         do
             -- Spawn a new thread for processing the payload
             async (processPayload (payloadData serviceRequest) connection)
-
             -- TODO chunk message, encodeCBOR, encrypt, send
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
@@ -152,8 +154,8 @@ getNextEvent connection = do
                         let service = serviceType (takeLeft e)
 
                         case service of
-                            OPEN  -> return (InitHandshakeEvent
-                                                            (takeLeft e))
+                            -- OPEN  -> return (InitHandshakeEvent
+                                                            -- (takeLeft e))
                             CLOSE -> return (TerminateConnectionEvent
                                                             (takeLeft e))
                             SENDMSG -> return (SendDataEvent
@@ -163,7 +165,7 @@ getNextEvent connection = do
                     let opcodeType = opcode (header (takeRight e))
 
                     case opcodeType of
-                        KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
+                        -- KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
                         KEY_EXCHANGE_RESP -> return (KeyExchangeRespEvent (takeRight e))
                         DATA -> return (ReceiveDataEvent (takeRight e))
 
