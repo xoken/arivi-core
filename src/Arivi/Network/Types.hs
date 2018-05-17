@@ -31,7 +31,9 @@ module Arivi.Network.Types
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
     makeDataParcel,
-    createFrame
+    createFrame,
+    deserialise
+    serialise,
 ) where
 
 import           Codec.Serialise
