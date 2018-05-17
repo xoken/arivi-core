@@ -44,9 +44,6 @@ reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
 
     let appendedMessage = Lazy.concat [messages, payloadMessage]
 
-    let updatedFragmentsHashMap = StrictHashMap.insert messageIdNo
-                                                       appendedMessage
-                                                       fragmentsHashMap
 
     let currentFragmentNo = fragmentNumber (header parcel)
 
@@ -63,4 +60,8 @@ reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
            reassembleFrames reassemblyTChan p2pMessageTChan
                                             updatedFragmentsHashMap
     else
+       do
+        let updatedFragmentsHashMap = StrictHashMap.insert messageIdNo
+                                                           appendedMessage
+                                                           fragmentsHashMap
         reassembleFrames reassemblyTChan p2pMessageTChan updatedFragmentsHashMap

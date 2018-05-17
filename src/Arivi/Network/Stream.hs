@@ -1,6 +1,7 @@
 module Arivi.Network.Stream
 (
     createSocket
+  , readSock
   , runTCPserver
   , sendFrame
 ) where
@@ -26,6 +27,8 @@ import           Data.Word
 import           Network.Socket
 import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
                                                     sendTo)
+import           Arivi.Network.FrameDispatcher (handleInboundConnection)
+import           Arivi.Network.Types (Parcel(..),deserialise)
 --import           System.Posix.Unistd -- for testing only
 
 -- Functions for Client connecting to Server
@@ -63,7 +66,7 @@ createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
 
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
-runTCPserver port inboundTChan = withSocketsDo $ do
+runTCPserver port = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
@@ -72,18 +75,20 @@ runTCPserver port inboundTChan = withSocketsDo $ do
     setSocketOption sock ReuseAddr 1
     bind sock (addrAddress addr)
     listen sock 5
-    void $ forkFinally (collectIncomingSocket sock inboundTChan) (\_ -> close sock)
+    void $ forkFinally (acceptIncomingSocket sock) (\_ -> close sock)
     putStrLn "Server started..."
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
---collectIncomingSocket :: Socket -> TChan Socket -> IO ()
-collectIncomingSocket sock inboundTChan = forever $ do
-        (conn, peer) <- accept sock
+
+acceptIncomingSocket sock = forever $ do
+        (socket, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
-        let parcelQ = newTChan :: STM (TChan BSL.ByteString)
-        atomically $ writeTChan inboundTChan (conn,parcelQ)
-        collectIncomingSocket sock inboundTChan
+        parcelTChan <- atomically newTChan
+        async (handleInboundConnection socket parcelTChan)  --or use forkIO
+        async (readSock sock parcelTChan)
+        acceptIncomingSocket sock
+
 
 -- | Converts length in byteString to Num
 getFrameLength :: Num b => BS.ByteString -> b
@@ -92,12 +97,12 @@ getFrameLength len = fromIntegral lenInt16 where
                      lenbs = BSL.fromStrict len
 
 -- | Reads frame a given socket
-getFrame :: Socket -> IO BSL.ByteString
-getFrame sock = do
+getParcel :: Socket -> IO Parcel
+getParcel sock = do
     lenbs <- N.recv sock 2
     parcelCipher <- N.recv sock $ getFrameLength lenbs
     let parcelCipherLazy = BSL.pack $ unpackBytes parcelCipher
-    return parcelCipherLazy
+    return (deserialise parcelCipherLazy :: Parcel)
 
 
 
@@ -127,10 +132,14 @@ test = do
     forkIO (readerLoop sampleTchan)
 -}
 
-readerLoop sockTChan = forever $ do
-    (sock,parcelTChan) <- atomically $ readTChan sockTChan
-    async (readSock sock parcelTChan)
-    --putStrLn ("listening on thread " ++  (show threadNo) )
-    where readSock sock parcelTChan = forever $ do
-                parcelCipher <- getFrame sock
-                atomically $ writeTChan parcelTChan parcelCipher
+-- readerLoop sock = forever $ do
+--    -- (sock,parcelTChan) <- atomically $ readTChan sockTChan
+--     async (readSock sock parcelTChan)
+--     --putStrLn ("listening on thread " ++  (show threadNo) )
+--     where readSock sock parcelTChan = forever $ do
+--                 parcelCipher <- getFrame sock
+--                 atomically $ writeTChan parcelTChan parcelCipher
+
+readSock sock parcelTChan = forever $ do
+        parcel <- getParcel sock
+        atomically $ writeTChan parcelTChan parcel
