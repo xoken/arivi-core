@@ -14,25 +14,34 @@ module Arivi.Network.FrameDispatcher
    , getPortNumber
    , getTransportType
    , inboundFrameDispatcher
+   , outboundFrameDispatcher
 ) where
 
-import qualified Arivi.Network.Connection as NetworkConnection (Connection (..),
-                                                                makeConnectionId)
-import qualified Arivi.Network.FSM        as FSM (Event (KeyExchangeInitEvent),
-                                                  State (Idle), handleEvent)
+import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg, encryptMsg)
+import qualified Arivi.Network.Connection           as NetworkConnection (Connection (..),
+                                                                          makeConnectionId)
+import qualified Arivi.Network.FSM                  as FSM (Event (KeyExchangeInitEvent),
+                                                            State (Idle),
+                                                            handleEvent)
+import           Arivi.Network.Stream
 import           Arivi.Network.Types
-import           Arivi.P2P.Types          (ServiceRequest (..),
-                                           ServiceType (..))
-import           Control.Concurrent.Async (async, wait)
-import           Control.Concurrent.STM   (TChan, atomically, newTChan,
-                                           readTChan, writeTChan)
-import           Control.Monad            (forever)
-import           Data.ByteString.Char8    (ByteString)
-import           Data.HashMap.Strict      (HashMap, delete, empty, insert,
-                                           lookup, member)
+import           Arivi.Network.Utils
+import           Arivi.P2P.Types                    (ServiceRequest (..),
+                                                     ServiceType (..))
+import           Codec.Serialise
+import           Control.Concurrent.Async           (async, wait)
+import           Control.Concurrent.STM             (TChan, atomically,
+                                                     newTChan, readTChan,
+                                                     writeTChan)
+import           Control.Monad                      (forever)
+import qualified Data.Binary                        as Binary (decode, encode)
+import qualified Data.ByteString.Char8              as B (ByteString, empty)
+import qualified Data.ByteString.Lazy               as BSL
+import           Data.HashMap.Strict                (HashMap, delete, empty,
+                                                     insert, lookup, member)
+import           Data.Int                           (Int16, Int64)
 import           Data.Maybe
 import           Network.Socket
-
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
 -- connectionId using `makeConnectionId`. If this connectionId is already
 -- present in the frameDispatchHashMap  then reads parcelCipherTChan from
@@ -40,9 +49,9 @@ import           Network.Socket
 -- creates new parcelCipherTChan and writes encryptedPayload to it and stores
 -- this (connectionId,parcelCipherTChan) in the frameDispatchHashMap
 
-inboundFrameDispatcher :: TChan (ByteString, Socket)
-     -> HashMap ConnectionId (TChan ByteString)
-     -> IO (HashMap ConnectionId (TChan ByteString))
+inboundFrameDispatcher :: TChan (B.ByteString, Socket)
+     -> HashMap ConnectionId (TChan B.ByteString)
+     -> IO (HashMap ConnectionId (TChan B.ByteString))
 inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
         (encryptedPayload,socket) <- atomically $ readTChan inboundTChan
 
@@ -106,3 +115,6 @@ getTransportType (MkSocket _ _ transportType _ _) = if transportType == Stream
                                                         TCP
                                                     else
                                                         UDP
+
+
+
