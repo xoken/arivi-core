@@ -31,9 +31,8 @@ module Arivi.Network.Types
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
     makeDataParcel,
-    createFrame,
-    deserialise
-    serialise,
+    deserialise,
+    serialise
 ) where
 
 import           Codec.Serialise
@@ -297,13 +296,3 @@ decodeSignature = do
         (2,0) ->  throwCryptoError . Crypto.PubKey.Ed25519.signature <$>
                     (decode :: Decoder s ByteString)
         _      -> fail "invalid Signature encoding"
-
-
--- | creates frame(prefixes length) from parcel
--- that has been serialised to cborg
-createFrame :: BSL.ByteString -> BSL.ByteString
-createFrame parcelCipher = BSL.concat [lenSer, parcelCipher]
-                                where
-                                    len = BSL.length parcelCipher
-                                    lenw8 = fromIntegral len :: Data.Word.Word8
-                                    lenSer = BSL.pack [lenw8]
