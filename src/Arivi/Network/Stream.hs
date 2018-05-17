@@ -102,7 +102,7 @@ getParcel sock = do
     lenbs <- N.recv sock 2
     parcelCipher <- N.recv sock $ getFrameLength lenbs
     let parcelCipherLazy = BSL.pack $ unpackBytes parcelCipher
-    return ((deserialise parcelCipherLazy) :: Parcel)
+    return (deserialise parcelCipherLazy :: Parcel)
 
 
 
