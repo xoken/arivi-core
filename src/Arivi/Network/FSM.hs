@@ -24,7 +24,7 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Data.Either
-
+import           Arivi.Crypto.Utils.Keys.Signature
 
 -- | The different states that any thread in layer 1 can be in
 data State =  Idle
@@ -37,11 +37,11 @@ data State =  Idle
 data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
-             | KeyExchangeInitEvent {parcel::Parcel}
+             | KeyExchangeInitEvent {parcel::Parcel, secretKey::SecretKey}
              | KeyExchangeRespEvent {parcel::Parcel}
              | ReceiveDataEvent {parcel::Parcel}
              | CleanUpEvent
-          deriving (Show)
+          deriving (Eq)
 
 -- | Initiate FSM
 initFSM :: Connection -> IO State
@@ -63,7 +63,7 @@ handleEvent connection Idle
             nextEvent >>= handleEvent connection KeyExchangeInitiated
 
 --recipient will go from Idle to VersionNegotiatedState
-handleEvent connection Idle (KeyExchangeInitEvent parcel) =
+handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
         do
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
@@ -129,7 +129,7 @@ getNextEvent connection = do
                     let opcodeType = opcode (header (takeRight e))
 
                     case opcodeType of
-                        KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
+                        -- KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent secretKey (takeRight e))
                         KEY_EXCHANGE_RESP -> return (KeyExchangeRespEvent (takeRight e))
                         DATA -> return (ReceiveDataEvent (takeRight e))
 
