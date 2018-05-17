@@ -17,14 +17,17 @@ module Arivi.Network.FSM (
 ) where
 
 import           Arivi.Network.Connection
+import           Arivi.Network.FrameDispatcher
+import           Arivi.Network.Handshake
+import           Arivi.Network.Stream
 import           Arivi.Network.Types
-import           Arivi.P2P.Types          (ServiceRequest (..),
-                                           ServiceType (..))
+import           Arivi.P2P.Types               (ServiceRequest (..),
+                                                ServiceType (..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
+import           Crypto.PubKey.Ed25519         (SecretKey)
 import           Data.Either
-
 
 -- | The different states that any thread in layer 1 can be in
 data State =  Idle
@@ -34,14 +37,14 @@ data State =  Idle
             deriving (Show, Eq)
 
 -- | The different events in layer 1 that cause state change
-data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest}
+data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest, secretKey:: SecretKey}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
-             | KeyExchangeInitEvent {parcel::Parcel}
+             | KeyExchangeInitEvent {parcel::Parcel, secretKey:: SecretKey}
              | KeyExchangeRespEvent {parcel::Parcel}
              | ReceiveDataEvent {parcel::Parcel}
              | CleanUpEvent
-          deriving (Show)
+          deriving (Eq)
 
 -- | Initiate FSM
 initFSM :: Connection -> IO State
@@ -50,6 +53,14 @@ initFSM connection =
         let nextEvent = getNextEvent connection
         nextEvent >>= handleEvent connection Idle
 
+-- Initial Aead nonce passed to the outboundFrameDispatcher
+getAeadNonce :: B.ByteString
+getAeadNonce = encode 2
+
+-- Initial Aead nonce passed to the outboundFrameDispatcher
+getReplayNonce :: Integer
+getReplayNonce = 2
+
 
 -- | This handles the state transition from one state of FSM to another
 --   on the  basis of received events
@@ -57,28 +68,48 @@ handleEvent :: Connection -> State -> Event -> IO State
 
 -- initiator will initiate the handshake
 handleEvent connection Idle
-                    (InitHandshakeEvent serviceRequest)  =
+                    (InitHandshakeEvent serviceRequest secretKey)  =
         do
-            let nextEvent = getNextEvent connection
-            nextEvent >>= handleEvent connection KeyExchangeInitiated
+            (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
+
+            socket <- createSocket (ipAddress connection) (port connection) (transportType connection)
+            -- Call async(listenIncomingMsgs socket (parcelTChan connection))
+
+            -- Send the message
+            sendFrame socket (createFrame serialisedParcel)
+            let nextEvent = getNextEvent updatedConn
+            nextEvent >>= handleEvent updatedConn KeyExchangeInitiated
 
 --recipient will go from Idle to VersionNegotiatedState
-handleEvent connection Idle (KeyExchangeInitEvent parcel) =
+handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
         do
-            let nextEvent = getNextEvent connection
-            nextEvent >>= handleEvent connection SecureTransportEstablished
+            -- Need to figure out what exactly to do with the fields like versionList, nonce and connectionId
+            (serialisedParcel, updatedConn) <- recipientHandshake secretKey connection parcel
+            -- Spawn an outboundFrameDsipatcher for sending out msgs
+            -- How to get the aead and replay nonce that was used in the handshake?!
+            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonce getReplayNonce)
+            -- Send the message back to the initiator
+            sendFrame (socket updatedConn) (createFrame serialisedParcel)
+            let nextEvent = getNextEvent updatedConn
+            nextEvent >>= handleEvent updatedConn SecureTransportEstablished
 
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
 handleEvent connection KeyExchangeInitiated
                     (KeyExchangeRespEvent parcel)  =
         do
-            let nextEvent = getNextEvent connection
-            nextEvent >>= handleEvent connection SecureTransportEstablished
+            -- Need to figure out what exactly to do with the fields like versionList, nonce and connectionId
+            let updatedConn = receiveHandshakeResponse connection parcel
+            -- Spawn an outboundFrameDsipatcher for sending out msgs
+            -- How to get the aead and replay nonce that was used in the handshake?!
+            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonce getReplayNonce)
+            let nextEvent = getNextEvent updatedConn
+            nextEvent >>= handleEvent updatedConn SecureTransportEstablished
 
 -- Receive message from the network
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
         do
+            -- Insert into reassembly TChan
             let nextEvent = getNextEvent connection
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
@@ -87,6 +118,9 @@ handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
 -- Receive message from p2p layer
 handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest) =
         do
+            -- Spawn a new thread for processing the payload
+            async (processPayload (payloadData serviceRequest) connection)
+
             -- TODO chunk message, encodeCBOR, encrypt, send
             let nextEvent = getNextEvent connection
             nextEvent >>= handleEvent connection SecureTransportEstablished
