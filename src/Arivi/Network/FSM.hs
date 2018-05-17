@@ -75,11 +75,11 @@ handleEvent connection Idle
         do
             (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
 
-            socket <- createSocket (ipAddress connection) (port connection) (transportType connection)
+            -- socket <- createSocket (ipAddress connection) (port connection) (transportType connection)
             -- Call async(listenIncomingMsgs socket (parcelTChan connection))
 
             -- Send the message
-            sendFrame socket (createFrame serialisedParcel)
+            -- sendFrame socket (createFrame serialisedParcel)
             let nextEvent = getNextEvent updatedConn
             nextEvent >>= handleEvent updatedConn KeyExchangeInitiated
 
