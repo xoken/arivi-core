@@ -3,19 +3,14 @@ module Arivi.Network.Fragmenter
     processPayload
 ) where
 
-import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Crypto.Utils.Random
-import qualified Arivi.Network.Connection           as Conn
-import           Arivi.Network.Types                (FragmentNumber,
-                                                     FragmentNumber, MessageId,
-                                                     Opcode (..), Parcel (..),
-                                                     Payload (..),
-                                                     makeDataParcel)
-import           Control.Concurrent.STM             (TChan, atomically,
-                                                     writeTChan)
-import qualified Data.ByteString.Char8              as B
-import qualified Data.ByteString.Lazy               as BSL
-import           Data.Int                           (Int16, Int64)
+import qualified Arivi.Network.Connection  as Conn
+import           Arivi.Network.Types       (FragmentNumber, MessageId,
+                                            Payload (..))
+import           Control.Concurrent.STM    (atomically, writeTChan)
+import qualified Data.ByteString.Char8     as B
+import qualified Data.ByteString.Lazy      as BSL
+import           Data.Int                  (Int16, Int64)
 
 -- | Convert GHC.Int64 to Data.Int.Int16
 fromInt64ToInt16 :: Int64 -> Int16
@@ -26,13 +21,13 @@ getFragmentSize :: Int16
 getFragmentSize = 256
 
 -- | This function is called in a different thread for each message
-processPayload :: BSL.ByteString -> Conn.Connection ->IO()
+processPayload :: Payload -> Conn.Connection ->IO()
 processPayload payload conn = do
     msgId <- generateMessageId
     let fragmentNum = 1 :: FragmentNumber
     -- Verify that converting payload length to Int16 and dividing won't cause problems
-    let fragmentCount = quot (fromInt64ToInt16 (BSL.length payload)) getFragmentSize
-    fragmentPayload payload conn msgId fragmentNum fragmentCount
+    let fragmentCount = quot (fromInt64ToInt16 (BSL.length (getPayload payload))) getFragmentSize
+    fragmentPayload (getPayload payload) conn msgId fragmentNum fragmentCount
 
 -- | Enqueue the msg onto the outboundTChan
 processFragment :: BSL.ByteString -> Conn.Connection -> MessageId -> FragmentNumber -> FragmentNumber -> IO()
