@@ -13,14 +13,16 @@ module Arivi.Network.FrameDispatcher
      getIPAddress
    , getPortNumber
    , getTransportType
-   , inboundFrameDispatcher
+   , handleInboundConnection
 ) where
 
 import qualified Arivi.Network.Connection as NetworkConnection (Connection (..),
                                                                 makeConnectionId)
 import qualified Arivi.Network.FSM        as FSM (Event (KeyExchangeInitEvent),
-                                                  State (Idle), handleEvent)
+                                                  State (Idle), handleEvent,
+                                                  initFSM)
 import           Arivi.Network.Types
+-- import           Arivi.Network.Stream     (readSock)
 import           Arivi.P2P.Types          (ServiceRequest (..),
                                            ServiceType (..))
 import           Control.Concurrent.Async (async, wait)
@@ -35,16 +37,16 @@ import           Network.Socket
 
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
 -- connectionId using `makeConnectionId`. If this connectionId is already
--- present in the frameDispatchHashMap  then reads parcelCipherTChan from
+-- present in the frameDispatchHashMap  then reads parcelTChan from
 -- frameDispatchHashMap and writes this encryptedPayload in it, otherwise
--- creates new parcelCipherTChan and writes encryptedPayload to it and stores
--- this (connectionId,parcelCipherTChan) in the frameDispatchHashMap
+-- creates new parcelTChan and writes encryptedPayload to it and stores
+-- this (connectionId,parcelTChan) in the frameDispatchHashMap
 
-inboundFrameDispatcher :: TChan (ByteString, Socket)
-     -> HashMap ConnectionId (TChan ByteString)
-     -> IO (HashMap ConnectionId (TChan ByteString))
-inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
-        (encryptedPayload,socket) <- atomically $ readTChan inboundTChan
+-- inboundConnectionHandler :: TChan (Socket)
+--      -> HashMap ConnectionId (TChan ByteString)
+--      -> IO (HashMap ConnectionId (TChan ByteString))
+handleInboundConnection socket parcelTChan = do
+        -- socket <- atomically $ readTChan inboundTChan
 
         socketName <- getSocketName socket
 
@@ -56,40 +58,47 @@ inboundFrameDispatcher inboundTChan frameDispatchHashMap = do
                                                            port
                                                            transportType
 
-        if Data.HashMap.Strict.member connectionId frameDispatchHashMap
-            then
-              do
-                let parcelCipherTChan = fromJust (Data.HashMap.Strict.lookup
-                                                        connectionId
-                                                        frameDispatchHashMap)
-                atomically $ writeTChan parcelCipherTChan encryptedPayload
-                inboundFrameDispatcher inboundTChan frameDispatchHashMap
-        else
-            do
-                parcelCipherTChan <- atomically newTChan
-                atomically $ writeTChan parcelCipherTChan encryptedPayload
-                serviceReqTChan <- atomically newTChan
-                outboundTChan <- atomically newTChan
+        -- if Data.HashMap.Strict.member connectionId frameDispatchHashMap
+        --     then
+        --       do
+        --         let parcelTChan = fromJust (Data.HashMap.Strict.lookup
+        --                                                 connectionId
+        --                                                 frameDispatchHashMap)
+        --         atomically $ writeTChan parcelTChan encryptedPayload
+        --         inboundConnectionHandler inboundTChan frameDispatchHashMap
+        -- else
+        --     do
+        -- parcelTChan <- atomically newTChan
+        -- atomically $ writeTChan parcelTChan encryptedPayload
+        connectionTChan <- atomically newTChan
+        atomically $ writeTChan connectionTChan (socket,parcelTChan)
+        serviceReqTChan <- atomically newTChan
+        outboundTChan <- atomically newTChan
 
-                let connection = NetworkConnection.Connection
-                                               connectionId undefined
-                                               ipAddress port
-                                               undefined undefined
-                                               transportType undefined
-                                               socket undefined
-                                               serviceReqTChan parcelCipherTChan
-                                               outboundTChan undefined
-                                               undefined
+        let connection = NetworkConnection.Connection
+                                       connectionId undefined
+                                       ipAddress port
+                                       undefined undefined
+                                       transportType undefined
+                                       socket undefined
+                                       serviceReqTChan parcelTChan
+                                       outboundTChan undefined
+                                       undefined
 
-                let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert
-                                                  connectionId
-                                                  parcelCipherTChan
-                                                  frameDispatchHashMap
+        -- let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert
+        --                                   connectionId
+        --                                   parcelTChan
+        --                                   frameDispatchHashMap
 
-                fsmHandle <- async (FSM.handleEvent connection FSM.Idle
-                                (FSM.KeyExchangeInitEvent encryptedPayload))
-                wait fsmHandle
-                inboundFrameDispatcher inboundTChan updatedFrameDispatchHashMap
+        -- fsmHandle <- async (FSM.handleEvent connection FSM.Idle
+        --                 (FSM.KeyExchangeInitEvent initParcel pvtKey))
+        fsmHandle <- async (FSM.initFSM connection)
+
+        -- async (readSock sock parcelTChan)
+        --putStrLn ("listening on thread " ++  (show threadNo) )
+
+        wait fsmHandle
+        -- inboundConnectionHandler inboundTChan connectionTChan-- updatedFrameDispatchHashMap
 
 -- | Given `SockAddr` retrieves `HostAddress`
 getIPAddress :: SockAddr -> HostAddress
