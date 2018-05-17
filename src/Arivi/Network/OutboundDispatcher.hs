@@ -4,7 +4,7 @@ module Arivi.Network.OutboundDispatcher (
 
 import           Arivi.Crypto.Utils.PublicKey.Utils (encryptMsg)
 import           Arivi.Network.Connection           as NetworkConnection
-import           Arivi.Network.Stream
+-- import           Arivi.Network.Stream
 import           Arivi.Network.Types                (Header (..), Opcode (..),
                                                      OutboundFragment,
                                                      Parcel (..), Payload (..))
@@ -40,9 +40,9 @@ outboundFrameDispatcher outboundTChan conn aeadnonce replayNonce = do
     -- Create parcel
     let parcel = Parcel headerData (Payload $ strictToLazy encryptedData)
     -- Create frame
-    let frame = createFrame (serialise parcel)
+    -- let frame = createFrame (serialise parcel)
     -- Call the send function on the socket
-    sendFrame(NetworkConnection.socket conn) frame
+    -- sendFrame(NetworkConnection.socket conn) frame
     -- Recursively call function with nonces incremented
     outboundFrameDispatcher outboundTChan conn (incrementAeadNonce aeadnonce) (replayNonce + 1)
     return()

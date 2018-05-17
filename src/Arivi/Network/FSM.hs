@@ -20,7 +20,7 @@ import           Arivi.Network.Connection
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.OutboundDispatcher
-import           Arivi.Network.Stream
+-- import           Arivi.Network.Stream
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
 import           Arivi.P2P.Types                  (ServiceRequest (..),
@@ -92,7 +92,7 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
             -- How to get the aead and replay nonce that was used in the handshake?!
             async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonce getReplayNonce)
             -- Send the message back to the initiator
-            sendFrame (socket updatedConn) (createFrame serialisedParcel)
+            -- sendFrame (socket updatedConn) (createFrame serialisedParcel)
             let nextEvent = getNextEvent updatedConn
             nextEvent >>= handleEvent updatedConn SecureTransportEstablished
 
