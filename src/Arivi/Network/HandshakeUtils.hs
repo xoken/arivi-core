@@ -109,9 +109,8 @@ extractSecrets conn remoteEphNodeId myEphemeralSK = updatedConn where
     updatedConn = conn {Conn.sharedSecret = sskFinal}
 
 -- | Read msg and return the header, ct, ephNodeId and aeadNonce
-readMsg :: SerialisedMsg -> (Header, L.ByteString, NodeId, B.ByteString)
-readMsg msg = (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) where
-    hsParcel = deserialise msg :: Parcel
+readParcel :: Parcel -> (Header, L.ByteString, NodeId, B.ByteString)
+readParcel hsParcel = (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) where
     -- Need to check for right opcode. If not throw exception which should be caught appropriately. Currently, assume that we get KEY_EXCHANGE_INIT.
     hsHeader = header hsParcel
     ciphertextWithMac = getPayload $ encryptedPayload hsParcel
@@ -119,18 +118,18 @@ readMsg msg = (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) where
     aeadnonce = aeadNonce hsHeader
 
 -- | Receiver handshake
-readHandshakeMsg :: Ed25519.SecretKey -> Conn.Connection -> SerialisedMsg -> (HandshakeInitMasked, NodeId)
-readHandshakeMsg sk conn msg = (hsInitMsg, senderEphNodeId) where
-    (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) = readMsg msg
+readHandshakeMsg :: Ed25519.SecretKey -> Conn.Connection -> Parcel -> (HandshakeInitMasked, NodeId)
+readHandshakeMsg sk conn parcel = (hsInitMsg, senderEphNodeId) where
+    (hsHeader, ciphertextWithMac, senderEphNodeId, aeadnonce) = readParcel parcel
     ssk = createSharedSecretKey sk senderEphNodeId
     (ct, tag) = getCipherTextAuthPair (lazyToStrict ciphertextWithMac)
     hsInitMsgSerialised = throwCryptoError $ chachaDecrypt aeadnonce ssk (lazyToStrict (serialise hsHeader)) tag ct
     hsInitMsg = deserialise (strictToLazy hsInitMsgSerialised) :: HandshakeInitMasked
 
 -- | Reads the handshake response from the receiver and returns the message along with the updated connection object which stores the final ssk
-readHandshakeResp :: Conn.Connection -> SerialisedMsg -> (HandshakeRespMasked, Conn.Connection)
-readHandshakeResp conn msg = (hsInitMsg, updatedConn) where
-    (_, ciphertextWithMac, receiverEphNodeId, aeadnonce) = readMsg msg
+readHandshakeResp :: Conn.Connection -> Parcel -> (HandshakeRespMasked, Conn.Connection)
+readHandshakeResp conn parcel = (hsInitMsg, updatedConn) where
+    (_, ciphertextWithMac, receiverEphNodeId, aeadnonce) = readParcel parcel
     -- The final shared secret is derived and put into the connection object
     -- NOTE: Need to delete the ephemeral key pair from the connection object as it is not needed once shared secret key is derived
     updatedConn = extractSecrets conn receiverEphNodeId (Conn.ephemeralPrivKey conn)
