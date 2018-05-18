@@ -20,7 +20,7 @@ import           Arivi.Network.Connection
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.OutboundDispatcher
--- import           Arivi.Network.Stream
+import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
 import           Arivi.P2P.Types                  (ServiceRequest (..),
@@ -74,12 +74,12 @@ handleEvent connection Idle
                     (InitHandshakeEvent serviceRequest secretKey)  =
         do
             (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
-
+            -- These 2 lines should be done before calling initFSM?
             -- socket <- createSocket (ipAddress connection) (port connection) (transportType connection)
             -- Call async(listenIncomingMsgs socket (parcelTChan connection))
 
             -- Send the message
-            -- sendFrame socket (createFrame serialisedParcel)
+            sendFrame (socket updatedConn) (createFrame serialisedParcel)
             let nextEvent = getNextEvent updatedConn
             nextEvent >>= handleEvent updatedConn KeyExchangeInitiated
 
@@ -92,7 +92,7 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
             -- How to get the aead and replay nonce that was used in the handshake?!
             async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonce getReplayNonce)
             -- Send the message back to the initiator
-            -- sendFrame (socket updatedConn) (createFrame serialisedParcel)
+            sendFrame (socket updatedConn) (createFrame serialisedParcel)
             let nextEvent = getNextEvent updatedConn
             nextEvent >>= handleEvent updatedConn SecureTransportEstablished
 
@@ -113,6 +113,7 @@ handleEvent connection KeyExchangeInitiated
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
         do
             -- Insert into reassembly TChan
+            atomically $ writeTChan (reassemblyTChan connection) parcel
             let nextEvent = getNextEvent connection
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
