@@ -84,7 +84,8 @@ library
                        Arivi.Network.NetworkClient
                        Arivi.Network.OutboundDispatcher
                        Arivi.Network.Reassembler
-                       Arivi.Network.Stream
+                       Arivi.Network.StreamClient
+                       Arivi.Network.StreamServer
                        Arivi.Network.Types
                        Arivi.Network.Utils
                        -- Arivi.P2P.FSM
