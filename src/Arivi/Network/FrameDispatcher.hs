@@ -74,6 +74,7 @@ handleInboundConnection socket parcelTChan = do
         atomically $ writeTChan connectionTChan (socket,parcelTChan)
         serviceReqTChan <- atomically newTChan
         outboundTChan <- atomically newTChan
+        reassemblyTChan <- atomically newTChan
 
         let connection = NetworkConnection.Connection
                                        connectionId undefined
@@ -82,7 +83,7 @@ handleInboundConnection socket parcelTChan = do
                                        transportType undefined
                                        socket undefined
                                        serviceReqTChan parcelTChan
-                                       outboundTChan undefined
+                                       outboundTChan reassemblyTChan undefined
                                        undefined
 
         -- let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert
