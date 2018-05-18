@@ -1,65 +1,29 @@
-module Arivi.Network.Stream
+module Arivi.Network.StreamServer
 (
-    createSocket
-  , readSock
+  readSock
   , runTCPserver
-  , sendFrame
 ) where
 
-import           Control.Concurrent           (ThreadId, forkFinally, forkIO,
-                                               newEmptyMVar, putMVar, takeMVar)
+import           Arivi.Network.FrameDispatcher (handleInboundConnection)
+import           Arivi.Network.Types           (Parcel (..), deserialise)
+import           Control.Concurrent            (forkFinally)
 import           Control.Concurrent.Async
-import           Control.Concurrent.MVar
-import           Control.Concurrent.STM       (STM, TChan, TMVar, atomically,
-                                               newTChan, newTMVar, readTChan,
-                                               readTMVar, writeTChan)
+import           Control.Concurrent.STM        (STM, TChan, TMVar, atomically,
+                                                newTChan, newTMVar, readTChan,
+                                                readTMVar, writeTChan)
 import           Control.Concurrent.STM.TChan
-import           Control.Monad                (forever, void)
+import           Control.Monad                 (forever, void)
 import           Data.Binary
-import qualified Data.ByteString              as BS
-import qualified Data.ByteString.Char8        as C
-import           Data.ByteString.Internal     (unpackBytes)
-import qualified Data.ByteString.Lazy         as BSL
+import qualified Data.ByteString               as BS
+import           Data.ByteString.Internal      (unpackBytes)
+import qualified Data.ByteString.Lazy          as BSL
 import           Data.Int
-import qualified Data.List.Split              as S
-import           Data.Maybe                   (fromMaybe)
+import qualified Data.List.Split               as S
+import           Data.Maybe                    (fromMaybe)
 import           Data.Word
 import           Network.Socket
-import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
-                                                    sendTo)
-import           Arivi.Network.FrameDispatcher (handleInboundConnection)
-import           Arivi.Network.Types (Parcel(..),deserialise)
+import qualified Network.Socket.ByteString     as N (recv, recvFrom)
 --import           System.Posix.Unistd -- for testing only
-
--- Functions for Client connecting to Server
-
-data TransportType =  UDP|TCP deriving(Eq)
-
-getAddressType:: TransportType -> SocketType
-getAddressType  transportType = if transportType==TCP then
-                                Stream else Datagram
-
--- | Eg: createSocket "127.0.0.1" 3000 TCP
-createSocket :: String -> Int -> TransportType -> IO Socket
-createSocket ipAdd port transportType = withSocketsDo $ do
-    let portNo = Just (show port)
-    let transport_type = getAddressType transportType
-    let hints = defaultHints {addrSocketType = transport_type}
-    addr:_ <- getAddrInfo (Just hints) (Just ipAdd) portNo
-    sock <- socket AF_INET transport_type (addrProtocol addr)
-    connect sock (addrAddress addr)
-    return sock
-
-sendFrame :: Socket -> BSL.ByteString -> IO ()
-sendFrame sock msg = N.sendAll sock (BSL.toStrict msg)
-
--- | prefixes length to cborg serialised parcel
-createFrame :: BSL.ByteString -> BSL.ByteString
-createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
-                    where
-                      len = BSL.length parcelSerialised
-                      lenw16 = fromIntegral len :: Int16
-                      lenSer = encode lenw16
 
 
 -- Functions for Server
@@ -105,6 +69,9 @@ getParcel sock = do
     return (deserialise parcelCipherLazy :: Parcel)
 
 
+readSock sock parcelTChan = forever $ do
+        parcel <- getParcel sock
+        atomically $ writeTChan parcelTChan parcel
 
 -- FOR TESTING ONLY------
 {-
@@ -140,6 +107,4 @@ test = do
 --                 parcelCipher <- getFrame sock
 --                 atomically $ writeTChan parcelTChan parcelCipher
 
-readSock sock parcelTChan = forever $ do
-        parcel <- getParcel sock
-        atomically $ writeTChan parcelTChan parcel
+
