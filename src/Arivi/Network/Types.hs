@@ -30,6 +30,8 @@ module Arivi.Network.Types
     -- FragmentCount,
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
+    DeserialiseFailure(..),
+    deserialiseOrFail,
     makeDataParcel,
     deserialise,
     serialise
@@ -101,8 +103,8 @@ data HandshakeRespMasked = HandshakeRespMsg {
 -- | These are the different types of Headers for different types of Parcels
 data Header = HandshakeHeader {
                     opcode             :: Opcode      -- ^ Denotes `Opcode`
-                ,   ephemeralPublicKey :: NodeId      -- ^ `PublicKey` for
-                                                      --    current Session
+                ,   ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
+                                                      --    generating ssk
                 ,   aeadNonce          :: ByteString  -- ^ 12 Byte Nonce used
                                                       --   for encryption
             }

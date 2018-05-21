@@ -31,6 +31,7 @@ import           Arivi.Network.Types                (ConnectionId, NodeId,
                                                      TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
+import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
@@ -53,7 +54,7 @@ data Connection = Connection {
                         , remoteNodeId          :: NodeId
                         , ipAddress             :: Network.HostAddress
                         , port                  :: PortNumber
-                        , ephemeralPubKey       :: NodeId
+                        , ephemeralPubKey       :: Curve25519.PublicKey
                         , ephemeralPrivKey      :: Ed25519.SecretKey
                         , transportType         :: TransportType
                         , peerType              :: PeerType
@@ -113,7 +114,7 @@ makeConnectionId ipAddress port transportType =
 createConnection :: NodeId
                  -> Network.HostAddress
                  -> PortNumber
-                 -> NodeId
+                 -> Curve25519.PublicKey
                  -> Ed25519.SecretKey
                  -> TransportType
                  -> PeerType
