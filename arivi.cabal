@@ -53,6 +53,7 @@ library
                     ,  monad-logger
                     ,  random
                     ,  hashtables <= 1.2.6.1
+                    ,  timers-updatable <= 0.2.0.2
   hs-source-dirs:      src
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
