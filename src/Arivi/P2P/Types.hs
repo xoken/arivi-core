@@ -108,6 +108,9 @@ type ServiceName = ByteString
 data ServiceType =  OPEN    -- ^ Used for Initiating Service Negotiation
                   | CLOSE   -- ^ Used for Terminating the connection
                   | SENDMSG -- ^ Used for Data Exchanges
+                  | HANDSHAKE_TIMEOUT -- ^ Used for Data TimeOuts for events
+                  | DATA_TIMEOUT -- ^ Used for Data TimeOuts for events
+                  | PING_TIMEOUT -- ^ Used for Data TimeOuts for events
                   deriving (Show,Eq)
 
 -- | This is request contains the ServiceType and payload will be given to Arivi
@@ -126,6 +129,9 @@ data ServiceRequest =  SendMessageServiceRequest {
                        }
 
                        | CloseServiceRequest {
+                           serviceType :: ServiceType  -- ^ Type of service
+                       }
+                       | TimeOutServiceRequest {
                            serviceType :: ServiceType  -- ^ Type of service
                        }
                        deriving (Show,Eq)
