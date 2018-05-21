@@ -21,8 +21,8 @@ import qualified Arivi.Network.Connection as NetworkConnection (Connection (..),
 import qualified Arivi.Network.FSM        as FSM (Event (KeyExchangeInitEvent),
                                                   State (Idle), handleEvent,
                                                   initFSM)
+-- import           Arivi.Network.StreamServer (readSock)
 import           Arivi.Network.Types
--- import           Arivi.Network.Stream     (readSock)
 import           Arivi.P2P.Types          (ServiceRequest (..),
                                            ServiceType (..))
 import           Control.Concurrent.Async (async, wait)
@@ -74,6 +74,7 @@ handleInboundConnection socket parcelTChan = do
         atomically $ writeTChan connectionTChan (socket,parcelTChan)
         serviceReqTChan <- atomically newTChan
         outboundTChan <- atomically newTChan
+        reassemblyTChan <- atomically newTChan
 
         let connection = NetworkConnection.Connection
                                        connectionId undefined
@@ -82,7 +83,7 @@ handleInboundConnection socket parcelTChan = do
                                        transportType undefined
                                        socket undefined
                                        serviceReqTChan parcelTChan
-                                       outboundTChan undefined
+                                       outboundTChan reassemblyTChan undefined
                                        undefined
 
         -- let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert

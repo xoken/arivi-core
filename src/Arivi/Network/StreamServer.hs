@@ -1,71 +1,40 @@
-module Arivi.Network.Stream
+{-# LANGUAGE OverloadedStrings #-}
+module Arivi.Network.StreamServer
 (
-    createSocket
-  , readSock
+    readSock
   , runTCPserver
-  , sendFrame
 ) where
 
-import           Control.Concurrent           (ThreadId, forkFinally, forkIO,
-                                               newEmptyMVar, putMVar, takeMVar)
+import           Arivi.Network.FrameDispatcher (handleInboundConnection)
+import           Arivi.Network.StreamClient
+import           Arivi.Network.Types (DeserialiseFailure, Parcel (..), deserialise, deserialiseOrFail)
+import           Control.Concurrent (forkFinally)
 import           Control.Concurrent.Async
-import           Control.Concurrent.MVar
-import           Control.Concurrent.STM       (STM, TChan, TMVar, atomically,
-                                               newTChan, newTMVar, readTChan,
-                                               readTMVar, writeTChan)
+import           Control.Concurrent.STM        (STM, TChan, TMVar, atomically,
+                                                newTChan, newTMVar, readTChan,
+                                                readTMVar, writeTChan)
 import           Control.Concurrent.STM.TChan
-import           Control.Monad                (forever, void)
+import           Control.Exception.Base
+import           Control.Monad (forever, void)
 import           Data.Binary
-import qualified Data.ByteString              as BS
-import qualified Data.ByteString.Char8        as C
-import           Data.ByteString.Internal     (unpackBytes)
-import qualified Data.ByteString.Lazy         as BSL
+import qualified Data.ByteString as BS
+import           Data.ByteString.Internal (unpackBytes)
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import           Data.Int
-import qualified Data.List.Split              as S
-import           Data.Maybe                   (fromMaybe)
+import qualified Data.List.Split as S
+import           Data.Maybe (fromMaybe)
 import           Data.Word
 import           Network.Socket
-import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
-                                                    sendTo)
-import           Arivi.Network.FrameDispatcher (handleInboundConnection)
-import           Arivi.Network.Types (Parcel(..),deserialise)
+import qualified Network.Socket.ByteString as N (sendAll, recv, recvFrom)
 --import           System.Posix.Unistd -- for testing only
-
--- Functions for Client connecting to Server
-
-data TransportType =  UDP|TCP deriving(Eq)
-
-getAddressType:: TransportType -> SocketType
-getAddressType  transportType = if transportType==TCP then
-                                Stream else Datagram
-
--- | Eg: createSocket "127.0.0.1" 3000 TCP
-createSocket :: String -> Int -> TransportType -> IO Socket
-createSocket ipAdd port transportType = withSocketsDo $ do
-    let portNo = Just (show port)
-    let transport_type = getAddressType transportType
-    let hints = defaultHints {addrSocketType = transport_type}
-    addr:_ <- getAddrInfo (Just hints) (Just ipAdd) portNo
-    sock <- socket AF_INET transport_type (addrProtocol addr)
-    connect sock (addrAddress addr)
-    return sock
-
-sendFrame :: Socket -> BSL.ByteString -> IO ()
-sendFrame sock msg = N.sendAll sock (BSL.toStrict msg)
-
--- | prefixes length to cborg serialised parcel
-createFrame :: BSL.ByteString -> BSL.ByteString
-createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
-                    where
-                      len = BSL.length parcelSerialised
-                      lenw16 = fromIntegral len :: Int16
-                      lenSer = encode lenw16
 
 
 -- Functions for Server
 
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
+runTCPserver :: ServiceName -> IO ()
 runTCPserver port = withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
@@ -81,13 +50,13 @@ runTCPserver port = withSocketsDo $ do
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
 
+acceptIncomingSocket :: Socket -> IO void
 acceptIncomingSocket sock = forever $ do
         (socket, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
         parcelTChan <- atomically newTChan
         async (handleInboundConnection socket parcelTChan)  --or use forkIO
-        async (readSock sock parcelTChan)
-        acceptIncomingSocket sock
+        async (readSock socket parcelTChan)
 
 
 -- | Converts length in byteString to Num
@@ -97,14 +66,18 @@ getFrameLength len = fromIntegral lenInt16 where
                      lenbs = BSL.fromStrict len
 
 -- | Reads frame a given socket
-getParcel :: Socket -> IO Parcel
+getParcel :: Socket -> IO (Either DeserialiseFailure Parcel)
 getParcel sock = do
     lenbs <- N.recv sock 2
     parcelCipher <- N.recv sock $ getFrameLength lenbs
-    let parcelCipherLazy = BSL.pack $ unpackBytes parcelCipher
-    return (deserialise parcelCipherLazy :: Parcel)
+    return $ deserialiseOrFail (BSL.fromStrict parcelCipher)
 
 
+readSock :: Socket -> TChan Parcel -> IO ()
+readSock sock parcelTChan = forever $
+        getParcel sock >>=
+        either (sendFrame sock . BSLC.pack . displayException)
+               (atomically . writeTChan parcelTChan)
 
 -- FOR TESTING ONLY------
 {-
@@ -139,7 +112,3 @@ test = do
 --     where readSock sock parcelTChan = forever $ do
 --                 parcelCipher <- getFrame sock
 --                 atomically $ writeTChan parcelTChan parcelCipher
-
-readSock sock parcelTChan = forever $ do
-        parcel <- getParcel sock
-        atomically $ writeTChan parcelTChan parcel

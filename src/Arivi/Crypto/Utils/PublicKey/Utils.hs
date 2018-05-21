@@ -7,6 +7,7 @@ module Arivi.Crypto.Utils.PublicKey.Utils
     getEncryptionSecretKey,
     getEncryptionPublicKey,
     getEncryptionPublicKeyFromNodeId,
+    getEncryptionPubKeyFromSigningSecretKey,
     createSharedSecretKey,
     deriveSharedSecretKey,
     generateSigningKeyPair,
@@ -61,6 +62,10 @@ getEncryptionSecretKey = Encryption.getSecretKey
 getEncryptionPublicKey :: Curve25519.SecretKey -> Curve25519.PublicKey
 getEncryptionPublicKey = Encryption.getPublicKey
 
+-- | Get Encryption Public key from signature secretKey
+getEncryptionPubKeyFromSigningSecretKey :: Ed25519.SecretKey -> Curve25519.PublicKey
+getEncryptionPubKeyFromSigningSecretKey = getEncryptionPublicKey . getEncryptionSecretKey
+
 -- | Function for getting encryption pk from nodeId
 getEncryptionPublicKeyFromNodeId :: ByteString -> Curve25519.PublicKey
 getEncryptionPublicKeyFromNodeId nodeId = throwCryptoError pk where
@@ -69,16 +74,15 @@ getEncryptionPublicKeyFromNodeId nodeId = throwCryptoError pk where
     pk = Curve25519.publicKey pkBs
 
 -- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
-createSharedSecretKey :: Ed25519.SecretKey -> ByteString -> SharedSecret
-createSharedSecretKey signSK remoteNodeId = Encryption.createSharedSecretKey encryptSK encryptPK where
+createSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
+createSharedSecretKey remotePubKey signSK = Encryption.createSharedSecretKey encryptSK remotePubKey where
         encryptSK = getEncryptionSecretKey signSK
-        encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
+        -- encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
 
--- | Takes the master secret key (signSK) and the nodeId of remote and calls the Encryption.deriveSharedSecretKey with appropriate arguements
-deriveSharedSecretKey :: ByteString -> Ed25519.SecretKey -> SharedSecret
-deriveSharedSecretKey remoteNodeId signSK = Encryption.derivedSharedSecretKey encryptPK encryptSK where
+-- | Takes the master secret key (signSK) and the encryption pubkey of remote and calls the Encryption.deriveSharedSecretKey with appropriate arguements
+deriveSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
+deriveSharedSecretKey remotePubKey signSK = Encryption.derivedSharedSecretKey remotePubKey encryptSK where
         encryptSK = getEncryptionSecretKey signSK
-        encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
 
 
 generateSigningKeyPair :: IO (Ed25519.SecretKey, Ed25519.PublicKey)

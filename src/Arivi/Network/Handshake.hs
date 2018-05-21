@@ -5,20 +5,18 @@ module Arivi.Network.Handshake
     receiveHandshakeResponse
 ) where
 
-import           Arivi.Crypto.Utils.PublicKey.Utils
-import qualified Arivi.Network.Connection           as Conn
+import qualified Arivi.Network.Connection     as Conn
 import           Arivi.Network.HandshakeUtils
-import           Arivi.Network.Types                (ConnectionId,
-                                                     HandshakeInitMasked (..),
-                                                     HandshakeRespMasked (..),
-                                                     NodeId, Opcode (..),
-                                                     Parcel (..), Version (..))
-import           Arivi.Network.Utils
+import           Arivi.Network.Types          (ConnectionId,
+                                               HandshakeInitMasked (..),
+                                               HandshakeRespMasked (..), NodeId,
+                                               Opcode (..), Parcel (..),
+                                               Version (..))
 import           Codec.Serialise
-import qualified Crypto.PubKey.Ed25519              as Ed25519
+import qualified Crypto.PubKey.Ed25519        as Ed25519
 import           Data.ByteArray
-import           Data.ByteString.Char8              as B
-import qualified Data.ByteString.Lazy               as L
+import           Data.ByteString.Char8        as B
+import qualified Data.ByteString.Lazy         as L
 
 
 -- | Takes the static secret key and connection object and returns a serialized KeyExParcel along with the updated connection object
@@ -32,11 +30,11 @@ initiatorHandshake sk conn = do
         return (serialise hsParcel, updatedConn)
 
 -- | Takes receiver static secret key, connection object and the received msg and returns a Lazy Bytestring along with the updated connection object
-recipientHandshake :: Ed25519.SecretKey -> Conn.Connection -> L.ByteString -> IO (L.ByteString, Conn.Connection)
-recipientHandshake sk conn msg = do
-    let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn msg
+recipientHandshake :: Ed25519.SecretKey -> Conn.Connection -> Parcel -> IO (L.ByteString, Conn.Connection)
+recipientHandshake sk conn parcel = do
+    let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn parcel
     --if verification returns false, do something
-    print $ verifySignature sk senderEphNodeId hsInitMsg
+    print $ verifySignature sk hsInitMsg
     -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
     newconn <- generateEphemeralKeys conn
     let eSKSign = Conn.ephemeralPrivKey newconn
@@ -49,8 +47,8 @@ recipientHandshake sk conn msg = do
 
 
 -- | Initiator receives response from remote and returns updated connection object
-receiveHandshakeResponse :: Conn.Connection -> L.ByteString -> Conn.Connection
-receiveHandshakeResponse conn msg = updatedConn where
-    (hsRespMsg, updatedConn) = readHandshakeResp conn msg
+receiveHandshakeResponse :: Conn.Connection -> Parcel -> Conn.Connection
+receiveHandshakeResponse conn parcel = updatedConn where
+    (hsRespMsg, updatedConn) = readHandshakeResp conn parcel
     -- Need to delete ephemeral keypair from updated conn object
 

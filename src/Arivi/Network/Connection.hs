@@ -31,6 +31,7 @@ import           Arivi.Network.Types                (ConnectionId, NodeId,
                                                      TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
+import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
@@ -53,7 +54,7 @@ data Connection = Connection {
                         , remoteNodeId          :: NodeId
                         , ipAddress             :: Network.HostAddress
                         , port                  :: PortNumber
-                        , ephemeralPubKey       :: NodeId
+                        , ephemeralPubKey       :: Curve25519.PublicKey
                         , ephemeralPrivKey      :: Ed25519.SecretKey
                         , transportType         :: TransportType
                         , peerType              :: PeerType
@@ -62,6 +63,7 @@ data Connection = Connection {
                         , serviceReqTChan       :: TChan ServiceRequest
                         , parcelTChan           :: TChan Parcel
                         , outboundFragmentTChan :: TChan OutboundFragment
+                        , reassemblyTChan       :: TChan Parcel
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
                         } deriving (Eq)
@@ -112,7 +114,7 @@ makeConnectionId ipAddress port transportType =
 createConnection :: NodeId
                  -> Network.HostAddress
                  -> PortNumber
-                 -> NodeId
+                 -> Curve25519.PublicKey
                  -> Ed25519.SecretKey
                  -> TransportType
                  -> PeerType
@@ -121,13 +123,14 @@ createConnection :: NodeId
                  -> TChan ServiceRequest
                  -> TChan Parcel
                  -> TChan OutboundFragment
+                 -> TChan Parcel
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                 transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelTChan outboundFragmentTChan egressSeqNum ingressSeqNum
+                parcelTChan outboundFragmentTChan reassemblyTChan egressSeqNum ingressSeqNum
                                                          connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
@@ -140,7 +143,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                                 ephemeralPrivKey
                                              transportType peerType socket
                                              sharedSecret serviceRequestTChan
-                                             parcelTChan outboundFragmentTChan
+                                             parcelTChan outboundFragmentTChan reassemblyTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 
