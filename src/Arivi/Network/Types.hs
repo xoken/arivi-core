@@ -80,6 +80,8 @@ type CipherText = ByteString
 data Opcode = KEY_EXCHANGE_INIT
             | KEY_EXCHANGE_RESP
             | DATA
+            | PING
+            | PONG
             deriving (Show,Eq, Generic)
 
 -- | This message is encrypted and sent in the handshake message
@@ -105,6 +107,12 @@ data Header = HandshakeHeader {
                                                       --    current Session
                 ,   aeadNonce          :: ByteString  -- ^ 12 Byte Nonce used
                                                       --   for encryption
+            }
+            | PingHeader {
+                    opcode             :: Opcode      -- ^ Denotes `Opcode`
+            }
+            | PongHeader {
+                    opcode             :: Opcode      -- ^ Denotes `Opcode`
             }
             | DataHeader {
                     opcode          :: Opcode         -- ^ Denotes `Opcode`
