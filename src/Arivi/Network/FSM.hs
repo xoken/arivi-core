@@ -11,10 +11,34 @@
 -- Layer
 --
 module Arivi.Network.FSM (
+    -- * Datatypes
     Event(..)
   , State(..)
+
+  -- * FSM Functions
+  , getNextEvent
   , handleEvent
+  , handleNextEvent
   , initFSM
+  , readEitherTChan
+
+  -- * Helper Functions
+  , getAeadNonce
+  , getEventType
+  , getReplayNonce
+  , takeLeft
+  , takeRight
+
+    -- * Post Timeouts Events
+  , postDataParcelTimeOutEvent
+  , postHandshakeInitTimeOutEvent
+  , postPingParcelTimeOutEvent
+
+    -- * Timers
+  , dataMessageTimer
+  , handshakeTimer
+  , pingTimer
+
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
@@ -25,15 +49,15 @@ import           Arivi.Network.OutboundDispatcher
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
-import           Arivi.P2P.Types                  (ServiceRequest (..),
-                                                   ServiceType (..))
+import           Arivi.P2P.Types                   (ServiceRequest (..),
+                                                    ServiceType (..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.Killable       (kill)
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
-import           Crypto.PubKey.Ed25519            (SecretKey)
-import qualified Data.Binary                      as Binary (decode, encode)
-import           Data.ByteString.Char8            as B (ByteString)
+import           Crypto.PubKey.Ed25519             (SecretKey)
+import qualified Data.Binary                       as Binary (decode, encode)
+import           Data.ByteString.Char8             as B (ByteString)
 import           Data.Either
 import qualified System.Timer.Updatable            as Timer (Delay, parallel)
 
@@ -46,7 +70,8 @@ data State =  Idle
             deriving (Show, Eq)
 
 -- | The different events in layer 1 that cause state change
-data Event =  InitHandshakeEvent {serviceRequest::ServiceRequest, secretKey:: SecretKey}
+data Event =  InitHandshakeEvent
+                {serviceRequest::ServiceRequest,secretKey:: SecretKey}
              | TerminateConnectionEvent {serviceRequest::ServiceRequest}
              | SendDataEvent {serviceRequest::ServiceRequest}
              | KeyExchangeInitEvent {parcel::Parcel, secretKey:: SecretKey}
@@ -80,11 +105,11 @@ initFSM connection =
         let nextEvent = getNextEvent connection
         nextEvent >>= handleEvent connection Idle
 
--- Initial Aead nonce passed to the outboundFrameDispatcher
+-- | Initial Aead nonce passed to the outboundFrameDispatcher
 getAeadNonce :: B.ByteString
 getAeadNonce = lazyToStrict $ Binary.encode (2::Integer)
 
--- Initial Aead nonce passed to the outboundFrameDispatcher
+-- | Initial Aead nonce passed to the outboundFrameDispatcher
 getReplayNonce :: Integer
 getReplayNonce = 2
 
@@ -98,15 +123,19 @@ handleEvent connection Idle
                     (InitHandshakeEvent serviceRequest secretKey)  =
         do
 
-            (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
+            (serialisedParcel, updatedConn) <- initiatorHandshake secretKey
+                                                                  connection
             -- These 2 lines should be done before calling initFSM?
-            -- socket <- createSocket (ipAddress connection) (port connection) (transportType connection)
+            -- socket <- createSocket (ipAddress connection) (port connection)
+                                                -- (transportType connection)
             -- Call async(listenIncomingMsgs socket (parcelTChan connection))
 
             -- Send the message
             sendFrame (socket updatedConn) (createFrame serialisedParcel)
 
-            handshakeInitTimer <- Timer.parallel (postHandshakeInitTimeOutEvent updatedConn) handshakeTimer -- 30 seconds
+            handshakeInitTimer <- Timer.parallel
+                                    (postHandshakeInitTimeOutEvent updatedConn)
+                                     handshakeTimer -- 30 seconds
 
             let nextEvent = getNextEvent updatedConn
             kill handshakeInitTimer
@@ -115,11 +144,18 @@ handleEvent connection Idle
 --recipient will go from Idle to VersionNegotiatedState
 handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
         do
-            -- Need to figure out what exactly to do with the fields like versionList, nonce and connectionId
-            (serialisedParcel, updatedConn) <- recipientHandshake secretKey connection parcel
+            -- Need to figure out what exactly to do with the fields like
+            -- versionList, nonce and connectionId
+            (serialisedParcel, updatedConn) <- recipientHandshake secretKey
+                                                                  connection
+                                                                  parcel
             -- Spawn an outboundFrameDsipatcher for sending out msgs
-            -- How to get the aead and replay nonce that was used in the handshake?!
-            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonce getReplayNonce)
+            -- How to get the aead and replay nonce that was used in the
+            -- handshake?!
+            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
+                                           updatedConn
+                                           getAeadNonce
+                                           getReplayNonce)
             -- Send the message back to the initiator
             sendFrame (socket updatedConn) (createFrame serialisedParcel)
             let nextEvent = getNextEvent updatedConn
@@ -130,11 +166,16 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
 handleEvent connection KeyExchangeInitiated
                     (KeyExchangeRespEvent parcel)  =
         do
-            -- Need to figure out what exactly to do with the fields like versionList, nonce and connectionId
+            -- Need to figure out what exactly to do with the fields like
+            -- versionList, nonce and connectionId
             let updatedConn = receiveHandshakeResponse connection parcel
             -- Spawn an outboundFrameDsipatcher for sending out msgs
-            -- How to get the aead and replay nonce that was used in the handshake?!
-            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonce getReplayNonce)
+            -- How to get the aead and replay nonce that was used in the
+            -- handshake?!
+            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
+                                           updatedConn
+                                           getAeadNonce
+                                           getReplayNonce)
             let nextEvent = getNextEvent updatedConn
             nextEvent >>= handleEvent updatedConn SecureTransportEstablished
 
@@ -143,47 +184,39 @@ handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
         do
             -- Insert into reassembly TChan
             atomically $ writeTChan (reassemblyTChan connection) parcel
+            -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
+            -- addToOutputChan
             handleNextEvent connection
-            -- dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
 
-            -- let nextEvent = getNextEvent connection
-            -- -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
-            -- -- addToOutputChan
-            -- kill dataMessageTimer -- killing died event is any exception
-            -- nextEvent >>= \case
-            --     (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
-            --     _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
 
 
 -- Receive message from p2p layer
-handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest) =
+handleEvent connection SecureTransportEstablished
+                            (SendDataEvent serviceRequest) =
         do
             -- Spawn a new thread for processing the payload
             async (processPayload (payloadData serviceRequest) connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
             handleNextEvent connection
-            -- dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
-            -- let nextEvent = getNextEvent connection
-            -- kill dataMessageTimer -- killing died event is any exception?
-
-            -- nextEvent >>= \case
-            --     (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
-            --     _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
 
 
-handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
+handleEvent connection SecureTransportEstablished
+                                (TerminateConnectionEvent parcel) =
+
         handleEvent connection Terminated CleanUpEvent
 
 handleEvent connection Terminated CleanUpEvent =
             --- do all cleanup here
             return Terminated
 
-handleEvent connection KeyExchangeInitiated (HandshakeInitTimeOutEvent serviceRequest)=
+handleEvent connection KeyExchangeInitiated
+                             (HandshakeInitTimeOutEvent serviceRequest)=
             return Terminated
 
 handleEvent connection Pinged (DataParcelTimeOutEvent serviceRequest) =
         do
-            pingTimer <- Timer.parallel (postPingParcelTimeOutEvent connection) pingTimer -- 30 seconds
+            pingTimer <- Timer.parallel (postPingParcelTimeOutEvent connection)
+                                         pingTimer -- 30 seconds
             let nextEvent = getNextEvent connection
             kill pingTimer
             nextEvent >>= handleEvent connection Pinged
@@ -195,7 +228,8 @@ handleEvent connection Pinged (PingTimeOutEvent serviceRequest) =
 
 handleEvent connection Pinged (ReceiveDataEvent parcel) =
          -- go to established state
-        handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel)
+        handleEvent connection SecureTransportEstablished
+                                    (ReceiveDataEvent parcel)
 
 handleEvent connection _ _  =
             handleEvent connection Terminated CleanUpEvent
@@ -203,7 +237,6 @@ handleEvent connection _ _  =
 
 
 getNextEvent :: Connection -> IO Event
-
 getNextEvent connection = do
             let serReqTChannel  = serviceReqTChan connection
             let parcelTChannel = parcelTChan connection
@@ -234,8 +267,10 @@ getNextEvent connection = do
                     let opcodeType = opcode (header (takeRight e))
 
                     case opcodeType of
-                        -- KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent (takeRight e))
-                        KEY_EXCHANGE_RESP -> return (KeyExchangeRespEvent (takeRight e))
+                        -- KEY_EXCHANGE_INIT -> return (KeyExchangeInitEvent
+                                                    -- (takeRight e))
+                        KEY_EXCHANGE_RESP -> return (KeyExchangeRespEvent
+                                                    (takeRight e))
                         DATA -> return (ReceiveDataEvent (takeRight e))
                         PING -> return (PINGDataEvent (takeRight e))
                         PONG -> return (PONGDataEvent (takeRight e))
@@ -256,36 +291,41 @@ takeLeft (Left left) = left
 takeRight :: Either a b -> b
 takeRight (Right right) = right
 
-
+postHandshakeInitTimeOutEvent :: Connection -> IO ()
 postHandshakeInitTimeOutEvent connection = do
     let serviceRequestTChannel = serviceReqTChan connection
-    atomically $ writeTChan serviceRequestTChannel (TimeOutServiceRequest HANDSHAKE_TIMEOUT)
+    atomically $ writeTChan serviceRequestTChannel
+                            (TimeOutServiceRequest HANDSHAKE_TIMEOUT)
 
+postDataParcelTimeOutEvent :: Connection -> IO ()
 postDataParcelTimeOutEvent connection = do
     let serviceRequestTChannel = serviceReqTChan connection
-    atomically $ writeTChan serviceRequestTChannel (TimeOutServiceRequest DATA_TIMEOUT)
+    atomically $ writeTChan serviceRequestTChannel
+                            (TimeOutServiceRequest DATA_TIMEOUT)
 
+postPingParcelTimeOutEvent :: Connection -> IO ()
 postPingParcelTimeOutEvent connection = do
     let serviceRequestTChannel = serviceReqTChan connection
-    atomically $ writeTChan serviceRequestTChannel (TimeOutServiceRequest PING_TIMEOUT)
+    atomically $ writeTChan serviceRequestTChannel
+                            (TimeOutServiceRequest PING_TIMEOUT)
 
-
--- getEventType inputEvent = case inputEvent of
---                          (DataParcelTimeOutEvent serviceRequest) -> DataParcelTimeOutEvent
-
+getEventType :: Event -> ServiceRequest -> Event
 getEventType inputEvent = case inputEvent of
-                         (DataParcelTimeOutEvent serviceRequest) -> DataParcelTimeOutEvent
+                         (DataParcelTimeOutEvent serviceRequest)
+                            -> DataParcelTimeOutEvent
 
+handleNextEvent :: Connection -> IO State
 handleNextEvent connection = do
-    dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
+    dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection)
+                                        dataMessageTimer -- 60 seconds
 
     let nextEvent = getNextEvent connection
-    -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
-    -- addToOutputChan
-    kill dataMessageTimer -- killing died event is any exception
+
+    kill dataMessageTimer -- is killing died event gives any exception
     nextEvent >>= \case
-        (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
-        _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
+        (DataParcelTimeOutEvent _)
+            -> (nextEvent >>= handleEvent connection Pinged)
+        _  -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
 
 -- | TODO replace this with actual decryption function
 -- decryptParcel parcel = KeyExParcel undefined undefined
@@ -296,11 +336,12 @@ handleNextEvent connection = do
 --         <- atomically newTChan
 --         -- connection <- atomically newTChan
 
---         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port" "NodeId"
+--         -- let serviceRequest = ServiceRequest OPEN "Message" -- "IP" "Port"
+                                                                 -- "NodeId"
 --         serviceContexTChan <- writeTChan serviceContexTChan serviceRequest
 
 --         async (handleEvent serviceContexTChan connection Idle
---                                   (InitServiceNegotiationEvent serviceRequest))
+--                                 (InitServiceNegotiationEvent serviceRequest))
 
 
 
