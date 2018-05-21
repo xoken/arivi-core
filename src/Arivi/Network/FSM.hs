@@ -141,17 +141,18 @@ handleEvent connection KeyExchangeInitiated
 -- Receive message from the network
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
         do
-            dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
-
             -- Insert into reassembly TChan
             atomically $ writeTChan (reassemblyTChan connection) parcel
-            let nextEvent = getNextEvent connection
-            -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
-            -- addToOutputChan
-            kill dataMessageTimer -- killing died event is any exception
-            nextEvent >>= \case
-                (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
-                _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
+            handleNextEvent connection
+            -- dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
+
+            -- let nextEvent = getNextEvent connection
+            -- -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
+            -- -- addToOutputChan
+            -- kill dataMessageTimer -- killing died event is any exception
+            -- nextEvent >>= \case
+            --     (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
+            --     _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
 
 
 -- Receive message from p2p layer
@@ -160,13 +161,14 @@ handleEvent connection SecureTransportEstablished (SendDataEvent serviceRequest)
             -- Spawn a new thread for processing the payload
             async (processPayload (payloadData serviceRequest) connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
-            dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
-            let nextEvent = getNextEvent connection
-            kill dataMessageTimer -- killing died event is any exception?
+            handleNextEvent connection
+            -- dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
+            -- let nextEvent = getNextEvent connection
+            -- kill dataMessageTimer -- killing died event is any exception?
 
-            nextEvent >>= \case
-                (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
-                _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
+            -- nextEvent >>= \case
+            --     (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
+            --     _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
 
 
 handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
@@ -192,7 +194,7 @@ handleEvent connection Pinged (PingTimeOutEvent serviceRequest) =
             return Terminated
 
 handleEvent connection Pinged (ReceiveDataEvent parcel) =
-        do -- go to established state
+         -- go to established state
         handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel)
 
 handleEvent connection _ _  =
@@ -273,6 +275,17 @@ postPingParcelTimeOutEvent connection = do
 
 getEventType inputEvent = case inputEvent of
                          (DataParcelTimeOutEvent serviceRequest) -> DataParcelTimeOutEvent
+
+handleNextEvent connection = do
+    dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection) dataMessageTimer -- 60 seconds
+
+    let nextEvent = getNextEvent connection
+    -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
+    -- addToOutputChan
+    kill dataMessageTimer -- killing died event is any exception
+    nextEvent >>= \case
+        (DataParcelTimeOutEvent _) -> (nextEvent >>= handleEvent connection Pinged)
+        _ -> (nextEvent >>= handleEvent connection SecureTransportEstablished)
 
 -- | TODO replace this with actual decryption function
 -- decryptParcel parcel = KeyExParcel undefined undefined
