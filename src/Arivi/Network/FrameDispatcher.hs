@@ -18,8 +18,7 @@ module Arivi.Network.FrameDispatcher
 
 import qualified Arivi.Network.Connection as NetworkConnection (Connection (..),
                                                                 makeConnectionId)
-import qualified Arivi.Network.FSM        as FSM (Event (KeyExchangeInitEvent),
-                                                  State (Idle), handleEvent,
+import qualified Arivi.Network.FSM        as FSM (State (Idle), handleEvent,
                                                   initFSM)
 -- import           Arivi.Network.StreamServer (readSock)
 import           Arivi.Network.Types
@@ -71,8 +70,9 @@ handleInboundConnection socket parcelTChan = do
         -- parcelTChan <- atomically newTChan
         -- atomically $ writeTChan parcelTChan encryptedPayload
         connectionTChan <- atomically newTChan
+        eventTChan <- atomically newTChan
         atomically $ writeTChan connectionTChan (socket,parcelTChan)
-        serviceReqTChan <- atomically newTChan
+        -- serviceReqTChan <- atomically newTChan
         outboundTChan <- atomically newTChan
         reassemblyTChan <- atomically newTChan
 
@@ -82,9 +82,10 @@ handleInboundConnection socket parcelTChan = do
                                        undefined undefined
                                        transportType undefined
                                        socket undefined
-                                       serviceReqTChan parcelTChan
-                                       outboundTChan reassemblyTChan undefined
-                                       undefined
+                                       -- serviceReqTChan parcelTChan
+                                       eventTChan
+                                       outboundTChan reassemblyTChan
+                                       undefined undefined
 
         -- let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert
         --                                   connectionId

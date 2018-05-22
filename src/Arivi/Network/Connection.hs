@@ -62,8 +62,10 @@ data Connection = Connection {
                         , sharedSecret          :: Keys.SharedSecret
                         , eventTChan            :: TChan Event
                         , outboundFragmentTChan :: TChan OutboundFragment
+                        , reassemblyTChan       :: TChan Parcel
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
+                        -- , timer                 :: Updatable
                         } deriving (Eq)
 
 
@@ -120,12 +122,14 @@ createConnection :: NodeId
                  -> Keys.SharedSecret
                  -> TChan Event
                  -> TChan OutboundFragment
+                 -> TChan Parcel
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
-                transportType  peerType socket sharedSecret eventTChan outboundFragmentTChan egressSeqNum ingressSeqNum
+                transportType  peerType socket sharedSecret eventTChan
+                outboundFragmentTChan reassemblyTChan egressSeqNum ingressSeqNum
                                                          connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
@@ -134,11 +138,12 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                     (uniqueConnectionId,
                         Data.HashMap.Strict.insert uniqueConnectionId
                                  (Connection uniqueConnectionId nodeId
-                                                ipAddress port ephemeralPubKey
-                                                ephemeralPrivKey
-                                             transportType peerType socket
-                                             sharedSecret eventTChan outboundFragmentTChan
-                                             egressSeqNum ingressSeqNum)
+                                         ipAddress port ephemeralPubKey
+                                         ephemeralPrivKey
+                                         transportType peerType socket
+                                         sharedSecret eventTChan
+                                         outboundFragmentTChan reassemblyTChan
+                                         egressSeqNum ingressSeqNum)
                               connectionHashmap)
 
 
