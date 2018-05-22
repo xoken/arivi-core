@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 module Arivi.Network.Types
 (
+    Event          (..),
     Header         (..),
     Payload        (..),
     Parcel         (..),
@@ -43,7 +44,7 @@ import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Crypto.Error
 import           Crypto.PubKey.Curve25519 (PublicKey, publicKey)
-import           Crypto.PubKey.Ed25519    (Signature, signature)
+import           Crypto.PubKey.Ed25519    (SecretKey, Signature, signature)
 import           Data.ByteArray
 import qualified Data.ByteString
 import           Data.ByteString.Char8    (ByteString)
@@ -85,6 +86,22 @@ data Opcode = KEY_EXCHANGE_INIT
             | PING
             | PONG
             deriving (Show,Eq, Generic)
+
+-- | The different events in layer 1 that cause state change
+data Event =  InitHandshakeEvent
+                {payload::Payload, secretKey:: SecretKey}
+             | TerminateConnectionEvent {payload::Payload}
+             | SendDataEvent {payload::Payload}
+             | KeyExchangeInitEvent {parcel::Parcel, secretKey:: SecretKey}
+             | KeyExchangeRespEvent {parcel::Parcel}
+             | ReceiveDataEvent {parcel::Parcel}
+             | PINGDataEvent {parcel::Parcel}
+             | PONGDataEvent {parcel::Parcel}
+             | HandshakeInitTimeOutEvent {payload::Payload}
+             | DataParcelTimeOutEvent {payload::Payload}
+             | PingTimeOutEvent {payload::Payload}
+             | CleanUpEvent
+             deriving (Eq)
 
 -- | This message is encrypted and sent in the handshake message
 data HandshakeInitMasked = HandshakeInitMessage {
