@@ -3,7 +3,8 @@
 module Arivi.Kademlia.Query
 (
 queryKBucket,
-isNodeInKbucket
+isNodeInKbucket,
+getAvailablePeer
  ) where
 
 import qualified Arivi.Kademlia.Types         as T
@@ -30,6 +31,11 @@ import           GHC.Integer.Logarithms
 import           Network.Socket
 import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
                                                     sendAllTo, sendTo)
+
+-- | Return one available peer
+getAvailablePeer nodeType transportType = do
+    -- TO BE IMPLEMENTED
+    return ("127.0.0.1", 3000, "64-byte-string-NodeID")
 
 -- | Helper function to extract "k-closest" peers from a given list of keys
 getPeerListFromKeyList :: [Int]

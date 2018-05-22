@@ -11,55 +11,75 @@
 
 module Arivi.P2P.ServiceRegistry
 (
-      ConnectionCommand(..)
-    , ContextId
-    , ServiceContext(..)
-    , genUniqueContextId
-    , registerService
+    --   ConnectionCommand(..)
+    -- , ContextId
+    --   ServiceContext
+    -- , genUniqueSessionId
+    -- , _registerService
 ) where
 
+import           Arivi.Network.Stream
 import           Arivi.Network.Connection     (Connection, ConnectionId)
 import           Arivi.Network.Types          (TransportType (..))
 import           Arivi.P2P.PubSub             (Topic)
-import           Arivi.P2P.Types              (ServiceCode)
+import           Arivi.P2P.Types
+import           Control.Concurrent
 import           Control.Concurrent.MVar      (MVar)
 import           Control.Concurrent.STM.TChan (TChan)
+import           Control.Exception(try, SomeException)
 import           Data.HashTable.IO
 import           Data.Maybe                   (Maybe)
 import           Data.UUID                    (UUID)
 import           Data.UUID.V1                 (nextUUID)
+import           Network(connectTo, PortID(..), PortNumber(..))
+import           System.IO(Handle)
+import           Arivi.Kademlia.Query
+import           Arivi.Kademlia.Types
 
--- | ContextId is type synonyms for UUID
-type ContextId = UUID
+data NodeType = FullNode | HalfNode deriving(Show)
 
--- | ConnectionCommand keeps track of Connection Shared Variable
-data ConnectionCommand = ConnectionCommand {
-           connectionId   :: ConnectionId   -- ^ Unique Connection Identifier
-          ,connectionMVar :: MVar Connection-- ^ Shared Variable  for connection
-          }
+type ServiceCode = Int
+type IP = String
+type Port = Int
+type Peers = [ (NodeId,IP,Port) ]
+type PeerCount = Int
+type Context = (PeerCount, NodeType, TransportType)
 
--- | Keeps information about Services
-data ServiceContext = ServiceContext {
-       contextId              :: ContextId      -- ^ Context Identifier
-                                                --   for services
-      ,serviceCode            :: ServiceCode    -- ^ Service Code like
-                                                --   KDM,BSY,etc
-      ,transportType          :: TransportType  -- ^ Transport Type
-                                                --   like `UDP` or
-                                                --   `TCP`
-      ,outputTChan            :: TChan String   -- ^ This `TChan` is
-                                                --   used for receiving
-                                                --   message after
-                                                --   fragmentation
-      , serviceTopicDirectory :: CuckooHashTable ServiceCode [Topic]
-  -- ,connectionCommandTChan :: TChan ConnectionCommand -- ^ This `TChan` gives
-  --                                                    --   ConnectionCommand
-  --                                                    --   for
-    }
+type ServiceContext = [ ( ServiceCode,Context ) ]
+type SrvPeer = [ ( ServiceCode,Peers ) ]
 
--- | Generates unique context id
-genUniqueContextId :: IO (Maybe Data.UUID.UUID)
-genUniqueContextId = Data.UUID.V1.nextUUID
+
+makeP2Pinstance nodeId ip port = do return ()
+-- -- | Generates unique context id
+-- genUniqueSessionId :: IO (Maybe Data.UUID.UUID)
+-- genUniqueSessionId = Data.UUID.V1.nextUUID
+
+-- _registerService servToSessionHash sessionToConnHash ariviHandle
+--                 serviceCode transportType nodeType
+--                 nodeCount serviceRegistryHashMap h1 h2= do
+--         let service = ServiceContext serviceCode transportType
+--                                  nodeType nodeCount
+--         forkIO (_connectToPeers servToSessionHash sessionToConnHash
+--                      nodeCount nodeType transportType)
+--         return service
+
+-- _connectToPeers servToSessionHash sessionToConnHash nodeCount
+--                nodeType transportType = if nodeCount < 1
+--                 then return ()
+--                 else do {
+--                     (ip,port,nodeId) <- getAvailablePeer nodeType transportType
+--                     handle serviceContext connection Idle InitServiceNegotiationEvent
+--                     return ()
+--                 }
+--                 --createSocket ip port
+
+
+
+
+
+        -- Data.HashTable.IO.insert serviceRegistryHashMap
+        --                            contextId
+        -- return serviceRegistryHashMap
 
 
 -- TODO serviceRegistry HashMap contextId serviceContex
@@ -70,27 +90,12 @@ genUniqueContextId = Data.UUID.V1.nextUUID
 --               , serviceContex :: ServiceContext
 --             }
 
--- | Registers service in serviceRegistry HashMap
--- registerService
---   ::
---         Data.UUID.UUID ServiceContext
---      -> Data.UUID.UUID
---      -> ServiceCode
---      -> TransportType
---      -> Control.Concurrent.STM.TChan.TChan String
+-- -- | ConnectionCommand keeps track of Connection Shared Variable
+-- data ConnectionCommand = ConnectionCommand {
+--            connectionId   :: ConnectionId   -- ^ Unique Connection Identifier
+--           ,connectionMVar :: MVar Connection-- ^ Shared Variable  for connection
+--           }
+
+
 --      -> CuckooHashTable ServiceCode [Topic]
 --      -> IO (CuckooHashTable ServiceCode [Topic])
-registerService serviceRegistryHashMap contextId serviceCode transportType
-                            outputTChan serviceTopicDirectory = do
-
-          Data.HashTable.IO.insert serviceRegistryHashMap
-                                   contextId
-                                   (ServiceContext contextId
-                                                   serviceCode
-                                                   transportType
-                                                   outputTChan
-                                                   serviceTopicDirectory)
-          return serviceRegistryHashMap
-
-
--- registerService ariviHandle serviceCode transportType
