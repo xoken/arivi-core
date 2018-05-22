@@ -24,8 +24,8 @@ module Arivi.Network.Connection
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Types                (ConnectionId, NodeId,
-                                                     OutboundFragment,
+import           Arivi.Network.Types                (ConnectionId, Event (..),
+                                                     NodeId, OutboundFragment,
                                                      Parcel (..), PeerType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
@@ -60,10 +60,8 @@ data Connection = Connection {
                         , peerType              :: PeerType
                         , socket                :: Network.Socket
                         , sharedSecret          :: Keys.SharedSecret
-                        , serviceReqTChan       :: TChan ServiceRequest
-                        , parcelTChan           :: TChan Parcel
+                        , eventTChan            :: TChan Event
                         , outboundFragmentTChan :: TChan OutboundFragment
-                        , reassemblyTChan       :: TChan Parcel
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
                         } deriving (Eq)
@@ -120,17 +118,14 @@ createConnection :: NodeId
                  -> PeerType
                  -> Network.Socket
                  -> Keys.SharedSecret
-                 -> TChan ServiceRequest
-                 -> TChan Parcel
+                 -> TChan Event
                  -> TChan OutboundFragment
-                 -> TChan Parcel
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
-                transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelTChan outboundFragmentTChan reassemblyTChan egressSeqNum ingressSeqNum
+                transportType  peerType socket sharedSecret eventTChan outboundFragmentTChan egressSeqNum ingressSeqNum
                                                          connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
@@ -142,8 +137,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                                 ipAddress port ephemeralPubKey
                                                 ephemeralPrivKey
                                              transportType peerType socket
-                                             sharedSecret serviceRequestTChan
-                                             parcelTChan outboundFragmentTChan reassemblyTChan
+                                             sharedSecret eventTChan outboundFragmentTChan
                                              egressSeqNum ingressSeqNum)
                               connectionHashmap)
 
