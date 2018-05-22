@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+-- {-# LANGUAGE LambdaCase #-}
 -- |
 -- Module      :  Arivi.Network.FSM
 -- Copyright   :
