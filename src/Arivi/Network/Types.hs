@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 module Arivi.Network.Types
 (
+    Event          (..),
     Header         (..),
     Payload        (..),
     Parcel         (..),
@@ -30,6 +31,8 @@ module Arivi.Network.Types
     -- FragmentCount,
     HandshakeInitMasked(..),
     HandshakeRespMasked(..),
+    DeserialiseFailure(..),
+    deserialiseOrFail,
     makeDataParcel,
     deserialise,
     serialise
@@ -41,7 +44,7 @@ import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Crypto.Error
 import           Crypto.PubKey.Curve25519 (PublicKey, publicKey)
-import           Crypto.PubKey.Ed25519    (Signature, signature)
+import           Crypto.PubKey.Ed25519    (SecretKey, Signature, signature)
 import           Data.ByteArray
 import qualified Data.ByteString
 import           Data.ByteString.Char8    (ByteString)
@@ -80,7 +83,25 @@ type CipherText = ByteString
 data Opcode = KEY_EXCHANGE_INIT
             | KEY_EXCHANGE_RESP
             | DATA
+            | PING
+            | PONG
             deriving (Show,Eq, Generic)
+
+-- | The different events in layer 1 that cause state change
+data Event =  InitHandshakeEvent
+                {payload::Payload, secretKey:: SecretKey}
+             | TerminateConnectionEvent {payload::Payload}
+             | SendDataEvent {payload::Payload}
+             | KeyExchangeInitEvent {parcel::Parcel, secretKey:: SecretKey}
+             | KeyExchangeRespEvent {parcel::Parcel}
+             | ReceiveDataEvent {parcel::Parcel}
+             | PINGDataEvent {parcel::Parcel}
+             | PONGDataEvent {parcel::Parcel}
+             | CleanUpEvent
+             | HandshakeTimeOutEvent
+             | DataTimeOutEvent
+             | PingTimeOutEvent
+             deriving (Eq)
 
 -- | This message is encrypted and sent in the handshake message
 data HandshakeInitMasked = HandshakeInitMessage {
@@ -101,10 +122,16 @@ data HandshakeRespMasked = HandshakeRespMsg {
 -- | These are the different types of Headers for different types of Parcels
 data Header = HandshakeHeader {
                     opcode             :: Opcode      -- ^ Denotes `Opcode`
-                ,   ephemeralPublicKey :: NodeId      -- ^ `PublicKey` for
-                                                      --    current Session
+                ,   ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
+                                                      --    generating ssk
                 ,   aeadNonce          :: ByteString  -- ^ 12 Byte Nonce used
                                                       --   for encryption
+            }
+            | PingHeader {
+                    opcode             :: Opcode      -- ^ Denotes `Opcode`
+            }
+            | PongHeader {
+                    opcode             :: Opcode      -- ^ Denotes `Opcode`
             }
             | DataHeader {
                     opcode          :: Opcode         -- ^ Denotes `Opcode`

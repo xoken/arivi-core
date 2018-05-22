@@ -24,13 +24,14 @@ module Arivi.Network.Connection
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Types                (ConnectionId, NodeId,
-                                                     OutboundFragment,
+import           Arivi.Network.Types                (ConnectionId, Event (..),
+                                                     NodeId, OutboundFragment,
                                                      Parcel (..), PeerType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
 import           Control.Concurrent.STM.TChan       (TChan)
+import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
@@ -53,17 +54,18 @@ data Connection = Connection {
                         , remoteNodeId          :: NodeId
                         , ipAddress             :: Network.HostAddress
                         , port                  :: PortNumber
-                        , ephemeralPubKey       :: NodeId
+                        , ephemeralPubKey       :: Curve25519.PublicKey
                         , ephemeralPrivKey      :: Ed25519.SecretKey
                         , transportType         :: TransportType
                         , peerType              :: PeerType
                         , socket                :: Network.Socket
                         , sharedSecret          :: Keys.SharedSecret
-                        , serviceReqTChan       :: TChan ServiceRequest
-                        , parcelTChan           :: TChan Parcel
+                        , eventTChan            :: TChan Event
                         , outboundFragmentTChan :: TChan OutboundFragment
+                        , reassemblyTChan       :: TChan Parcel
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
+                        -- , timer                 :: Updatable
                         } deriving (Eq)
 
 
@@ -112,22 +114,22 @@ makeConnectionId ipAddress port transportType =
 createConnection :: NodeId
                  -> Network.HostAddress
                  -> PortNumber
-                 -> NodeId
+                 -> Curve25519.PublicKey
                  -> Ed25519.SecretKey
                  -> TransportType
                  -> PeerType
                  -> Network.Socket
                  -> Keys.SharedSecret
-                 -> TChan ServiceRequest
-                 -> TChan Parcel
+                 -> TChan Event
                  -> TChan OutboundFragment
+                 -> TChan Parcel
                  -> SequenceNum
                  -> SequenceNum
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
-                transportType  peerType socket sharedSecret serviceRequestTChan
-                parcelTChan outboundFragmentTChan egressSeqNum ingressSeqNum
+                transportType  peerType socket sharedSecret eventTChan
+                outboundFragmentTChan reassemblyTChan egressSeqNum ingressSeqNum
                                                          connectionHashmap =
 
                 getUniqueConnectionId connectionHashmap
@@ -136,12 +138,12 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                     (uniqueConnectionId,
                         Data.HashMap.Strict.insert uniqueConnectionId
                                  (Connection uniqueConnectionId nodeId
-                                                ipAddress port ephemeralPubKey
-                                                ephemeralPrivKey
-                                             transportType peerType socket
-                                             sharedSecret serviceRequestTChan
-                                             parcelTChan outboundFragmentTChan
-                                             egressSeqNum ingressSeqNum)
+                                         ipAddress port ephemeralPubKey
+                                         ephemeralPrivKey
+                                         transportType peerType socket
+                                         sharedSecret eventTChan
+                                         outboundFragmentTChan reassemblyTChan
+                                         egressSeqNum ingressSeqNum)
                               connectionHashmap)
 
 

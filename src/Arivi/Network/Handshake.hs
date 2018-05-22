@@ -34,7 +34,7 @@ recipientHandshake :: Ed25519.SecretKey -> Conn.Connection -> Parcel -> IO (L.By
 recipientHandshake sk conn parcel = do
     let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn parcel
     --if verification returns false, do something
-    print $ verifySignature sk senderEphNodeId hsInitMsg
+    print $ verifySignature sk hsInitMsg
     -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
     newconn <- generateEphemeralKeys conn
     let eSKSign = Conn.ephemeralPrivKey newconn

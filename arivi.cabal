@@ -53,6 +53,7 @@ library
                     ,  monad-logger
                     ,  random
                     ,  hashtables <= 1.2.6.1
+                    ,  timers-updatable <= 0.2.0.2
   hs-source-dirs:      src
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
@@ -84,7 +85,8 @@ library
                        Arivi.Network.NetworkClient
                        Arivi.Network.OutboundDispatcher
                        Arivi.Network.Reassembler
-                       Arivi.Network.Stream
+                       Arivi.Network.StreamClient
+                       Arivi.Network.StreamServer
                        Arivi.Network.Types
                        Arivi.Network.Utils
                        -- Arivi.P2P.FSM
