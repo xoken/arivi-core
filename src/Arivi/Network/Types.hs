@@ -97,10 +97,10 @@ data Event =  InitHandshakeEvent
              | ReceiveDataEvent {parcel::Parcel}
              | PINGDataEvent {parcel::Parcel}
              | PONGDataEvent {parcel::Parcel}
-             | HandshakeInitTimeOutEvent {payload::Payload}
-             | DataParcelTimeOutEvent {payload::Payload}
-             | PingTimeOutEvent {payload::Payload}
              | CleanUpEvent
+             | HandshakeTimeOutEvent
+             | DataTimeOutEvent
+             | PingTimeOutEvent
              deriving (Eq)
 
 -- | This message is encrypted and sent in the handshake message
