@@ -121,21 +121,15 @@ data HandshakeRespMasked = HandshakeRespMsg {
 
 -- | These are the different types of Headers for different types of Parcels
 data Header = HandshakeHeader {
-                    opcode             :: Opcode      -- ^ Denotes `Opcode`
-                ,   ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
+                    ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
                                                       --    generating ssk
                 ,   aeadNonce          :: ByteString  -- ^ 12 Byte Nonce used
                                                       --   for encryption
             }
-            | PingHeader {
-                    opcode             :: Opcode      -- ^ Denotes `Opcode`
-            }
-            | PongHeader {
-                    opcode             :: Opcode      -- ^ Denotes `Opcode`
-            }
+            | PingHeader
+            | PongHeader
             | DataHeader {
-                    opcode          :: Opcode         -- ^ Denotes `Opcode`
-                ,   messageId       :: MessageId      -- ^ Unique Message
+                    messageId       :: MessageId      -- ^ Unique Message
                                                       --   Identifier
                 ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
                 ,   totalFragements :: FragmentNumber -- ^ Total fragments in
@@ -151,8 +145,7 @@ data Header = HandshakeHeader {
                                                       --   Attacks
             }
             | ErrorHeader {
-                    opcode          :: Opcode         -- ^ Denotes `Opcode`
-                ,   messageId       :: MessageId      -- ^ Unique Message
+                    messageId       :: MessageId      -- ^ Unique Message
                                                       --   Identifier
                 ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
                 ,   totalFragements :: FragmentNumber -- ^ Total fragments in
@@ -164,8 +157,7 @@ data Header = HandshakeHeader {
                                                       --   connection
             }
             | ByeHeader {
-                    opcode          :: Opcode         -- ^ Denotes `Opcode`
-                ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
+                    fragmentNumber  :: FragmentNumber -- ^ Number of fragment
                 ,   totalFragements :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                 ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
