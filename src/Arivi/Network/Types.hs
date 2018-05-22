@@ -95,8 +95,8 @@ data Event =  InitHandshakeEvent
              | KeyExchangeInitEvent {parcel::Parcel, secretKey:: SecretKey}
              | KeyExchangeRespEvent {parcel::Parcel}
              | ReceiveDataEvent {parcel::Parcel}
-             | PINGDataEvent {parcel::Parcel}
-             | PONGDataEvent {parcel::Parcel}
+             | PINGDataEvent
+             | PONGDataEvent
              | CleanUpEvent
              | HandshakeTimeOutEvent
              | DataTimeOutEvent
