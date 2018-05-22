@@ -18,7 +18,7 @@ module Arivi.P2P.ServiceRegistry
     -- , _registerService
 ) where
 
-import           Arivi.Network.Stream
+-- import           Arivi.Network.Stream
 import           Arivi.Network.Connection     (Connection, ConnectionId)
 import           Arivi.Network.Types          (TransportType (..))
 import           Arivi.P2P.PubSub             (Topic)
