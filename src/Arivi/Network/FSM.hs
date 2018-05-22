@@ -12,8 +12,8 @@
 --
 module Arivi.Network.FSM (
     -- * Datatypes
-    Event(..)
-  , State(..)
+    -- Event(..)
+    State(..)
 
   -- * FSM Functions
   , handleEvent
@@ -21,10 +21,10 @@ module Arivi.Network.FSM (
   , initFSM
 
   -- * Helper Functions
-  , getEventType
+  -- , getEventType
   , getReplayNonce
-  , takeLeft
-  , takeRight
+  -- , takeLeft
+  -- , takeRight
 
     -- * Post Timeouts Events
   , postDataParcelTimeOutEvent
@@ -141,7 +141,7 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
             -- handshake?!
             async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
                                            updatedConn
-                                           getAeadNonce
+                                           getAeadNonceInitiator
                                            getReplayNonce)
             -- Send the message back to the initiator
             sendFrame (socket updatedConn) (createFrame serialisedParcel)
@@ -162,7 +162,7 @@ handleEvent connection KeyExchangeInitiated
             -- handshake?!
             async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
                                            updatedConn
-                                           getAeadNonce
+                                           getAeadNonceRecipient
                                            getReplayNonce)
             nextEvent <- atomically $ readTChan (eventTChan updatedConn)
             -- let nextEvent = getNextEvent updatedConn
@@ -170,9 +170,9 @@ handleEvent connection KeyExchangeInitiated
 
 -- Receive message from the network
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
-        do
+        -- do
             -- Insert into reassembly TChan
-            atomically $ writeTChan (reassemblyTChan connection) parcel
+            -- atomically $ writeTChan (reassemblyTChan connection) parcel
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
             handleNextEvent connection
@@ -184,7 +184,7 @@ handleEvent connection SecureTransportEstablished
                             (SendDataEvent payload) =
         do
             -- Spawn a new thread for processing the payload
-            async (processPayload (payloadData payload) connection)
+            async (processPayload payload connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
             handleNextEvent connection
 
@@ -198,11 +198,10 @@ handleEvent connection Terminated CleanUpEvent =
             --- do all cleanup here
             return Terminated
 
-handleEvent connection KeyExchangeInitiated
-                             (HandshakeInitTimeOutEvent payload)=
+handleEvent connection KeyExchangeInitiated HandshakeTimeOutEvent =
             return Terminated
 
-handleEvent connection Pinged (DataParcelTimeOutEvent payload) =
+handleEvent connection Pinged DataTimeOutEvent =
         do
             pingTimer <- Timer.parallel (postPingParcelTimeOutEvent connection)
                                          pingTimer -- 30 seconds
@@ -212,7 +211,7 @@ handleEvent connection Pinged (DataParcelTimeOutEvent payload) =
             handleEvent connection Pinged nextEvent
 
 
-handleEvent connection Pinged (PingTimeOutEvent payload) =
+handleEvent connection Pinged PingTimeOutEvent=
          -- go to terminated
             return Terminated
 
@@ -284,20 +283,19 @@ handleEvent connection _ _  =
 postHandshakeInitTimeOutEvent :: Connection -> IO ()
 postHandshakeInitTimeOutEvent connection = do
     let eventTChannel = eventTChan connection
-    atomically $ writeTChan eventTChannel
-                            (TimeOutServiceRequest HANDSHAKE_TIMEOUT)
+    atomically $ writeTChan eventTChannel HandshakeTimeOutEvent
+
 
 postDataParcelTimeOutEvent :: Connection -> IO ()
 postDataParcelTimeOutEvent connection = do
     let eventTChannel = eventTChan connection
-    atomically $ writeTChan eventTChannel
-                            (TimeOutServiceRequest DATA_TIMEOUT)
+    atomically $ writeTChan eventTChannel DataTimeOutEvent
 
 postPingParcelTimeOutEvent :: Connection -> IO ()
 postPingParcelTimeOutEvent connection = do
     let eventTChannel = eventTChan connection
-    atomically $ writeTChan eventTChannel
-                            (TimeOutServiceRequest PING_TIMEOUT)
+    atomically $ writeTChan eventTChannel PingTimeOutEvent
+
 
 -- getEventType :: Event -> ServiceRequest -> Event
 -- getEventType inputEvent = case inputEvent of
@@ -314,7 +312,7 @@ handleNextEvent connection = do
 
     kill dataMessageTimer -- is killing died event gives any exception
     case nextEvent of
-        (DataParcelTimeOutEvent _)
+        DataTimeOutEvent
             -> handleEvent connection Pinged nextEvent
         _  -> handleEvent connection SecureTransportEstablished nextEvent
 
