@@ -33,7 +33,7 @@ import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
                                                     sendAllTo, sendTo)
 
 -- | Return one available peer
-getAvailablePeer nodeType transportType = do
+getAvailablePeer nodeType transportType =
     -- TO BE IMPLEMENTED
     return ("127.0.0.1", 3000, "64-byte-string-NodeID")
 

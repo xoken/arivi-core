@@ -49,7 +49,7 @@ type ServiceContext = [ ( ServiceCode,Context ) ]
 type SrvPeer = [ ( ServiceCode,Peers ) ]
 
 
-makeP2Pinstance nodeId ip port = do return ()
+makeP2Pinstance nodeId ip port = return ()
 -- -- | Generates unique context id
 -- genUniqueSessionId :: IO (Maybe Data.UUID.UUID)
 -- genUniqueSessionId = Data.UUID.V1.nextUUID
