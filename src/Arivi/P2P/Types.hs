@@ -16,7 +16,7 @@ module Arivi.P2P.Types
     ConnectionId
   , P2PMessage(..)
   , Opcode(..)
-  , ServiceCode
+--  , ServiceCode
   , ServiceName
   , ServiceType(..)
   , ServiceRequest(..)

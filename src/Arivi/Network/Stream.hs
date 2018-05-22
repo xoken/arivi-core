@@ -4,6 +4,7 @@ module Arivi.Network.Stream
   , readSock
   , runTCPserver
   , sendFrame
+  , createSocket
 ) where
 
 import           Control.Concurrent           (ThreadId, forkFinally, forkIO,
