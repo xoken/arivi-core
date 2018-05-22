@@ -85,7 +85,7 @@ createHandshakeRespMsg conn = serialise hsRespMsg where
 generateParcel :: SerialisedMsg -> Conn.Connection -> IO(Header, B.ByteString)
 generateParcel msg conn = do
     aeadnonce <- generateAeadNonce
-    let headerData = HandshakeHeader KEY_EXCHANGE_INIT (Conn.ephemeralPubKey conn) aeadnonce
+    let headerData = HandshakeHeader (Conn.ephemeralPubKey conn) aeadnonce
     let ssk = Conn.sharedSecret conn
     let ctWithMac = encryptMsg aeadnonce ssk headerData (lazyToStrict msg)
     return (headerData, ctWithMac)
