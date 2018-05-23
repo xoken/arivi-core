@@ -1,8 +1,10 @@
 module Arivi.Env where
 
+import           Arivi.Network.Instance
+import           Control.Monad.IO.Class
+import           Control.Monad.Logger
+import           Control.Monad.Catch
 import qualified Crypto.PubKey.Ed25519 as Ed25519
-import Arivi.Network.Instance
-import Control.Monad.IO.Class
 
 data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
                          , ariviCryptoEnv :: CryptoEnv
@@ -22,6 +24,8 @@ class (HasEnv m) => HasAriviNetworkInstance m where
 
 class (HasEnv m) => HasSecretKey m where
   getSecretKey :: m Ed25519.SecretKey
+
+class (MonadLogger m, HasEnv m, MonadThrow m, MonadCatch m) => HasLogging m where
 
 mkAriviEnv :: AriviEnv
 mkAriviEnv = AriviEnv { ariviNetworkInstance = mkAriviNetworkInstance

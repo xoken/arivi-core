@@ -37,6 +37,7 @@ library
                     ,  containers
                     ,  crypto-api
                     ,  cryptonite >= 0.23
+                    ,  exceptions
                     ,  fast-logger
                     ,  hashtables <= 1.2.6.1
                     ,  integer-gmp
@@ -98,5 +99,6 @@ library
                        Arivi.Utils.Utils
                        Arivi.AppM
                        Arivi.Env
+                       Arivi.Logging
 
   default-language:    Haskell2010

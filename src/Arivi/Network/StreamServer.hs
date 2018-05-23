@@ -31,13 +31,14 @@ import qualified Network.Socket.ByteString as N (sendAll, recv, recvFrom)
 
 import Control.Monad.IO.Class
 import Arivi.Env
+import Arivi.Logging
 
 -- Functions for Server
 
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
-runTCPserver :: (HasAriviNetworkInstance m) => ServiceName -> m ()
-runTCPserver port = liftIO $ withSocketsDo $ do
+runTCPserver :: (HasAriviNetworkInstance m, HasLogging m) => ServiceName -> m ()
+runTCPserver port = withLogging (LogNetworkStatement "Server started...") LevelInfo $ withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
@@ -47,7 +48,6 @@ runTCPserver port = liftIO $ withSocketsDo $ do
     bind sock (addrAddress addr)
     listen sock 5
     void $ forkFinally (acceptIncomingSocket sock) (\_ -> close sock)
-    putStrLn "Server started..."
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
