@@ -98,16 +98,15 @@ concatenate first second = Data.ByteString.Char8.append
 
 
 -- | ConnectionId is concatenation of IP Address, PortNumber and TransportType
-makeConnectionId :: (Monad m)
-                 => Network.HostAddress
+makeConnectionId :: Network.HostAddress
                  -> PortNumber
                  -> TransportType
-                 -> m ConnectionId
+                 -> ConnectionId
 makeConnectionId ipAddress port transportType =
-                        return (concatenate
-                                  (concatenate (concatenate ipAddress "|")
-                                               (concatenate port "|"))
-                                  (concatenate transportType "|"))
+                         (concatenate
+                           (concatenate (concatenate ipAddress "|")
+                             (concatenate port "|"))
+                           (concatenate transportType "|"))
 
 -- | Creates Unique Connection  and stores in given HashMap
 

@@ -116,22 +116,15 @@ data ServiceType =  OPEN    -- ^ Used for Initiating Service Negotiation
 -- | This is request contains the ServiceType and payload will be given to Arivi
 --   Network Layer
 data ServiceRequest =  SendMessageServiceRequest {
-
-                           serviceType :: ServiceType  -- ^ Type of service
-                                                       --   needed
-                         , payloadData :: Payload      -- ^ Actual Payload
+                         payloadData :: Payload      -- ^ Actual Payload
                        }
-                      | OpenConnectionServiceRequest {
-
-                           serviceType :: ServiceType  -- ^ Type of service
-                                                       --   needed
-                         , secretKey   :: SecretKey    -- ^ Actual Payload
+                       | OpenConnectionServiceRequest {
+                         secretKey   :: SecretKey    -- ^ Actual Payload
                        }
-
                        | CloseServiceRequest {
                            serviceType :: ServiceType  -- ^ Type of service
                        }
                        | TimeOutServiceRequest {
                            serviceType :: ServiceType  -- ^ Type of service
                        }
-                       deriving (Show,Eq)
+                      deriving (Show,Eq)

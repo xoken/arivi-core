@@ -1,21 +1,22 @@
-
 module Arivi.Network.Instance
 (
 NetworkConfig (..),
 -- getAriviInstance ,
 -- runAriviInstance ,
 NetworkHandle (..),
-KI.Config (..)
+KI.Config (..),
+AriviNetworkInstance (..),
+connectionMap,
+mkAriviNetworkInstance
 ) where
 
-import qualified Arivi.Kademlia.Instance      as KI
+import qualified Arivi.Kademlia.Instance as KI
 import           Arivi.Network.Connection     (Connection (..),
                                                makeConnectionId)
 import           Arivi.Network.Datagram
 -- import qualified Arivi.Network.Multiplexer    as MP
-import qualified Arivi.Network.FSM            as FSM
+import qualified Arivi.Network.FSM as FSM
 import           Arivi.Network.NetworkClient
-import           Arivi.Network.Stream
 import           Arivi.Network.Types
 import           Arivi.P2P.Types              (ServiceRequest (..),
                                                ServiceType (..))
@@ -25,10 +26,12 @@ import           Control.Concurrent           (MVar, ThreadId, forkIO,
                                                readMVar, swapMVar, takeMVar)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan (TChan, newTChan)
+import           Control.Concurrent.STM.TVar
 import           Control.Monad
-import           Control.Monad.STM            (atomically)
+import           Control.Monad.STM (atomically, STM(..))
 import           Data.Int
-import qualified Data.Map.Strict              as Map
+import qualified Data.Map.Strict as Map
+import           Data.HashMap.Lazy as HM
 import           Network.Socket
 
 
@@ -121,37 +124,10 @@ newtype NetworkHandle    = NetworkHandle {
 --     swapMVar (registry ah ) temp
 --     getRandomSequence2
 
+data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: STM (TVar (HashMap ConnectionId Connection))
+                                                 }
 
--- | TODO Called by TCP Server
--- handleNewIncomingConnection frameTChan = undefined
--- connectionhNADLER
+-- mkAriviNetworkInstance :: AriviNetworkInstance
+mkAriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar empty }
 
--- | TODO create connection and spawns FSM by passing connection
-initiateConnection ipAddress port nodeId transportType peerType = do
-                        -- create connection
-                        connectionId <-  makeConnectionId ipAddress port
-                                                          transportType
-
-                        let connection = Connection connectionId nodeId
-                                                    ipAddress port
-                                                    nodeId undefined
-                                                    transportType peerType
-                                                    undefined undefined
-                                                    undefined undefined
-                                                    undefined undefined
-                        -- pass to init fsm
-                        -- let serviceRequest = DataServiceRequest OPEN
-                        -- fsmHandle <- async (FSM.handleEvent connection FSM.Idle
-                        --             (FSM.InitHandshakeEvent serviceRequest))
-                        -- wait fsmHandle
-                        -- returns connection
-                        return connection
-
--- recvMessages :: ServiceContext -> IO PayLoad
--- recvMessages sc = undefined
-
--- sendMessage :: SessionId -> PayLoad -> IO ()
--- sendMessage ssid message = undefined
-
--- closeSession :: SessionId -> IO ()
--- closeSession ssid = undefined
+connectionMap = ariviNetworkConnectionMap

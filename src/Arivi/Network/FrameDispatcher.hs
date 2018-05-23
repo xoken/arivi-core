@@ -53,9 +53,9 @@ handleInboundConnection socket parcelTChan = do
         let port = getPortNumber socketName
         let transportType = getTransportType socket
 
-        connectionId <- NetworkConnection.makeConnectionId ipAddress
-                                                           port
-                                                           transportType
+        let connectionId = NetworkConnection.makeConnectionId ipAddress
+                                                                 port
+                                                                 transportType
 
         -- if Data.HashMap.Strict.member connectionId frameDispatchHashMap
         --     then

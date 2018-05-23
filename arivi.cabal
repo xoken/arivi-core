@@ -27,33 +27,34 @@ source-repository head
   location: https://github.com/xoken/arivi/
 
 library
-  build-depends:       base >=4.9 && <4.10
-                    ,  async
-                    ,  network
-                    ,  stm >= 2.4.4.1
-                    ,  bytestring
-                    ,  split
-                    ,  containers
-                    ,  uuid
-                    ,  monad-logger
-                    ,  text
+  build-depends:       async
+                    ,  base >=4.9 && <4.10
+                    ,  base16-bytestring
                     ,  binary >= 0.8.3.0
-                    ,  cryptonite >= 0.23
-                    ,  memory >= 0.14.11
-                    ,  raaz >= 0.1.1
-                    ,  base16-bytestring
-                    ,  unordered-containers <= 0.2.9.0
-                    ,  configurator >= 0.3.0.0
-                    ,  serialise
-                    ,  time
                     ,  bytes
-                    ,  base16-bytestring
+                    ,  bytestring
+                    ,  configurator >= 0.3.0.0
+                    ,  containers
                     ,  crypto-api
-                    ,  integer-gmp
-                    ,  monad-logger
-                    ,  random
+                    ,  cryptonite >= 0.23
+                    ,  fast-logger
                     ,  hashtables <= 1.2.6.1
+                    ,  integer-gmp
+                    ,  memory >= 0.14.11
+                    ,  monad-logger
+                    ,  mtl
+                    ,  network
+                    ,  raaz >= 0.1.1
+                    ,  random
+                    ,  serialise
+                    ,  split
+                    ,  stm >= 2.4.4.1
+                    ,  text
+                    ,  time
                     ,  timers-updatable <= 0.2.0.2
+                    ,  unordered-containers <= 0.2.9.0
+                    ,  uuid
+  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   hs-source-dirs:      src
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
@@ -81,7 +82,7 @@ library
                        Arivi.Network.Handshake
                        Arivi.Network.HandshakeUtils
                        Arivi.Network.HashMapManager
-                       -- Arivi.Network.Instance
+                       Arivi.Network.Instance
                        Arivi.Network.NetworkClient
                        Arivi.Network.OutboundDispatcher
                        Arivi.Network.Reassembler
@@ -91,8 +92,11 @@ library
                        Arivi.Network.Utils
                        -- Arivi.P2P.FSM
                        Arivi.P2P.PubSub
+                       Arivi.P2P.Instance
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.Utils.Utils
+                       Arivi.AppM
+                       Arivi.Env
 
   default-language:    Haskell2010

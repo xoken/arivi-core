@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+
 module Arivi.Network.Types
 (
     Event          (..),
@@ -178,8 +179,8 @@ data Header = HandshakeHeader {
 
 data Parcel = Parcel {
                 header           :: Header      -- ^ Header of the Parcel
-              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage`
-            }
+              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage
+              }
             deriving (Show,Eq,Generic)
 
 
@@ -260,7 +261,7 @@ data EncodingType =
 data TransportType =
                    UDP
                  | TCP
-                 deriving (Eq,Show,Generic)
+                 deriving (Eq,Show,Generic, Read)
 
 newtype Payload = Payload {getPayload :: BSL.ByteString}
                deriving (Show,Eq,Generic)
@@ -315,3 +316,4 @@ decodeSignature = do
         (2,0) ->  throwCryptoError . Crypto.PubKey.Ed25519.signature <$>
                     (decode :: Decoder s ByteString)
         _      -> fail "invalid Signature encoding"
+
