@@ -1,22 +1,22 @@
-
 module Arivi.Network.Instance
 (
 NetworkConfig (..),
 -- getAriviInstance ,
 -- runAriviInstance ,
 NetworkHandle (..),
-KI.Config (..)
+KI.Config (..),
+AriviNetworkInstance (..),
+connectionMap,
+mkAriviNetworkInstance
 ) where
 
-import qualified Arivi.Kademlia.Instance      as KI
-import qualified Arivi.Network.Connection     as NetworkConnection (Connection (..),
-                                                                    ParcelCipher,
-                                                                    makeConnectionId)
+import qualified Arivi.Kademlia.Instance as KI
+import           Arivi.Network.Connection     (Connection (..),
+                                               makeConnectionId)
 import           Arivi.Network.Datagram
 -- import qualified Arivi.Network.Multiplexer    as MP
-import qualified Arivi.Network.FSM            as FSM
+import qualified Arivi.Network.FSM as FSM
 import           Arivi.Network.NetworkClient
-import           Arivi.Network.Stream         (createSocket)
 import           Arivi.Network.Types
 import           Arivi.P2P.Types              (ServiceRequest (..),
                                                ServiceType (..))
@@ -26,12 +26,14 @@ import           Control.Concurrent           (MVar, ThreadId, forkIO,
                                                readMVar, swapMVar, takeMVar)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TChan (TChan, newTChan)
+import           Control.Concurrent.STM.TVar
 import           Control.Monad
-import           Control.Monad.STM            (atomically)
-import qualified Crypto.PubKey.Ed25519        as Signature (SecretKey)
+import           Control.Monad.STM (atomically, STM(..))
 import           Data.Int
-import qualified Data.Map.Strict              as Map
+import qualified Data.Map.Strict as Map
+import           Data.HashMap.Lazy as HM
 import           Network.Socket
+
 
 -- | Strcuture to hold the arivi configurations can also contain more
 --   parameters but for now just contain 3
@@ -53,14 +55,6 @@ newtype NetworkHandle    = NetworkHandle {
                     -- ,
                     -- registry     :: MVar MP.ServiceRegistry
             }
-
-data NetworkInstance = NetworkInstance {
-                      inboundTChan         :: TChan Socket
-                    , connectionTChan      :: TChan (Socket,TChan NetworkConnection.ParcelCipher)
-                    , datagramListenSocket :: (Socket,SockAddr)
-                    , streamListenSocket   :: (Socket,SockAddr)
-                    , secretKey            :: Signature.SecretKey
-                }
 
 -- getAriviInstance :: NetworkConfig -> IO NetworkHandle
 -- getAriviInstance ac = withSocketsDo $ do
@@ -130,75 +124,10 @@ data NetworkInstance = NetworkInstance {
 --     swapMVar (registry ah ) temp
 --     getRandomSequence2
 
+data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: STM (TVar (HashMap ConnectionId Connection))
+                                                 }
 
--- | TODO Called by TCP Server
--- handleNewIncomingConnection frameTChan = undefined
--- connectionhNADLER
+-- mkAriviNetworkInstance :: AriviNetworkInstance
+mkAriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar empty }
 
--- | TODO create connection and spawns FSM by passing connection
-initiateConnection ipAddress port nodeId transportType peerType = do
-            -- create connection
-            connectionId <-  NetworkConnection.makeConnectionId ipAddress port
-                                              transportType
-
-            let connection = NetworkConnection.Connection connectionId nodeId
-                                        ipAddress port
-                                        nodeId undefined
-                                        transportType peerType
-                                        undefined undefined
-                                        undefined undefined
-                                        undefined undefined
-            -- pass to init fsm
-            -- let serviceRequest = DataServiceRequest OPEN
-            -- fsmHandle <- async (FSM.handleEvent connection FSM.Idle
-            --             (FSM.InitHandshakeEvent serviceRequest))
-            -- wait fsmHandle
-            -- returns connection
-            return connection
-
--- recvMessages :: ServiceContext -> IO PayLoad
--- recvMessages sc = undefined
-
--- sendMessage :: SessionId -> PayLoad -> IO ()
--- sendMessage ssid message = undefined
-
--- closeSession :: SessionId -> IO ()
--- closeSession ssid = undefined
-
-
-getConnection ip port  transportType nodeId ariviInstance = do
-
-        connectionId <- NetworkConnection.makeConnectionId ip port transportType
-
-        parcelTChan <- atomically newTChan
-        serviceReqTChan <- atomically newTChan
-        outboundTChan <- atomically newTChan
-
-        socket <- createSocket ip port transportType
-
-        -- let connection = NetworkConnection.Connection
-        --                                connectionId undefined
-        --                                ipAddress port
-        --                                undefined undefined
-        --                                transportType undefined
-        --                                socket undefined
-        --                                serviceReqTChan parcelTChan
-        --                                outboundTChan undefined
-        --                                undefined
-
-        -- let connectionTChan =  connectionTChan ariviInstance
-        -- let secretKey = Signature.secretKey ariviInstance
-
-
-        -- atomically $ writeTChan serviceReqTChan
-        --                         (OpenConnectionServiceRequest OPEN secretKey)
-
-        -- atomically $ writeTChan connectionTChan (socket,parcelTChan)
-
-        -- fsmHandle <- async (FSM.initFSM connection)
-        -- wait fsmHandle
-
-        print ""
-
--- runAriviInstance
---         manageConnections
+connectionMap = ariviNetworkConnectionMap

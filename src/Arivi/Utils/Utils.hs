@@ -67,6 +67,7 @@ convertToSockAddr x  = (nodeId,fSockAddr)
           nodeId     = hexToPublicKey (C.pack (head addrString))
           fSockAddr  = SockAddrInet remotePort remoteIp
 
+getSockAddr :: HostAddress -> PortNumber -> SockAddr
 getSockAddr ip udpPort = SockAddrInet udpPort ip
 
 sockAddrToHostAddr :: SockAddr -> HostAddress

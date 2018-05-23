@@ -29,13 +29,15 @@ import           Network.Socket
 import qualified Network.Socket.ByteString as N (sendAll, recv, recvFrom)
 --import           System.Posix.Unistd -- for testing only
 
+import Control.Monad.IO.Class
+import Arivi.Env
 
 -- Functions for Server
 
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
-runTCPserver :: ServiceName -> IO ()
-runTCPserver port = withSocketsDo $ do
+runTCPserver :: (HasAriviNetworkInstance m) => ServiceName -> m ()
+runTCPserver port = liftIO $ withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
