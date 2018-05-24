@@ -1,43 +1,76 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Arivi.Logging
   ( LogStatement (..)
-  , withLogging
+  , withLoggingTH
+  , withChanLoggingTH
   , LogLevel (..)
+  , LogChan
+  , HasLogging (..)
   )
 where
 
-import Arivi.Env
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TQueue
 import Control.Exception as CE
-import Control.Monad.IO.Class
 import Control.Monad.Catch
-import Data.Text
+import Control.Monad.IO.Class
 import Control.Monad.Logger
-import System.CPUTime
 import Data.Monoid
+import Data.Text
+import Language.Haskell.TH
+import Language.Haskell.TH.Syntax
+import System.CPUTime
+
+type LogChan = TQueue (Loc, LogSource, LogLevel, Text)
 
 data LogStatement = LogNetworkStatement Text
 
-toText :: LogStatement -> Text
-toText (LogNetworkStatement l) = l
+class (MonadLogger m, MonadIO m, MonadThrow m, MonadCatch m) => HasLogging m where
+  getLoggerChan :: m LogChan
 
+toText :: LogStatement -> Text
+toText (LogNetworkStatement l) = "LogNetworkStatement " <> l
+
+withLoggingTH :: Q Exp
+withLoggingTH = [|withLocLogging $(qLocation >>= liftLoc) |]
+
+withChanLoggingTH :: Q Exp
+withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc) |]
+
+withLocLogging :: (HasLogging m) => Loc -> LogStatement -> LogLevel -> IO a -> m a
+withLocLogging loc ls ll = logToF (\a -> monadLoggerLog loc (pack "") ll a) (logOtherN ll) ls ll
 
 withLogging :: (HasLogging m) => LogStatement -> LogLevel -> IO a -> m a
-withLogging ls ll action = do
+withLogging = withLocLogging defaultLoc
+
+withChanLocLogging :: (HasLogging m) => Loc -> LogStatement -> LogLevel -> IO a -> m a
+withChanLocLogging loc ls ll action = do
+  logger <- getLoggerChan
+  let lifts t = liftIO $ atomically $ writeTQueue logger (loc, pack "", ll, t)
+  logToF lifts lifts ls ll action
+
+withChanLogging :: (HasLogging m) => LogStatement -> LogLevel -> IO a -> m a
+withChanLogging = withChanLocLogging defaultLoc
+
+logToF :: (MonadIO m, MonadThrow m) => (Text -> m ()) -> (Text -> m ()) -> LogStatement -> LogLevel -> IO a -> m a
+logToF lf rf ls ll action = do
   (time, result) <- liftIO $ timeIt action
   case result of
     Left (e :: SomeException) -> do
-      logErrorN "An exception has occurred"
+      lf "An exception has occurred"
       throwM e
     Right r -> do
-      logOtherN ll (toText ls <> " " <> (pack $ show time))
+      rf (toText ls <> " " <> pack (show time))
       return r
 
 timeIt :: (Exception e) => IO a -> IO (Double, Either e a)
 timeIt ioa = do
   t1 <- liftIO getCPUTime
-  a <- CE.try $ ioa
+  a <- CE.try ioa
   t2 <- liftIO getCPUTime
   let t :: Double
       t = fromIntegral (t2 - t1) * 1e-12

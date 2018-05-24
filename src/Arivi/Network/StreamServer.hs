@@ -1,4 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Arivi.Network.StreamServer
 (
     readSock
@@ -38,7 +40,7 @@ import Arivi.Logging
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
 runTCPserver :: (HasAriviNetworkInstance m, HasLogging m) => ServiceName -> m ()
-runTCPserver port = withLogging (LogNetworkStatement "Server started...") LevelInfo $ withSocketsDo $ do
+runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $ withSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
@@ -51,7 +53,6 @@ runTCPserver port = withLogging (LogNetworkStatement "Server started...") LevelI
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
-
 acceptIncomingSocket :: Socket -> IO void
 acceptIncomingSocket sock = forever $ do
         (socket, peer) <- accept sock

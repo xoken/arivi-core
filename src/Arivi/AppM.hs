@@ -1,22 +1,23 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Arivi.AppM where
 
 import           Arivi.Env
 
 import           Arivi.Crypto.Utils.Keys.Signature
+import           Arivi.Logging
 import           Arivi.Network.StreamServer
+import           Control.Concurrent.STM.TQueue
 import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Network.Socket
-
 ----
 import qualified Arivi.Network.Types as ANT
 import           Arivi.P2P.Instance
 ----
--- class HasLogger m where
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
@@ -30,6 +31,7 @@ instance HasSecretKey AppM where
   getSecretKey = (secretKey . ariviCryptoEnv) <$> getEnv
 
 instance HasLogging AppM where
+  getLoggerChan = loggerChan <$> getEnv
 
 
 runAppM :: AriviEnv -> AppM a -> LoggingT IO a
@@ -39,7 +41,8 @@ runAppM = flip runReaderT
 main :: IO ()
 main = do
   (sk, _) <- generateKeyPair
-  let env = mkAriviEnv {ariviCryptoEnv = CryptoEnv sk}
+  tq <- newTQueueIO :: IO LogChan
+  let env = mkAriviEnv {ariviCryptoEnv = CryptoEnv sk, loggerChan = tq}
   runStdoutLoggingT $ runAppM env $ (do
                                         runTCPserver (show (port env))
                                         ha <- liftIO $ inet_addr "127.0.0.1"

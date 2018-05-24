@@ -50,6 +50,7 @@ library
                     ,  serialise
                     ,  split
                     ,  stm >= 2.4.4.1
+                    ,  template-haskell
                     ,  text
                     ,  time
                     ,  timers-updatable <= 0.2.0.2
