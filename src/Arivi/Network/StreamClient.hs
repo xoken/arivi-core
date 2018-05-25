@@ -3,16 +3,17 @@ module Arivi.Network.StreamClient (
     sendFrame,
     createFrame
 ) where
-import           Arivi.Network.Types
+
+import           Arivi.Network.Types       (TransportType (..))
 import           Data.Binary
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Int                  (Int16)
 import           Network.Socket
 import qualified Network.Socket.ByteString as N (sendAll)
 
-getAddressType:: TransportType -> SocketType
-getAddressType  transportType = if transportType==TCP then
-                                Stream else Datagram
+getAddressType :: TransportType -> SocketType
+getAddressType TCP = Stream
+getAddressType UDP = Datagram
 
 -- | Eg: createSocket "127.0.0.1" 3000 TCP
 createSocket :: String -> Int -> TransportType -> IO Socket

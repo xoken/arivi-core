@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Arivi.Network.StreamServer
 (
@@ -7,33 +7,25 @@ module Arivi.Network.StreamServer
   , runTCPserver
 ) where
 
+import           Arivi.Env
+import           Arivi.Logging
 import           Arivi.Network.FrameDispatcher (handleInboundConnection)
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types (DeserialiseFailure, Parcel (..), deserialise, deserialiseOrFail)
-import           Control.Concurrent (forkFinally)
+import           Arivi.Network.Types           (DeserialiseFailure, Parcel (..),
+                                                deserialiseOrFail)
+import           Control.Concurrent            (forkFinally)
 import           Control.Concurrent.Async
-import           Control.Concurrent.STM        (STM, TChan, TMVar, atomically,
-                                                newTChan, newTMVar, readTChan,
-                                                readTMVar, writeTChan)
-import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM        (TChan, atomically, newTChan,
+                                                writeTChan)
 import           Control.Exception.Base
-import           Control.Monad (forever, void)
+import           Control.Monad                 (forever, void)
 import           Data.Binary
-import qualified Data.ByteString as BS
-import           Data.ByteString.Internal (unpackBytes)
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSLC
+import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Lazy          as BSL
+import qualified Data.ByteString.Lazy.Char8    as BSLC
 import           Data.Int
-import qualified Data.List.Split as S
-import           Data.Maybe (fromMaybe)
-import           Data.Word
 import           Network.Socket
-import qualified Network.Socket.ByteString as N (sendAll, recv, recvFrom)
---import           System.Posix.Unistd -- for testing only
-
-import Control.Monad.IO.Class
-import Arivi.Env
-import Arivi.Logging
+import qualified Network.Socket.ByteString     as N (recv)
 
 -- Functions for Server
 

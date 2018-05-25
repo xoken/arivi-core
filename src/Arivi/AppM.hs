@@ -5,10 +5,10 @@
 
 module Arivi.AppM where
 
-import           Arivi.Env
-
 import           Arivi.Crypto.Utils.Keys.Signature
+import           Arivi.Env
 import           Arivi.Logging
+import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.Logger
@@ -16,13 +16,11 @@ import           Control.Monad.Reader
 import           Network.Socket
 ----
 import qualified Arivi.Network.Types               as ANT
-import           Arivi.P2P.Instance
 ----
 import           Arivi.Network.Connection          (Connection (..),
                                                     ConnectionId)
 import           Arivi.Network.Datagram            (createUDPSocket)
-import qualified Data.HashTable.IO                 as MutableHashMap (CuckooHashTable,
-                                                                      new)
+import           Data.HashTable.IO                 as MutableHashMap (new)
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 

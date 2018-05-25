@@ -8,12 +8,12 @@ module Arivi.Network.Types
     Payload        (..),
     Parcel         (..),
     PersonalityType(..),
-    SessionId      (..),
+    SessionId,
     MessageId,
     EncryptionType (..),
     TransportType  (..),
     EncodingType   (..),
-    ContextID      (..),
+    ContextID,
     Version        (..),
     Socket,
     SockAddr,
@@ -24,7 +24,7 @@ module Arivi.Network.Types
     CipherText,
     NodeId,
     OutboundFragment,
-    ServiceId (..),
+    ServiceId,
     ConnectionId,
     Opcode(..),
     SequenceNum,
@@ -39,24 +39,23 @@ module Arivi.Network.Types
     serialise
 ) where
 
+import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-import           Crypto.Error
-import           Crypto.PubKey.Curve25519 (PublicKey, publicKey)
-import           Crypto.PubKey.Ed25519    (SecretKey, Signature, signature)
+import           Crypto.PubKey.Curve25519           as Curve25519 (PublicKey,
+                                                                   publicKey)
+import           Crypto.PubKey.Ed25519              as Ed25519 (SecretKey,
+                                                                Signature,
+                                                                signature)
 import           Data.ByteArray
-import qualified Data.ByteString
-import           Data.ByteString.Char8    (ByteString)
-import qualified Data.ByteString.Lazy     as BSL
-import           Data.Int                 (Int16, Int32, Int64, Int8)
-import qualified Data.Map.Strict          as Map
+import           Data.ByteString
+import qualified Data.ByteString.Lazy               as BSL
+import           Data.Int                           (Int16, Int32, Int8)
 import           Data.Monoid
-import           Data.UUID                (UUID)
-import qualified Data.Word
 import           GHC.Generics
-import           Network.Socket
+import           Network.Socket                     as Network
 
 type ConnectionId   = ByteString
 type SessionId      = Int32
@@ -66,7 +65,7 @@ type FragmentNumber = Int16
 -- type FragmentCount  = Int16
 type MessageId      = ByteString
 type ServiceId      = Int8
-type Descriptor     = Data.ByteString.Char8.ByteString
+type Descriptor     = ByteString
 type ContextID      = Int
 type ServiceContext = Int32
 type SerialisedMsg = BSL.ByteString
@@ -90,10 +89,10 @@ data Opcode = KEY_EXCHANGE_INIT
 
 -- | The different events in layer 1 that cause state change
 data Event =  InitHandshakeEvent
-                {payload::Payload, secretKey:: SecretKey}
+                {payload::Payload, secretKey:: Ed25519.SecretKey}
              | TerminateConnectionEvent {payload::Payload}
              | SendDataEvent {payload::Payload}
-             | KeyExchangeInitEvent {parcel::Parcel, secretKey:: SecretKey}
+             | KeyExchangeInitEvent {parcel::Parcel, secretKey:: Ed25519.SecretKey}
              | KeyExchangeRespEvent {parcel::Parcel}
              | ReceiveDataEvent {parcel::Parcel}
              | PINGDataEvent
@@ -114,7 +113,7 @@ data HandshakeInitMasked = HandshakeInitMessage {
 } deriving (Show, Eq, Generic)
 
 data HandshakeRespMasked = HandshakeRespMsg {
-    versionList    :: [Version]
+      versionList  :: [Version]
     , nonce        :: RecipientNonce
     , connectionId :: ConnectionId
 } deriving (Show, Eq, Generic)
@@ -286,7 +285,7 @@ instance Serialise PublicKey where
 encodePublicKey :: PublicKey -> Encoding
 encodePublicKey bytes = do
     let temp = convert bytes :: Data.ByteString.ByteString
-    encodeListLen 2 <> encodeWord 0 <> encode temp
+    encodeListLen 2 <> encodeWord 0 <> Codec.Serialise.Class.encode temp
 
 decodePublicKey :: Decoder s PublicKey
 decodePublicKey = do
@@ -303,16 +302,15 @@ instance Serialise Signature where
     encode = encodeSignature
     decode = decodeSignature
 
-encodeSignature :: Signature -> Encoding
 encodeSignature bytes = do
     let temp = convert bytes :: ByteString
-    encodeListLen 2 <> encodeWord 0 <> encode temp
+    encodeListLen 2 <> encodeWord 0 <> Codec.Serialise.Class.encode temp
 
 decodeSignature :: Decoder s Signature
 decodeSignature = do
     len <- decodeListLen
     tag <- decodeWord
     case (len,tag) of
-        (2,0) ->  throwCryptoError . Crypto.PubKey.Ed25519.signature <$>
+        (2,0) ->  throwCryptoError . Ed25519.signature <$>
                     (decode :: Decoder s ByteString)
         _      -> fail "invalid Signature encoding"

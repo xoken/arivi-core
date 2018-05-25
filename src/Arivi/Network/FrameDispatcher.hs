@@ -16,22 +16,11 @@ module Arivi.Network.FrameDispatcher
    , handleInboundConnection
 ) where
 
-import qualified Arivi.Network.Connection as NetworkConnection (Connection (..),
-                                                                makeConnectionId)
-import qualified Arivi.Network.FSM        as FSM (State (Idle), handleEvent,
-                                                  initFSM)
--- import           Arivi.Network.StreamServer (readSock)
+import           Arivi.Network.Connection as NetworkConnection
+import qualified Arivi.Network.FSM        as FSM (initFSM)
 import           Arivi.Network.Types
-import           Arivi.P2P.Types          (ServiceRequest (..),
-                                           ServiceType (..))
 import           Control.Concurrent.Async (async, wait)
-import           Control.Concurrent.STM   (TChan, atomically, newTChan,
-                                           readTChan, writeTChan)
-import           Control.Monad            (forever)
-import           Data.ByteString.Char8    (ByteString)
-import           Data.HashMap.Strict      (HashMap, delete, empty, insert,
-                                           lookup, member)
-import           Data.Maybe
+import           Control.Concurrent.STM   (atomically, newTChan, writeTChan)
 import           Network.Socket
 
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
@@ -104,16 +93,13 @@ handleInboundConnection socket parcelTChan = do
 
 -- | Given `SockAddr` retrieves `HostAddress`
 getIPAddress :: SockAddr -> HostAddress
-getIPAddress (SockAddrInet portNumber hostAddress) = hostAddress
+getIPAddress (SockAddrInet _ hostAddress) = hostAddress
 
 -- | Given `SockAddr` retrieves `PortNumber`
 getPortNumber :: SockAddr -> PortNumber
-getPortNumber (SockAddrInet portNumber hostAddress) = portNumber
+getPortNumber (SockAddrInet portNumber _) = portNumber
 
 -- | Given `Socket` retrieves `TransportType`
 getTransportType :: Socket -> TransportType
-getTransportType (MkSocket _ _ transportType _ _) = if transportType == Stream
-                                                      then
-                                                        TCP
-                                                    else
-                                                        UDP
+getTransportType (MkSocket _ _ Stream _ _) = TCP
+getTransportType _                         = UDP

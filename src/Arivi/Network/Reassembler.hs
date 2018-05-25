@@ -22,7 +22,7 @@ import           Control.Concurrent.STM (TChan, atomically, readTChan,
 import qualified Data.ByteString.Lazy   as Lazy (ByteString, concat)
 import qualified Data.HashMap.Strict    as StrictHashMap (HashMap, delete,
                                                           insert, lookup)
-import           Data.Maybe             (Maybe, fromJust)
+import           Data.Maybe             (fromJust)
 
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the

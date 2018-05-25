@@ -4,7 +4,7 @@ module Arivi.Network.Fragmenter
 ) where
 
 import           Arivi.Crypto.Utils.Random
-import qualified Arivi.Network.Connection  as Conn
+import           Arivi.Network.Connection  as Conn (Connection (..))
 import           Arivi.Network.Types       (FragmentNumber, MessageId,
                                             Payload (..))
 import           Control.Concurrent.STM    (atomically, writeTChan)

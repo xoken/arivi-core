@@ -2,12 +2,15 @@ module Arivi.Env where
 
 import           Arivi.Logging
 import           Arivi.Network.Connection
-import           Arivi.Network.Instance
+import           Arivi.Network.Types
+import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue
+import           Control.Concurrent.STM.TVar
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import qualified Crypto.PubKey.Ed25519         as Ed25519
+import           Data.HashMap.Strict           as HM
 import qualified Data.HashTable.IO             as Mutable (CuckooHashTable)
 import           Data.Text
 import           Network.Socket                as Network
@@ -48,3 +51,11 @@ mkAriviEnv :: AriviEnv
 mkAriviEnv = AriviEnv { ariviNetworkInstance = mkAriviNetworkInstance
                       , envPort = 8080
                       }
+
+data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: STM (TVar (HashMap ConnectionId Connection))
+                                                 }
+
+mkAriviNetworkInstance :: AriviNetworkInstance
+mkAriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar HM.empty }
+
+connectionMap = ariviNetworkConnectionMap

@@ -5,7 +5,7 @@ module Arivi.Network.Handshake
     receiveHandshakeResponse
 ) where
 
-import qualified Arivi.Network.Connection     as Conn
+import           Arivi.Network.Connection     as Conn (Connection (..))
 import           Arivi.Network.HandshakeUtils
 import           Arivi.Network.Types          (ConnectionId,
                                                HandshakeInitMasked (..),
@@ -14,8 +14,6 @@ import           Arivi.Network.Types          (ConnectionId,
                                                Version (..))
 import           Codec.Serialise
 import qualified Crypto.PubKey.Ed25519        as Ed25519
-import           Data.ByteArray
-import           Data.ByteString.Char8        as B
 import qualified Data.ByteString.Lazy         as L
 
 

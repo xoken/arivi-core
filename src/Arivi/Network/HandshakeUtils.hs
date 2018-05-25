@@ -15,7 +15,7 @@ import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Crypto.Utils.Random
-import qualified Arivi.Network.Connection                as Conn
+import           Arivi.Network.Connection                as Conn (Connection (..))
 import           Arivi.Network.Types                     (HandshakeInitMasked (..),
                                                           HandshakeRespMasked (..),
                                                           Header (..), NodeId,

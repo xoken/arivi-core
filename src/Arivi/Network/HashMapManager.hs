@@ -23,7 +23,8 @@ module Arivi.Network.HashMapManager
 ) where
 
 
-import           Arivi.Network.Connection (Connection (..), ConnectionId)
+import           Arivi.Network.Connection (Connection (..))
+import           Arivi.Network.Types      (ConnectionId)
 import           Control.Concurrent.STM   (TChan, atomically, newTChan,
                                            readTChan)
 import           Control.Monad            (forever)
