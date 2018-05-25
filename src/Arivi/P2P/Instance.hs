@@ -38,7 +38,7 @@ import GHC.Generics
 import Network.Socket
 import Arivi.Env
 
-openConnection :: (HasAriviNetworkInstance m) => HostAddress -> PortNumber -> TransportType -> NodeId -> PeerType -> m ANT.ConnectionId
+openConnection :: (HasAriviNetworkInstance m) => HostAddress -> PortNumber -> TransportType -> NodeId -> PersonalityType -> m ANT.ConnectionId
 openConnection addr port tt rnid pType = do
   ariviInstance <- getAriviNetworkInstance
   tv <- liftIO $ atomically $ connectionMap ariviInstance
@@ -47,7 +47,7 @@ openConnection addr port tt rnid pType = do
   outboundChan <- liftIO $ (newTChanIO :: IO (TChan OutboundFragment))
   reassemblyChan <- liftIO $ (newTChanIO :: IO (TChan Parcel))
   let cId = makeConnectionId addr port tt
-      connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, peerType = pType, socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan}
+      connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan}
   liftIO $ atomically $  modifyTVar tv (HM.insert cId connection)
   liftIO $ withAsync (initFSM connection) (\_ -> atomically $ modifyTVar tv (HM.delete cId))
   return cId

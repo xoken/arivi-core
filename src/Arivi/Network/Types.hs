@@ -7,7 +7,7 @@ module Arivi.Network.Types
     Header         (..),
     Payload        (..),
     Parcel         (..),
-    PeerType (..),
+    PersonalityType(..),
     SessionId      (..),
     MessageId,
     EncryptionType (..),
@@ -236,7 +236,7 @@ makeDataParcel = Parcel
 
 type OutboundFragment = (MessageId, FragmentNumber, FragmentNumber, Payload)
 
-data PeerType = INITIATOR | RECIPIENT
+data PersonalityType = INITIATOR | RECIPIENT
                 deriving (Eq)
 
 data Version

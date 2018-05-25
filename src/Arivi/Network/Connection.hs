@@ -26,7 +26,8 @@ import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Network.Types                (ConnectionId, Event (..),
                                                      NodeId, OutboundFragment,
-                                                     Parcel (..), PeerType (..),
+                                                     Parcel (..),
+                                                     PersonalityType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
 import           Arivi.P2P.Types                    (ServiceRequest (..))
@@ -39,6 +40,8 @@ import           Data.HashMap.Strict                (HashMap, delete, empty,
                                                      insert, member)
 import qualified Network.Socket                     as Network (HostAddress,
                                                                 Socket)
+import           Control.Concurrent
+import           Control.Monad.Logger
 
 
 
@@ -57,7 +60,7 @@ data Connection = Connection {
                         , ephemeralPubKey       :: Curve25519.PublicKey
                         , ephemeralPrivKey      :: Ed25519.SecretKey
                         , transportType         :: TransportType
-                        , peerType              :: PeerType
+                        , personalityType       :: PersonalityType
                         , socket                :: Network.Socket
                         , sharedSecret          :: Keys.SharedSecret
                         , eventTChan            :: TChan Event
@@ -65,6 +68,8 @@ data Connection = Connection {
                         , reassemblyTChan       :: TChan Parcel
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
+                        -- , logChan               :: Chan (Loc, LogSource,
+                        --                                  LogLevel, LogStr)
                         -- , timer                 :: Updatable
                         } deriving (Eq)
 
@@ -116,7 +121,7 @@ createConnection :: NodeId
                  -> Curve25519.PublicKey
                  -> Ed25519.SecretKey
                  -> TransportType
-                 -> PeerType
+                 -> PersonalityType
                  -> Network.Socket
                  -> Keys.SharedSecret
                  -> TChan Event
@@ -127,7 +132,7 @@ createConnection :: NodeId
                  -> HashMap ConnectionId Connection
                  -> IO (ConnectionId,HashMap ConnectionId Connection)
 createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
-                transportType  peerType socket sharedSecret eventTChan
+                transportType personalityType socket sharedSecret eventTChan
                 outboundFragmentTChan reassemblyTChan egressSeqNum ingressSeqNum
                                                          connectionHashmap =
 
@@ -139,7 +144,7 @@ createConnection nodeId ipAddress port ephemeralPubKey ephemeralPrivKey
                                  (Connection uniqueConnectionId nodeId
                                          ipAddress port ephemeralPubKey
                                          ephemeralPrivKey
-                                         transportType peerType socket
+                                         transportType personalityType socket
                                          sharedSecret eventTChan
                                          outboundFragmentTChan reassemblyTChan
                                          egressSeqNum ingressSeqNum)
