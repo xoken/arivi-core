@@ -15,6 +15,7 @@ import           Control.Concurrent.STM             (TChan, atomically,
                                                      writeTChan)
 import qualified Data.Binary                        as Binary (decode, encode)
 import qualified Data.ByteString.Char8              as B (ByteString, empty)
+import           Data.ByteString.Lazy               as L
 
 -- | Take a bytestring, convert to Int, increment it and convert back to Bytestring
 incrementAeadNonce :: B.ByteString -> B.ByteString
@@ -36,7 +37,7 @@ outboundFrameDispatcher outboundTChan conn aeadnonce replayNonce = do
     -- Generate header
     let headerData = DataHeader msgId fragmentNum fragmentCount (Conn.connectionId conn) replayNonce
     -- Generate encrypted payload
-    let encryptedData = encryptMsg aeadnonce (sharedSecret conn) headerData (lazyToStrict $ getPayload fragment)
+    let encryptedData = encryptMsg aeadnonce (sharedSecret conn) (L.toStrict $ serialise headerData) (lazyToStrict $ getPayload fragment)
     -- Create parcel
     let parcel = Parcel headerData (Payload $ strictToLazy encryptedData)
     -- Create frame

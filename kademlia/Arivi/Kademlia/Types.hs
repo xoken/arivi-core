@@ -24,8 +24,8 @@ module Arivi.Kademlia.Types
    , deserialise
   ) where
 
-import           Arivi.Utils.Utils         (sockAddrToHostAddr,
-                                            sockAddrToPortNumber)
+import           Arivi.Kademlia.Utils         (sockAddrToHostAddr,
+                                                    sockAddrToPortNumber)
 import           Codec.Serialise           (deserialise, serialise)
 import           Codec.Serialise.Class     (Serialise (..))
 import           Codec.Serialise.Decoding

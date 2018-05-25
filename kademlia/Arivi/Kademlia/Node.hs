@@ -17,7 +17,7 @@ import qualified Arivi.Kademlia.Query         as Q
 import           Arivi.Kademlia.Signature
 import qualified Arivi.Kademlia.Types         as T
 import           Arivi.Kademlia.XorDistance
-import           Arivi.Utils.Utils
+import           Arivi.Kademlia.Utils
 import           Control.Concurrent.STM.TChan (TChan, isEmptyTChan, readTChan,
                                                writeTChan)
 import           Control.Monad                (forever, mapM_, replicateM)
