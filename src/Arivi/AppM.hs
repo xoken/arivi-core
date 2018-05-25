@@ -18,6 +18,7 @@ import           Network.Socket
 import qualified Arivi.Network.Types as ANT
 import           Arivi.P2P.Instance
 ----
+import           Arivi.Network.Datagram (createUDPSocket)
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
@@ -33,16 +34,21 @@ instance HasSecretKey AppM where
 instance HasLogging AppM where
   getLoggerChan = loggerChan <$> getEnv
 
+instance HasUDPSocket AppM where
+  getUDPSocket = udpSocket <$> getEnv
 
 runAppM :: AriviEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
+
+
 
 
 main :: IO ()
 main = do
   (sk, _) <- generateKeyPair
   tq <- newTQueueIO :: IO LogChan
-  let env = mkAriviEnv {ariviCryptoEnv = CryptoEnv sk, loggerChan = tq}
+  sock <- createUDPSocket "127.0.0.1" (port mkAriviEnv)
+  let env = mkAriviEnv {ariviCryptoEnv = CryptoEnv sk, loggerChan = tq,udpSocket = sock}
   runStdoutLoggingT $ runAppM env $ (do
                                         runTCPserver (show (port env))
                                         ha <- liftIO $ inet_addr "127.0.0.1"
