@@ -1,20 +1,30 @@
 module Arivi.Env where
 
 import           Arivi.Logging
+import           Arivi.Network.Connection
 import           Arivi.Network.Instance
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
-import qualified Crypto.PubKey.Ed25519 as Ed25519
+import qualified Crypto.PubKey.Ed25519         as Ed25519
+import qualified Data.HashTable.IO             as Mutable (CuckooHashTable)
 import           Data.Text
-import  Network.Socket as Network
+import           Network.Socket                as Network
+
+type HashTable k v = Mutable.CuckooHashTable k v
 
 data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
                          , ariviCryptoEnv :: CryptoEnv
                          , loggerChan :: LogChan
-                         , port :: Int                   -- ^ 1) TCP an UDP bind port for new connections
-                         , udpSocket ::  Network.Socket  -- ^ UDP server and client Socket for ALL connections
+                         , envPort :: Int                -- ^ TCP an UDP bind
+                                                         --   port for new
+                                                         --   connections
+                         , udpSocket ::  Network.Socket  -- ^ UDP server and
+                                                         --   client Socket for
+                                                         --   ALL connections
+                         , udpConnectionHashMap :: HashTable ConnectionId
+                                                                    Connection
                          }
 
 data CryptoEnv = CryptoEnv { secretKey :: Ed25519.SecretKey
@@ -36,5 +46,5 @@ class (HasEnv m) => HasUDPSocket m where
 
 mkAriviEnv :: AriviEnv
 mkAriviEnv = AriviEnv { ariviNetworkInstance = mkAriviNetworkInstance
-                      , port = 8080
+                      , envPort = 8080
                       }
