@@ -31,7 +31,7 @@ instance HasAriviNetworkInstance AppM where
   getAriviNetworkInstance = ariviNetworkInstance <$> getEnv
 
 instance HasSecretKey AppM where
-  getSecretKey = (secretKey . ariviCryptoEnv) <$> getEnv
+  getSecretKey = secretKey . ariviCryptoEnv <$> getEnv
 
 instance HasLogging AppM where
   getLoggerChan = loggerChan <$> getEnv
