@@ -20,7 +20,6 @@ import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
 import           Arivi.Crypto.Utils.Random
-import qualified Arivi.Network.Types                     as Types (Header (..))
 import           Codec.Serialise
 import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error                            (CryptoFailable,
@@ -33,7 +32,6 @@ import           Data.ByteString.Char8                   (ByteString, concat,
                                                           length, splitAt,
                                                           unpack)
 
-import           Arivi.Network.Utils
 -- | Wrapper function for getting the signature public key, given private key
 getSignaturePublicKey :: Ed25519.SecretKey -> Ed25519.PublicKey
 getSignaturePublicKey = Signature.getPublicKey
@@ -95,14 +93,11 @@ generateNodeId signsk = Data.ByteString.Char8.concat [signingPK, encryptionPK] w
     encryptionPK = Encryption.toByteString (getEncryptionPublicKey (getEncryptionSecretKey signsk))
 
 -- | Simple wrapper over chacha encryption
-encryptMsg :: ByteString -> SharedSecret -> Types.Header -> ByteString -> ByteString
-encryptMsg aeadnonce ssk header msg = throwCryptoError $ chachaEncrypt aeadnonce sskBS headerBs msg where
+encryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString
+encryptMsg aeadnonce ssk headerBs msg = throwCryptoError $ chachaEncrypt aeadnonce sskBS headerBs msg where
         sskBS = Encryption.sharedSecretToByteString ssk
-        headerBs = lazyToStrict $ serialise header
 
 -- | Simple wrapper over chacha decryption
-decryptMsg :: ByteString -> SharedSecret -> Types.Header -> ByteString -> ByteString -> ByteString
-decryptMsg aeadnonce ssk header tag ct = throwCryptoError $ chachaDecrypt aeadnonce sskBS headerBs tag ct where
+decryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString -> ByteString
+decryptMsg aeadnonce ssk headerBs tag ct = throwCryptoError $ chachaDecrypt aeadnonce sskBS headerBs tag ct where
         sskBS = Encryption.sharedSecretToByteString ssk
-        headerBs = lazyToStrict $ serialise header
-

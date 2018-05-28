@@ -8,7 +8,7 @@ getAvailablePeer
  ) where
 
 import qualified Arivi.Kademlia.Types         as T
-import           Arivi.Utils.Utils
+import           Arivi.Kademlia.Utils
 import           Control.Concurrent           (Chan, ThreadId, forkIO,
                                                isEmptyChan, newChan,
                                                newEmptyMVar, putMVar, readChan,

@@ -87,7 +87,7 @@ generateParcel msg conn = do
     aeadnonce <- generateAeadNonce
     let headerData = HandshakeHeader (Conn.ephemeralPubKey conn) aeadnonce
     let ssk = Conn.sharedSecret conn
-    let ctWithMac = encryptMsg aeadnonce ssk headerData (lazyToStrict msg)
+    let ctWithMac = encryptMsg aeadnonce ssk (L.toStrict $ serialise headerData) (lazyToStrict msg)
     return (headerData, ctWithMac)
 
 generateInitParcel :: SerialisedMsg -> Conn.Connection -> IO Parcel
