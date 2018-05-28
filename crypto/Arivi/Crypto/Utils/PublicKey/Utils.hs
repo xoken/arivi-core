@@ -17,13 +17,16 @@ module Arivi.Crypto.Utils.PublicKey.Utils
 ) where
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305
+import           Arivi.Crypto.Types                      (CryptoException (..))
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
 import           Arivi.Crypto.Utils.Random
 import           Codec.Serialise
+import           Control.Exception                       (throw, try)
 import           Crypto.ECC                              (SharedSecret)
-import           Crypto.Error                            (CryptoFailable,
-                                                          throwCryptoError)
+import           Crypto.Error                            (CryptoError (..),
+                                                          CryptoFailable,
+                                                          eitherCryptoError)
 import           Crypto.Hash                             (Digest, SHA256, hash)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
@@ -38,10 +41,13 @@ getSignaturePublicKey = Signature.getPublicKey
 
 -- | Function for getting signature pk from nodeId
 getSignaturePublicKeyFromNodeId :: ByteString -> Ed25519.PublicKey
-getSignaturePublicKeyFromNodeId nodeId = throwCryptoError pk where
+getSignaturePublicKeyFromNodeId nodeId = pk where
     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
     pkBs = fst pkPair
-    pk = Ed25519.publicKey pkBs
+    pkOrFail = eitherCryptoError $ Ed25519.publicKey pkBs
+    pk = case pkOrFail of
+            Left e       -> throw $ CryptoException e -- do something with e
+            Right pubkey -> pubkey
 
 -- | Wrapper function for signing a message given just the sk and msg
 signMsg :: Ed25519.SecretKey -> ByteString -> Ed25519.Signature
@@ -66,10 +72,13 @@ getEncryptionPubKeyFromSigningSecretKey = getEncryptionPublicKey . getEncryption
 
 -- | Function for getting encryption pk from nodeId
 getEncryptionPublicKeyFromNodeId :: ByteString -> Curve25519.PublicKey
-getEncryptionPublicKeyFromNodeId nodeId = throwCryptoError pk where
+getEncryptionPublicKeyFromNodeId nodeId = pk where
     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
     pkBs = snd pkPair
-    pk = Curve25519.publicKey pkBs
+    pkOrFail = eitherCryptoError $ Curve25519.publicKey pkBs
+    pk = case pkOrFail of
+            Left e       -> throw $ CryptoException e
+            Right pubkey -> pubkey
 
 -- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
 createSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
@@ -84,7 +93,11 @@ deriveSharedSecretKey remotePubKey signSK = Encryption.derivedSharedSecretKey re
 
 
 generateSigningKeyPair :: IO (Ed25519.SecretKey, Ed25519.PublicKey)
-generateSigningKeyPair = Signature.generateKeyPair
+generateSigningKeyPair = do
+    res <- try Signature.generateKeyPair :: IO (Either CryptoError (Ed25519.SecretKey, Ed25519.PublicKey))
+    case res of
+        Left ex       -> throw $ CryptoException ex -- Make use of ex
+        Right (sk,pk) -> return (sk, pk)
 
 
 generateNodeId :: Ed25519.SecretKey -> ByteString
@@ -94,10 +107,18 @@ generateNodeId signsk = Data.ByteString.Char8.concat [signingPK, encryptionPK] w
 
 -- | Simple wrapper over chacha encryption
 encryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString
-encryptMsg aeadnonce ssk headerBs msg = throwCryptoError $ chachaEncrypt aeadnonce sskBS headerBs msg where
+encryptMsg aeadnonce ssk header msg = ciphertext where
         sskBS = Encryption.sharedSecretToByteString ssk
+        errOrEncrypted = eitherCryptoError $ chachaEncrypt aeadnonce sskBS header msg
+        ciphertext = case errOrEncrypted of
+                Left e   -> throw $ CryptoException e
+                Right ct -> ct
 
 -- | Simple wrapper over chacha decryption
 decryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString -> ByteString
-decryptMsg aeadnonce ssk headerBs tag ct = throwCryptoError $ chachaDecrypt aeadnonce sskBS headerBs tag ct where
+decryptMsg aeadnonce ssk header tag ct = plaintext where
         sskBS = Encryption.sharedSecretToByteString ssk
+        errOrDecrypted = eitherCryptoError $ chachaDecrypt aeadnonce sskBS header tag ct
+        plaintext = case errOrDecrypted of
+                        Left e   -> throw $ CryptoException e
+                        Right pt -> pt
