@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Arivi.AppM where
+module Arivi.AppM (module Arivi.AppM) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Env
@@ -52,17 +52,17 @@ main = do
 
   sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
 
-  mutableConnectionHashMap <- (MutableHashMap.new
-                                    :: IO (HashTable ConnectionId Connection))
+  mutableConnectionHashMap <- MutableHashMap.new
+                                    :: IO (HashTable ConnectionId Connection)
 
   let env = mkAriviEnv {  ariviCryptoEnv = CryptoEnv sk
                         , loggerChan = tq
                         , udpSocket = sock
                         , udpConnectionHashMap = mutableConnectionHashMap}
 
-  runStdoutLoggingT $ runAppM env $ (do
-                                        runTCPserver (show (envPort env))
-                                        ha <- liftIO $ inet_addr "127.0.0.1"
-                                        cid <- openConnection ha 5000 ANT.TCP "1" ANT.INITIATOR
-                                        liftIO $ print cid
-                                    )
+  runStdoutLoggingT $ runAppM env (do
+                                       runTCPserver (show (envPort env))
+                                       ha <- liftIO $ inet_addr "127.0.0.1"
+                                       cid <- openConnection ha 5000 ANT.TCP "1" ANT.INITIATOR
+                                       liftIO $ print cid
+                                   )

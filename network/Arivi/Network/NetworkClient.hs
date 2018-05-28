@@ -4,21 +4,10 @@ module Arivi.Network.NetworkClient
     streamClient
 ) where
 
-import           Control.Concurrent        (ThreadId, forkIO, newEmptyMVar,
-                                            putMVar, takeMVar)
-import           Control.Concurrent.MVar
-import           Control.Concurrent.STM    (TChan, TMVar, atomically, newTChan,
-                                            newTMVar, readTChan, readTMVar,
-                                            writeTChan)
-import           Control.Monad             (forever)
-import qualified Data.ByteString.Char8     as C
-import qualified Data.List.Split           as S
-import qualified Data.Map.Strict           as Map
-import           Data.Maybe                (fromMaybe)
-import           Data.Word
+import           Control.Concurrent     (ThreadId)
+import           Control.Concurrent.STM (TChan)
+import qualified Data.ByteString.Char8  as C
 import           Network.Socket
-import qualified Network.Socket.ByteString as N (recvFrom, sendTo)
-
 
 datagramClient :: TChan (C.ByteString,SockAddr)
               -> (Socket,SockAddr)

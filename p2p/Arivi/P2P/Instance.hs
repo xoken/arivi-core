@@ -9,4 +9,4 @@
 -- PubSub is module for Publish Subscribe architecture of Arivi P2P Layer
 --
 
-module Arivi.P2P.Instance where
+module Arivi.P2P.Instance (module Arivi.P2P.Instance) where

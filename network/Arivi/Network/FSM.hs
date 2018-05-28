@@ -186,7 +186,7 @@ handleEvent connection SecureTransportEstablished
                             (SendDataEvent payload) =
         do
             -- Spawn a new thread for processing the payload
-            async (processPayload payload connection)
+            _ <- async (processPayload payload connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
             handleNextEvent connection
 

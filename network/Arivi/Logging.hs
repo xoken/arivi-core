@@ -1,7 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 module Arivi.Logging
   ( LogStatement (..)
@@ -13,17 +13,16 @@ module Arivi.Logging
   )
 where
 
-import Control.Concurrent.STM
-import Control.Concurrent.STM.TQueue
-import Control.Exception as CE
-import Control.Monad.Catch
-import Control.Monad.IO.Class
-import Control.Monad.Logger
-import Data.Monoid
-import Data.Text
-import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
-import System.CPUTime
+import           Control.Concurrent.STM
+import           Control.Exception          as CE
+import           Control.Monad.Catch
+import           Control.Monad.IO.Class
+import           Control.Monad.Logger
+import           Data.Monoid
+import           Data.Text
+import           Language.Haskell.TH
+import           Language.Haskell.TH.Syntax
+import           System.CPUTime
 
 type LogChan = TQueue (Loc, LogSource, LogLevel, Text)
 
@@ -42,7 +41,7 @@ withChanLoggingTH :: Q Exp
 withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc) |]
 
 withLocLogging :: (HasLogging m) => Loc -> LogStatement -> LogLevel -> IO a -> m a
-withLocLogging loc ls ll = logToF (\a -> monadLoggerLog loc (pack "") ll a) (logOtherN ll) ls ll
+withLocLogging loc ls ll = logToF (monadLoggerLog loc (pack "") ll) (logOtherN ll) ls ll
 
 withLogging :: (HasLogging m) => LogStatement -> LogLevel -> IO a -> m a
 withLogging = withLocLogging defaultLoc

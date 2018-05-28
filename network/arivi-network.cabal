@@ -33,19 +33,14 @@ library
                     ,  binary >= 0.8.3.0
                     ,  bytes
                     ,  bytestring
-                    ,  configurator >= 0.3.0.0
                     ,  containers
-                    ,  crypto-api
                     ,  cryptonite >= 0.23
                     ,  exceptions
-                    ,  fast-logger
                     ,  hashtables <= 1.2.6.1
-                    ,  integer-gmp
                     ,  memory >= 0.14.11
                     ,  monad-logger
                     ,  mtl
                     ,  network
-                    ,  raaz >= 0.1.1
                     ,  random
                     ,  serialise
                     ,  split

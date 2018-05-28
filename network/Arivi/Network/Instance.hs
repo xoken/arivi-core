@@ -29,6 +29,7 @@ import           Control.Monad.Reader
 import           Control.Monad.STM            (atomically)
 import           Data.ByteString.Lazy
 import           Data.HashMap.Strict          as HM
+import           Data.Maybe                   (fromMaybe)
 import           Network.Socket
 
 
@@ -56,10 +57,10 @@ openConnection :: (HasAriviNetworkInstance m) => HostAddress -> PortNumber -> Tr
 openConnection addr port tt rnid pType = do
   ariviInstance <- getAriviNetworkInstance
   tv <- liftIO $ atomically $ connectionMap ariviInstance
-  eventChan <- liftIO $ (newTChanIO :: IO (TChan Event))
+  eventChan <- liftIO (newTChanIO :: IO (TChan Event))
   socket <- liftIO $ createSocket (show addr) (read (show port)) tt
-  outboundChan <- liftIO $ (newTChanIO :: IO (TChan OutboundFragment))
-  reassemblyChan <- liftIO $ (newTChanIO :: IO (TChan Parcel))
+  outboundChan <- liftIO (newTChanIO :: IO (TChan OutboundFragment))
+  reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
   let cId = makeConnectionId addr port tt
       connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan}
   liftIO $ atomically $  modifyTVar tv (HM.insert cId connection)
@@ -68,20 +69,18 @@ openConnection addr port tt rnid pType = do
 
 sendMessage :: (HasAriviNetworkInstance m) => ANT.ConnectionId -> ByteString -> m ()
 sendMessage cId msg = do
-  ariviInstance <- getAriviNetworkInstance
-  tv <- liftIO $ atomically $ connectionMap ariviInstance
-  hmap <- liftIO $ readTVarIO tv
-  let conn = case (HM.lookup cId hmap) of
-        Just c -> c
-        Nothing -> error "Something terrible happened! You have been warned not to enter the forbidden lands"
+  conn <- lookupCId cId
   liftIO $ atomically $ writeTChan (eventTChan conn) (SendDataEvent (Payload msg))
 
 closeConnection :: (HasAriviNetworkInstance m) => ANT.ConnectionId -> m ()
 closeConnection cId = do
   ariviInstance <- getAriviNetworkInstance
   tv <- liftIO $ atomically $ connectionMap ariviInstance
-  hmap <- liftIO $ readTVarIO tv
-  let conn = case (HM.lookup cId hmap) of
-        Just c -> c
-        Nothing -> error "Something terrible happened! You have been warned not to enter the forbidden lands"
   liftIO $ atomically $ modifyTVar tv (HM.delete cId)
+
+lookupCId :: (HasAriviNetworkInstance m) => ANT.ConnectionId -> m Connection
+lookupCId cId = do
+  ariviInstance <- getAriviNetworkInstance
+  tv <- liftIO $ atomically $ connectionMap ariviInstance
+  hmap <- liftIO $ readTVarIO tv
+  return $ fromMaybe (error "Something terrible happened! You have been warned not to enter the forbidden lands") (HM.lookup cId hmap)

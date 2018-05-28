@@ -25,8 +25,7 @@ module Arivi.Network.HashMapManager
 
 import           Arivi.Network.Connection (Connection (..))
 import           Arivi.Network.Types      (ConnectionId)
-import           Control.Concurrent.STM   (TChan, atomically, newTChan,
-                                           readTChan)
+import           Control.Concurrent.STM   (atomically, newTChan, readTChan)
 import           Control.Monad            (forever)
 import           Data.HashTable.IO        (CuckooHashTable, delete, insert, new)
 
@@ -97,3 +96,5 @@ runHashMapManager = do
                  Insert -> do
                            let connection = mConnection operationRequest
                            addConnection connection connectionHashMap
+                 Update -> undefined
+                 Query  -> undefined

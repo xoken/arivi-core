@@ -94,10 +94,12 @@ handleInboundConnection socket parcelTChan = do
 -- | Given `SockAddr` retrieves `HostAddress`
 getIPAddress :: SockAddr -> HostAddress
 getIPAddress (SockAddrInet _ hostAddress) = hostAddress
+getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
 
 -- | Given `SockAddr` retrieves `PortNumber`
 getPortNumber :: SockAddr -> PortNumber
 getPortNumber (SockAddrInet portNumber _) = portNumber
+getPortNumber _                           = error "getPortNumber: SockAddr is not of constructor SockAddrInet "
 
 -- | Given `Socket` retrieves `TransportType`
 getTransportType :: Socket -> TransportType
