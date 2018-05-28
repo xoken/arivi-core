@@ -25,15 +25,11 @@ import           Arivi.Network.Types                (ConnectionId, Event (..),
                                                      PersonalityType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
-import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import           Control.Monad.Logger
 import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
-import           Data.HashMap.Strict                (HashMap, delete, empty,
-                                                     insert, member)
 import           GHC.Generics
 import qualified Network.Socket                     as Network (HostAddress,
                                                                 Socket)

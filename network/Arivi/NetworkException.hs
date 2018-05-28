@@ -5,7 +5,9 @@ module Arivi.NetworkException (
 import           Arivi.Crypto.Types (CryptoException (..))
 import           Codec.Serialise    (DeserialiseFailure)
 import           Control.Exception
-data AriviNetworkException =  AriviDeserialiseFailure DeserialiseFailure
-                            | AriviCryptoException CryptoException deriving(Show)
+
+data AriviNetworkException = AriviDeserialiseFailure DeserialiseFailure
+                           | AriviCryptoException CryptoException
+                           deriving (Show)
 
 instance Exception AriviNetworkException

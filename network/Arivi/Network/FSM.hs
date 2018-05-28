@@ -47,7 +47,7 @@ import           Arivi.Network.Utils
 import           Control.Concurrent.Async
 import           Control.Concurrent.Killable      (kill)
 import           Control.Concurrent.STM
-import qualified Data.Binary                      as Binary (decode, encode)
+import qualified Data.Binary                      as Binary (encode)
 import           Data.ByteString.Char8            as B (ByteString)
 import qualified System.Timer.Updatable           as Timer (Delay, parallel)
 
@@ -132,10 +132,10 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
             -- Spawn an outboundFrameDsipatcher for sending out msgs
             -- How to get the aead and replay nonce that was used in the
             -- handshake?!
-            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
-                                           updatedConn
-                                           getAeadNonceInitiator
-                                           getReplayNonce)
+            _ <- async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
+                                                updatedConn
+                                                getAeadNonceInitiator
+                                                getReplayNonce)
             -- Send the message back to the initiator
             sendFrame (socket updatedConn) (createFrame serialisedParcel)
             nextEvent <- atomically $ readTChan (eventTChan updatedConn)
@@ -153,7 +153,7 @@ handleEvent connection KeyExchangeInitiated
             -- Spawn an outboundFrameDsipatcher for sending out msgs
             -- How to get the aead and replay nonce that was used in the
             -- handshake?!
-            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
+            _ <- async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
                                            updatedConn
                                            getAeadNonceRecipient
                                            getReplayNonce)
@@ -177,7 +177,7 @@ handleEvent connection SecureTransportEstablished
                             (SendDataEvent payload) =
         do
             -- Spawn a new thread for processing the payload
-            async (processPayload payload connection)
+            _ <- async (processPayload payload connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
             handleNextEvent connection
 

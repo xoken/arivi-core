@@ -8,12 +8,7 @@ module Arivi.Network.Handshake
 import           Arivi.Crypto.Types           (CryptoException (SignatureVerificationFailed))
 import           Arivi.Network.Connection     as Conn (Connection (..))
 import           Arivi.Network.HandshakeUtils
-import           Arivi.Network.Types          (ConnectionId,
-                                               HandshakeInitMasked (..),
-                                               HandshakeRespMasked (..), NodeId,
-                                               Opcode (..), Parcel (..),
-                                               Version (..))
-import           Arivi.NetworkException       (AriviNetworkException (..))
+import           Arivi.Network.Types          (Parcel (..))
 import           Codec.Serialise
 import           Control.Exception            (throw)
 import qualified Crypto.PubKey.Ed25519        as Ed25519
@@ -53,4 +48,3 @@ receiveHandshakeResponse :: Conn.Connection -> Parcel -> Conn.Connection
 receiveHandshakeResponse conn parcel = updatedConn where
     (hsRespMsg, updatedConn) = readHandshakeResp conn parcel
     -- Need to delete ephemeral keypair from updated conn object
-

@@ -20,9 +20,6 @@ module Arivi.P2P.PubSub
 
 import           Arivi.Kademlia.Types     (NodeId)
 import           Arivi.Network.Connection (ConnectionId)
-import           Data.ByteString.Char8    (ByteString)
-
-
 
 -- | Notifier is synonyms for P2PConnection
 type Notifier = (ConnectionId, NodeId)

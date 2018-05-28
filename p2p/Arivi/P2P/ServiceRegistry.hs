@@ -19,22 +19,8 @@ module Arivi.P2P.ServiceRegistry
 ) where
 
 -- import           Arivi.Network.Stream
-import           Arivi.Kademlia.Query
 import           Arivi.Kademlia.Types
-import           Arivi.Network.Connection     (Connection)
-import           Arivi.Network.Types          (ConnectionId, TransportType (..))
-import           Arivi.P2P.PubSub             (Topic)
-import           Arivi.P2P.Types
-import           Control.Concurrent
-import           Control.Concurrent.MVar      (MVar)
-import           Control.Concurrent.STM.TChan (TChan)
-import           Control.Exception            (SomeException, try)
-import           Data.HashTable.IO
-import           Data.Maybe                   (Maybe)
-import           Data.UUID                    (UUID)
-import           Data.UUID.V1                 (nextUUID)
-import           Network                      (PortID (..), PortNumber (..),
-                                               connectTo)
+import           Arivi.Network.Types          (TransportType (..))
 import           System.IO                    (Handle)
 
 data NodeType = FullNode | HalfNode deriving(Show)

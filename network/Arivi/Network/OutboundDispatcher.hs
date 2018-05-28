@@ -5,16 +5,15 @@ module Arivi.Network.OutboundDispatcher (
 import           Arivi.Crypto.Utils.PublicKey.Utils (encryptMsg)
 import           Arivi.Network.Connection           as Conn (Connection (..))
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types                (Header (..), Opcode (..),
+import           Arivi.Network.Types                (Header (..),
                                                      OutboundFragment,
                                                      Parcel (..), Payload (..))
 import           Arivi.Network.Utils
 import           Codec.Serialise
 import           Control.Concurrent.STM             (TChan, atomically,
-                                                     newTChan, readTChan,
-                                                     writeTChan)
+                                                     readTChan)
 import qualified Data.Binary                        as Binary (decode, encode)
-import qualified Data.ByteString.Char8              as B (ByteString, empty)
+import qualified Data.ByteString.Char8              as B (ByteString)
 import           Data.ByteString.Lazy               as L
 
 -- | Take a bytestring, convert to Int, increment it and convert back to Bytestring

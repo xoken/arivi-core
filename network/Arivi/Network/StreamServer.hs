@@ -50,7 +50,7 @@ acceptIncomingSocket sock = forever $ do
         (socket, peer) <- accept sock
         putStrLn $ "Connection from " ++ show peer
         parcelTChan <- atomically newTChan
-        async (handleInboundConnection socket parcelTChan)  --or use forkIO
+        _ <- async (handleInboundConnection socket parcelTChan)  --or use forkIO
         async (readSock socket parcelTChan)
 
 

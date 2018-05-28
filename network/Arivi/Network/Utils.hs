@@ -15,18 +15,17 @@ module Arivi.Network.Utils
 ) where
 
 
-import qualified Data.ByteString.Char8    as Char8 (ByteString, pack)
-import qualified Data.ByteString.Internal as Internal (unpackBytes)
-import qualified Data.ByteString.Lazy     as Lazy (ByteString, pack, toStrict)
-import qualified GHC.Word                 (Word8)
+import           Data.ByteString      (ByteString)
+import qualified Data.ByteString.Lazy as Lazy (ByteString, fromStrict, toStrict)
 
 
 -- | Converts lazy ByteString to Strict ByteString
-lazyToStrict :: Lazy.ByteString -> Char8.ByteString
+-- TODO: Find usage and depreacate this function
+lazyToStrict :: Lazy.ByteString -> ByteString
 lazyToStrict =  Lazy.toStrict
 
 
 -- | Converts strict ByteString to lazy ByteString
-strictToLazy :: Char8.ByteString -> Lazy.ByteString
-strictToLazy strictByteString = Lazy.pack
-                                     (Internal.unpackBytes strictByteString)
+-- TODO: Find usage and depreacate this function
+strictToLazy :: ByteString -> Lazy.ByteString
+strictToLazy = Lazy.fromStrict
