@@ -5,10 +5,11 @@ module Arivi.Network.Handshake
     receiveHandshakeResponse
 ) where
 
-import           Arivi.Crypto.Types           (CryptoException (SignatureVerificationFailed))
+import           Arivi.Crypto.Types           (CryptoException (..))
 import           Arivi.Network.Connection     as Conn (Connection (..))
 import           Arivi.Network.HandshakeUtils
 import           Arivi.Network.Types          (Parcel (..))
+import           Arivi.NetworkException       (AriviNetworkException (..))
 import           Codec.Serialise
 import           Control.Exception            (throw)
 import qualified Crypto.PubKey.Ed25519        as Ed25519
