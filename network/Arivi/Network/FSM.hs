@@ -44,11 +44,14 @@ import           Arivi.Network.OutboundDispatcher
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
+import           Arivi.NetworkException           (AriviNetworkException (..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.Killable      (kill)
 import           Control.Concurrent.STM
-import qualified Data.Binary                      as Binary (decode, encode)
+import           Control.Exception                (try)
+import qualified Data.Binary                      as Binary (encode)
 import           Data.ByteString.Char8            as B (ByteString)
+import           Data.ByteString.Lazy             as L
 import qualified System.Timer.Updatable           as Timer (Delay, parallel)
 
 -- | The different states that any thread in layer 1 can be in
@@ -101,46 +104,50 @@ handleEvent :: Connection -> State -> Event -> IO State
 handleEvent connection Idle
                     (InitHandshakeEvent payload secretKey)  =
         do
+            res <- try $
+                    do
+                        (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
+                        sendFrame (socket updatedConn) (createFrame serialisedParcel)
+                        return updatedConn
+                   :: IO (Either AriviNetworkException Connection)
 
-            (serialisedParcel, updatedConn) <- initiatorHandshake secretKey
-                                                                  connection
-            -- These 2 lines should be done before calling initFSM?
-            -- socket <- createSocket (ipAddress connection) (port connection)
-                                                -- (transportType connection)
-            -- Call async(listenIncomingMsgs socket (parcelTChan connection))
-
-            -- Send the message
-            sendFrame (socket updatedConn) (createFrame serialisedParcel)
-
-            handshakeInitTimer <- Timer.parallel
+            case res of
+                Left (AriviDeserialiseFailure _)-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
+                Right updatedConn ->
+                    do
+                        handshakeInitTimer <- Timer.parallel
                                     (postHandshakeInitTimeOutEvent updatedConn)
                                      handshakeTimer -- 30 seconds
 
-            nextEvent <- atomically $ readTChan (eventTChan updatedConn)
-            -- let nextEvent = getNextEvent updatedConn
-            kill handshakeInitTimer
-            handleEvent updatedConn KeyExchangeInitiated nextEvent
+                        nextEvent <- atomically $ readTChan (eventTChan updatedConn)
+                        kill handshakeInitTimer
+                        handleEvent updatedConn KeyExchangeInitiated nextEvent
+
 
 --recipient will go from Idle to VersionNegotiatedState
 handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
         do
-            -- Need to figure out what exactly to do with the fields like
-            -- versionList, nonce and connectionId
-            (serialisedParcel, updatedConn) <- recipientHandshake secretKey
-                                                                  connection
-                                                                  parcel
-            -- Spawn an outboundFrameDsipatcher for sending out msgs
-            -- How to get the aead and replay nonce that was used in the
-            -- handshake?!
-            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
-                                           updatedConn
-                                           getAeadNonceInitiator
-                                           getReplayNonce)
-            -- Send the message back to the initiator
-            sendFrame (socket updatedConn) (createFrame serialisedParcel)
-            nextEvent <- atomically $ readTChan (eventTChan updatedConn)
-            -- let nextEvent = getNextEvent updatedConn
-            handleEvent updatedConn SecureTransportEstablished nextEvent
+        -- Need to figure out what exactly to do with the fields like
+        -- versionList, nonce and connectionId
+            res <- try $
+                    do
+                        (serialisedParcel, updatedConn) <- recipientHandshake secretKey connection parcel
+                        async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
+                                        updatedConn
+                                        getAeadNonceInitiator
+                                        getReplayNonce)
+                        -- Send the message back to the initiator
+                        sendFrame (socket updatedConn) (createFrame serialisedParcel)
+                        return updatedConn
+                    :: IO (Either AriviNetworkException Connection)
+            case res of
+                Left (AriviDeserialiseFailure _)-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
+                Right updatedConn ->
+                    do
+                        nextEvent <- atomically $ readTChan (eventTChan updatedConn)
+                        handleEvent updatedConn SecureTransportEstablished nextEvent
 
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
@@ -149,23 +156,25 @@ handleEvent connection KeyExchangeInitiated
         do
             -- Need to figure out what exactly to do with the fields like
             -- versionList, nonce and connectionId
-            let updatedConn = receiveHandshakeResponse connection parcel
-            -- Spawn an outboundFrameDsipatcher for sending out msgs
-            -- How to get the aead and replay nonce that was used in the
-            -- handshake?!
-            async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
-                                           updatedConn
-                                           getAeadNonceRecipient
-                                           getReplayNonce)
-            nextEvent <- atomically $ readTChan (eventTChan updatedConn)
-            -- let nextEvent = getNextEvent updatedConn
-            handleEvent updatedConn SecureTransportEstablished nextEvent
+            res <- try $
+                    do
+                        let updatedConn = receiveHandshakeResponse connection parcel
+                        async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceRecipient getReplayNonce)
+                        return updatedConn
+                  ::IO (Either AriviNetworkException Connection)
+            case res of
+                Left (AriviDeserialiseFailure _)-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
+                Right updatedConn ->
+                    do
+                        nextEvent <- atomically $ readTChan (eventTChan updatedConn)
+                        handleEvent updatedConn SecureTransportEstablished nextEvent
 
 -- Receive message from the network
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
-        -- do
-            -- Insert into reassembly TChan
-            -- atomically $ writeTChan (reassemblyTChan connection) parcel
+        do
+            -- Insert into reassembly TChan. Do exception handling for deserialise failure
+            atomically $ writeTChan (reassemblyTChan connection) parcel
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
             handleNextEvent connection
