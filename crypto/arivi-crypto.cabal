@@ -68,5 +68,6 @@ library
                        Arivi.Crypto.Utils.PublicKey.Encryption
                        Arivi.Crypto.Utils.PublicKey.Utils
                        Arivi.Crypto.Utils.Random
+                       Arivi.Crypto.Types
 
   default-language:    Haskell2010
