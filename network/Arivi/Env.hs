@@ -1,4 +1,4 @@
-module Arivi.Env where
+module Arivi.Env (module Arivi.Env) where
 
 import           Arivi.Logging
 import           Arivi.Network.Connection

@@ -80,8 +80,8 @@ makeConnectionId :: Network.HostAddress
                  -> TransportType
                  -> ConnectionId
 makeConnectionId ipAddress port transportType =
-                         (concatenate
+                         concatenate
                            (concatenate (concatenate ipAddress "|")
                              (concatenate port "|"))
-                           (concatenate transportType "|"))
+                           (concatenate transportType "|")
 

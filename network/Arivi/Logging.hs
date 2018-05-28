@@ -42,7 +42,7 @@ withChanLoggingTH :: Q Exp
 withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc) |]
 
 withLocLogging :: (HasLogging m) => Loc -> LogStatement -> LogLevel -> IO a -> m a
-withLocLogging loc ls ll = logToF (\a -> monadLoggerLog loc (pack "") ll a) (logOtherN ll) ls ll
+withLocLogging loc ls ll = logToF (monadLoggerLog loc (pack "") ll) (logOtherN ll) ls ll
 
 withLogging :: (HasLogging m) => LogStatement -> LogLevel -> IO a -> m a
 withLogging = withLocLogging defaultLoc
