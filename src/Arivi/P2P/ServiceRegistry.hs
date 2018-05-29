@@ -50,37 +50,63 @@ type Context = (PeerCount, NodeType, TransportType)
 type ServiceContext  = Map.Map ServiceCode Context
 type SubscriptionTable = Map.Map ServiceCode PeerList
 type NotifyTable = Map.Map ServiceCode PeerList
-data AriviInstanceData = AriviInstanceData {  nodeId :: NodeId
+data AriviP2PInstance = AriviP2PInstance {  nodeId :: NodeId
                                             , ip:: String
                                             , port:: Int
                                             , outboundPeerQuota:: Float
                                             , maxConnectionAllowed:: Float}
 
 -- fill hash with empty lists ServicePeerList
-makeP2Pinstance ariviInstanceData notifyTableTvar nodeId ip port
+makeP2Pinstance ariviP2PInstanceTvar notifyTableTvar nodeId ip port
                 outboundPeerQuota maxConnectionAllowed = do
-    atomically( writeTVar ariviInstanceData (AriviInstanceData nodeId
+    atomically( writeTVar ariviP2PInstanceTvar (AriviP2PInstance nodeId
                                                 ip port outboundPeerQuota
                                                      maxConnectionAllowed) )
     let notifyTable = Map.fromList [ (BlockInventory,     []),
                                      (BlockSync,          []),
                                      (PendingTransaction, []) ]
     atomically( writeTVar notifyTableTvar notifyTable )
+    forkIO (handleIncomingConnections outboundPeerQuota maxConnectionAllowed)
     return ()
 
--- _registerService serviceContextTvar ariviInstance serviceCode
---                  transport peerType peerCount= do
---                     serCntxt <- atomically( readTVar serviceContextTvar )
---                     let context = (peerCount, peerType, transport)
---                     let newSerCntxt = Map.insert serviceCode context serCntxt
---                     atomically( writeTVar serviceContextTvar newSerCntxt )
+_registerService ariviP2PInstanceTvar subscriptionTableTvar notifyTableTvar
+                 serviceContextTvar serviceCode minPeerCount
+                 transport peerType = do
+    serCntxt <- atomically( readTVar serviceContextTvar )
+    let context = (minPeerCount, peerType, transport)
+    let newSerCntxt = Map.insert serviceCode context serCntxt
+    atomically( writeTVar serviceContextTvar newSerCntxt )
+
+    subscriptionTable <- atomically( readTVar subscriptionTableTvar )
+    let hasServCode = Map.lookup serviceCode subscriptionTable
+    case hasServCode of
+        Nothing -> do
+                   let newSubscriptionTable = Map.insert serviceCode [] subscriptionTable
+                   atomically( writeTVar subscriptionTableTvar newSubscriptionTable )
 
 
--- -- -- ======== Private functions =========
--- getPeerCount :: Either (ServiceCode,Context)
---                        (ServiceCode,PeerList) -> PeerCount
--- getPeerCount (Left (_, (peerCount, _, _) )) = peerCount
--- getPeerCount (Right ( _ , peerList )) = length peerList
+    notifyTable <- atomically( readTVar notifyTableTvar )
+    let hasServCode' = Map.lookup serviceCode notifyTable
+    case hasServCode' of
+        Nothing ->  do
+                    let newNotifyTable = Map.insert serviceCode [] notifyTable
+                    atomically( writeTVar subscriptionTableTvar newNotifyTable )
+
+    ariviP2PInstance <- atomically( readTVar ariviP2PInstanceTvar )
+    let outboundPeerQuota' = outboundPeerQuota ariviP2PInstance
+    let maxConnectionAllowed' = maxConnectionAllowed ariviP2PInstance
+    forkIO (outboundThread minPeerCount outboundPeerQuota' maxConnectionAllowed')
+
+
+-- ======== Private functions =========
+handleIncomingConnections outboundPeerQuota maxConnectionAllowed =  return ()
+
+outboundThread minPeerCount outboundPeerQuota maxConnectionAllowed = return()
+
+getPeerCount :: Either (ServiceCode,Context)
+                       (ServiceCode,PeerList) -> PeerCount
+getPeerCount (Left (_, (peerCount, _, _) )) = peerCount
+getPeerCount (Right ( _ , peerList )) = length peerList
 
 -- serviceNeedsPeers :: Monad m => ServicePeerList -> ServiceContext -> m Bool
 -- serviceNeedsPeers servicePeerList serviceContext =

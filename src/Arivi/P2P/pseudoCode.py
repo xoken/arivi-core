@@ -9,6 +9,7 @@ hash<servicCode, readTChan> readMessages;
 def makeP2PInstance(nodeId, IP, port, outboundPeerQuota):
     creates P2P instance which stores GLOBALLY
     [nodeId, IP, port,outboundPeerQuota, maxConnectionAllowed]
+    async(inboundThread,outboundPeerQuota,maxConn)
 
 # registerService and update Service requirements.
 def registerService(ariviInstance, ServiceCode, minPeerCount,
@@ -19,7 +20,6 @@ def registerService(ariviInstance, ServiceCode, minPeerCount,
     if NotifyTable doesNot have ServiceCode:
         NotifyTable[ServiceCode] = []
     (outboundPeerQuota,maxConn) = askAriviInstance(ariviInstance)
-    async(inboundThread,outboundPeerQuota,maxConn)
     async(outboundThread, minPeerCount)
 
 def sendMessage(serviceCode, message):
