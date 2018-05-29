@@ -16,30 +16,54 @@ module Arivi.Network.Reassembler
   reassembleFrames
 ) where
 
-import           Arivi.Network.Types    (ConnectionId, Header (..), MessageId,
-                                         Parcel (..), Payload (..))
-import           Control.Concurrent.STM (TChan, atomically, readTChan,
-                                         writeTChan)
-import qualified Data.ByteString.Lazy   as Lazy (ByteString, concat)
-import qualified Data.HashMap.Strict    as StrictHashMap (HashMap, delete,
-                                                          insert, lookup)
-import           Data.Maybe             (fromMaybe)
-
+import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
+import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg)
+import           Arivi.Network.Connection           (Connection (..))
+import           Arivi.Network.Types                (ConnectionId, Header (..),
+                                                     MessageId, Parcel (..),
+                                                     Payload (..), serialise)
+import           Control.Concurrent.STM             (TChan, atomically,
+                                                     readTChan, writeTChan)
+import qualified Data.Binary                        as Binary (encode)
+import qualified Data.ByteString.Char8              as Char8 (ByteString)
+import qualified Data.ByteString.Lazy               as Lazy (ByteString, concat,
+                                                             fromStrict,
+                                                             toStrict)
+import qualified Data.HashMap.Strict                as StrictHashMap (HashMap,
+                                                                      delete,
+                                                                      insert,
+                                                                      lookup)
+import           Data.Maybe                         (fromMaybe)
+type AEADNonce = Integer
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
 --   list of fragmentsHashMap
-reassembleFrames:: TChan Parcel
+reassembleFrames::
+                  Connection
+               -> TChan Parcel
                -> TChan (ConnectionId, Lazy.ByteString)
                -> StrictHashMap.HashMap MessageId Lazy.ByteString
+               -> AEADNonce
                -> IO ()
 
-reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
+reassembleFrames connection reassemblyTChan p2pMessageTChan
+                                            fragmentsHashMap aeadNonce = do
 
     parcel <- atomically $ readTChan reassemblyTChan
 
     let messageIdNo = messageId (header parcel)
+    let (cipherText,authenticationTag) = getCipherTextAuthPair
+                                        (Lazy.toStrict
+                                          (getPayload
+                                            (encryptedPayload parcel)))
 
-    let payloadMessage = getPayload (encryptedPayload parcel)
+    let parcelHeader = Lazy.toStrict $ serialise (header parcel)
+    let ssk = sharedSecret connection
+    let parcelAeadNonce = Lazy.toStrict $ Binary.encode aeadNonce
+    let payloadMessage =  Lazy.fromStrict $ decryptMsg parcelAeadNonce
+                                                    ssk parcelHeader
+                                                    authenticationTag
+                                                    cipherText
 
     let messages = fromMaybe  "" (StrictHashMap.lookup messageIdNo
                                                            fragmentsHashMap)
@@ -52,18 +76,20 @@ reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
     if currentFragmentNo ==  totalFragements (header parcel)
       then
         do
-           let parcelConnectionId = connectionId (header parcel)
-           atomically $ writeTChan
-                          p2pMessageTChan (parcelConnectionId,appendedMessage)
+           atomically $ writeTChan p2pMessageTChan
+                            (parcelConnectionId (header parcel),appendedMessage)
 
            let updatedFragmentsHashMap = StrictHashMap.delete messageIdNo
                                                               fragmentsHashMap
 
-           reassembleFrames reassemblyTChan p2pMessageTChan
+           reassembleFrames connection reassemblyTChan p2pMessageTChan
                                             updatedFragmentsHashMap
+                                            (aeadNonce + 1)
     else
        do
         let updatedFragmentsHashMap = StrictHashMap.insert messageIdNo
                                                            appendedMessage
                                                            fragmentsHashMap
-        reassembleFrames reassemblyTChan p2pMessageTChan updatedFragmentsHashMap
+        reassembleFrames connection  reassemblyTChan p2pMessageTChan
+                                                     updatedFragmentsHashMap
+                                                     (aeadNonce + 1)
