@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module      :  Arivi.Network.Reassembler
 -- Copyright   :
@@ -22,7 +23,7 @@ import           Control.Concurrent.STM (TChan, atomically, readTChan,
 import qualified Data.ByteString.Lazy   as Lazy (ByteString, concat)
 import qualified Data.HashMap.Strict    as StrictHashMap (HashMap, delete,
                                                           insert, lookup)
-import           Data.Maybe             (fromJust)
+import           Data.Maybe             (fromMaybe)
 
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
@@ -40,7 +41,8 @@ reassembleFrames reassemblyTChan p2pMessageTChan fragmentsHashMap = do
 
     let payloadMessage = getPayload (encryptedPayload parcel)
 
-    let messages = fromJust (StrictHashMap.lookup messageIdNo fragmentsHashMap)
+    let messages = fromMaybe  "" (StrictHashMap.lookup messageIdNo
+                                                           fragmentsHashMap)
 
     let appendedMessage = Lazy.concat [messages, payloadMessage]
 
