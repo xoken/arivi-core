@@ -132,15 +132,15 @@ data Header = HandshakeHeader {
             | PingHeader
             | PongHeader
             | DataHeader {
-                    messageId       :: MessageId      -- ^ Unique Message
+                  messageId       :: MessageId        -- ^ Unique Message
                                                       --   Identifier
-                ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
-                ,   totalFragements :: FragmentNumber -- ^ Total fragments in
+                , fragmentNumber  :: FragmentNumber   -- ^ Number of fragment
+                , totalFragements :: FragmentNumber   -- ^ Total fragments in
                                                       --   current Message
-                ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
+                , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                ,   nonce           :: Nonce          -- ^ Nonce which
+                , nonce           :: Nonce            -- ^ Nonce which
                                                       --   increments by one
                                                       --   after each message
                                                       --   is sent. Useful for
@@ -148,25 +148,25 @@ data Header = HandshakeHeader {
                                                       --   Attacks
             }
             | ErrorHeader {
-                    messageId       :: MessageId      -- ^ Unique Message
+                  messageId         :: MessageId      -- ^ Unique Message
                                                       --   Identifier
-                ,   fragmentNumber  :: FragmentNumber -- ^ Number of fragment
-                ,   totalFragements :: FragmentNumber -- ^ Total fragments in
+                , fragmentNumber    :: FragmentNumber -- ^ Number of fragment
+                , totalFragements   :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                ,   descriptor      :: Descriptor     -- ^ Shows type of error
-                                                      --   and other fields
-                ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
+                , descriptor        :: Descriptor     -- ^ Shows type of error
+                                                    --   and other fields
+                , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
             }
             | ByeHeader {
-                    fragmentNumber  :: FragmentNumber -- ^ Number of fragment
-                ,   totalFragements :: FragmentNumber -- ^ Total fragments in
+                  fragmentNumber    :: FragmentNumber -- ^ Number of fragment
+                , totalFragements   :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                ,   connectionId    :: ConnectionId   -- ^ Connection Identifier
+                , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                ,   messageId       :: MessageId      -- ^ Unique Message
+                , messageId         :: MessageId      -- ^ Unique Message
                                                       --   Identifier
             }
 
