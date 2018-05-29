@@ -14,7 +14,7 @@ def makeP2PInstance(nodeId, IP, port, outboundPeerQuota):
 def registerService(ariviInstance, ServiceCode, minPeerCount,
                     transport, peerType):
     ServiceContext[ServiceCode] = (minPeerCount, peerType, transport)
-   if SubcriptionTable doesNot have ServiceCode:
+    if SubcriptionTable doesNot have ServiceCode:
         SubcriptionTable[ServiceCode] = []
     if NotifyTable doesNot have ServiceCode:
         NotifyTable[ServiceCode] = []
