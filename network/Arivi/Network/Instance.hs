@@ -92,7 +92,7 @@ openConnection :: (HasAriviNetworkInstance m,
                -> m (ANT.ConnectionId)
 openConnection addr port tt rnid pType = do
   ariviInstance <- getAriviNetworkInstance
-  tv <- liftIO $ atomically $ connectionMap ariviInstance
+  let tv = connectionMap ariviInstance
   sk <- getSecretKey
   eventChan <- liftIO (newTChanIO :: IO (TChan Event))
   socket <- liftIO $ createSocket addr (read (show port)) tt
@@ -102,7 +102,7 @@ openConnection addr port tt rnid pType = do
   let cId = makeConnectionId addr port tt
       connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan}
 
-  liftIO $ atomically $  modifyTVar' tv (HM.insert cId connection)
+  liftIO $ atomically $ modifyTVar tv (HM.insert cId connection)
   liftIO $ atomically $ writeTChan eventChan (InitHandshakeEvent sk)
   tid <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
 
@@ -125,7 +125,7 @@ closeConnection :: (HasAriviNetworkInstance m)
                 -> m ()
 closeConnection cId = do
   ariviInstance <- getAriviNetworkInstance
-  tv <- liftIO $ atomically $ connectionMap ariviInstance
+  let tv = connectionMap ariviInstance
   liftIO $ atomically $ modifyTVar tv (HM.delete cId)
 
 lookupCId :: (HasAriviNetworkInstance m)
@@ -133,7 +133,7 @@ lookupCId :: (HasAriviNetworkInstance m)
           -> m Connection
 lookupCId cId = do
   ariviInstance <- getAriviNetworkInstance
-  tv <- liftIO $ atomically $ connectionMap ariviInstance
+  let tv = connectionMap ariviInstance
   hmap <- liftIO $ readTVarIO tv
   traceShow ("SSSS " ++ (show $ HM.size hmap)) (return ())
   return $ fromMaybe (error "Something terrible happened! You have been warned not to enter the forbidden lands") (HM.lookup cId hmap)

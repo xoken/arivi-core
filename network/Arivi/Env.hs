@@ -44,25 +44,33 @@ class (HasEnv m) => HasSecretKey m where
 class (HasEnv m) => HasUDPSocket m where
   getUDPSocket :: m Network.Socket
 
-mkAriviEnv :: AriviEnv
-mkAriviEnv = AriviEnv { ariviNetworkInstance = mkAriviNetworkInstance
-                      , envPort = 8080
-                      }
+mkAriviEnv :: IO AriviEnv
+mkAriviEnv = do
+  ani <- mkAriviNetworkInstance
+  return AriviEnv { ariviNetworkInstance = ani
+                  , envPort = 8080
+                  }
 
-data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: STM (TVar (HashMap ConnectionId Connection))
+data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: TVar (HashMap ConnectionId Connection)
                                                  }
 
-mkAriviNetworkInstance :: AriviNetworkInstance
-mkAriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar HM.empty }
+mkAriviNetworkInstance :: IO AriviNetworkInstance
+mkAriviNetworkInstance = do
+  tv <- newTVarIO HM.empty
+  return AriviNetworkInstance { ariviNetworkConnectionMap = tv }
 
 connectionMap = ariviNetworkConnectionMap
 
 
 -- DE:ETE LATER
-mkAriviEnv' :: AriviEnv
-mkAriviEnv' = AriviEnv { ariviNetworkInstance = mkAriviNetworkInstance'
-                      , envPort = 8080
-                      }
+mkAriviEnv' :: IO AriviEnv
+mkAriviEnv' = do
+  ani <- mkAriviNetworkInstance'
+  return AriviEnv { ariviNetworkInstance = ani
+                  , envPort = 8080
+                  }
 
-mkAriviNetworkInstance' :: AriviNetworkInstance
-mkAriviNetworkInstance' = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar HM.empty }
+mkAriviNetworkInstance' :: IO AriviNetworkInstance
+mkAriviNetworkInstance' = do
+  tv <- newTVarIO HM.empty
+  return AriviNetworkInstance { ariviNetworkConnectionMap = tv }

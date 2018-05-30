@@ -27,6 +27,7 @@ import           Control.Monad.Reader
 import           Data.ByteString.Lazy
 import           Data.HashTable.IO                  as MutableHashMap (new)
 import           Network.Socket
+
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
 instance HasEnv AppM where
@@ -55,25 +56,18 @@ sender sk rk = do
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
-  let env = mkAriviEnv {  ariviCryptoEnv = CryptoEnv sk
-                        , loggerChan = tq
-                        -- , udpSocket = sock
-                        , udpConnectionHashMap = mutableConnectionHashMap
-                      }
+  env' <- mkAriviEnv
+  let env = env' { ariviCryptoEnv = CryptoEnv sk
+                 , loggerChan = tq
+                 -- , udpSocket = sock
+                 , udpConnectionHashMap = mutableConnectionHashMap
+                 }
   runStdoutLoggingT $ runAppM env (do
-                                      --  runTCPserver (show (envPort env))
                                        let ha = "127.0.0.1"
-                                      --  liftIO $ putStrLn "a"
                                        cid <- openConnection ha 8080 ANT.TCP (generateNodeId rk) ANT.INITIATOR
 
                                        liftIO $ print ha
                                        liftIO $ print cid
-                                       liftIO $ threadDelay 5000000
-                                       sendMessage cid "Hurrah!"
-                                      --      -- runTCPserver (show (envPort env))
-                                      --  let ha = "127.0.0.1"
-                                      --  cid <- openConnection ha 8080 ANT.TCP "1" ANT.INITIATOR
-                                      --  liftIO $ print cid
 
                                    )
 
@@ -83,27 +77,15 @@ receiver sk = do
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
-  let env = mkAriviEnv' {  ariviCryptoEnv = CryptoEnv sk
-                        , loggerChan = tq
-                        -- , udpSocket = sock
-                        , udpConnectionHashMap = mutableConnectionHashMap
-                      }
+  env' <- mkAriviEnv
+  let env = env' { ariviCryptoEnv = CryptoEnv sk
+                 , loggerChan = tq
+                 -- , udpSocket = sock
+                 , udpConnectionHashMap = mutableConnectionHashMap
+                 }
   runStdoutLoggingT $ runAppM env (do
                                        runTCPserver (show (envPort env))
-
-                                      --  let ha = "127.0.0.1"
-                                      --  liftIO $ putStrLn "a"
-                                      --  cid <- openConnection ha 8080 ANT.TCP (generateNodeId sk) ANT.INITIATOR
-
-                                      --  liftIO $ print ha
-                                      --  liftIO $ print cid
-
-                                      --      -- runTCPserver (show (envPort env))
-                                      --  let ha = "127.0.0.1"
-                                      --  cid <- openConnection ha 8080 ANT.TCP "1" ANT.INITIATOR
-                                      --  liftIO $ print cid
-
-                                   )
+                                  )
 
 main = do
   (sender_sk, _) <- generateKeyPair
