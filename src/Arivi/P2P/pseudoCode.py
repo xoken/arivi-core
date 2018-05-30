@@ -22,21 +22,21 @@ def registerService(ariviInstance, ServiceCode, minPeerCount,
     (outboundPeerQuota,maxConn) = askAriviInstance(ariviInstance)
     async(outboundThread, minPeerCount)
 
-def sendMessage(serviceCode, message):
-    ownNodeId = ask P2P instance
-    _message = wrap message with (ownNodeId,serviceCode)
-    _sendMessage(serviceCode, _message)
+##def sendMessage(serviceCode, message):
+##    ownNodeId = ask P2P instance
+##    _message = wrap message with (ownNodeId,serviceCode)
+##    _sendMessage(serviceCode, _message)
 
-def readNotification(serviceCode):
-    return serviceReadTChan[sericeCode].read()
+##def readNotification(serviceCode):
+##    return serviceReadTChan[sericeCode].read()
 
-def publish(publishData):
-    for all nodes in SubcriptionTable and NotifyTable:
-        send the publishData
+##def publish(publishData):
+##    for all nodes in SubcriptionTable and NotifyTable:
+##        send the publishData
 
-def closeSession(service):
-    for peers in session:
-        peer.sendMessage(close connection)
+##def closeSession(service):
+##    for peers in session:
+##        peer.sendMessage(close connection)
 
 #---------------------------------------------------------
 def allConnectionCount(SubscriptionTable,NotifyTable):
@@ -56,7 +56,6 @@ def newNotifyList(timeElapsed, peerList): # peerList = (peer,timeOut)
 def inboundThread(serviceCode,outboundPeerQuota,maxConn,
                   SubcriptionTable,NotifyTable):
     while True:
-        ti = time()
         subscriptionLen = len(SubcriptionTable[serviceCode])
         total = subriptionLen + len(NotifyTable[serviceCode])
         if (subcriptionLen/total > outboundPeerQuota) and
