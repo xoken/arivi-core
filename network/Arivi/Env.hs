@@ -24,7 +24,7 @@ data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
                                                                     Connection
                          }
 
-data CryptoEnv = CryptoEnv { secretKey :: Ed25519.SecretKey
+data CryptoEnv = CryptoEnv { cryptoEnvSercretKey :: Ed25519.SecretKey
                            }
 
 
