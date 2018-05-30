@@ -30,10 +30,10 @@ import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
+import qualified Data.ByteString.Lazy               as L
 import           GHC.Generics
 import qualified Network.Socket                     as Network (HostAddress,
                                                                 Socket)
-
 
 data Connection = Connection {
                           connectionId          :: ConnectionId
@@ -49,6 +49,7 @@ data Connection = Connection {
                         , eventTChan            :: TChan Event
                         , outboundFragmentTChan :: TChan OutboundFragment
                         , reassemblyTChan       :: TChan Parcel
+                        , p2pMessageTChan       :: TChan L.ByteString
                         , egressSeqNum          :: SequenceNum
                         , ingressSeqNum         :: SequenceNum
                         -- , logChan               :: Chan (Loc, LogSource,
