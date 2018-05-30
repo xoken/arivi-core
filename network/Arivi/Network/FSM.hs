@@ -1,6 +1,6 @@
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell     #-}
 -- |
 -- Module      :  Arivi.Network.FSM
 -- Copyright   :
@@ -50,12 +50,12 @@ import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
-import           Arivi.Utils.Exception           (AriviException (..))
+import           Arivi.Utils.Exception            (AriviException (..))
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.Killable      (kill)
 import           Control.Concurrent.STM
-import           Control.Exception.Lifted                (try)
 import           Control.Exception                (SomeException)
+import           Control.Exception.Lifted         (try)
 import           Control.Monad.IO.Class
 import qualified Data.Binary                      as Binary (encode)
 import           Data.ByteString.Char8            as B (ByteString)
@@ -91,9 +91,9 @@ pingTimer =  3*(10^7)
 initFSM :: (HasSecretKey m, HasLogging m) => Connection -> m State
 initFSM connection = do
   sk <- getSecretKey
-  $(withLoggingTH) (LogNetworkStatement "Calling Handle Event") LevelDebug (
-   -- nextEvent <- liftIO $ atomically $ readTChan (eventTChan connection)
-    handleEvent connection Idle (InitHandshakeEvent sk))
+  $(withLoggingTH) (LogNetworkStatement "Calling Handle Event") LevelDebug (do
+   nextEvent <- liftIO $ atomically $ readTChan (eventTChan connection)
+   handleEvent connection Idle nextEvent)
 
 -- | Initial Aead nonce passed to the outboundFrameDispatcher and reassembleframes
 getAeadNonceInitiator :: Int64
@@ -115,17 +115,17 @@ handleEvent :: (HasLogging m) => Connection -> State -> Event -> m State
 -- initiator will initiate the handshake
 handleEvent connection Idle (InitHandshakeEvent secretKey) =
   $(withLoggingTH) (LogNetworkStatement "Idle State - InitHandshakeEvent ") LevelDebug $ do
-            res <- (try $ do
+            res <- try $ do
                        (serialisedParcel, updatedConn) <- liftIO $ initiatorHandshake secretKey connection
                        liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
-                       return updatedConn)
+                       return updatedConn
 
             case res of
                 Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
                 Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do
-                        handshakeInitTimer <- liftIO $ Timer.parallel
+                        handshakeInitTimer <-  liftIO $ Timer.parallel
                                     (postHandshakeInitTimeOutEvent updatedConn)
                                      handshakeTimer -- 30 seconds
 
@@ -195,8 +195,7 @@ handleEvent connection SecureTransportEstablished (SendDataEvent payload) =
 
 
 handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
-  $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - TerminateConnectionEvent ") LevelDebug $ do
-        handleEvent connection Terminated CleanUpEvent
+  $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - TerminateConnectionEvent ") LevelDebug $ handleEvent connection Terminated CleanUpEvent
 
 handleEvent connection Terminated CleanUpEvent =
   $(withLoggingTH) (LogNetworkStatement "Terminated - CleanUpEvent ") LevelDebug $
