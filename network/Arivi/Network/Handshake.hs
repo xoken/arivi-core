@@ -7,7 +7,8 @@ module Arivi.Network.Handshake
 
 import           Arivi.Network.Connection     as Conn (Connection (..))
 import           Arivi.Network.HandshakeUtils
-import           Arivi.Network.Types          (Parcel (..))
+import           Arivi.Network.Types          (HandshakeInitMasked (..),
+                                               Parcel (..))
 import           Arivi.Utils.Exception        (AriviException (AriviSignatureVerificationFailedException))
 import           Codec.Serialise
 import           Control.Exception            (throw)
@@ -31,16 +32,17 @@ recipientHandshake sk conn parcel = do
     --if verification returns false, do something
     case verifySignature sk hsInitMsg of
         False -> throw AriviSignatureVerificationFailedException
-        -- True -> Generate log msg
+        True -> do
     -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
-    newconn <- generateEphemeralKeys conn
-    let eSKSign = Conn.ephemeralPrivKey newconn
-    -- Get updated connection structure with final shared secret key for session
-    let updatedConn = extractSecrets newconn senderEphNodeId eSKSign
-    -- NOTE: Need to delete the ephemeral key pair from the connection object as it is not needed once shared secret key is derived
-    let hsRespMsg = createHandshakeRespMsg updatedConn
-    let hsRespParcel = generateRespParcel hsRespMsg updatedConn
-    return (serialise hsRespParcel, updatedConn)
+                newconn <- generateEphemeralKeys conn
+                let eSKSign = Conn.ephemeralPrivKey newconn
+                -- Get updated connection structure with final shared secret key for session
+                let updatedConn = extractSecrets newconn senderEphNodeId eSKSign
+                let updatedConn' = updatedConn {Conn.remoteNodeId = nodePublicKey hsInitMsg}
+                -- NOTE: Need to delete the ephemeral key pair from the connection object as it is not needed once shared secret key is derived
+                let hsRespMsg = createHandshakeRespMsg updatedConn'
+                let hsRespParcel = generateRespParcel hsRespMsg updatedConn'
+                return (serialise hsRespParcel, updatedConn')
 
 
 -- | Initiator receives response from remote and returns updated connection object
