@@ -35,16 +35,17 @@ getCipherTextAuthPair mCipherText = B.splitAt
 -- | Sender encrypts plain text using shared secret key
 -- and calculated 12 Byte Nonce, appends Poly1305 authentication tag end of cipher text
 
-chachaEncrypt :: (ByteArrayAccess iv,
-                  ByteArrayAccess key,
+chachaEncrypt :: (ByteArrayAccess key,
                   ByteArrayAccess header)
-                  => iv
+                  => ByteString
                   -> key
                   -> header
                   -> ByteString
                   -> CryptoFailable ByteString
 chachaEncrypt nonce key header plaintext = do
-    initialState <-ChachaPoly1305.nonce12 nonce >>= ChachaPoly1305.initialize key
+    -- Is choosing a non random constVal secure?
+    let constVal = B.pack "\NUL\NUL\NUL\NUL"
+    initialState <- ChachaPoly1305.nonce8 constVal nonce >>= ChachaPoly1305.initialize key
     let
         stateOne = ChachaPoly1305.finalizeAAD $ ChachaPoly1305.appendAAD header initialState
         (out, stateTwo) = ChachaPoly1305.encrypt plaintext stateOne
@@ -57,12 +58,11 @@ chachaEncrypt nonce key header plaintext = do
 -- authentication tag is valid
 
 
-chachaDecrypt :: (ByteArrayAccess iv,
-                  ByteArrayAccess key,
+chachaDecrypt :: (ByteArrayAccess key,
                   ByteArrayAccess header,
                   ByteArray authenticationTag,
                   ByteArray cipherTextMessage)
-                  => iv
+                  => ByteString
                   -> key
                   -> header
                   -> authenticationTag
@@ -70,7 +70,8 @@ chachaDecrypt :: (ByteArrayAccess iv,
                   -> CryptoFailable ByteString
 
 chachaDecrypt nonce key header auth cipherText = do
-    initialState <-ChachaPoly1305.nonce12 nonce >>= ChachaPoly1305.initialize key
+    let constVal = B.pack "\NUL\NUL\NUL\NUL"
+    initialState <-ChachaPoly1305.nonce8 constVal nonce >>= ChachaPoly1305.initialize key
 
     let
         stateOne = ChachaPoly1305.finalizeAAD $ ChachaPoly1305.appendAAD header initialState

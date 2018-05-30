@@ -2,11 +2,11 @@ import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import           Arivi.Crypto.Utils.Keys.Encryption
 import           Arivi.Crypto.Utils.Random
 import           Crypto.Error
+import           Data.Binary                        (decode, encode)
 import           Data.ByteArray
-import           Data.ByteString.Char8
-
-
-
+import           Data.ByteString.Char8              as B
+import           Data.ByteString.Lazy               as L
+import           Data.Int                           (Int64)
 
 main :: IO()
 main = do
@@ -14,26 +14,28 @@ main = do
 
 
     -- | Sender will compute ephemeral key pairs
-    (ePhSK,ePhPK) <- Crypto.Utils.Keys.Encryption.generateKeyPair
+    (ePhSK,ePhPK) <- generateKeyPair
 
 
     -- | Receiver will compute his key pairs
 
-    (resvSK,resvPK) <- Crypto.Utils.Keys.Encryption.generateKeyPair
+    (resvSK,resvPK) <- generateKeyPair
 
 
     -- | Sender will send ephemeral public key to Receiver, then Receiver will compute
     -- shared secret key using received ephemeral public key
 
-    let sharedSecretKey = Data.ByteArray.convert (derivedSharedSecreatKey ePhPK resvSK) :: ByteString
+    let sharedSecretKey = Data.ByteArray.convert (derivedSharedSecretKey ePhPK resvSK) :: B.ByteString
 
 
 
     -- | sender will compute 12 Bytes Nonce
-    mNonce <-  Crypto.Utils.Random.getRandomByteString 12
+    -- mNonce <-  getRandomByteString 8
 
-    let mheader = Data.ByteString.Char8.pack "this is header"
-    let mPlaintext = Data.ByteString.Char8.pack "Hello World"
+    let mNonce = L.toStrict $ encode (1::Int64)
+
+    let mheader = B.pack "this is header"
+    let mPlaintext = B.pack "Hello World"
 
 
     -- | sender encrypts plain text using Nonce sharedSecretKey and header
@@ -50,7 +52,7 @@ main = do
 
 
     -- | Message is tampered
-    let tamperdCipherTextMessage = Data.ByteString.Char8.append cipherText (Data.ByteString.Char8.pack "d")
+    let tamperdCipherTextMessage = B.append cipherText (B.pack "d")
 
     -- | If message is tampered, gives an error
 
