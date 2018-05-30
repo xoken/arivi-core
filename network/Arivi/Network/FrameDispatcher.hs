@@ -64,16 +64,15 @@ handleInboundConnection socket parcelTChan = do
         -- serviceReqTChan <- atomically newTChan
         outboundTChan <- atomically newTChan
         reassemblyTChan <- atomically newTChan
-
+        p2pMsgTChan <- atomically newTChan
         let connection = NetworkConnection.Connection
                                        connectionId undefined
                                        ipAddress port
                                        undefined undefined
                                        transportType undefined
                                        socket undefined
-                                       -- serviceReqTChan parcelTChan
                                        eventTChan
-                                       outboundTChan reassemblyTChan
+                                       outboundTChan reassemblyTChan p2pMsgTChan
                                        undefined undefined
 
         -- let updatedFrameDispatchHashMap = Data.HashMap.Strict.insert

@@ -61,8 +61,9 @@ openConnection addr port tt rnid pType = do
   socket <- liftIO $ createSocket (show addr) (read (show port)) tt
   outboundChan <- liftIO (newTChanIO :: IO (TChan OutboundFragment))
   reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
+  p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
   let cId = makeConnectionId addr port tt
-      connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan}
+      connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan}
   liftIO $ atomically $  modifyTVar tv (HM.insert cId connection)
   liftIO $ withAsync (FSM.initFSM connection) (\_ -> atomically $ modifyTVar tv (HM.delete cId))
   return cId
