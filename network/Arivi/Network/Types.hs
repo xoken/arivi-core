@@ -55,7 +55,7 @@ import           Crypto.PubKey.Ed25519              as Ed25519 (SecretKey,
 import           Data.ByteArray
 import           Data.ByteString
 import qualified Data.ByteString.Lazy               as BSL
-import           Data.Int                           (Int16, Int32, Int8)
+import           Data.Int                           (Int16, Int32, Int64, Int8)
 import           Data.Monoid
 import           GHC.Generics
 import           Network.Socket                     as Network
@@ -75,8 +75,7 @@ type SerialisedMsg = BSL.ByteString
 
 type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
 -- | Following are the ranges for the aead nonces
-type InitiatorNonce = Integer -- 1++
-type RecipientNonce = Integer -- 2^32++
+type AeadNonce = Int64
 -- | This is the nonce for preventing replays. Don't need ranges for sender and receiver
 type Nonce = Integer
 type NodeId = ByteString
@@ -110,14 +109,14 @@ data Event =  InitHandshakeEvent
 data HandshakeInitMasked = HandshakeInitMessage {
       versionList   :: [Version]
     , connectionId  :: ConnectionId
-    , nonce         :: InitiatorNonce
+    , nonce         :: Nonce
     , nodePublicKey :: NodeId
     , signature     :: Signature
 } deriving (Show, Eq, Generic)
 
 data HandshakeRespMasked = HandshakeRespMsg {
       versionList  :: [Version]
-    , nonce        :: RecipientNonce
+    , nonce        :: Nonce
     , connectionId :: ConnectionId
 } deriving (Show, Eq, Generic)
 
@@ -126,21 +125,21 @@ data HandshakeRespMasked = HandshakeRespMsg {
 data Header = HandshakeHeader {
                     ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
                                                       --    generating ssk
-                ,   aeadNonce          :: ByteString  -- ^ 12 Byte Nonce used
-                                                      --   for encryption
+                ,   aeadNonce          :: AeadNonce   --  ^ 8 Byte Nonce in
+                                                      --    Int64 format
             }
             | PingHeader
             | PongHeader
             | DataHeader {
-                  messageId       :: MessageId        -- ^ Unique Message
+                  messageId          :: MessageId        -- ^ Unique Message
                                                       --   Identifier
-                , fragmentNumber  :: FragmentNumber   -- ^ Number of fragment
-                , totalFragements :: FragmentNumber   -- ^ Total fragments in
+                , fragmentNumber     :: FragmentNumber   -- ^ Number of fragment
+                , totalFragements    :: FragmentNumber   -- ^ Total fragments in
                                                       --   current Message
                 , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                , nonce           :: Nonce            -- ^ Nonce which
+                , nonce              :: Nonce            -- ^ Nonce which
                                                       --   increments by one
                                                       --   after each message
                                                       --   is sent. Useful for
@@ -148,25 +147,25 @@ data Header = HandshakeHeader {
                                                       --   Attacks
             }
             | ErrorHeader {
-                  messageId         :: MessageId      -- ^ Unique Message
+                  messageId          :: MessageId      -- ^ Unique Message
                                                       --   Identifier
-                , fragmentNumber    :: FragmentNumber -- ^ Number of fragment
-                , totalFragements   :: FragmentNumber -- ^ Total fragments in
+                , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                , totalFragements    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                , descriptor        :: Descriptor     -- ^ Shows type of error
+                , descriptor         :: Descriptor     -- ^ Shows type of error
                                                     --   and other fields
                 , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
             }
             | ByeHeader {
-                  fragmentNumber    :: FragmentNumber -- ^ Number of fragment
-                , totalFragements   :: FragmentNumber -- ^ Total fragments in
+                  fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                , totalFragements    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                 , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                , messageId         :: MessageId      -- ^ Unique Message
+                , messageId          :: MessageId      -- ^ Unique Message
                                                       --   Identifier
             }
 

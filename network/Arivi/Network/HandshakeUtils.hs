@@ -36,12 +36,15 @@ import qualified Data.Binary                             as Binary (decode,
                                                                     encode)
 import           Data.ByteString.Char8                   as B
 import qualified Data.ByteString.Lazy                    as L
+import           Data.Int                                (Int64)
 
-getAeadNonceInitiator :: B.ByteString
-getAeadNonceInitiator = L.toStrict $ Binary.encode (1::Integer)
 
-getAeadNonceRecipient :: B.ByteString
-getAeadNonceRecipient = L.toStrict $ Binary.encode (20001::Integer) -- Need to get precise value
+getAeadNonceInitiator :: Int64
+getAeadNonceInitiator = 1 :: Int64
+
+
+getAeadNonceRecipient :: Int64
+getAeadNonceRecipient = 20001::Int64 -- Need to get precise value
 
 getVersion :: [Version]
 getVersion = [V0]
@@ -110,7 +113,7 @@ extractSecrets conn remoteEphPubKey myEphemeralSK = updatedConn where
     updatedConn = conn {Conn.sharedSecret = sskFinal}
 
 -- | Read msg and return the header, ct, ephNodeId and aeadNonce
-readParcel :: Parcel -> (Header, L.ByteString, Curve25519.PublicKey,  B.ByteString)
+readParcel :: Parcel -> (Header, L.ByteString, Curve25519.PublicKey,  Int64)
 readParcel hsParcel = (hsHeader, ciphertextWithMac, senderEphPubKey, aeadnonce) where
     -- Need to check for right opcode. If not throw exception which should be caught appropriately. Currently, assume that we get KEY_EXCHANGE_INIT.
     hsHeader = header hsParcel
