@@ -90,7 +90,9 @@ readSock sock eventTChan sk = forever $
                    e@(Parcel (HandshakeInitHeader _ _) _) -> do
                      traceShow e (return ())
                      atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
-                   e@(Parcel (HandshakeRespHeader _ _) _) -> atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                   e@(Parcel (HandshakeRespHeader _ _) _) -> do
+                    traceShow e (return ())
+                    atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
                    e@(Parcel (DataHeader _ _ _ _ _) _)    -> atomically $ writeTChan eventTChan (ReceiveDataEvent e)
                    _                                      -> sendFrame sock "O traveller! Don't wander into uncharted terriories!"
                )

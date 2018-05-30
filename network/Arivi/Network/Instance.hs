@@ -1,6 +1,7 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 module Arivi.Network.Instance
 (
@@ -18,28 +19,31 @@ closeConnection
 ) where
 
 import           Arivi.Env
-import           Arivi.Network.Connection     as Conn (Connection (..),
-                                                       makeConnectionId)
-import qualified Arivi.Network.FSM            as FSM
+import           Arivi.Logging
+import           Arivi.Network.Connection             as Conn (Connection (..),
+                                                               makeConnectionId)
+import qualified Arivi.Network.FSM                    as FSM
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types          as ANT (ConnectionId, Event (..),
-                                                      NodeId, OutboundFragment,
-                                                      Parcel, Payload (..),
-                                                      PersonalityType,
-                                                      TransportType (..))
+import           Arivi.Network.StreamServer
+import           Arivi.Network.Types                  as ANT (ConnectionId,
+                                                              Event (..),
+                                                              NodeId,
+                                                              OutboundFragment,
+                                                              Parcel,
+                                                              Payload (..),
+                                                              PersonalityType,
+                                                              TransportType (..))
 import           Control.Concurrent.Async.Lifted.Safe
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TChan (TChan)
+import           Control.Concurrent.STM.TChan         (TChan)
 import           Control.Monad.Reader
-import           Control.Monad.STM            (atomically)
+import           Control.Monad.STM                    (atomically)
 import           Data.ByteString.Lazy
-import           Data.HashMap.Strict          as HM
-import           Data.Maybe                   (fromMaybe)
+import           Data.HashMap.Strict                  as HM
+import           Data.Maybe                           (fromMaybe)
 import           Network.Socket
-import           Arivi.Logging
-import           Arivi.Network.StreamServer
 
-import          Debug.Trace
+import           Debug.Trace
 
 
 -- | Strcuture to hold the arivi configurations can also contain more
@@ -97,11 +101,15 @@ openConnection addr port tt rnid pType = do
   p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
   let cId = makeConnectionId addr port tt
       connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan}
-  liftIO $ atomically $  modifyTVar tv (HM.insert cId connection)
+
+  liftIO $ atomically $  modifyTVar' tv (HM.insert cId connection)
+  liftIO $ atomically $ writeTChan eventChan (InitHandshakeEvent sk)
   tid <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
 
   -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection)
   _ <- async (liftIO $ readSock socket eventChan sk)
+  hm <- liftIO $ readTVarIO tv
+  traceShow ("TTTTT " ++ (show $ HM.size hm)) (return ())
   return (cId)
 
 sendMessage :: (HasAriviNetworkInstance m)
@@ -127,4 +135,5 @@ lookupCId cId = do
   ariviInstance <- getAriviNetworkInstance
   tv <- liftIO $ atomically $ connectionMap ariviInstance
   hmap <- liftIO $ readTVarIO tv
+  traceShow ("SSSS " ++ (show $ HM.size hmap)) (return ())
   return $ fromMaybe (error "Something terrible happened! You have been warned not to enter the forbidden lands") (HM.lookup cId hmap)

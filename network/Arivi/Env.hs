@@ -56,3 +56,13 @@ mkAriviNetworkInstance :: AriviNetworkInstance
 mkAriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar HM.empty }
 
 connectionMap = ariviNetworkConnectionMap
+
+
+-- DE:ETE LATER
+mkAriviEnv' :: AriviEnv
+mkAriviEnv' = AriviEnv { ariviNetworkInstance = mkAriviNetworkInstance'
+                      , envPort = 8080
+                      }
+
+mkAriviNetworkInstance' :: AriviNetworkInstance
+mkAriviNetworkInstance' = AriviNetworkInstance { ariviNetworkConnectionMap = newTVar HM.empty }
