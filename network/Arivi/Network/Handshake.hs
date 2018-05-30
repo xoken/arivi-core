@@ -5,11 +5,10 @@ module Arivi.Network.Handshake
     receiveHandshakeResponse
 ) where
 
-import           Arivi.Crypto.Types           (CryptoException (..))
 import           Arivi.Network.Connection     as Conn (Connection (..))
 import           Arivi.Network.HandshakeUtils
 import           Arivi.Network.Types          (Parcel (..))
-import           Arivi.NetworkException       (AriviNetworkException (..))
+import           Arivi.Utils.Exception        (AriviException (AriviSignatureVerificationFailedException))
 import           Codec.Serialise
 import           Control.Exception            (throw)
 import qualified Crypto.PubKey.Ed25519        as Ed25519
@@ -31,7 +30,7 @@ recipientHandshake sk conn parcel = do
     let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn parcel
     --if verification returns false, do something
     case verifySignature sk hsInitMsg of
-        False -> throw $ AriviCryptoException SignatureVerificationFailed
+        False -> throw AriviSignatureVerificationFailedException
         -- True -> Generate log msg
     -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
     newconn <- generateEphemeralKeys conn

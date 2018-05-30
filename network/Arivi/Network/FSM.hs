@@ -45,7 +45,7 @@ import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
-import           Arivi.NetworkException           (AriviNetworkException (..))
+import           Arivi.Utils.Exception            (AriviException (..))
 import           Control.Concurrent.Async
 import           Control.Concurrent.Killable      (kill)
 import           Control.Concurrent.STM
@@ -113,10 +113,10 @@ handleEvent connection Idle
                         (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
                         sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
-                   :: IO (Either AriviNetworkException Connection)
+                   :: IO (Either AriviException Connection)
 
             case res of
-                Left (AriviDeserialiseFailure _)-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
                 Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do
@@ -142,9 +142,9 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
                         -- Send the message back to the initiator
                         sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
-                    :: IO (Either AriviNetworkException Connection)
+                    :: IO (Either AriviException Connection)
             case res of
-                Left (AriviDeserialiseFailure _)-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
                 Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do
@@ -164,9 +164,9 @@ handleEvent connection KeyExchangeInitiated
                         async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceRecipient getReplayNonce)
                         async(reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceInitiator)
                         return updatedConn
-                  ::IO (Either AriviNetworkException Connection)
+                  ::IO (Either AriviException Connection)
             case res of
-                Left (AriviDeserialiseFailure _)-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
                 Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do

@@ -25,7 +25,7 @@ import           Arivi.Network.Types                     (HandshakeInitMasked (.
                                                           SerialisedMsg,
                                                           Version (..))
 import           Arivi.Network.Utils
-import           Arivi.NetworkException                  (AriviNetworkException (..))
+import           Arivi.Utils.Exception                   (AriviException (AriviDeserialiseException))
 import           Codec.Serialise
 import           Control.Exception                       (throw)
 import           Crypto.ECC                              (SharedSecret)
@@ -130,7 +130,7 @@ readHandshakeMsg sk conn parcel = (hsInitMsg, senderEphPubKey) where
     hsInitMsgSerialised = decryptMsg aeadnonce ssk (L.toStrict $ serialise hsHeader) tag ct
     hsInitMsgOrFail = deserialiseOrFail $ strictToLazy hsInitMsgSerialised
     hsInitMsg = case hsInitMsgOrFail of
-                    Left e    -> throw $ AriviDeserialiseFailure e
+                    Left e    -> throw $ AriviDeserialiseException e
                     Right msg -> msg
 
 
@@ -145,7 +145,7 @@ readHandshakeResp conn parcel = (hsRespMsg, updatedConn) where
     hsRespMsgSerialised = decryptMsg aeadnonce (Conn.sharedSecret updatedConn) (L.toStrict $ serialise hsHeader) tag ct
     hsRespMsgOrFail = deserialiseOrFail $ strictToLazy hsRespMsgSerialised
     hsRespMsg = case hsRespMsgOrFail of
-                    Left e    -> throw $ AriviDeserialiseFailure e
+                    Left e    -> throw $ AriviDeserialiseException e
                     Right msg -> msg
 
 

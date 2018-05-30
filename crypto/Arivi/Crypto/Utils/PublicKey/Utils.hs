@@ -17,10 +17,10 @@ module Arivi.Crypto.Utils.PublicKey.Utils
 ) where
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305
-import           Arivi.Crypto.Types                      (CryptoException (..))
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
 import           Arivi.Crypto.Utils.Random
+import           Arivi.Utils.Exception                   (AriviException (AriviCryptoException))
 import           Codec.Serialise
 import           Control.Exception                       (throw, try)
 import           Crypto.ECC                              (SharedSecret)
@@ -48,7 +48,7 @@ getSignaturePublicKeyFromNodeId nodeId = pk where
     pkBs = fst pkPair
     pkOrFail = eitherCryptoError $ Ed25519.publicKey pkBs
     pk = case pkOrFail of
-            Left e       -> throw $ CryptoException e -- do something with e
+            Left e       -> throw $ AriviCryptoException e -- do something with e
             Right pubkey -> pubkey
 
 -- | Wrapper function for signing a message given just the sk and msg
@@ -79,7 +79,7 @@ getEncryptionPublicKeyFromNodeId nodeId = pk where
     pkBs = snd pkPair
     pkOrFail = eitherCryptoError $ Curve25519.publicKey pkBs
     pk = case pkOrFail of
-            Left e       -> throw $ CryptoException e
+            Left e       -> throw $ AriviCryptoException e
             Right pubkey -> pubkey
 
 -- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
@@ -98,7 +98,7 @@ generateSigningKeyPair :: IO (Ed25519.SecretKey, Ed25519.PublicKey)
 generateSigningKeyPair = do
     res <- try Signature.generateKeyPair :: IO (Either CryptoError (Ed25519.SecretKey, Ed25519.PublicKey))
     case res of
-        Left ex       -> throw $ CryptoException ex -- Make use of ex
+        Left ex       -> throw $ AriviCryptoException ex -- Make use of ex
         Right (sk,pk) -> return (sk, pk)
 
 
@@ -114,7 +114,7 @@ encryptMsg aeadnonce ssk header msg = ciphertext where
         aeadBS = L.toStrict $ Binary.encode aeadnonce
         errOrEncrypted = eitherCryptoError $ chachaEncrypt aeadBS sskBS header msg
         ciphertext = case errOrEncrypted of
-                Left e   -> throw $ CryptoException e
+                Left e   -> throw $ AriviCryptoException e
                 Right ct -> ct
 
 -- | Simple wrapper over chacha decryption
@@ -124,5 +124,5 @@ decryptMsg aeadnonce ssk header tag ct = plaintext where
         aeadBS = L.toStrict $ Binary.encode aeadnonce
         errOrDecrypted = eitherCryptoError $ chachaDecrypt aeadBS sskBS header tag ct
         plaintext = case errOrDecrypted of
-                        Left e   -> throw $ CryptoException e
+                        Left e   -> throw $ AriviCryptoException e
                         Right pt -> pt
