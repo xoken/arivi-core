@@ -56,6 +56,7 @@ library
                     ,  timers-updatable <= 0.2.0.2
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
+                    , arivi-utils
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
@@ -68,6 +69,5 @@ library
                        Arivi.Crypto.Utils.PublicKey.Encryption
                        Arivi.Crypto.Utils.PublicKey.Utils
                        Arivi.Crypto.Utils.Random
-                       Arivi.Crypto.Types
 
   default-language:    Haskell2010
