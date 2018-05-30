@@ -41,6 +41,7 @@ import           Arivi.Network.Connection
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.OutboundDispatcher
+import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
@@ -52,7 +53,10 @@ import           Control.Exception                (try)
 import qualified Data.Binary                      as Binary (encode)
 import           Data.ByteString.Char8            as B (ByteString)
 import           Data.ByteString.Lazy             as L
+import           Data.HashMap.Strict              as HM
+import           Data.Int                         (Int64)
 import qualified System.Timer.Updatable           as Timer (Delay, parallel)
+
 
 -- | The different states that any thread in layer 1 can be in
 data State =  Idle
@@ -83,13 +87,13 @@ initFSM connection =
         nextEvent <- atomically $ readTChan (eventTChan connection)
         handleEvent connection Idle nextEvent
 
--- | Initial Aead nonce passed to the outboundFrameDispatcher
-getAeadNonceInitiator :: B.ByteString
-getAeadNonceInitiator = lazyToStrict $ Binary.encode (2::Integer)
+-- | Initial Aead nonce passed to the outboundFrameDispatcher and reassembleframes
+getAeadNonceInitiator :: Int64
+getAeadNonceInitiator = 2::Int64
 
 -- | Initial Aead nonce passed to the outboundFrameDispatcher
-getAeadNonceRecipient :: B.ByteString
-getAeadNonceRecipient = lazyToStrict $ Binary.encode (2::Integer)
+getAeadNonceRecipient :: Int64
+getAeadNonceRecipient = 20002::Int64
 
 -- | Initial Aead nonce passed to the outboundFrameDispatcher
 getReplayNonce :: Integer
@@ -133,10 +137,8 @@ handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
             res <- try $
                     do
                         (serialisedParcel, updatedConn) <- recipientHandshake secretKey connection parcel
-                        async(outboundFrameDispatcher (outboundFragmentTChan updatedConn)
-                                        updatedConn
-                                        getAeadNonceInitiator
-                                        getReplayNonce)
+                        async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceInitiator getReplayNonce)
+                        async(reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceRecipient)
                         -- Send the message back to the initiator
                         sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
@@ -160,6 +162,7 @@ handleEvent connection KeyExchangeInitiated
                     do
                         let updatedConn = receiveHandshakeResponse connection parcel
                         async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceRecipient getReplayNonce)
+                        async(reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceInitiator)
                         return updatedConn
                   ::IO (Either AriviNetworkException Connection)
             case res of
