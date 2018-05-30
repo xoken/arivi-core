@@ -1,5 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Arivi.Network.StreamServer
 (
@@ -11,14 +14,17 @@ import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.FrameDispatcher (handleInboundConnection)
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types           (DeserialiseFailure, Parcel (..),
+import           Arivi.Network.Types           (DeserialiseFailure, Parcel (..), Event (..), Header (..),
                                                 deserialiseOrFail)
-import           Control.Concurrent            (forkFinally)
-import           Control.Concurrent.Async
+import           Control.Concurrent.Lifted            (forkFinally)
+import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM        (TChan, atomically, newTChan,
                                                 writeTChan)
 import           Control.Exception.Base
 import           Control.Monad                 (forever, void)
+import           Control.Monad.Trans.Control
+import           Control.Monad.IO.Class
+import           Crypto.PubKey.Ed25519         (SecretKey)
 import           Data.Binary
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BSL
@@ -26,32 +32,40 @@ import qualified Data.ByteString.Lazy.Char8    as BSLC
 import           Data.Int
 import           Network.Socket
 import qualified Network.Socket.ByteString     as N (recv)
+import           Debug.Trace
 
 -- Functions for Server
 
+-- | Lifts the `withSocketDo` to a `MonadBaseControl IO m`
+liftWithSocketsDo :: (MonadBaseControl IO m) => m a -> m a
+liftWithSocketsDo f = control $ \runInIO -> withSocketsDo (runInIO f)
+
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
-runTCPserver :: (HasAriviNetworkInstance m, HasLogging m) => ServiceName -> m ()
-runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $ withSocketsDo $ do
+runTCPserver :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => ServiceName -> m ()
+runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $ do
+  (liftWithSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
-    addr:_ <- getAddrInfo (Just hints) Nothing (Just port)
-
-    sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
-    setSocketOption sock ReuseAddr 1
-    bind sock (addrAddress addr)
-    listen sock 5
-    void $ forkFinally (acceptIncomingSocket sock) (\_ -> close sock)
+    addr:_ <- liftIO $ getAddrInfo (Just hints) Nothing (Just port)
+    -- TODO: Deal with socket exceptions
+    sock <- liftIO $ socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
+    liftIO $ setSocketOption sock ReuseAddr 1
+    liftIO $ bind sock (addrAddress addr)
+    liftIO $ listen sock 5
+    void $ forkFinally (acceptIncomingSocket sock) (\_ -> liftIO $ close sock))
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
-acceptIncomingSocket :: Socket -> IO void
-acceptIncomingSocket sock = forever $ do
-        (socket, peer) <- accept sock
-        putStrLn $ "Connection from " ++ show peer
-        parcelTChan <- atomically newTChan
-        _ <- async (handleInboundConnection socket parcelTChan)  --or use forkIO
-        async (readSock socket parcelTChan)
+acceptIncomingSocket :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => Socket -> m a
+acceptIncomingSocket sock = do
+  sk <- getSecretKey
+  forever $ do
+        (socket, peer) <- liftIO $ accept sock
+        liftIO $ putStrLn $ "Connection from " ++ show peer
+        eventTChan <- liftIO $ atomically newTChan
+        _ <- async (handleInboundConnection socket eventTChan)  --or use forkIO
+        async (liftIO $ readSock socket eventTChan sk)
 
 
 -- | Converts length in byteString to Num
@@ -68,11 +82,18 @@ getParcel sock = do
     return $ deserialiseOrFail (BSL.fromStrict parcelCipher)
 
 
-readSock :: Socket -> TChan Parcel -> IO ()
-readSock sock parcelTChan = forever $
+readSock :: Socket -> TChan Event -> SecretKey -> IO ()
+readSock sock eventTChan sk = forever $
         getParcel sock >>=
         either (sendFrame sock . BSLC.pack . displayException)
-               (atomically . writeTChan parcelTChan)
+               (\case
+                   e@(Parcel (HandshakeInitHeader _ _) _) -> do
+                     traceShow e (return ())
+                     atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
+                   e@(Parcel (HandshakeRespHeader _ _) _) -> atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                   e@(Parcel (DataHeader _ _ _ _ _) _)    -> atomically $ writeTChan eventTChan (ReceiveDataEvent e)
+                   _                                      -> sendFrame sock "O traveller! Don't wander into uncharted terriories!"
+               )
 
 -- FOR TESTING ONLY------
 {-
@@ -101,9 +122,9 @@ test = do
 -}
 
 -- readerLoop sock = forever $ do
---    -- (sock,parcelTChan) <- atomically $ readTChan sockTChan
---     async (readSock sock parcelTChan)
+--    -- (sock,eventTChan) <- atomically $ readTChan sockTChan
+--     async (readSock sock eventTChan)
 --     --putStrLn ("listening on thread " ++  (show threadNo) )
---     where readSock sock parcelTChan = forever $ do
+--     where readSock sock eventTChan = forever $ do
 --                 parcelCipher <- getFrame sock
---                 atomically $ writeTChan parcelTChan parcelCipher
+--                 atomically $ writeTChan eventTChan parcelCipher

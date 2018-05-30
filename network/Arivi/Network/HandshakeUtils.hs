@@ -93,7 +93,7 @@ createHandshakeRespMsg conn = serialise hsRespMsg where
 generateInitParcel :: SerialisedMsg -> Conn.Connection -> Parcel
 generateInitParcel msg conn = Parcel headerData (Payload $ strictToLazy ctWithMac) where
     aeadnonceInitiator = getAeadNonceInitiator
-    headerData = HandshakeHeader (Conn.ephemeralPubKey conn) aeadnonceInitiator
+    headerData = HandshakeInitHeader (Conn.ephemeralPubKey conn) aeadnonceInitiator
     ssk = Conn.sharedSecret conn
     ctWithMac = encryptMsg aeadnonceInitiator ssk (L.toStrict $ serialise headerData) (L.toStrict msg)
 
@@ -101,7 +101,7 @@ generateInitParcel msg conn = Parcel headerData (Payload $ strictToLazy ctWithMa
 generateRespParcel :: SerialisedMsg -> Conn.Connection -> Parcel
 generateRespParcel msg conn = Parcel headerData (Payload $ strictToLazy ctWithMac) where
     aeadnonceRecipient = getAeadNonceRecipient
-    headerData = HandshakeHeader (Conn.ephemeralPubKey conn) aeadnonceRecipient
+    headerData = HandshakeRespHeader (Conn.ephemeralPubKey conn) aeadnonceRecipient
     ssk = Conn.sharedSecret conn
     ctWithMac = encryptMsg aeadnonceRecipient ssk (L.toStrict $ serialise headerData) (L.toStrict msg)
 

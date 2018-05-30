@@ -37,8 +37,11 @@ library
                     ,  cryptonite >= 0.23
                     ,  exceptions
                     ,  hashtables <= 1.2.6.1
+                    ,  lifted-base
+                    ,  lifted-async
                     ,  memory >= 0.14.11
                     ,  monad-logger
+                    ,  monad-control
                     ,  mtl
                     ,  network
                     ,  random

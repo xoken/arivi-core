@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 -- |
 -- Module      :  Arivi.Network.FSM
 -- Copyright   :
@@ -37,7 +40,9 @@ module Arivi.Network.FSM (
 
 ) where
 
-import           Arivi.Network.Connection
+import           Arivi.Env
+import           Arivi.Logging
+import           Arivi.Network.Connection         as Conn
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.OutboundDispatcher
@@ -45,11 +50,13 @@ import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils
-import           Arivi.Utils.Exception            (AriviException (..))
-import           Control.Concurrent.Async
+import           Arivi.Utils.Exception           (AriviException (..))
+import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.Killable      (kill)
 import           Control.Concurrent.STM
-import           Control.Exception                (try)
+import           Control.Exception.Lifted                (try)
+import           Control.Exception                (SomeException)
+import           Control.Monad.IO.Class
 import qualified Data.Binary                      as Binary (encode)
 import           Data.ByteString.Char8            as B (ByteString)
 import           Data.ByteString.Lazy             as L
@@ -81,11 +88,12 @@ pingTimer =  3*(10^7)
 
 
 -- | Initiate FSM
-initFSM :: Connection -> IO State
-initFSM connection =
-    do
-        nextEvent <- atomically $ readTChan (eventTChan connection)
-        handleEvent connection Idle nextEvent
+initFSM :: (HasSecretKey m, HasLogging m) => Connection -> m State
+initFSM connection = do
+  sk <- getSecretKey
+  $(withLoggingTH) (LogNetworkStatement "Calling Handle Event") LevelDebug (
+   -- nextEvent <- liftIO $ atomically $ readTChan (eventTChan connection)
+    handleEvent connection Idle (InitHandshakeEvent sk))
 
 -- | Initial Aead nonce passed to the outboundFrameDispatcher and reassembleframes
 getAeadNonceInitiator :: Int64
@@ -102,82 +110,75 @@ getReplayNonce = 2
 
 -- | This handles the state transition from one state of FSM to another
 --   on the  basis of received events
-handleEvent :: Connection -> State -> Event -> IO State
+handleEvent :: (HasLogging m) => Connection -> State -> Event -> m State
 
 -- initiator will initiate the handshake
-handleEvent connection Idle
-                    (InitHandshakeEvent payload secretKey)  =
-        do
-            res <- try $
-                    do
-                        (serialisedParcel, updatedConn) <- initiatorHandshake secretKey connection
-                        sendFrame (socket updatedConn) (createFrame serialisedParcel)
-                        return updatedConn
-                   :: IO (Either AriviException Connection)
+handleEvent connection Idle (InitHandshakeEvent secretKey) =
+  $(withLoggingTH) (LogNetworkStatement "Idle State - InitHandshakeEvent ") LevelDebug $ do
+            res <- (try $ do
+                       (serialisedParcel, updatedConn) <- liftIO $ initiatorHandshake secretKey connection
+                       liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
+                       return updatedConn)
 
             case res of
                 Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
                 Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do
-                        handshakeInitTimer <- Timer.parallel
+                        handshakeInitTimer <- liftIO $ Timer.parallel
                                     (postHandshakeInitTimeOutEvent updatedConn)
                                      handshakeTimer -- 30 seconds
 
-                        nextEvent <- atomically $ readTChan (eventTChan updatedConn)
-                        kill handshakeInitTimer
+                        nextEvent <- liftIO $ atomically $ readTChan (eventTChan updatedConn)
+                        liftIO $ kill handshakeInitTimer
                         handleEvent updatedConn KeyExchangeInitiated nextEvent
 
 
 --recipient will go from Idle to VersionNegotiatedState
 handleEvent connection Idle (KeyExchangeInitEvent parcel secretKey) =
-        do
+  $(withLoggingTH) (LogNetworkStatement "Idle - KeyExchangeInitEvent ") LevelDebug $ do
         -- Need to figure out what exactly to do with the fields like
         -- versionList, nonce and connectionId
-            res <- try $
-                    do
-                        (serialisedParcel, updatedConn) <- recipientHandshake secretKey connection parcel
-                        async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceInitiator getReplayNonce)
-                        async(reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceRecipient)
+            res <- try $ do
+                        (serialisedParcel, updatedConn) <- liftIO $ recipientHandshake secretKey connection parcel
+                        async (liftIO $ outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceInitiator getReplayNonce)
+                        async (liftIO $ reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceRecipient)
                         -- Send the message back to the initiator
-                        sendFrame (socket updatedConn) (createFrame serialisedParcel)
+                        liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
-                    :: IO (Either AriviException Connection)
             case res of
                 Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
                 Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do
-                        nextEvent <- atomically $ readTChan (eventTChan updatedConn)
+                        nextEvent <- liftIO $ atomically $ readTChan (eventTChan updatedConn)
                         handleEvent updatedConn SecureTransportEstablished nextEvent
 
 
 --initiator will go to SecureTransport from KeyExchangeInitiated state
-handleEvent connection KeyExchangeInitiated
-                    (KeyExchangeRespEvent parcel)  =
-        do
-            -- Need to figure out what exactly to do with the fields like
-            -- versionList, nonce and connectionId
-            res <- try $
+handleEvent connection KeyExchangeInitiated (KeyExchangeRespEvent parcel)  =
+  $(withLoggingTH) (LogNetworkStatement "KeyExchangeInitiated - KeyExchangeRespEvent ") LevelDebug $ do
+          -- Need to figure out what exactly to do with the fields like
+          -- versionList, nonce and connectionId
+          res <- try $
                     do
                         let updatedConn = receiveHandshakeResponse connection parcel
-                        async(outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceRecipient getReplayNonce)
-                        async(reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceInitiator)
+                        async (liftIO $ outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceRecipient getReplayNonce)
+                        async (liftIO $ reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceInitiator)
                         return updatedConn
-                  ::IO (Either AriviException Connection)
-            case res of
-                Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
-                Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
-                Right updatedConn ->
-                    do
-                        nextEvent <- atomically $ readTChan (eventTChan updatedConn)
-                        handleEvent updatedConn SecureTransportEstablished nextEvent
+          case res of
+            Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
+            Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
+            Right updatedConn ->
+              do
+                nextEvent <- liftIO $ atomically $ readTChan (eventTChan updatedConn)
+                handleEvent updatedConn SecureTransportEstablished nextEvent
 
 -- Receive message from the network
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
-        do
+  $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - ReceiveDataEvent ") LevelDebug $ do
             -- Insert into reassembly TChan. Do exception handling for deserialise failure
-            atomically $ writeTChan (reassemblyTChan connection) parcel
+            liftIO $ atomically $ writeTChan (reassemblyTChan connection) parcel
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
             handleNextEvent connection
@@ -185,47 +186,51 @@ handleEvent connection SecureTransportEstablished (ReceiveDataEvent parcel) =
 
 
 -- Receive message from p2p layer
-handleEvent connection SecureTransportEstablished
-                            (SendDataEvent payload) =
-        do
+handleEvent connection SecureTransportEstablished (SendDataEvent payload) =
+  $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - SendDataEvent ") LevelDebug $ do
             -- Spawn a new thread for processing the payload
-            _ <- async (processPayload payload connection)
+            _ <- async (liftIO $ processPayload payload connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
             handleNextEvent connection
 
 
-handleEvent connection SecureTransportEstablished
-                                (TerminateConnectionEvent parcel) =
-
+handleEvent connection SecureTransportEstablished (TerminateConnectionEvent parcel) =
+  $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - TerminateConnectionEvent ") LevelDebug $ do
         handleEvent connection Terminated CleanUpEvent
 
 handleEvent connection Terminated CleanUpEvent =
-            --- do all cleanup here
+  $(withLoggingTH) (LogNetworkStatement "Terminated - CleanUpEvent ") LevelDebug $
+            -- do all cleanup here
             return Terminated
 
 handleEvent connection KeyExchangeInitiated HandshakeTimeOutEvent =
-            return Terminated
+  $(withLoggingTH) (LogNetworkStatement "KeyExchangeInitiated - HandshakeTimeOutEvent ") LevelDebug (
+            return Terminated)
 
 handleEvent connection Pinged DataTimeOutEvent =
+  $(withLoggingTH) (LogNetworkStatement "Pinged - DataTimeOutEvent ") LevelDebug $
         do
-            pingTimer <- Timer.parallel (postPingParcelTimeOutEvent connection)
-                                         pingTimer -- 30 seconds
-            nextEvent <- atomically $ readTChan (eventTChan connection)
+            pingTimer <- liftIO $ Timer.parallel (postPingParcelTimeOutEvent connection)
+                                                  pingTimer -- 30 seconds
+            nextEvent <- liftIO $ atomically $ readTChan (eventTChan connection)
             -- let nextEvent = getNextEvent connection
-            kill pingTimer
+            liftIO $ kill pingTimer
             handleEvent connection Pinged nextEvent
 
 
-handleEvent connection Pinged PingTimeOutEvent=
-         -- go to terminated
-            return Terminated
+handleEvent connection Pinged PingTimeOutEvent =
+  $(withLoggingTH) (LogNetworkStatement "Pinged - PingTimeOutEvent ") LevelDebug $
+  -- go to terminated
+  return Terminated
 
 handleEvent connection Pinged (ReceiveDataEvent parcel) =
+  $(withLoggingTH) (LogNetworkStatement "Pinged - ReceiveDataEvent ") LevelDebug $
          -- go to established state
         handleEvent connection SecureTransportEstablished
                                     (ReceiveDataEvent parcel)
 
 handleEvent connection _ _  =
+  $(withLoggingTH) (LogNetworkStatement "Pattern Match Failure! Oopsie! ") LevelDebug $
             handleEvent connection Terminated CleanUpEvent
 
 
@@ -245,15 +250,14 @@ postPingParcelTimeOutEvent connection = do
     let eventTChannel = eventTChan connection
     atomically $ writeTChan eventTChannel PingTimeOutEvent
 
-handleNextEvent :: Connection -> IO State
+-- handleNextEvent :: Connection -> IO State
 handleNextEvent connection = do
-    dataMessageTimer <- Timer.parallel (postDataParcelTimeOutEvent connection)
-                                        dataMessageTimer -- 60 seconds
+    dataMessageTimer <- liftIO $ Timer.parallel (postDataParcelTimeOutEvent connection)
+                                                 dataMessageTimer -- 60 seconds
 
-    nextEvent <- atomically $ readTChan (eventTChan connection)
+    nextEvent <- liftIO $ atomically $ readTChan (eventTChan connection)
 
-    kill dataMessageTimer -- is killing died event gives any exception
+    liftIO $ kill dataMessageTimer -- is killing died event gives any exception
     case nextEvent of
-        DataTimeOutEvent
-            -> handleEvent connection Pinged nextEvent
-        _  -> handleEvent connection SecureTransportEstablished nextEvent
+        DataTimeOutEvent -> handleEvent connection Pinged nextEvent
+        _                -> handleEvent connection SecureTransportEstablished nextEvent

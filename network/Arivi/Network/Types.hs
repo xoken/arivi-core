@@ -91,7 +91,7 @@ data Opcode = KEY_EXCHANGE_INIT
 
 -- | The different events in layer 1 that cause state change
 data Event =  InitHandshakeEvent
-                {payload::Payload, secretKey:: Ed25519.SecretKey}
+                {secretKey:: Ed25519.SecretKey}
              | TerminateConnectionEvent {payload::Payload}
              | SendDataEvent {payload::Payload}
              | KeyExchangeInitEvent {parcel::Parcel, secretKey:: Ed25519.SecretKey}
@@ -122,12 +122,18 @@ data HandshakeRespMasked = HandshakeRespMsg {
 
 
 -- | These are the different types of Headers for different types of Parcels
-data Header = HandshakeHeader {
+data Header = HandshakeInitHeader {
                     ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
                                                       --    generating ssk
                 ,   aeadNonce          :: AeadNonce   --  ^ 8 Byte Nonce in
                                                       --    Int64 format
             }
+            | HandshakeRespHeader {
+                      ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
+                                                        --    generating ssk
+                  ,   aeadNonce          :: AeadNonce  -- ^ 8 Byte Nonce used
+                                                       --   for encryption
+              }
             | PingHeader
             | PongHeader
             | DataHeader {

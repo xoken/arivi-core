@@ -1,9 +1,12 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Arivi.Env (module Arivi.Env) where
 
 import           Arivi.Logging
 import           Arivi.Network.Connection
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Control
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import           Data.HashMap.Strict      as HM
 import qualified Data.HashTable.IO        as Mutable (CuckooHashTable)
@@ -29,7 +32,7 @@ data CryptoEnv = CryptoEnv { cryptoEnvSercretKey :: Ed25519.SecretKey
 
 
 
-class (MonadIO m) => HasEnv m where
+class (MonadIO m, MonadBaseControl IO m) => HasEnv m where
   getEnv :: m AriviEnv
 
 class (HasEnv m) => HasAriviNetworkInstance m where

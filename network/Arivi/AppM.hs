@@ -6,11 +6,13 @@
 module Arivi.AppM (module Arivi.AppM) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
+import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
 import           Control.Concurrent.STM.TQueue
+import           Control.Concurrent.Async
 import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Network.Socket
@@ -49,20 +51,19 @@ main :: IO ()
 main = do
   (sk, _) <- generateKeyPair
   tq <- newTQueueIO :: IO LogChan
-
   sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
-
   mutableConnectionHashMap <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
-
   let env = mkAriviEnv {  ariviCryptoEnv = CryptoEnv sk
                         , loggerChan = tq
                         , udpSocket = sock
                         , udpConnectionHashMap = mutableConnectionHashMap}
-
   runStdoutLoggingT $ runAppM env (do
                                        runTCPserver (show (envPort env))
                                        ha <- liftIO $ inet_addr "127.0.0.1"
-                                       cid <- openConnection ha 5000 ANT.TCP "1" ANT.INITIATOR
+                                       liftIO $ putStrLn "a"
+                                       (cid) <- openConnection ha 8080 ANT.TCP (generateNodeId sk) ANT.INITIATOR
+
+                                       liftIO $ print ha
                                        liftIO $ print cid
                                    )

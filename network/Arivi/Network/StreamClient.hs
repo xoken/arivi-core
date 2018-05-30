@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-#  #-}
+
 module Arivi.Network.StreamClient (
     createSocket,
     sendFrame,
@@ -5,6 +8,7 @@ module Arivi.Network.StreamClient (
 ) where
 
 import           Arivi.Network.Types       (TransportType (..))
+import           Arivi.Logging
 import           Data.Binary
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Int                  (Int16)
