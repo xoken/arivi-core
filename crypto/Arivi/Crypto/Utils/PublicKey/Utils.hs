@@ -30,11 +30,13 @@ import           Crypto.Error                            (CryptoError (..),
 import           Crypto.Hash                             (Digest, SHA256, hash)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
+import qualified Data.Binary                             as Binary (encode)
 import           Data.ByteArray                          (convert)
 import           Data.ByteString.Char8                   (ByteString, concat,
                                                           length, splitAt,
                                                           unpack)
-
+import qualified Data.ByteString.Lazy                    as L
+import           Data.Int                                (Int64)
 -- | Wrapper function for getting the signature public key, given private key
 getSignaturePublicKey :: Ed25519.SecretKey -> Ed25519.PublicKey
 getSignaturePublicKey = Signature.getPublicKey
@@ -106,19 +108,21 @@ generateNodeId signsk = Data.ByteString.Char8.concat [signingPK, encryptionPK] w
     encryptionPK = Encryption.toByteString (getEncryptionPublicKey (getEncryptionSecretKey signsk))
 
 -- | Simple wrapper over chacha encryption
-encryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString
+encryptMsg :: Int64 -> SharedSecret -> ByteString -> ByteString -> ByteString
 encryptMsg aeadnonce ssk header msg = ciphertext where
         sskBS = Encryption.sharedSecretToByteString ssk
-        errOrEncrypted = eitherCryptoError $ chachaEncrypt aeadnonce sskBS header msg
+        aeadBS = L.toStrict $ Binary.encode aeadnonce
+        errOrEncrypted = eitherCryptoError $ chachaEncrypt aeadBS sskBS header msg
         ciphertext = case errOrEncrypted of
                 Left e   -> throw $ CryptoException e
                 Right ct -> ct
 
 -- | Simple wrapper over chacha decryption
-decryptMsg :: ByteString -> SharedSecret -> ByteString -> ByteString -> ByteString -> ByteString
+decryptMsg :: Int64 -> SharedSecret -> ByteString -> ByteString -> ByteString -> ByteString
 decryptMsg aeadnonce ssk header tag ct = plaintext where
         sskBS = Encryption.sharedSecretToByteString ssk
-        errOrDecrypted = eitherCryptoError $ chachaDecrypt aeadnonce sskBS header tag ct
+        aeadBS = L.toStrict $ Binary.encode aeadnonce
+        errOrDecrypted = eitherCryptoError $ chachaDecrypt aeadBS sskBS header tag ct
         plaintext = case errOrDecrypted of
                         Left e   -> throw $ CryptoException e
                         Right pt -> pt
