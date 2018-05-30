@@ -77,8 +77,10 @@ makeConnectionId :: Network.HostAddress
                  -> TransportType
                  -> ConnectionId
 makeConnectionId ipAddress port transportType =
-                         concatenate
-                           (concatenate (concatenate ipAddress "|")
-                             (concatenate port "|"))
-                           (concatenate transportType "|")
+
+                          Data.ByteString.Char8.pack $  show ipAddress
+                                                     ++ "|"
+                                                     ++ show port
+                                                     ++ "|"
+                                                     ++ show transportType
 
