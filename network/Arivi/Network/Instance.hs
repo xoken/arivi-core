@@ -10,6 +10,7 @@ mkAriviNetworkInstance,
 openConnection,
 sendMessage,
 closeConnection
+, lookupCId
 ) where
 
 import           Arivi.Env
@@ -53,12 +54,12 @@ newtype NetworkHandle = NetworkHandle { ariviUDPSock :: (Socket,SockAddr) }
                     -- registry     :: MVar MP.ServiceRegistry
 
 
-openConnection :: (HasAriviNetworkInstance m) => HostAddress -> PortNumber -> TransportType -> NodeId -> PersonalityType -> m ANT.ConnectionId
+openConnection :: (HasAriviNetworkInstance m) => HostName -> PortNumber -> TransportType -> NodeId -> PersonalityType -> m ANT.ConnectionId
 openConnection addr port tt rnid pType = do
   ariviInstance <- getAriviNetworkInstance
   tv <- liftIO $ atomically $ connectionMap ariviInstance
   eventChan <- liftIO (newTChanIO :: IO (TChan Event))
-  socket <- liftIO $ createSocket (show addr) (read (show port)) tt
+  socket <- liftIO $ createSocket addr (read (show port)) tt
   outboundChan <- liftIO (newTChanIO :: IO (TChan OutboundFragment))
   reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
   p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))

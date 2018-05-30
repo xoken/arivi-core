@@ -21,6 +21,7 @@ import qualified Arivi.Network.FSM        as FSM (initFSM)
 import           Arivi.Network.Types
 import           Control.Concurrent.Async (async, wait)
 import           Control.Concurrent.STM   (atomically, newTChan, writeTChan)
+import           Data.ByteString.Char8
 import           Network.Socket
 
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
@@ -38,14 +39,14 @@ handleInboundConnection socket parcelTChan = do
 
         socketName <- getSocketName socket
 
-        let ipAddress = getIPAddress socketName
+        ipAddress <- inet_ntoa $ getIPAddress socketName
         let port = getPortNumber socketName
         let transportType = getTransportType socket
 
-        let connectionId = NetworkConnection.makeConnectionId ipAddress
-                                                                 port
-                                                                 transportType
-
+        -- let connectionId = NetworkConnection.makeConnectionId ipAddress
+        --                                                       port
+        --                                                       transportType
+        let connectionId = Data.ByteString.Char8.pack ""
         -- if Data.HashMap.Strict.member connectionId frameDispatchHashMap
         --     then
         --       do

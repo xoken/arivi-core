@@ -32,13 +32,13 @@ import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
 import qualified Data.ByteString.Lazy               as L
 import           GHC.Generics
-import qualified Network.Socket                     as Network (HostAddress,
+import qualified Network.Socket                     as Network (HostName,
                                                                 Socket)
 
 data Connection = Connection {
                           connectionId          :: ConnectionId
                         , remoteNodeId          :: NodeId
-                        , ipAddress             :: Network.HostAddress
+                        , ipAddress             :: Network.HostName
                         , port                  :: PortNumber
                         , ephemeralPubKey       :: Curve25519.PublicKey
                         , ephemeralPrivKey      :: Ed25519.SecretKey
@@ -72,13 +72,13 @@ concatenate first second = Data.ByteString.Char8.append
 
 
 -- | ConnectionId is concatenation of IP Address, PortNumber and TransportType
-makeConnectionId :: Network.HostAddress
+makeConnectionId :: Network.HostName
                  -> PortNumber
                  -> TransportType
                  -> ConnectionId
 makeConnectionId ipAddress port transportType =
 
-                          Data.ByteString.Char8.pack $  show ipAddress
+                          Data.ByteString.Char8.pack $   ipAddress
                                                      ++ "|"
                                                      ++ show port
                                                      ++ "|"
