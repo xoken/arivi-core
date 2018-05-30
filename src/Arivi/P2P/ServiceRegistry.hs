@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+
 -- |
 -- Module      :  Arivi.P2P.ServiceRegistry
 -- Copyright   :
@@ -35,10 +38,13 @@ import           Network(connectTo, PortID(..), PortNumber(..))
 import           System.IO
 import           Arivi.Kademlia.Query
 import           Arivi.Kademlia.Types
+import           Codec.Serialise
+import           GHC.Generics
+
 
 data NodeType = FullNode | HalfNode deriving(Show)
-data ServiceCode = BlockInventory | BlockSync | PendingTransaction
-                   deriving(Eq,Ord)
+-- Added Show in deriving
+data ServiceCode = BlockInventory | BlockSync | PendingTransaction deriving(Eq,Ord,Show,Generic)
 
 type IP = String
 type Port = Int
@@ -145,3 +151,101 @@ peerMaintenanceThread servicePeerListTvar serviceContextTvar peerType = do
 -- sampleServiceContext :: ServiceContext
 -- sampleServiceContext = Map.fromList [ (213, (2, FullNode, UDP) ),
 --                                       (123, (3, HalfNode, TCP) ) ]
+
+import Arivi.Network.Types (ConnectionId, PersonalityType(..), TransportType(..))
+import Arivi.Network.instance (openConnection, sendMessage)
+-- import Arivi.kademila. (Get_Peer_List)
+
+data SubscribeMessage = SubscribeMessage {
+    neededServices :: [ServiceCode], 
+    avaiableServices :: [ServiceCode] 
+    } deriving (Eq,Show)
+
+-- SubscribeMessage 
+instance Serialise SubscribeMessage
+
+SubscribeMessage :: ConnectionId -> [a]-> IO
+SubscribeMessage ConnectionId ServicesNeeded= do
+    -- searialise the list and send 
+    
+    -- serialise servicesList
+    
+    -- avaiableServices = Map.keys leServiceContext
+    -- let subMsg = SubscribeMessage {neededServices = [BlockInventory,PendingTransaction], avaiableServices = [BlockSync] }
+
+    -- convert subMsg to Serialize
+
+    -- Network Layer API call
+    sendMessage ConnectionId BString
+
+
+-- Thread which sends subscribe request messages to peers taken from kademila
+addSubscribePeer :: IO()
+addSubscribePeer = do
+
+    neededServices = getListOfServicesNeeded ServiceContext SubscriptionTable NotifyTable
+
+    if neededServices == []    
+        then do
+            -- wait for some constant seconds
+            wait(5)
+            addSubscribePeer
+    else do 
+    
+        -- Ask for one peer from kademila
+        -- kademila function
+        peerlist <- Get_Peer_List(1)
+
+        -- take the first peer data and open it
+        (IP,PORT,NodeId) <- peerlist!!1
+
+        -- network layer function
+        connId <- openConnection(IP, PORT, TCP, NodeId, INITIATOR)
+
+        SubscribeMessage(connId, ServicesNeeded)
+
+        addSubscribePeer
+
+    where
+        neededServices = getListOfServicesNeeded ServiceContext SubscriptionTable NotifyTable
+
+
+-- subscription (i.e is outbound thread ) is only called when services are need and that is when
+-- number of peer connections drops less then minPeerCount
+-- and not when when raito is violated
+
+-- incoming is only accepted when before hand checked that if addded raito is not violated
+
+
+-- Finds out if service needs peer based on minimun peer count taking ServiceCode as input
+doesServiceNeedPeers :: ServiceCode -> ServiceContext -> SubscriptionTable -> NotifyTable -> [ServiceCode]
+doesServiceNeedPeers serviceCode serviceContext subscriptionTable notifyTable= do
+            
+    let serContext = fromJust $ Map.lookup serviceCode serviceContext
+    let subpeerlist = fromJust $ Map.lookup serviceCode subscriptionTable
+    let notifypeerlist = fromJust $ Map.lookup serviceCode notifyTable
+        
+    let totalconnectioncount = toInteger ((getPeerCount (Right (serviceCode,subpeerlist)) ) + (getPeerCount (Right (serviceCode,notifypeerlist)) ))
+        
+    if (totalconnectioncount < (toInteger (getPeerCount (Left (serviceCode,serContext)))) )
+        then [serviceCode]
+    else
+        []
+    
+-- Gets List of services which needs peers
+getListOfServicesNeeded :: ServiceContext -> SubscriptionTable -> NotifyTable -> [ServiceCode]
+getListOfServicesNeeded serContext subTable notifyTable = do
+    let keysList = Map.keys serContext
+    goThroughEachService keysList [] serContext subTable notifyTable
+
+
+
+-- Loop through each service finding whether it needs service
+goThroughEachService :: [ServiceCode]-> [ServiceCode] -> ServiceContext -> SubscriptionTable -> NotifyTable -> [ServiceCode]
+goThroughEachService [] result serContext subTable notifyTable = result
+goThroughEachService (ser:serList) result serContext subTable notifyTable =
+    goThroughEachService serList (result ++ val) serContext subTable notifyTable
+    where
+        val = doesServiceNeedPeers ser serContext subTable notifyTable
+
+
