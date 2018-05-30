@@ -33,15 +33,17 @@ import qualified Data.HashMap.Strict                as StrictHashMap (HashMap,
                                                                       delete,
                                                                       insert,
                                                                       lookup)
+import           Data.Int                           (Int64)
 import           Data.Maybe                         (fromMaybe)
-type AEADNonce = Integer
+
+type AEADNonce = Int64
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
 --   list of fragmentsHashMap
 reassembleFrames::
                   Connection
                -> TChan Parcel
-               -> TChan (ConnectionId, Lazy.ByteString)
+               -> TChan Lazy.ByteString
                -> StrictHashMap.HashMap MessageId Lazy.ByteString
                -> AEADNonce
                -> IO ()
@@ -59,8 +61,7 @@ reassembleFrames connection reassemblyTChan p2pMessageTChan
 
     let parcelHeader = Lazy.toStrict $ serialise (header parcel)
     let ssk = sharedSecret connection
-    let parcelAeadNonce = Lazy.toStrict $ Binary.encode aeadNonce
-    let payloadMessage =  Lazy.fromStrict $ decryptMsg parcelAeadNonce
+    let payloadMessage =  Lazy.fromStrict $ decryptMsg aeadNonce
                                                     ssk parcelHeader
                                                     authenticationTag
                                                     cipherText
@@ -76,8 +77,7 @@ reassembleFrames connection reassemblyTChan p2pMessageTChan
     if currentFragmentNo ==  totalFragements (header parcel)
       then
         do
-           atomically $ writeTChan p2pMessageTChan
-                            (parcelConnectionId (header parcel),appendedMessage)
+           atomically $ writeTChan p2pMessageTChan appendedMessage
 
            let updatedFragmentsHashMap = StrictHashMap.delete messageIdNo
                                                               fragmentsHashMap
