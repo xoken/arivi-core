@@ -14,10 +14,10 @@ module Arivi.P2P.ServiceRegistry
     -- , ContextId
     --   ServiceContext
     -- , genUniqueSessionId
-    -- , _registerService
+    -- , registerTopic
 ) where
 
-import           Arivi.Network.Connection     (Connection, ConnectionId)
+import           Arivi.Network.Connection     (Connection)
 import           Arivi.Network.Types          (TransportType (..))
 import           Arivi.P2P.PubSub             (Topic)
 import           Arivi.P2P.Types
@@ -26,33 +26,46 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Concurrent.MVar      (MVar)
 import           Control.Concurrent.STM.TChan (TChan)
-import           Control.Exception(try, SomeException)
-import qualified Data.Map                   as Map
-import qualified Data.Set                   as Set
-import qualified Data.List                   as List
+import           Control.Exception            (try, SomeException)
+import qualified Data.Map                     as Map
+import qualified Data.Set                     as Set
+import qualified Data.List                    as List
 import           Data.HashTable.IO
 import           Data.Maybe                   (Maybe)
 import           Data.UUID                    (UUID)
 import           Data.UUID.V1                 (nextUUID)
-import           Network(connectTo, PortID(..), PortNumber(..))
+import           Network                      (connectTo, PortID(..), PortNumber(..))
 import           System.IO
 import           Arivi.Kademlia.Query
 import           Arivi.Kademlia.Types
+import           Data.ByteString.Char8        (pack)
+import           Data.Maybe                   (fromJust)
 
 data NodeType = FullNode | HalfNode deriving(Show)
+
 data ServiceCode = BlockInventory | BlockSync | PendingTransaction
                    deriving(Eq,Ord)
 
+data TopicCode = Latest_block_header | Latest_block
+                    deriving(Eq,Ord)
+
 type IP = String
 type Port = Int
-type Timeout = Float
-type PeerList = [ (NodeId,IP,Port,Timeout) ]
-type PeerCount = Int
-type Context = (PeerCount, NodeType, TransportType)
+type ExpiryTime = Float
+type PeerList = [ (NodeId,IP,Port,ExpiryTime) ]
+type MinPeerCountPerTopic = Int
+type Context = (MinPeerCountPerTopic, NodeType, TransportType)
 
-type ServiceContext  = Map.Map ServiceCode Context
-type SubscriptionMap = Map.Map ServiceCode PeerList
-type WatchersMap = Map.Map ServiceCode PeerList
+-- type ServiceContext  = Map.Map ServiceCode Context
+-- type TopicToService  = Map.Map ServiceCode Context
+-- type SubscriptionMap = Map.Map ServiceCode PeerList
+-- type WatchersMap = Map.Map ServiceCode PeerList
+
+type TopicContext  = Map.Map TopicCode Context
+type TopicToService  = Map.Map TopicCode ServiceCode
+type SubscriptionMap = Map.Map TopicCode PeerList
+type WatchersMap = Map.Map TopicCode PeerList
+
 data AriviP2PInstance = AriviP2PInstance { nodeId :: NodeId
                                          , ip:: String
                                          , port:: Int
@@ -69,42 +82,63 @@ makeP2Pinstance ariviP2PInstanceTvar watchersMapTvar subscriptionMapTvar nodeId 
                                      (BlockSync,          []),
                                      (PendingTransaction, []) ]
     let subscriptionMap = Map.fromList [ (BlockInventory,     []),
-                                     (BlockSync,          []),
-                                     (PendingTransaction, []) ]
+                                         (BlockSync,          []),
+                                         (PendingTransaction, []) ]
+
     atomically( writeTVar watchersMapTvar watchersMap )
     atomically( writeTVar subscriptionMapTvar subscriptionMap )
     forkIO (handleIncomingConnections subscriptionMapTvar watchersMapTvar
                             outboundPeerQuota maxConnectionAllowed)
+    -- thread for asking kademlia for peer and ask for topics available
+    -- and modify GLOBAL MATRIX which maintains the ranking of peers 
+    -- which provide more topics.
     return ()
 
-_registerService ariviP2PInstanceTvar subscriptionMapTvar watchersMapTvar
-                 serviceContextTvar serviceCode minPeerCount
-                 transport peerType = do
-    serCntxt <- atomically( readTVar serviceContextTvar )
-    let context = (minPeerCount, peerType, transport)
-    let newSerCntxt = Map.insert serviceCode context serCntxt
-    atomically( writeTVar serviceContextTvar newSerCntxt )
+registerTopicModSerCntxtTvar :: TopicCode -> MinPeerCountPerTopic -> NodeType -> TransportType-> TopicContext -> TopicContext
+registerTopicModSerCntxtTvar topicCode minPeerCountPerTopic peerType transport serCntxt = newSerCntxt
+    where   context = (minPeerCountPerTopic, peerType, transport)
+            newSerCntxt = Map.insert topicCode context serCntxt
 
-    subscriptionMap <- atomically( readTVar subscriptionMapTvar )
-    let hasServCode = Map.lookup serviceCode subscriptionMap
+registerTopicSubMapOrWatchMapTvar topicCode subscriptionSubOrWatchMap = do
+    let hasServCode = Map.lookup topicCode subscriptionSubOrWatchMap
     case hasServCode of
-        Nothing -> do
-                   let newSubscriptionMap = Map.insert serviceCode [] subscriptionMap
-                   atomically( writeTVar subscriptionMapTvar newSubscriptionMap )
+        Nothing ->  Map.insert topicCode [] subscriptionSubOrWatchMap
+        _ -> subscriptionSubOrWatchMap
 
 
-    watchersMap <- atomically( readTVar watchersMapTvar )
-    let hasServCode' = Map.lookup serviceCode watchersMap
-    case hasServCode' of
-        Nothing ->  do
-                    let newWatchersMap = Map.insert serviceCode [] watchersMap
-                    atomically( writeTVar subscriptionMapTvar newWatchersMap )
+registerTopic ariviP2PInstanceTvar subscriptionMapTvar watchersMapTvar
+                 topicContextTvar topicCode  minPeerCountPerTopic
+                 transport peerType = do
+    
+    --let context = (minPeerCountPerTopic, peerType, transport)
+    --let newSerCntxt = Map.insert serviceCode context serCntxt
+    --atomically( writeTVar serviceContextTvar newSerCntxt )
+
+    atomically( modifyTVar topicContextTvar (registerTopicModSerCntxtTvar topicCode minPeerCountPerTopic peerType transport))
+
+
+    -- subscriptionMap <- atomically( readTVar subscriptionMapTvar )
+    -- let hasServCode = Map.lookup serviceCode subscriptionMap
+    -- case hasServCode of
+    --     Nothing -> do
+    --                let newSubscriptionMap = Map.insert serviceCode [] subscriptionMap
+    --                atomically( writeTVar subscriptionMapTvar newSubscriptionMap )
+    atomically( modifyTVar subscriptionMapTvar (registerTopicSubMapOrWatchMapTvar topicCode))
+    atomically( modifyTVar watchersMapTvar (registerTopicSubMapOrWatchMapTvar topicCode))
+
+    -- watchersMap <- atomically( readTVar watchersMapTvar )
+    -- let hasServCode' = Map.lookup serviceCode watchersMap
+    -- case hasServCode' of
+    --     Nothing ->  do
+    --                 let newWatchersMap = Map.insert serviceCode [] watchersMap
+    --                 atomically( writeTVar subscriptionMapTvar newWatchersMap )
 
     ariviP2PInstance <- atomically( readTVar ariviP2PInstanceTvar )
     let outboundPeerQuota' = outboundPeerQuota ariviP2PInstance
     let maxConnectionAllowed' = maxConnectionAllowed ariviP2PInstance
-    forkIO (outboundThread subscriptionMapTvar watchersMapTvar
-                           minPeerCount maxConnectionAllowed')
+
+    topicContext <- atomically( readTVar topicContextTvar )
+    forkIO (outboundThread topicCode topicContext subscriptionMapTvar watchersMapTvar minPeerCountPerTopic maxConnectionAllowed')
 
 -- ======== Private functions =========
 handleIncomingConnections subscriptionMapTvar watchersMapTvar outboundPeerQuota
@@ -122,31 +156,21 @@ handleIncomingConnections subscriptionMapTvar watchersMapTvar outboundPeerQuota
     --     --wait for some time
     --     updateWatchersMapTime watchersMap
 
-outboundThread subscriptionMapTvar watchersMapTvar minPeerCount maxConnectionAllowed = do
-    subscriptionMap <- atomically( readTVar subscriptionMapTvar )
-    watchersMap <- atomically( readTVar watchersMapTvar )
-    let uniqueLen = length . Set.fromList . (List.intercalate []) . Map.elems
-    let totalCount = uniqueLen subscriptionMap + uniqueLen watchersMap
-    return ()
-    -- if totalCount < maxConnectionAllowed && totalCount<minPeerCount then
-    --         -- subscribe ( nodeid, topic)
--- ================================================
+-- outboundThread subscriptionMapTvar watchersMapTvar minPeerCountPerTopic maxConnectionAllowed = do
+--     subscriptionMap <- atomically( readTVar subscriptionMapTvar )
+--     watchersMap <- atomically( readTVar watchersMapTvar )
+--     let uniqueLen = length . Set.fromList . (List.intercalate []) . Map.elems
+--     let totalCount = uniqueLen subscriptionMap + uniqueLen watchersMap
+--     return ()
+--     -- if totalCount < maxConnectionAllowed && totalCount<minPeerCountPerTopic then
+--     --         -- subscribe ( nodeid, topic)
+-- -- ================================================
 
 
-getPeerCount :: Either (ServiceCode,Context)
-                       (ServiceCode,PeerList) -> PeerCount
+getPeerCount :: Either (TopicCode,Context)
+                       (TopicCode,PeerList) -> MinPeerCountPerTopic
 getPeerCount (Left (_, (peerCount, _, _) )) = peerCount
 getPeerCount (Right ( _ , peerList )) = length peerList
-
-totalCount subscriptionMapTvar watchersMapTvar = do
-    watchersMap <- atomically( readTVar watchersMapTvar )
-    subscriptionMap <- atomically( readTVar subscriptionMapTvar )
-    let watchersList = Map.toList watchersMap
-    let subscriptionList = Map.toList subscriptionMap
-    return (counterPeers watchersList + counterPeers subscriptionList) where
-        counterPeers table = case table of [] -> 0
-                                           (x:xs) -> getPeerCount (Right x) +
-                                                    counterPeers (tail table)
 
 -- serviceNeedsPeers servicePeerList serviceContext =
 --     serviceNeedsPeers1 (Map.toList servicePeerList) (Map.toList serviceContext)
@@ -160,7 +184,7 @@ totalCount subscriptionMapTvar watchersMapTvar = do
 --             else serviceNeedsPeers1 (tail servicePeerList) (tail serviceContext)
 
 -- findMaxPeerfromMap servicePeerList = findMaxPeerService (Map.toList servicePeerList)
--- findMaxPeerService:: [ ( ServiceCode,PeerList ) ] -> Int
+-- findMaxPeerService:: [ ( serviceCode,PeerList ) ] -> Int
 -- findMaxPeerService [x] = getPeerCount (Right x)
 -- findMaxPeerService (x:xs)
 --     | findMaxPeerService xs > getPeerCount (Right x) = findMaxPeerService xs
@@ -208,10 +232,72 @@ totalCount subscriptionMapTvar watchersMapTvar = do
 -- -- -- data ConnectionCommand = ConnectionCommand {
 -- --     -- connectionId   :: ConnectionId   -- ^ Unique Connection Identifier
 -- --     -- ,connectionMVar :: MVar Connection-- ^ Shared Variable  for connection }
--- -- --      -> CuckooHashTable ServiceCode [Topic]
--- -- --      -> IO (CuckooHashTable ServiceCode [Topic])
+-- -- --      -> CuckooHashTable serviceCode [Topic]
+-- -- --      -> IO (CuckooHashTable serviceCode [Topic])
 
 
 -- -- sampleServiceContext :: ServiceContext
 -- -- sampleServiceContext = Map.fromList [ (213, (2, FullNode, UDP) ),
 -- --                                       (123, (3, HalfNode, TCP) ) ]
+
+
+
+-- changes
+-- changes  important one: service -> topic
+
+
+-- Finds out if service needs peer based on minimun peer count taking serviceCode as input
+doesServiceNeedPeers :: TopicCode -> TopicContext -> SubscriptionMap -> WatchersMap -> Bool
+doesServiceNeedPeers topicCode topicContext subscriptionMap watchersMap = do
+            
+    let serContext = fromJust $ Map.lookup topicCode topicContext
+    let subpeerlist = fromJust $ Map.lookup topicCode subscriptionMap
+    let notifypeerlist = fromJust $ Map.lookup topicCode watchersMap
+        
+    let totalconnectioncount = toInteger ((getPeerCount (Right (topicCode,subpeerlist)) ) + 
+                                          (getPeerCount (Right (topicCode,notifypeerlist)) ))
+        
+    if (totalconnectioncount < (toInteger (getPeerCount (Left (topicCode,serContext)))) )
+        then True
+    else
+        False
+
+flatten :: [[a]] -> [a]         
+flatten xs = (\z n -> foldr (\x y -> foldr z y x) n xs) (:) []
+
+-- -- changes added topic code
+outboundThread topicCode topicContext subscriptionMapTvar watchersMapTvar minPeerCount maxConnectionAllowed = do
+
+    subscriptionMap <- atomically( readTVar subscriptionMapTvar )
+    watchersMap <- atomically( readTVar watchersMapTvar )
+
+    -- Changes from interclate to flatten
+
+    -- Map.elems gets a list of all peerList of all the topicscode
+    -- flatten convert list of list to just a single list
+    -- set.formlist removes all the repeated elemets (i.r gives unique nodes)
+    let uniqueLen map = length $ Set.fromList $ flatten $ Map.elems map 
+    let totalCount = uniqueLen subscriptionMap + uniqueLen watchersMap
+    
+    
+
+    if totalCount < maxConnectionAllowed && (doesServiceNeedPeers topicCode topicContext subscriptionMap watchersMap)
+        then do
+        let connectionId = getnCheckConnection
+
+        subscribeMessage connectionId topicCode
+        outboundThread topicCode topicContext subscriptionMapTvar  watchersMapTvar minPeerCount maxConnectionAllowed
+    else
+        outboundThread topicCode topicContext subscriptionMapTvar  watchersMapTvar minPeerCount maxConnectionAllowed 
+
+
+getnCheckConnection = pack "9823593847"
+                    -- check if connection already exits
+                    -- if connection does not exits 
+                    -- network layer  api -> openConnection
+
+subscribeMessage :: ConnectionId -> TopicCode -> IO ()
+subscribeMessage connectionId topicNeeded= do 
+    -- serialise topicNeeded -> BString
+    -- Network Layer API call
+--   sendMessage ConnectionId BString
