@@ -157,8 +157,7 @@ import Arivi.Network.instance (openConnection, sendMessage)
 -- import Arivi.kademila. (Get_Peer_List)
 
 data SubscribeMessage = SubscribeMessage {
-    neededServices :: [ServiceCode], 
-    avaiableServices :: [ServiceCode] 
+    neededServices :: [ServiceCode] 
     } deriving (Eq,Show)
 
 -- SubscribeMessage 
@@ -167,47 +166,36 @@ instance Serialise SubscribeMessage
 SubscribeMessage :: ConnectionId -> [a]-> IO
 SubscribeMessage ConnectionId ServicesNeeded= do
     -- searialise the list and send 
-    
     -- serialise servicesList
-    
     -- avaiableServices = Map.keys leServiceContext
     -- let subMsg = SubscribeMessage {neededServices = [BlockInventory,PendingTransaction], avaiableServices = [BlockSync] }
-
     -- convert subMsg to Serialize
-
     -- Network Layer API call
     sendMessage ConnectionId BString
-
 
 -- Thread which sends subscribe request messages to peers taken from kademila
 addSubscribePeer :: IO()
 addSubscribePeer = do
 
-    neededServices = getListOfServicesNeeded ServiceContext SubscriptionTable NotifyTable
+    --neededServices = getListOfServicesNeeded ServiceContext SubscriptionTable NotifyTable
 
     if neededServices == []    
         then do
             -- wait for some constant seconds
             wait(5)
             addSubscribePeer
-    else do 
-    
+    else do
         -- Ask for one peer from kademila
         -- kademila function
         peerlist <- Get_Peer_List(1)
-
         -- take the first peer data and open it
         (IP,PORT,NodeId) <- peerlist!!1
-
         -- network layer function
         connId <- openConnection(IP, PORT, TCP, NodeId, INITIATOR)
-
         SubscribeMessage(connId, ServicesNeeded)
-
         addSubscribePeer
-
-    where
-        neededServices = getListOfServicesNeeded ServiceContext SubscriptionTable NotifyTable
+        where
+            neededServices = getListOfServicesNeeded ServiceContext SubscriptionTable NotifyTable
 
 
 -- subscription (i.e is outbound thread ) is only called when services are need and that is when
@@ -225,7 +213,8 @@ doesServiceNeedPeers serviceCode serviceContext subscriptionTable notifyTable= d
     let subpeerlist = fromJust $ Map.lookup serviceCode subscriptionTable
     let notifypeerlist = fromJust $ Map.lookup serviceCode notifyTable
         
-    let totalconnectioncount = toInteger ((getPeerCount (Right (serviceCode,subpeerlist)) ) + (getPeerCount (Right (serviceCode,notifypeerlist)) ))
+    let totalconnectioncount = toInteger ((getPeerCount (Right (serviceCode,subpeerlist)) ) + 
+                                          (getPeerCount (Right (serviceCode,notifypeerlist)) ))
         
     if (totalconnectioncount < (toInteger (getPeerCount (Left (serviceCode,serContext)))) )
         then [serviceCode]
