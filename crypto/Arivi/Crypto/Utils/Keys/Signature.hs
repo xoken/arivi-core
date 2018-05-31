@@ -10,17 +10,18 @@
 
 module Arivi.Crypto.Utils.Keys.Signature
 (
-    getSecretKey,
-    getPublicKey,
-    sign,
-    verify,
-    generateKeyPair,
-    publicKeytoHex,
-    hexToPublicKey,
-    secretKeyToHex,
-    hexToSecretKey,
-    PublicKey,
-    SecretKey
+      PublicKey
+    , SecretKey
+    , getSecretKey
+    , getPublicKey
+    , generateKeyPair
+    , hexToPublicKey
+    , hexToSecretKey
+    , publicKeytoHex
+    , secretKeyToHex
+    , sign
+    , toByteString
+    , verify
 ) where
 
 
@@ -61,9 +62,9 @@ hexToPublicKey hexPublicKey = Crypto.Error.throwCryptoError (Crypto.PubKey.Ed255
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do
                  randomSeed <- Arivi.Crypto.Utils.Random.getRandomByteString 32
-                 let secretKey = getSecretKey randomSeed
-                 let publicKey = getPublicKey secretKey
-                 return (secretKey,publicKey)
+                 let mSecretKey = getSecretKey randomSeed
+                 let mPublicKey = getPublicKey mSecretKey
+                 return (mSecretKey,mPublicKey)
 
 
 -- | This function is used for converting Secret Key from SecretKey form to hex form

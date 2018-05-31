@@ -25,11 +25,9 @@ import           Crypto.Cipher.AES                  (AES256)
 import           Crypto.Cipher.Types                (BlockCipher (..), IV,
                                                      cipherInit, ctrCombine,
                                                      ivAdd, nullIV)
-import           Crypto.Error                       (CryptoError (..),
-                                                     CryptoFailable (..),
+import           Crypto.Error                       (CryptoFailable (..),
                                                      throwCryptoError)
-import           Data.ByteArray                     (ByteArray, ByteArrayAccess,
-                                                     convert)
+import           Data.ByteArray                     (convert)
 import           Data.ByteString.Char8              (ByteString)
 
 -- | PlainText is ByteString

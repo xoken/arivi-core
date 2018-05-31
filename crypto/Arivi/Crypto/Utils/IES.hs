@@ -28,11 +28,11 @@ import           Crypto.Error
 import           Crypto.PubKey.Curve25519
 import           Crypto.PubKey.ECIES
 import           Crypto.Random.Types
-import           Data.ByteString.Char8
 import           Data.Proxy
 
 -- |Proxy Curve representation this is standard curve known to both sender and
 -- receiver
+curve :: Proxy Curve_X25519
 curve = Proxy :: Proxy Curve_X25519
 
 

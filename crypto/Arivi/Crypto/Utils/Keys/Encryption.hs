@@ -26,21 +26,22 @@
 
 module Arivi.Crypto.Utils.Keys.Encryption
 (
-    getSecretKey,
-    getPublicKey,
-    generateKeyPair,
-    createSharedSecretKey,
-    derivedSharedSecretKey,
-    SharedSecret,
-    PublicKey,
-    SecretKey,
-    throwCryptoError,
-    publicKey
+      SharedSecret
+    , PublicKey
+    , SecretKey
+    , createSharedSecretKey
+    , derivedSharedSecretKey
+    , generateKeyPair
+    , getPublicKey
+    , getSecretKey
+    , publicKey
+    , throwCryptoError
+    , toByteString
 ) where
 
 
 import           Crypto.ECC                (Curve_X25519, SharedSecret, ecdh)
-import           Crypto.Error              (CryptoFailable, throwCryptoError)
+import           Crypto.Error              (throwCryptoError)
 import           Crypto.PubKey.Curve25519  (PublicKey, SecretKey, publicKey,
                                             secretKey, toPublic)
 import           Data.ByteArray            (convert)
@@ -71,9 +72,9 @@ toByteString mPublicKey = Data.ByteArray.convert mPublicKey :: ByteString
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do
                  randomSeed <-  Arivi.Crypto.Utils.Random.getRandomByteString 32
-                 let secretKey = getSecretKey randomSeed
-                 let publicKey = getPublicKey secretKey
-                 return (secretKey,publicKey)
+                 let mSecretKey = getSecretKey randomSeed
+                 let mPublicKey = getPublicKey mSecretKey
+                 return (mSecretKey,mPublicKey)
 
 
 
@@ -81,7 +82,7 @@ generateKeyPair = do
 
 
 -- | This is Elliptic curve. user of this library don't have to worry about this
-
+curveX25519 :: Proxy Curve_X25519
 curveX25519 = Proxy :: Proxy Curve_X25519
 
 -- | Using createSharedSecreatKey sender will create SharedSecret for himself

@@ -6,13 +6,11 @@ module Arivi.Crypto.Utils.PublicKey.Signature
 ) where
 
 import           Arivi.Crypto.Utils.Random
-import           Crypto.Error              (CryptoFailable, throwCryptoError)
-import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, Signature,
-                                            publicKey, secretKey, sign,
+import           Crypto.Error              (throwCryptoError)
+import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, secretKey,
                                             toPublic)
 import           Data.ByteArray            (convert)
 import           Data.ByteString.Char8     (ByteString)
-import           Data.Proxy
 
 
 -- | Takes a 32 bytes seed and produces SecretKey
@@ -32,9 +30,6 @@ toByteString mPublicKey = Data.ByteArray.convert mPublicKey :: ByteString
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do
                  randomSeed <- Arivi.Crypto.Utils.Random.getRandomByteString 32
-                 let secretKey = getSecretKey randomSeed
-                 let publicKey = getPublicKey secretKey
-                 return (secretKey,publicKey)
-
-
-
+                 let mSecretKey = getSecretKey randomSeed
+                 let mPublicKey = getPublicKey mSecretKey
+                 return (mSecretKey,mPublicKey)
