@@ -9,34 +9,34 @@ hash<servicCode, readTChan> readMessages;
 def makeP2PInstance(nodeId, IP, port, outboundPeerQuota):
     creates P2P instance which stores GLOBALLY
     [nodeId, IP, port,outboundPeerQuota, maxConnectionAllowed]
+    async(inboundThread,outboundPeerQuota,maxConn)
 
 # registerService and update Service requirements.
 def registerService(ariviInstance, ServiceCode, minPeerCount,
                     transport, peerType):
     ServiceContext[ServiceCode] = (minPeerCount, peerType, transport)
-   if SubcriptionTable doesNot have ServiceCode:
+    if SubcriptionTable doesNot have ServiceCode:
         SubcriptionTable[ServiceCode] = []
     if NotifyTable doesNot have ServiceCode:
         NotifyTable[ServiceCode] = []
     (outboundPeerQuota,maxConn) = askAriviInstance(ariviInstance)
-    async(inboundThread,outboundPeerQuota,maxConn)
     async(outboundThread, minPeerCount)
 
-def sendMessage(serviceCode, message):
-    ownNodeId = ask P2P instance
-    _message = wrap message with (ownNodeId,serviceCode)
-    _sendMessage(serviceCode, _message)
+##def sendMessage(serviceCode, message):
+##    ownNodeId = ask P2P instance
+##    _message = wrap message with (ownNodeId,serviceCode)
+##    _sendMessage(serviceCode, _message)
 
-def readNotification(serviceCode):
-    return serviceReadTChan[sericeCode].read()
+##def readNotification(serviceCode):
+##    return serviceReadTChan[sericeCode].read()
 
-def publish(publishData):
-    for all nodes in SubcriptionTable and NotifyTable:
-        send the publishData
+##def publish(publishData):
+##    for all nodes in SubcriptionTable and NotifyTable:
+##        send the publishData
 
-def closeSession(service):
-    for peers in session:
-        peer.sendMessage(close connection)
+##def closeSession(service):
+##    for peers in session:
+##        peer.sendMessage(close connection)
 
 #---------------------------------------------------------
 def allConnectionCount(SubscriptionTable,NotifyTable):
@@ -56,7 +56,6 @@ def newNotifyList(timeElapsed, peerList): # peerList = (peer,timeOut)
 def inboundThread(serviceCode,outboundPeerQuota,maxConn,
                   SubcriptionTable,NotifyTable):
     while True:
-        ti = time()
         subscriptionLen = len(SubcriptionTable[serviceCode])
         total = subriptionLen + len(NotifyTable[serviceCode])
         if (subcriptionLen/total > outboundPeerQuota) and
