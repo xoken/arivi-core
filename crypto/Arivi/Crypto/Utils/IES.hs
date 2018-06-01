@@ -39,7 +39,7 @@ curve = Proxy :: Proxy Curve_X25519
 
 -- | genIESParams takes Public Key of the receiver and generates IESParams
 --  containing ephemeral public key and shared secret key tuple
-genIESParams :: MonadRandom m => PublicKey -> m (PublicKey, SharedSecret)
+genIESParams :: MonadRandom m => PublicKey -> m (CryptoFailable (PublicKey, SharedSecret))
 genIESParams = deriveEncrypt curve
 
 
@@ -47,7 +47,7 @@ genIESParams = deriveEncrypt curve
 
 -- | This is used at receiver's side , ephemeral Public Key and receiver's
 -- secret key is used to generate shared secret key of communication
-generateSharedSecret :: PublicKey -> CryptoFailable SecretKey -> SharedSecret
+generateSharedSecret :: PublicKey -> CryptoFailable SecretKey -> CryptoFailable SharedSecret
 generateSharedSecret ePubKey receiversSK =
                                             deriveDecrypt curve ePubKey
                                                 (throwCryptoError receiversSK)

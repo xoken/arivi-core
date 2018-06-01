@@ -23,7 +23,8 @@ import           Arivi.Utils.Exception                   (AriviException (AriviC
 import           Control.Exception                       (throw, try)
 import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error                            (CryptoError (..),
-                                                          eitherCryptoError)
+                                                          eitherCryptoError,
+                                                          CryptoFailable)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
 import qualified Data.Binary                             as Binary (encode)
@@ -77,13 +78,13 @@ getEncryptionPublicKeyFromNodeId nodeId = pk where
             Right pubkey -> pubkey
 
 -- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
-createSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
+createSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> CryptoFailable SharedSecret
 createSharedSecretKey remotePubKey signSK = Encryption.createSharedSecretKey encryptSK remotePubKey where
         encryptSK = getEncryptionSecretKey signSK
         -- encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
 
 -- | Takes the master secret key (signSK) and the encryption pubkey of remote and calls the Encryption.deriveSharedSecretKey with appropriate arguements
-deriveSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
+deriveSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> CryptoFailable SharedSecret
 deriveSharedSecretKey remotePubKey signSK = Encryption.derivedSharedSecretKey remotePubKey encryptSK where
         encryptSK = getEncryptionSecretKey signSK
 
