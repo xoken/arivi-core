@@ -17,7 +17,7 @@ module Arivi.Kademlia.Utils
     getRandomSequence2
 ) where
 
-import           Arivi.Kademlia.Signature
+import           Arivi.Crypto.Utils.Keys.Signature
 import qualified Data.ByteString.Char8    as C
 import           Data.Int
 import qualified Data.List.Split          as S

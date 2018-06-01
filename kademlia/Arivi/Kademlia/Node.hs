@@ -13,7 +13,7 @@ import           Control.Concurrent           (Chan, MVar, ThreadId, forkIO,
                                               )
 
 import qualified Arivi.Kademlia.Query         as Q
-import           Arivi.Kademlia.Signature
+import           Arivi.Crypto.Utils.Keys.Signature
 import qualified Arivi.Kademlia.Types         as T
 import           Arivi.Kademlia.Utils
 import           Control.Concurrent.STM.TChan (TChan, isEmptyTChan, readTChan,

@@ -67,8 +67,6 @@ library
                        Arivi.Kademlia.Instance
                        Arivi.Kademlia.Node
                        Arivi.Kademlia.Query
-                       Arivi.Kademlia.Random
-                       Arivi.Kademlia.Signature
                        Arivi.Kademlia.Types
                        Arivi.Kademlia.XorDistance
                        Arivi.Kademlia.Utils

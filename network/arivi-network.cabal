@@ -66,9 +66,7 @@ library
                        Arivi.Network.FSM
                        Arivi.Network.Handshake
                        Arivi.Network.HandshakeUtils
-                       Arivi.Network.HashMapManager
                        Arivi.Network.Instance
-                       Arivi.Network.NetworkClient
                        Arivi.Network.OutboundDispatcher
                        Arivi.Network.Reassembler
                        Arivi.Network.StreamClient

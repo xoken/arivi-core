@@ -1,8 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-type-defaults      #-}
-{-# OPTIONS_GHC -fno-warn-unused-matches     #-}
-{-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
-{-# OPTIONS_GHC -fno-warn-unused-top-binds   #-}
-
 -- {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -27,8 +22,8 @@ module Arivi.Kademlia.Instance
     T.NodeId
 ) where
 
-import           Arivi.Kademlia.Random
-import           Arivi.Kademlia.Signature     as CS
+import           Arivi.Crypto.Utils.Random
+import           Arivi.Crypto.Utils.Keys.Signature     as CS
 import qualified Arivi.Kademlia.Types         as T
 import           Arivi.Kademlia.Utils
 import           Control.Concurrent           (ThreadId, Chan, forkIO, newChan, newEmptyMVar, readChan)
