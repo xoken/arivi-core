@@ -11,22 +11,16 @@ import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.Connection           (Connection (..),
                                                      ConnectionId)
-import           Arivi.Network.Datagram             (createUDPSocket)
 import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
-import           Arivi.Network.Types                (Event (..), Payload (..))
-import qualified Arivi.Network.Types                as ANT
+import qualified Arivi.Network.Types                as ANT (PersonalityType (INITIATOR),
+                                                            TransportType (TCP))
 import           Control.Concurrent                 (threadDelay)
-import           Control.Concurrent.Async
-import           Control.Concurrent.STM             (atomically, newTChan,
-                                                     readTChan, writeTChan)
 import           Control.Concurrent.STM.TQueue
-import           Control.Monad                      (forever)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
-import           Data.ByteString.Lazy
 import           Data.HashTable.IO                  as MutableHashMap (new)
-import           Network.Socket
+-- import           Arivi.Network.Datagram             (createUDPSocket)
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
@@ -50,7 +44,7 @@ runAppM = flip runReaderT
 
 
 
-
+sender :: SecretKey -> SecretKey -> IO ()
 sender sk rk = do
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
@@ -72,23 +66,23 @@ sender sk rk = do
                                        liftIO $ print cid
 
                                    )
-
+receiver :: SecretKey -> IO ()
 receiver sk = do
   print (generateNodeId sk)
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
-  mutableConnectionHashMap <- MutableHashMap.new
+  mutableConnectionHashMap1 <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
   env' <- mkAriviEnv
   let env = env' { ariviCryptoEnv = CryptoEnv sk
                  , loggerChan = tq
                  -- , udpSocket = sock
-                 , udpConnectionHashMap = mutableConnectionHashMap
+                 , udpConnectionHashMap = mutableConnectionHashMap1
                  }
-  runStdoutLoggingT $ runAppM env (do
+  runStdoutLoggingT $ runAppM env (
                                        runTCPserver (show (envPort env))
                                   )
-
+main :: IO ()
 main = do
   (sender_sk, _) <- generateKeyPair
   (recv_sk, _) <- generateKeyPair

@@ -40,11 +40,12 @@ recipientHandshake sk conn parcel
                 let hsRespParcel = generateRespParcel hsRespMsg updatedConn'
                 return (serialise hsRespParcel, updatedConn')
     | otherwise = throw AriviSignatureVerificationFailedException
-    where (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn parcel
+    where (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk parcel
 
 
 -- | Initiator receives response from remote and returns updated connection object
 receiveHandshakeResponse :: Conn.Connection -> Parcel -> Conn.Connection
 receiveHandshakeResponse conn parcel = updatedConn where
-    (hsRespMsg, updatedConn) = readHandshakeResp conn parcel
+    -- (hsRespMsg, updatedConn) = readHandshakeResp conn parcel
+    (_, updatedConn) = readHandshakeResp conn parcel
     -- Need to delete ephemeral keypair from updated conn object

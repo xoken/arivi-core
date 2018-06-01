@@ -21,7 +21,7 @@ module Arivi.Network.Types
     Socket,
     SockAddr,
     PortNumber,
-    HostAddress,
+    HostName,
     SerialisedMsg,
     PlainText,
     CipherText,
@@ -63,14 +63,14 @@ import           Network.Socket                     as Network
 type ConnectionId   = ByteString
 type SessionId      = Int32
 -- need to be changed to Int24
-type PayloadLength  = Int16
+-- type PayloadLength  = Int16
 type FragmentNumber = Int16
 -- type FragmentCount  = Int16
 type MessageId      = ByteString
 type ServiceId      = Int8
 type Descriptor     = ByteString
 type ContextID      = Int
-type ServiceContext = Int32
+-- type ServiceContext = Int32
 type SerialisedMsg = BSL.ByteString
 
 type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
@@ -151,6 +151,9 @@ data Header = HandshakeInitHeader {
                                                       --   is sent. Useful for
                                                       --   preventing Replay
                                                       --   Attacks
+  --              ,   remoteNodeId       :: NodeId      --  ^ NodeId of remote
+                                                      --    node
+
             }
             | ErrorHeader {
                   messageId          :: MessageId      -- ^ Unique Message
@@ -239,6 +242,7 @@ data Parcel = Parcel {
 --                -> Payload
 --                -> Nonce
 --                -> Parcel
+makeDataParcel :: Header -> Payload -> Parcel
 makeDataParcel = Parcel
 
 type OutboundFragment = (MessageId, FragmentNumber, FragmentNumber, Payload)
@@ -310,6 +314,7 @@ instance Serialise Signature where
     encode = encodeSignature
     decode = decodeSignature
 
+encodeSignature :: ByteArrayAccess t => t -> Encoding
 encodeSignature bytes = do
     let temp = convert bytes :: ByteString
     encodeListLen 2 <> encodeWord 0 <> Codec.Serialise.Class.encode temp

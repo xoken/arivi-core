@@ -70,9 +70,9 @@ addConnection connection connectionHashMap =
 removeConnection :: ConnectionId
                  -> ConnectionHashMap ConnectionId Connection
                  -> IO ()
-removeConnection connectionId connectionHashMap =
+removeConnection mConnectionId connectionHashMap =
                          Data.HashTable.IO.delete connectionHashMap
-                                                  connectionId
+                                                  mConnectionId
 
 -- | Runs indefinitely and reads from OperationRequest TChan and does operation
 --   accordingly

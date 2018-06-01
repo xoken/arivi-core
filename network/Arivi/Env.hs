@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 
 module Arivi.Env (module Arivi.Env) where
 
@@ -7,10 +9,10 @@ import           Arivi.Network.Connection
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
-import qualified Crypto.PubKey.Ed25519    as Ed25519
-import           Data.HashMap.Strict      as HM
-import qualified Data.HashTable.IO        as Mutable (CuckooHashTable)
-import           Network.Socket           as Network
+import qualified Crypto.PubKey.Ed25519       as Ed25519
+import           Data.HashMap.Strict         as HM
+import qualified Data.HashTable.IO           as Mutable (CuckooHashTable)
+import           Network.Socket              as Network
 
 type HashTable k v = Mutable.CuckooHashTable k v
 
@@ -59,6 +61,8 @@ mkAriviNetworkInstance = do
   tv <- newTVarIO HM.empty
   return AriviNetworkInstance { ariviNetworkConnectionMap = tv }
 
+connectionMap :: AriviNetworkInstance
+              -> TVar (HashMap ConnectionId Connection)
 connectionMap = ariviNetworkConnectionMap
 
 
