@@ -9,14 +9,12 @@ module Arivi.Kademlia.Node
   ) where
 
 import           Control.Concurrent           (Chan, MVar, ThreadId, forkIO,
-                                               newEmptyMVar, putMVar, readChan,
-                                               readMVar, takeMVar, threadDelay,
-                                               writeChan)
+                                               readMVar, threadDelay
+                                              )
 
 import qualified Arivi.Kademlia.Query         as Q
 import           Arivi.Kademlia.Signature
 import qualified Arivi.Kademlia.Types         as T
-import           Arivi.Kademlia.XorDistance
 import           Arivi.Kademlia.Utils
 import           Control.Concurrent.STM.TChan (TChan, isEmptyTChan, readTChan,
                                                writeTChan)
@@ -26,19 +24,14 @@ import           Control.Monad.Logger
 import           Control.Monad.STM            (atomically)
 import           Crypto.Util
 import           Data.ByteArray
-import           Data.ByteString.Base16       as H
 import qualified Data.ByteString.Char8        as C (ByteString)
-import qualified Data.ByteString.Lazy         as LBS
 import           Data.List                    as L
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe
 import qualified Data.Text                    as DT
-import           Data.Word
 import           GHC.Exts
 import           GHC.Integer.Logarithms
 import           Network.Socket
-import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
-                                                    sendAllTo, sendTo)
 import qualified Data.Time.Clock.POSIX        as Clock (POSIXTime,getPOSIXTime)
 -- | Process all the incoming messages to server and write the response to
 --   outboundChan whenever a findNode message is recieved it write that peer to
@@ -153,6 +146,7 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
                         liftIO $ putStrLn ""
                         logInfoN (DT.pack "Invalid/timed out message OR empty pendingResChan")
 
+isPlistFilled :: Foldable t => t a -> Bool
 isPlistFilled plist
     | L.null plist = False
     | otherwise    = True
@@ -288,6 +282,7 @@ isExpired ts1 ts2 rt
     | Prelude.abs (ts1 - ts2) > rt = True
     | otherwise                      = False
 
+removeIfExpired :: Ord t => TChan (Map.Map t [(a, Clock.POSIXTime)]) -> Clock.POSIXTime -> Map.Map t [(a, Clock.POSIXTime)] -> t -> IO ()
 removeIfExpired pendingResChan rt map key = do
     ts  <- Clock.getPOSIXTime
     let peerInfoTupleList = fromMaybe [] $ Map.lookup key map

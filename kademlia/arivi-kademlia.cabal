@@ -58,6 +58,11 @@ library
                     ,  uuid
                     ,  arivi-crypto
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
+                       -fno-warn-type-defaults
+                       -fno-warn-unused-local-binds
+                       -fno-warn-unused-top-binds
+                       -fno-warn-name-shadowing
+                       -fno-warn-unused-matches
   exposed-modules:                       
                        Arivi.Kademlia.Instance
                        Arivi.Kademlia.Node

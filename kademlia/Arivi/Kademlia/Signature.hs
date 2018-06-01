@@ -65,9 +65,9 @@ hexToPublicKey hexPublicKey = Crypto.Error.throwCryptoError
 generateKeyPair :: IO (SecretKey, PublicKey)
 generateKeyPair = do
                  randomSeed <- Arivi.Kademlia.Random.getRandomByteString 32
-                 let secretKey = getSecretKey randomSeed
-                 let publicKey = getPublicKey secretKey
-                 return (secretKey,publicKey)
+                 let sk = getSecretKey randomSeed
+                 let pk = getPublicKey sk
+                 return (sk, pk)
 
 
 -- | This function is used for converting Secret Key from SecretKey

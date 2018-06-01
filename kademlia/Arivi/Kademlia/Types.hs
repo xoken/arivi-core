@@ -3,7 +3,10 @@
 -- this first being it enables the utilization of haskell's powerful type system
 -- and second it makes code cleaner and structured.
 
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric               #-}
+{-# OPTIONS_GHC -fno-warn-orphans        #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+
 module Arivi.Kademlia.Types
   (
      Message(..)
@@ -41,9 +44,6 @@ import           Data.Time.Clock.POSIX     (POSIXTime, getPOSIXTime)
 import           Data.Word
 import           GHC.Generics
 import           Network.Socket
-import qualified Network.Socket.ByteString as N (recv, recvFrom, sendAll,
-                                                 sendAllTo, sendTo)
-import qualified Network.Socket.Internal   as M
 
 -- | Helper function to get timeStamp/ epoch
 getTimeStamp :: IO TimeStamp
@@ -100,47 +100,47 @@ data PayLoad = PayLoad {
 
 -- Helper functions to create messages
 packPing :: NodeId -> SecretKey -> SockAddr -> Sequence -> PayLoad
-packPing nodeId sk sockAddr msgSeq = PayLoad msg sgn
+packPing nId sk sockAddr msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
                     (sockAddrToPortNumber sockAddr)
                     (sockAddrToPortNumber sockAddr)
-        msgBody = PING nodeId fromep
+        msgBody = PING nId fromep
         msg     = Message MSG01 msgBody msgSeq
-        sgn     = sign sk (nodeId :: PublicKey)
+        sgn     = sign sk (nId :: PublicKey)
                     (Lazy.toStrict (serialise msg)) :: Sign
 
 packPong :: NodeId -> SecretKey -> SockAddr -> Sequence -> PayLoad
-packPong nodeId sk sockAddr msgSeq = PayLoad msg sgn
+packPong nId sk sockAddr msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
                     (sockAddrToPortNumber sockAddr)
                     (sockAddrToPortNumber sockAddr)
-        msgBody = PONG nodeId fromep
+        msgBody = PONG nId fromep
         msg     = Message MSG02 msgBody msgSeq
-        sgn     = sign sk (nodeId :: PublicKey)
+        sgn     = sign sk (nId :: PublicKey)
                     (Lazy.toStrict (serialise msg)) ::Sign
 
 packFindMsg :: NodeId -> SecretKey -> SockAddr -> NodeId -> Sequence -> PayLoad
-packFindMsg nodeId sk sockAddr targetNode msgSeq  = PayLoad msg sgn
+packFindMsg nId sk sockAddr targetNode msgSeq  = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
                     (sockAddrToPortNumber sockAddr)
                     (sockAddrToPortNumber sockAddr)
-        msgBody = FIND_NODE nodeId targetNode fromep
+        msgBody = FIND_NODE nId targetNode fromep
         msg     = Message MSG03 msgBody msgSeq
-        sgn     = sign sk (nodeId :: PublicKey)
+        sgn     = sign sk (nId :: PublicKey)
                     (Lazy.toStrict (serialise msg)) :: Sign
 
 packFnR :: NodeId -> SecretKey -> SockAddr -> NodeId -> Sequence -> PayLoad
-packFnR nodeId sk sockAddr peerList msgSeq = PayLoad msg sgn
+packFnR nId sk sockAddr mPeerList msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
                     (sockAddrToPortNumber sockAddr)
                     (sockAddrToPortNumber sockAddr)
-        msgBody = FIND_NODE nodeId peerList fromep
+        msgBody = FIND_NODE nId mPeerList fromep
         msg     = Message MSG04 msgBody msgSeq
-        sgn     = sign sk (nodeId :: PublicKey)
+        sgn     = sign sk (nId :: PublicKey)
                     (Lazy.toStrict (serialise msg)) :: Sign
 
 -- Serialise instance of different custom types so that they can be encoded
@@ -202,6 +202,7 @@ instance Serialise SockAddr where
 encodeSockAddr :: SockAddr -> Encoding
 encodeSockAddr (SockAddrInet port hostip) =
     encodeListLen 3 <> encodeWord 0 <> encode port <> encode hostip
+encodeSockAddr _ = error "encodeSockAddr: SockAddr is not of constructor SockAddrInet "
 
 decodeSockAddr :: Decoder s SockAddr
 decodeSockAddr = do
@@ -220,7 +221,7 @@ instance Serialise PortNumber where
 -- | Lib
 
 encodePortNumber :: PortNumber -> Encoding
-encodePortNumber (PortNum a) =
+encodePortNumber a =
     encodeListLen 2 <> encodeWord 0 <> encode a
 
 decodePortNumber :: Decoder s PortNumber
