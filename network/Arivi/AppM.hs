@@ -65,7 +65,9 @@ sender sk rk = do
   runStdoutLoggingT $ runAppM env (do
                                        let ha = "127.0.0.1"
                                        cid <- openConnection ha 8080 ANT.TCP (generateNodeId rk) ANT.INITIATOR
-
+                                       liftIO $ threadDelay 5000
+                                       sendMessage cid "Hallelujah"
+                                       sendMessage cid "YOURLORDPROTECTORJESUSCHRIST"
                                        liftIO $ print ha
                                        liftIO $ print cid
 

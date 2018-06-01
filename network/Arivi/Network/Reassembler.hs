@@ -35,7 +35,7 @@ import qualified Data.HashMap.Strict                as StrictHashMap (HashMap,
                                                                       lookup)
 import           Data.Int                           (Int64)
 import           Data.Maybe                         (fromMaybe)
-
+import           Debug.Trace
 type AEADNonce = Int64
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
@@ -70,7 +70,7 @@ reassembleFrames connection reassemblyTChan p2pMessageTChan
                                                            fragmentsHashMap)
 
     let appendedMessage = Lazy.concat [messages, payloadMessage]
-
+    traceShow (appendedMessage) (return ())
 
     let currentFragmentNo = fragmentNumber (header parcel)
 
