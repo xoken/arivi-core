@@ -27,12 +27,8 @@ initiatorHandshake sk conn = do
 
 -- | Takes receiver static secret key, connection object and the received msg and returns a Lazy Bytestring along with the updated connection object
 recipientHandshake :: Ed25519.SecretKey -> Conn.Connection -> Parcel -> IO (L.ByteString, Conn.Connection)
-recipientHandshake sk conn parcel = do
-    let (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn parcel
-    --if verification returns false, do something
-    case verifySignature sk hsInitMsg of
-        False -> throw AriviSignatureVerificationFailedException
-        True -> do
+recipientHandshake sk conn parcel
+    | verifySignature sk hsInitMsg = do
     -- Generate an ephemeral keypair. Get a new connection with ephemeral keys populated
                 newconn <- generateEphemeralKeys conn
                 let eSKSign = Conn.ephemeralPrivKey newconn
@@ -43,6 +39,8 @@ recipientHandshake sk conn parcel = do
                 let hsRespMsg = createHandshakeRespMsg updatedConn'
                 let hsRespParcel = generateRespParcel hsRespMsg updatedConn'
                 return (serialise hsRespParcel, updatedConn')
+    | otherwise = throw AriviSignatureVerificationFailedException
+    where (hsInitMsg, senderEphNodeId) = readHandshakeMsg sk conn parcel
 
 
 -- | Initiator receives response from remote and returns updated connection object
