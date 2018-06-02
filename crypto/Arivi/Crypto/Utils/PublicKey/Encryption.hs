@@ -12,7 +12,7 @@ module Arivi.Crypto.Utils.PublicKey.Encryption
 
 
 import           Crypto.ECC               (Curve_X25519, SharedSecret, ecdh)
-import           Crypto.Error             (throwCryptoError, CryptoFailable)
+import           Crypto.Error             (CryptoFailable, throwCryptoError)
 import qualified Crypto.PubKey.Curve25519 as Curve25519
 import           Data.ByteArray           (convert)
 import           Data.ByteString.Char8    (ByteString)
