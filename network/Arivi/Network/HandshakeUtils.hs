@@ -14,12 +14,10 @@ module Arivi.Network.HandshakeUtils
 import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import           Arivi.Crypto.Utils.PublicKey.Utils
-import           Arivi.Crypto.Utils.Random
 import           Arivi.Network.Connection                as Conn (Connection (..))
 import           Arivi.Network.Types                     (HandshakeInitMasked (..),
                                                           HandshakeRespMasked (..),
-                                                          Header (..), NodeId,
-                                                          Opcode (..),
+                                                          Header (..),
                                                           Parcel (..),
                                                           Payload (..),
                                                           SerialisedMsg,
@@ -29,12 +27,8 @@ import           Arivi.Utils.Exception                   (AriviException (AriviD
 import           Codec.Serialise
 import           Control.Exception                       (throw)
 import           Crypto.ECC                              (SharedSecret)
-import           Crypto.Error
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
-import qualified Data.Binary                             as Binary (decode,
-                                                                    encode)
-import           Data.ByteString.Char8                   as B
 import qualified Data.ByteString.Lazy                    as L
 import           Data.Int                                (Int64)
 
@@ -71,12 +65,12 @@ updateCryptoParams conn epk esk ssk = conn {Conn.ephemeralPubKey = epk, Conn.eph
 createHandshakeInitMsg :: Ed25519.SecretKey -> Conn.Connection -> (SerialisedMsg, Conn.Connection)
 createHandshakeInitMsg sk conn = (serialise hsInitMsg, updatedConn) where
     eSKSign = Conn.ephemeralPrivKey conn
-    remoteNodeId = Conn.remoteNodeId conn
+    mRemoteNodeId = Conn.remoteNodeId conn
     myNodeId = generateNodeId sk
     ephermeralNodeId = Conn.ephemeralPubKey conn
 
-    ssk = createSharedSecretKey (getEncryptionPublicKeyFromNodeId remoteNodeId) eSKSign
-    staticssk = createSharedSecretKey (getEncryptionPublicKeyFromNodeId remoteNodeId) sk
+    ssk = createSharedSecretKey (getEncryptionPublicKeyFromNodeId mRemoteNodeId) eSKSign
+    staticssk = createSharedSecretKey (getEncryptionPublicKeyFromNodeId mRemoteNodeId) sk
 
     sign = signMsg sk (Encryption.sharedSecretToByteString staticssk)
     initNonce = generateInitiatorNonce
@@ -122,8 +116,8 @@ readParcel hsParcel = (hsHeader, ciphertextWithMac, senderEphPubKey, aeadnonce) 
     aeadnonce = aeadNonce hsHeader
 
 -- | Receiver handshake
-readHandshakeMsg :: Ed25519.SecretKey -> Conn.Connection -> Parcel -> (HandshakeInitMasked, Curve25519.PublicKey)
-readHandshakeMsg sk conn parcel = (hsInitMsg, senderEphPubKey) where
+readHandshakeMsg :: Ed25519.SecretKey -> Parcel -> (HandshakeInitMasked, Curve25519.PublicKey)
+readHandshakeMsg sk parcel = (hsInitMsg, senderEphPubKey) where
     (hsHeader, ciphertextWithMac, senderEphPubKey, aeadnonce) = readParcel parcel
     ssk = createSharedSecretKey senderEphPubKey sk
     (ct, tag) = getCipherTextAuthPair (L.toStrict ciphertextWithMac)

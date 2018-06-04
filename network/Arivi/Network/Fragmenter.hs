@@ -16,9 +16,18 @@ import           Data.Int                  (Int16, Int64)
 fromInt64ToInt16 :: Int64 -> Int16
 fromInt64ToInt16 = fromIntegral
 
+
+
 -- | Hardcoded currently to 256 bytes
 getFragmentSize :: Int16
 getFragmentSize = 256
+
+getFragmentCount :: Int16 -> Int16
+getFragmentCount payloadLength | payloadLength `mod` getFragmentSize == 0 =
+                                   quot payloadLength getFragmentSize
+                               | otherwise =
+                                   quot payloadLength getFragmentSize + 1
+
 
 -- | This function is called in a different thread for each message
 processPayload :: Payload -> Conn.Connection ->IO()
@@ -26,7 +35,7 @@ processPayload payload conn = do
     msgId <- generateMessageId
     let fragmentNum = 1 :: FragmentNumber
     -- Verify that converting payload length to Int16 and dividing won't cause problems
-    let fragmentCount = quot (fromInt64ToInt16 (BSL.length (getPayload payload))) getFragmentSize
+    let fragmentCount = getFragmentCount (fromInt64ToInt16 (BSL.length (getPayload payload)))
     fragmentPayload (getPayload payload) conn msgId fragmentNum fragmentCount
 
 -- | Enqueue the msg onto the outboundTChan
@@ -43,6 +52,7 @@ fragmentPayload payload conn msgId fragmentNum fragmentCount =
     if BSL.null payload then
         return ()
     else do
+        -- Change hardcoded fragment size
         let (fragment, rest) = BSL.splitAt 256 payload
         processFragment fragment conn msgId fragmentNum fragmentCount
         fragmentPayload rest conn msgId (fragmentNum + 1) fragmentCount

@@ -22,24 +22,21 @@ module Arivi.Kademlia.Instance
     T.NodeId
 ) where
 
-import           Arivi.Kademlia.Node
-import           Arivi.Kademlia.Random
-import           Arivi.Kademlia.Signature     as CS
+import           Arivi.Crypto.Utils.Random
+import           Arivi.Crypto.Utils.Keys.Signature     as CS
 import qualified Arivi.Kademlia.Types         as T
 import           Arivi.Kademlia.Utils
-import           Control.Concurrent           (Chan, forkIO, newChan,
-                                               newEmptyMVar, putMVar, readChan,
-                                               takeMVar)
+import           Control.Concurrent           (ThreadId, Chan, forkIO, newChan, newEmptyMVar, readChan)
+
+
 import           Control.Concurrent.STM.TChan (TChan, newTChan)
 import           Control.Monad                (forever)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.STM            (atomically)
 import qualified Data.ByteString.Char8        as BC
-import           Data.List                    (find, length, tail)
 import           Data.Text                    (pack)
 import qualified Network.Socket               as Network (SockAddr, Socket)
-import           System.Environment
 
 data Config = Config {
         bootStrapPeers  :: [String]
@@ -57,6 +54,7 @@ data KademliaHandle = KH {
     ,   outboundChan :: TChan (T.PayLoad,Network.SockAddr)
 }
 
+genPublicKey :: [Char] -> BC.ByteString -> (SecretKey, PublicKey)
 genPublicKey sk seed
   | not (Prelude.null sk) =  (temp,CS.getPublicKey temp)
   | otherwise             =  (temp2,temp3)
@@ -66,15 +64,12 @@ genPublicKey sk seed
     temp3 = CS.getPublicKey temp2
 
 
-writeLog nodeId logChan logFilePath = forkIO $ forever $ runFileLoggingT
-    logFilePath $ do
+writeLog :: Show d => T.NodeId -> Chan (a, b, c, d) -> FilePath -> IO ThreadId
+writeLog _ logChan logFile = forkIO $ forever $ runFileLoggingT
+    logFile $ do
 
   logMsg <- liftIO $ readChan logChan
-  let loc       = extractFirst2  logMsg
-      logSource = extractSecond2 logMsg
-      logLevel  = extractThird2  logMsg
-      logStr    = extractFourth  logMsg
-
+  let (_, _, _, logStr) = logMsg
   logInfoN (Data.Text.pack (show logStr))
 
 createKademliaInstance :: Config -> Network.Socket -> IO KademliaHandle

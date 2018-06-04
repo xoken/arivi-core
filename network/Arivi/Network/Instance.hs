@@ -89,28 +89,39 @@ openConnection :: (HasAriviNetworkInstance m,
                -> TransportType
                -> NodeId
                -> PersonalityType
-               -> m (ANT.ConnectionId)
-openConnection addr port tt rnid pType = do
+               -> m ANT.ConnectionId
+openConnection addr mPort tt rnid pType = do
   ariviInstance <- getAriviNetworkInstance
   let tv = connectionMap ariviInstance
   sk <- getSecretKey
-  eventChan <- liftIO (newTChanIO :: IO (TChan Event))
-  socket <- liftIO $ createSocket addr (read (show port)) tt
+  eventChan <- liftIO (newTChanIO :: IO (TChan mPort))
+  mSocket <- liftIO $ createSocket addr (read (show mPort)) tt
   outboundChan <- liftIO (newTChanIO :: IO (TChan OutboundFragment))
   reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
   p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
-  let cId = makeConnectionId addr port tt
-      connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan}
+  let cId = makeConnectionId addr mPort tt
+      connection = Connection {connectionId = cId,
+                               remoteNodeId = rnid,
+                               ipAddress = addr,
+                               port = mPort,
+                               transportType = tt,
+                               personalityType = pType,
+                               Conn.socket = mSocket,
+                               eventTChan = eventChan,
+                               outboundFragmentTChan = outboundChan,
+                               reassemblyTChan = reassemblyChan,
+                               p2pMessageTChan = p2pMsgTChan}
 
   liftIO $ atomically $ modifyTVar tv (HM.insert cId connection)
   liftIO $ atomically $ writeTChan eventChan (InitHandshakeEvent sk)
-  tid <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
+  -- tid <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
+  _ <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
 
   -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection)
-  _ <- async (liftIO $ readSock socket eventChan sk)
+  _ <- async (liftIO $ readSock mSocket eventChan sk)
   hm <- liftIO $ readTVarIO tv
-  traceShow ("TTTTT " ++ (show $ HM.size hm)) (return ())
-  return (cId)
+  traceShow ("TTTTT " ++  show (HM.size hm)) (return ())
+  return cId
 
 sendMessage :: (HasAriviNetworkInstance m)
             => ANT.ConnectionId
@@ -135,5 +146,5 @@ lookupCId cId = do
   ariviInstance <- getAriviNetworkInstance
   let tv = connectionMap ariviInstance
   hmap <- liftIO $ readTVarIO tv
-  traceShow ("SSSS " ++ (show $ HM.size hmap)) (return ())
+  traceShow ("SSSS " ++ show (HM.size hmap)) (return ())
   return $ fromMaybe (error "Something terrible happened! You have been warned not to enter the forbidden lands") (HM.lookup cId hmap)

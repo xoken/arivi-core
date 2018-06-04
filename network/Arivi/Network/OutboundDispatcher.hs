@@ -12,8 +12,6 @@ import           Arivi.Network.Utils
 import           Codec.Serialise
 import           Control.Concurrent.STM             (TChan, atomically,
                                                      readTChan)
-import qualified Data.Binary                        as Binary (decode, encode)
-import qualified Data.ByteString.Char8              as B (ByteString)
 import           Data.ByteString.Lazy               as L
 import           Data.Int                           (Int64)
 -- | This thread is created one per connection.

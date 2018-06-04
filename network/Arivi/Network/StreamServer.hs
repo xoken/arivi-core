@@ -1,8 +1,9 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Arivi.Network.StreamServer
 (
@@ -12,27 +13,29 @@ module Arivi.Network.StreamServer
 
 import           Arivi.Env
 import           Arivi.Logging
-import           Arivi.Network.FrameDispatcher (handleInboundConnection)
+import           Arivi.Network.FrameDispatcher   (handleInboundConnection)
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types           (DeserialiseFailure, Parcel (..), Event (..), Header (..),
-                                                deserialiseOrFail)
-import           Control.Concurrent.Lifted            (forkFinally)
+import           Arivi.Network.Types             (DeserialiseFailure,
+                                                  Event (..), Header (..),
+                                                  Parcel (..),
+                                                  deserialiseOrFail)
 import           Control.Concurrent.Async.Lifted
-import           Control.Concurrent.STM        (TChan, atomically, newTChan,
-                                                writeTChan)
+import           Control.Concurrent.Lifted       (forkFinally)
+import           Control.Concurrent.STM          (TChan, atomically, newTChan,
+                                                  writeTChan)
 import           Control.Exception.Base
-import           Control.Monad                 (forever, void)
-import           Control.Monad.Trans.Control
+import           Control.Monad                   (forever, void)
 import           Control.Monad.IO.Class
-import           Crypto.PubKey.Ed25519         (SecretKey)
+import           Control.Monad.Trans.Control
+import           Crypto.PubKey.Ed25519           (SecretKey)
 import           Data.Binary
-import qualified Data.ByteString               as BS
-import qualified Data.ByteString.Lazy          as BSL
-import qualified Data.ByteString.Lazy.Char8    as BSLC
+import qualified Data.ByteString                 as BS
+import qualified Data.ByteString.Lazy            as BSL
+import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.Int
-import           Network.Socket
-import qualified Network.Socket.ByteString     as N (recv)
 import           Debug.Trace
+import           Network.Socket
+import qualified Network.Socket.ByteString       as N (recv)
 
 -- Functions for Server
 
@@ -43,8 +46,8 @@ liftWithSocketsDo f = control $ \runInIO -> withSocketsDo (runInIO f)
 -- | Creates server Thread that spawns new thread for listening.
 --runTCPserver :: String -> TChan Socket -> IO ()
 runTCPserver :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => ServiceName -> m ()
-runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $ do
-  (liftWithSocketsDo $ do
+runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $
+  liftWithSocketsDo $ do
     let hints = defaultHints { addrFlags = [AI_PASSIVE]
                              , addrSocketType = Stream  }
     addr:_ <- liftIO $ getAddrInfo (Just hints) Nothing (Just port)
@@ -53,7 +56,7 @@ runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") L
     liftIO $ setSocketOption sock ReuseAddr 1
     liftIO $ bind sock (addrAddress addr)
     liftIO $ listen sock 5
-    void $ forkFinally (acceptIncomingSocket sock) (\_ -> liftIO $ close sock))
+    void $ forkFinally (acceptIncomingSocket sock) (\_ -> liftIO $ close sock)
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
@@ -61,11 +64,11 @@ acceptIncomingSocket :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m
 acceptIncomingSocket sock = do
   sk <- getSecretKey
   forever $ do
-        (socket, peer) <- liftIO $ accept sock
+        (mSocket, peer) <- liftIO $ accept sock
         liftIO $ putStrLn $ "Connection from " ++ show peer
         eventTChan <- liftIO $ atomically newTChan
-        _ <- async (handleInboundConnection socket eventTChan)  --or use forkIO
-        async (liftIO $ readSock socket eventTChan sk)
+        _ <- async (handleInboundConnection mSocket eventTChan)  --or use forkIO
+        async (liftIO $ readSock mSocket eventTChan sk)
 
 
 -- | Converts length in byteString to Num
@@ -93,7 +96,7 @@ readSock sock eventTChan sk = forever $
                    e@(Parcel (HandshakeRespHeader _ _) _) -> do
                     traceShow e (return ())
                     atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
-                   e@(Parcel (DataHeader _ _ _ _ _) _)    -> do
+                   e@(Parcel DataHeader {} _)    -> do
                      traceShow e (return ())
                      atomically $ writeTChan eventTChan (ReceiveDataEvent e)
                    e                                      -> do

@@ -1,3 +1,8 @@
+{-# OPTIONS_GHC -fno-warn-type-defaults      #-}
+{-# OPTIONS_GHC -fno-warn-unused-matches     #-}
+{-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds   #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE MagicHash #-}
 
 module Arivi.Kademlia.Query
@@ -9,17 +14,11 @@ getAvailablePeer
 
 import qualified Arivi.Kademlia.Types         as T
 import           Arivi.Kademlia.Utils
-import           Control.Concurrent           (Chan, ThreadId, forkIO,
-                                               isEmptyChan, newChan,
-                                               newEmptyMVar, putMVar, readChan,
-                                               takeMVar, threadDelay, writeChan)
 import           Control.Concurrent.STM.TChan
-import           Control.Monad                (forever)
 import           Control.Monad.STM
 import           Crypto.PubKey.Ed25519
 import           Crypto.Util
 import           Data.ByteArray
-import           Data.ByteString.Base16       as H
 import qualified Data.ByteString.Char8        as C (ByteString)
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.List                    as L
@@ -29,11 +28,10 @@ import           Data.Word                    (Word32)
 import           GHC.Exts
 import           GHC.Integer.Logarithms
 import           Network.Socket
-import qualified Network.Socket.ByteString    as N (recv, recvFrom, sendAll,
-                                                    sendAllTo, sendTo)
 
 -- | Return one available peer
-getAvailablePeer nodeType transportType =
+getAvailablePeer :: (Num t, Monad m) => t2 -> t1 -> m ([Char], t, [Char])
+getAvailablePeer _ _ =
     -- TO BE IMPLEMENTED
     return ("127.0.0.1", 3000, "64-byte-string-NodeID")
 

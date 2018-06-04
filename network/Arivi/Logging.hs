@@ -1,11 +1,15 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
+
 module Arivi.Logging
   ( LogStatement (..)
+  , withChanLogging
+  , withLogging
   , withLoggingTH
   , withChanLoggingTH
   , LogLevel (..)
@@ -15,8 +19,7 @@ module Arivi.Logging
 where
 
 import           Control.Concurrent.STM
-import           Control.Exception.Lifted          as CEL
-import           Control.Exception                 as CE
+import           Control.Exception.Lifted    as CEL
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
@@ -44,7 +47,7 @@ withChanLoggingTH :: Q Exp
 withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc) |]
 
 withLocLogging :: (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -> m a
-withLocLogging loc ls ll = logToF (monadLoggerLog loc (pack "") ll) (logOtherN ll) ls ll
+withLocLogging loc ls ll = logToF (monadLoggerLog loc (pack "") ll) (logOtherN ll) ls
 
 withLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
 withLogging = withLocLogging defaultLoc
@@ -53,13 +56,20 @@ withChanLocLogging :: (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -
 withChanLocLogging loc ls ll action = do
   logger <- getLoggerChan
   let lifts t = liftIO $ atomically $ writeTQueue logger (loc, pack "", ll, t)
-  logToF lifts lifts ls ll action
+  logToF lifts lifts ls action
 
 withChanLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
 withChanLogging = withChanLocLogging defaultLoc
 
-logToF :: (MonadIO m, MonadBaseControl IO m, MonadThrow m) => (Text -> m ()) -> (Text -> m ()) -> LogStatement -> LogLevel -> m a -> m a
-logToF lf rf ls ll action = do
+logToF :: ( MonadIO m
+          , MonadBaseControl IO m
+          , MonadThrow m)
+       => (Text -> m ())
+       -> (Text -> m ())
+       -> LogStatement
+       -> m a
+       -> m a
+logToF lf rf ls action = do
   (time, result) <- timeIt action
   case result of
     Left (e :: SomeException) -> do

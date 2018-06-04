@@ -17,8 +17,7 @@ module Arivi.Kademlia.Utils
     getRandomSequence2
 ) where
 
-import           Arivi.Kademlia.Signature
-import           Data.ByteArray
+import           Arivi.Crypto.Utils.Keys.Signature
 import qualified Data.ByteString.Char8    as C
 import           Data.Int
 import qualified Data.List.Split          as S
@@ -56,6 +55,7 @@ stringToHostAddress x = remoteIp
     where temp     = S.splitOn "." x
           temp2    = case Prelude.map (read :: String -> Word8) temp
                         of [a,b,c,d] -> (a,b,c,d)
+                           _         -> error "stringToHostAddress: Parse failed trying to make a HostAddress."
           remoteIp = tupleToHostAddress temp2
 
 -- covnerts a string of format IP:Port to SockAddr
@@ -71,20 +71,23 @@ getSockAddr :: HostAddress -> PortNumber -> SockAddr
 getSockAddr ip udpPort = SockAddrInet udpPort ip
 
 sockAddrToHostAddr :: SockAddr -> HostAddress
-sockAddrToHostAddr (SockAddrInet a b) = b
+sockAddrToHostAddr (SockAddrInet _ b) = b
+sockAddrToHostAddr _                  = error "sockAddrToHostAddr: SockAddr is not of constructor SockAddrInet "
 
 sockAddrToPortNumber :: SockAddr -> PortNumber
-sockAddrToPortNumber (SockAddrInet a b) = a
+sockAddrToPortNumber (SockAddrInet a _) = a
+sockAddrToPortNumber _                  = error "sockAddrToPortNumber: SockAddr is not of constructor SockAddrInet "
 
 -- Helper function to check if a values exist in a list of type [(a,_)]
+isNodeIdElem :: Eq t => [(t, b)] -> t -> Bool
 isNodeIdElem [] _      = False
 isNodeIdElem (x:xs) m
     | fst x == m     = True
     | otherwise        = isNodeIdElem xs m
 
 -- Generates a random number of type Word32
-getRandomSequence = a
-    where a = randomIO :: IO Word32
+getRandomSequence :: IO Word32
+getRandomSequence = randomIO
 
-getRandomSequence2 = a
-    where a = randomIO :: IO Int32
+getRandomSequence2 :: IO Int32
+getRandomSequence2 = randomIO

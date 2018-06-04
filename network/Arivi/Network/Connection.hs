@@ -14,6 +14,8 @@ module Arivi.Network.Connection
 (
     ConnectionId
   , Connection (..)
+  , concatenate
+  , genConnectionId
   , makeConnectionId
 ) where
 
@@ -76,11 +78,11 @@ makeConnectionId :: Network.HostName
                  -> PortNumber
                  -> TransportType
                  -> ConnectionId
-makeConnectionId ipAddress port transportType =
+makeConnectionId mIpAddress mPort mTransportType =
 
-                          Data.ByteString.Char8.pack $   ipAddress
+                          Data.ByteString.Char8.pack $   mIpAddress
                                                      ++ "|"
-                                                     ++ show port
+                                                     ++ show mPort
                                                      ++ "|"
-                                                     ++ show transportType
+                                                     ++ show mTransportType
 

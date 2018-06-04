@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-missing-fields #-}
 -- |
 -- Module      :  Arivi.Network.FrameDispatcher
 -- Copyright   :
@@ -16,13 +17,13 @@ module Arivi.Network.FrameDispatcher
    , handleInboundConnection
 ) where
 
-import           Arivi.Network.Connection as Conn
-import qualified Arivi.Network.FSM        as FSM (initFSM, State)
-import           Arivi.Logging
 import           Arivi.Env
+import           Arivi.Logging
+import           Arivi.Network.Connection        as Conn
+import qualified Arivi.Network.FSM               as FSM (initFSM)
 import           Arivi.Network.Types
 import           Control.Concurrent.Async.Lifted (async)
-import           Control.Concurrent.STM   (atomically, newTChan, writeTChan, TChan)
+import           Control.Concurrent.STM          (TChan, atomically, newTChan)
 import           Control.Monad.IO.Class
 import           Network.Socket
 
@@ -37,15 +38,15 @@ import           Network.Socket
 --      -> HashMap ConnectionId (TChan ByteString)
 --      -> IO (HashMap ConnectionId (TChan ByteString))
 handleInboundConnection :: (HasSecretKey m, HasLogging m) => Socket -> TChan Event -> m ()
-handleInboundConnection socket eventTChan = do
-        -- socket <- atomically $ readTChan inboundTChan
+handleInboundConnection mSocket mEventTChan = do
+        -- mSocket <- atomically $ readTChan inboundTChan
 
         conn <- liftIO $ do
-          socketName <- getSocketName socket
-          ipAddress <- inet_ntoa $ getIPAddress socketName
-          let port = getPortNumber socketName
-          let transportType = getTransportType socket
-          let connectionId = Conn.makeConnectionId ipAddress port transportType
+          socketName <- getSocketName mSocket
+          mIpAddress <- inet_ntoa $ getIPAddress socketName
+          let mPort = getPortNumber socketName
+          let mTransportType = getTransportType mSocket
+          let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType
 
         -- if Data.HashMap.Strict.member connectionId frameDispatchHashMap
         --     then
@@ -61,15 +62,17 @@ handleInboundConnection socket eventTChan = do
         -- atomically $ writeTChan eventTChan encryptedPayload
         -- serviceReqTChan <- atomically newTChan
           outboundTChan <- atomically newTChan
-          reassemblyTChan <- atomically newTChan
+          mReassemblyTChan <- atomically newTChan
           p2pMsgTChan <- atomically newTChan
-          let connection = Conn.Connection { Conn.connectionId = connectionId
-                                           , Conn.ipAddress = ipAddress
-                                           , Conn.transportType = transportType
-                                           , Conn.socket = socket
-                                           , Conn.eventTChan = eventTChan
+          let connection = Conn.Connection { Conn.connectionId = mConnectionId
+                                           , Conn.ipAddress = mIpAddress
+                                           , Conn.port = mPort
+                                           , Conn.transportType = mTransportType
+                                           , Conn.personalityType = RECIPIENT
+                                           , Conn.socket = mSocket
+                                           , Conn.eventTChan = mEventTChan
                                            , Conn.outboundFragmentTChan = outboundTChan
-                                           , Conn.reassemblyTChan = reassemblyTChan
+                                           , Conn.reassemblyTChan = mReassemblyTChan
                                            , Conn.p2pMessageTChan = p2pMsgTChan
                                            }
           return connection
@@ -81,7 +84,8 @@ handleInboundConnection socket eventTChan = do
 
         -- fsmHandle <- async (FSM.handleEvent connection FSM.Idle
         --                 (FSM.KeyExchangeInitEvent initParcel pvtKey))
-        fsmHandle <- async (FSM.initFSM conn)
+        -- fsmHandle <- async (FSM.initFSM conn)
+        _ <- async (FSM.initFSM conn)
         -- fsmHandle <- async (undefined)
         -- async (readSock sock eventTChan)
         --putStrLn ("listening on thread " ++  (show threadNo) )
