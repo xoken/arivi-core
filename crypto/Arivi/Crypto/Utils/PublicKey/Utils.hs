@@ -23,7 +23,6 @@ import           Arivi.Utils.Exception                   (AriviException (AriviC
 import           Control.Exception                       (throw, try)
 import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error                            (CryptoError (..),
-                                                          CryptoFailable,
                                                           eitherCryptoError)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
