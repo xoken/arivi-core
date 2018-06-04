@@ -46,7 +46,7 @@ library
                     ,  network
                     ,  random
                     ,  serialise
-                    ,  split
+                    ,  split 
                     ,  stm >= 2.4.4.1
                     ,  template-haskell
                     ,  text
@@ -54,7 +54,6 @@ library
                     ,  timers-updatable <= 0.2.0.2
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
-                    ,  arivi-kademlia
                     ,  arivi-crypto
                     ,  arivi-utils
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables

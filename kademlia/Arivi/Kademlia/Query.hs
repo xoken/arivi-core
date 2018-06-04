@@ -1,10 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-type-defaults      #-}
-{-# OPTIONS_GHC -fno-warn-unused-matches     #-}
-{-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
-{-# OPTIONS_GHC -fno-warn-unused-top-binds   #-}
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE MagicHash #-}
-
+-- {-# LANGUAGE MagicHash #-}
 module Arivi.Kademlia.Query
 (
 queryKBucket,
@@ -17,20 +11,20 @@ import           Arivi.Kademlia.Utils
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.STM
 import           Crypto.PubKey.Ed25519
-import           Crypto.Util
-import           Data.ByteArray
-import qualified Data.ByteString.Char8        as C (ByteString)
+import           Crypto.Util                  ()
+import           Data.ByteArray               ()
+import           Data.ByteString.Char8        ()
 import qualified Data.ByteString.Lazy         as LBS
 import           Data.List                    as L
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe
 import           Data.Word                    (Word32)
-import           GHC.Exts
-import           GHC.Integer.Logarithms
+import           GHC.Exts                     ()
+import           GHC.Integer.Logarithms       ()
 import           Network.Socket
 
 -- | Return one available peer
-getAvailablePeer :: (Num t, Monad m) => t2 -> t1 -> m ([Char], t, [Char])
+getAvailablePeer :: (Num t, Monad m) => t2 -> t1 -> m (String, t, String)
 getAvailablePeer _ _ =
     -- TO BE IMPLEMENTED
     return ("127.0.0.1", 3000, "64-byte-string-NodeID")
@@ -41,7 +35,7 @@ getPeerListFromKeyList :: [Int]
                        -> Map.Map Int [(T.NodeId,T.NodeEndPoint)]
                        -> [(T.NodeId,T.NodeEndPoint)]
 
-getPeerListFromKeyList [] k msg = []
+getPeerListFromKeyList [] _ _ = []
 getPeerListFromKeyList (x:xs) k msg
     | ls >= k   = fst (Prelude.splitAt k plt)
     | otherwise = pl ++ getPeerListFromKeyList xs
@@ -78,10 +72,11 @@ queryKBucket :: T.NodeId
              -> Word32
              -> IO ()
 
-queryKBucket localNodeId targetNodeId k kbChan localSock remoteSock sk seq = do
-    let dis = Data.ByteArray.xor (localNodeId :: PublicKey)
-                (targetNodeId :: PublicKey) :: C.ByteString
-        kbi = I# (integerLog2# (bs2i dis))
+queryKBucket localNodeId targetNodeId k kbChan localSock remoteSock sk sequ = do
+    -- ! See if this block is required anymore
+    -- let dis = Data.ByteArray.xor (localNodeId :: PublicKey)
+    --             (targetNodeId :: PublicKey) :: C.ByteString
+    --     kbi = I# (integerLog2# (bs2i dis))
 
     msg <- atomically $ peekTChan kbChan
     let keys = Map.keys msg
@@ -91,7 +86,7 @@ queryKBucket localNodeId targetNodeId k kbChan localSock remoteSock sk seq = do
         tempfromep   = T.NodeEndPoint (sockAddrToHostAddr localSock)
                         (sockAddrToPortNumber localSock)
                         (sockAddrToPortNumber localSock)
-        peerList     = L.deleteBy (\(x,y) (a,b) -> a==x)
+        peerList     = L.deleteBy (\(x,_) (a,_) -> a==x)
                         (targetNodeId,tempfromep) peerList2
 
     -- Payload which is actually response for FIND_NODE X
@@ -100,11 +95,14 @@ queryKBucket localNodeId targetNodeId k kbChan localSock remoteSock sk seq = do
                     (sockAddrToPortNumber localSock)
                     (sockAddrToPortNumber localSock)
         msgbody  = T.FN_RESP localNodeId peerList fromep
-    let msgS     = T.Message msgType msgbody seq
+    let msgS     = T.Message msgType msgbody sequ
         sgn      = sign sk (localNodeId :: PublicKey)
                     (LBS.toStrict (T.serialise msgS) ) :: T.Sign
         payl     = T.PayLoad msgS sgn
 
-    --  Arivi.send (payl,remoteSock)
+    -- networkSend payl remoteSock
+    -- ! import this function from arivi.network once it's implemented
     print ""
+
+
 
