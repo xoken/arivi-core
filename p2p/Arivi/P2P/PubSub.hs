@@ -11,40 +11,50 @@
 
 module Arivi.P2P.PubSub
 (
-     Notifier
-   , Subscriber
-   , Topic(..)
+  --    Notifier
+  --  , Subscriber
+  --  , Topic(..)
 
 ) where
 
-
-import           Arivi.Kademlia.Types     (NodeId)
-import           Arivi.Network.Connection (ConnectionId)
-
--- | Notifier is synonyms for P2PConnection
-type Notifier = (ConnectionId, NodeId)
-
--- | Subscriber is synonyms for P2PConnection
-type Subscriber = (ConnectionId, NodeId)
-
--- | Topic contains the list of subscribers and notifiers
-data Topic = Topic {
-                      subscribers :: [Subscriber]  -- ^ List of Subscribers to
-                                                   --   Topics
-                    , notifiers   :: [Notifier]    -- ^ List of Notifier for
-                                                   --   Topics
-                   } deriving (Show,Eq)
+import           Arivi.Network.Types          ( TransportType(..), NodeId, ConnectionId)
+import           Arivi.P2P.Types              ( ExpiryTime, TopicCode(..), MessageType(..),
+                                                P2PMessage(..), Peer(..), ResponseCode)
 
 
-register p2pInstance topicList = undefined
+-- =========================================================================================
 
-read = undefined
-
--- disseminate
-publish context m topic = undefined
-
-subscribe peerCount topicList context = undefined
+-- import           Arivi.Kademlia.Types     (NodeId)
+-- import           Arivi.Network.Connection (ConnectionId)
+-- import           Data.ByteString.Char8    (ByteString)
 
 
 
-unSubscribe topic context = undefined
+-- -- | Notifier is synonyms for P2PConnection
+-- type Notifier = (ConnectionId, NodeId)
+
+-- -- | Subscriber is synonyms for P2PConnection
+-- type Subscriber = (ConnectionId, NodeId)
+
+-- -- | Topic contains the list of subscribers and notifiers
+-- data Topic = Topic {
+--                       subscribers :: [Subscriber]  -- ^ List of Subscribers to
+--                                                    --   Topics
+--                     , notifiers   :: [Notifier]    -- ^ List of Notifier for
+--                                                    --   Topics
+--                    } deriving (Show,Eq)
+
+
+-- register p2pInstance topicList = undefined
+
+-- read = undefined
+
+-- -- disseminate
+-- publish context m topic = undefined
+
+-- subscribe peerCount topicList context = undefined
+
+
+
+-- unSubscribe topic context = undefined
+

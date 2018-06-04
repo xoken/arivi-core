@@ -18,69 +18,21 @@ where
 
 
 
-import  Data.UUID       --toString
-import  Data.UUID.V4        --nextRandom
-import  Data.Maybe
+import           Data.UUID       --toString
+import           Data.UUID.V4        --nextRandom
+import           Data.Maybe
 
-import  Control.Monad
-import  Control.Concurrent.STM.TVar
-import  Control.Concurrent.STM
+import           Control.Monad
+import           Control.Concurrent.STM.TVar
+import           Control.Concurrent.STM
 
 import qualified Data.Map.Strict as Map
+import           Arivi.P2P.Types
+import           Arivi.Network.Types        (TransportType (..),NodeId)
 
-type NodeId = Int
-type ServiceID = String
-type ResourceID = String
-type ResponseCode = Int
-type P2PUUID = String
+import           Data.ByteString.Char8       (pack)
 
-type PeerList = [ Peer ]
-type ResourceDetails = (ServiceID, PeerList)
-type ResourceList = Map.Map ResourceID ResourceDetails
-
-data Peer = Peer {
-    nodeId :: NodeId
-}
-data MessageType =
-    Option
-    | Supported
-    {
-        resourceList :: [ResourceID]
-    }
-    | Get
-    {
-        resource :: ResourceID ,
-        serviceMessage :: String
-    }
-    | Return
-    {
-        resource :: ResourceID ,
-        serviceMessage :: String
-    }
-data P2PMessage =
-    P2PMessage {
-        uuid :: P2PUUID,
-        to :: NodeId,
-        from :: NodeId,
-        responseCode :: ResponseCode,
-        rpcType :: Maybe MessageType
-
-    }
-
-{-}
-Register_Service (ServiceID, [ Topic:PeerCount,...] )
-Read_Request ( )
-
-MessageValidity ( messagehash, Bool validity ) --- used not notifying or flagging
--}
-
-{-
-    request is called by the services after registering for either get or return RPC
-    it checks for uuid 
-        if it already exists means that  this message is a return to some other peers get request
-        else it is a get originating from the service hence uuid is passed above.
--}
-request :: ServiceID -> ResourceID -> String -> Maybe P2PUUID ->  IO P2PUUID
+request :: ServiceCode -> ResourceID -> String -> Maybe P2PUUID ->  IO P2PUUID
 request  serviceID resourceID message uuid = do
         uniqueUUID <- getUUID
         let uuid1 = fromMaybe uniqueUUID uuid
@@ -97,7 +49,7 @@ formServiceMessage sender receiver resourceID uuid1 message flag =
         to = receiver,
         from = sender,
         responseCode = getResponseCodeFromFlag flag,
-        rpcType =  Just $ returnMessageType flag message resourceID
+        p2pType =  Just $ returnMessageType flag message resourceID
     }
 {-returns the type based on the flag-}
 returnMessageType :: Bool -> String -> ResourceID -> MessageType
@@ -114,15 +66,18 @@ outgoingMessageHandler p2pMessage = do
 
     {-returns a peer for the particular resource id-}
 getPeer :: ResourceID -> NodeId
-getPeer resourceID = 2
+getPeer resourceID = pack "12334556"
 
 selfNodeId :: NodeId
-selfNodeId = 1
+selfNodeId = pack "12334556"
+
 checkUUID ::P2PUUID -> Bool
 checkUUID uuid = True
+
 getUUID :: IO String
 getUUID = toString <$> nextRandom
 {-adds particular response for get or ret to be decided on response codes later-}
+
 getResponseCodeFromFlag :: Bool -> ResponseCode
 getResponseCodeFromFlag flag = 1
 
@@ -136,7 +91,7 @@ formOptionMessage node uuid1 =
         to = node,
         from = selfNodeId,
         responseCode = 1,
-        rpcType =  Just Option
+        p2pType =  Just Options
     }
 
 {-forms the supported message-}
@@ -147,11 +102,11 @@ formSupportedMessage node uuid1 rpctype responsecode =
         to = node,
         from = selfNodeId,
         responseCode = responsecode,
-        rpcType = rpctype
+        p2pType = rpctype
     }
 {--}
 
---registerResource :: ServiceID -> [ResourceDD] -> TVar 
+--registerResource :: ServiceCode -> [ResourceDD] -> TVar 
 registerResource (y:[]) serviceID resourceListTVar = 
     atomically (modifyTVar' resourceListTVar (Map.insert y (serviceID,[])))
 registerResource (y:resourceIDList) serviceID resourceListTVar = 
@@ -159,5 +114,3 @@ registerResource (y:resourceIDList) serviceID resourceListTVar =
         atomically (modifyTVar' resourceListTVar (Map.insert y (serviceID,[])))
         registerResource resourceIDList serviceID resourceListTVar
 
-    
-    

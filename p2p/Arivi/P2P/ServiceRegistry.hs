@@ -143,8 +143,7 @@ registerTopicSubMapOrWatchMapTvar topicCode subscriptionSubOrWatchMap =
     
 
 
-
--- Check we have any incoming peers asking for subscription later add them if raito is not violated
+-- Check if we have any incoming peers asking for subscription later add them if raito is not violated
 handleIncomingConnections :: TVar AriviP2PInstance -> TVar WatchersMap -> TVar SubscriptionMap -> 
                              TVar TopicContext -> Float -> Int -> IO ()
 handleIncomingConnections ariviP2PInstanceTvar watchersMapTvar subscriptionMapTvar
@@ -169,18 +168,30 @@ processIncomingFromConnection connId = do
     -- msg = readMessage connId
 
     -- check what kind of message is recieved that is:
-    -- PubSub -> subscibe, notify, publish, response
+    -- PubSub -> subscribe, notify, publish, response
     -- RPC    -> Options, GET, Return
-    
+
+    -- case message of 
+    --     Subscribe -> processIncomingSubscribe
+    --     Notify    -> processIncomingNotify
+    --     Publish   -> processIncomingPublish
+    --     Options   -> processIncomingOptions
+    --     Get       -> processIncomingGet
+    --     Return    -> processIncomingReturn
+    --     Response  -> processIncomingResponse
+    --     _         -> ErrorHandlerForP2PMessage
+
     processIncomingFromConnection connId
 
+-- functions to process each type of message provided by p2p layer
 -- processIncomingSubscribe
 -- processIncomingNotify
 -- processIncomingPublish
 -- processIncomingResponse
 -- processIncomingOptions
--- processIncomingGET
+-- processIncomingGet
 -- processIncomingReturn
+-- ErrorHandlerForP2PMessage
 
 intToFloat :: Int -> Float
 intToFloat n = fromInteger (toInteger n)
@@ -236,7 +247,7 @@ addSubscriberThread :: TopicCode -> TopicContext -> TVar SubscriptionMap -> TVar
 addSubscriberThread topicCode topicContext subscriptionMapTvar
                watchersMapTvar minPeerCount maxConnectionAllowed = do
 
-    -- check if topic was deregistered from TopicContext then kill this thread
+    -- check if topic was de-registered from TopicContext then kill this thread
 
     subscriptionMap <- atomically( readTVar subscriptionMapTvar )
     watchersMap <- atomically( readTVar watchersMapTvar )
@@ -261,12 +272,12 @@ addSubscriberThread topicCode topicContext subscriptionMapTvar
         addSubscriberThread topicCode topicContext subscriptionMapTvar
                        watchersMapTvar minPeerCount maxConnectionAllowed
         
-        -- wait for certain timeout t0 before checking or sending message to a another peer
+        -- wait for certain timeout t0 before checking or sending subscribe message to a another peer
         -- wait(t0) 
     else
         addSubscriberThread topicCode topicContext subscriptionMapTvar  
                        watchersMapTvar minPeerCount maxConnectionAllowed
-        -- wait for certain timeout t0 before checking or sending message to a another peer
+        -- wait for certain timeout t0 before checking or sending subscribe message to a another peer
         -- wait(t0)
 
 subscribeMessage :: ConnectionId -> TopicCode -> IO ()
@@ -280,12 +291,6 @@ subscribeMessage connectionId topicNeeded =
 -- ===========================================================================================
 
 -- dummy functions to mimic API provided by other layers
-data Peer =  Peer{ peerNodeId :: NodeId 
-                 , peerIp:: String
-                 , peerPort:: Int
-                 , peerTransportType :: TransportType
-}
-
 kademliaGetPeer :: Peer
 kademliaGetPeer = Peer{ peerNodeId = ( pack "892346384") , peerIp = "127.0.0.1", peerPort = 300, peerTransportType = TCP}
 

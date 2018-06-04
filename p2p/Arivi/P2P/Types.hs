@@ -35,13 +35,21 @@ module Arivi.P2P.Types
       , TopicToService
       , SubscriptionMap
       , WatchersMap
+      , MessageType(..)
+      , P2PMessage(..)
+      , Peer(..)
+      , ResourceID
+      , ResponseCode
+      , P2PUUID
+      , ResourceDetails
+      , ResourceList
 )
 
 where
 
 import qualified Data.Map                   as Map
 import           Arivi.Network.Types        (TransportType (..),NodeId)
-import           GHC.Generics 
+import           GHC.Generics               (Generic)
 import           Codec.Serialise
 
 type IP = String
@@ -55,6 +63,18 @@ type TopicContext  = Map.Map TopicCode Context
 type TopicToService  = Map.Map TopicCode ServiceCode
 type SubscriptionMap = Map.Map TopicCode PeerList
 type WatchersMap = Map.Map TopicCode PeerList
+type TopicToServiceMap = Map.Map TopicCode ServiceCode
+
+-- need to update *starts*
+type ResourceID = String
+type ResponseCode = Int
+type P2PUUID = String
+
+type RPCPeerList = [ Peer ]
+type ResourceDetails = (ServiceCode, RPCPeerList)
+type ResourceList = Map.Map ResourceID ResourceDetails
+-- need to update *ends*
+
 
 data NodeType = FullNode | HalfNode deriving(Show)
 
@@ -63,15 +83,60 @@ data ServiceCode = BlockInventory | BlockSync | PendingTransaction
 
 data TopicCode = Latest_block_header | Latest_block
                     deriving(Eq,Ord,Show,Generic)
+instance Serialise TopicCode
 
 data AriviP2PInstance = AriviP2PInstance { nodeId :: NodeId
                                          , ip:: String
                                          , port:: Int
                                          , outboundPeerQuota:: Float
-                                         , maxConnectionAllowed:: Int}
+                                         , maxConnectionAllowed:: Int
+                        }
 
-instance Serialise TopicCode
 
+data Peer =  Peer { 
+    peerNodeId :: NodeId 
+  , peerIp:: String
+  , peerPort:: Int
+  , peerTransportType :: TransportType
+}
+
+data MessageType =
+      Subscribe {
+          expires :: ExpiryTime
+        , topic   :: TopicCode
+    }
+    | Notify {
+          topic   :: TopicCode
+        , serviceMessage :: String
+    }
+    | Publish {
+          topic   :: TopicCode
+        , serviceMessage :: String
+    }
+    | Options
+    | Supported {
+          resourceList :: [ResourceID]
+    }
+    | Get {
+          resource :: ResourceID
+        , serviceMessage :: String
+    }
+    | Return {
+          resource :: ResourceID 
+        , serviceMessage :: String
+    }
+    | Response {
+          expires :: ExpiryTime
+        , topic   :: TopicCode
+    }
+    
+data P2PMessage = P2PMessage {
+          uuid :: P2PUUID
+        , to :: NodeId
+        , from :: NodeId
+        , responseCode :: ResponseCode
+        , p2pType :: Maybe MessageType
+}
 
 -- =================================================================================================
 -- import           Arivi.Crypto.Utils.Keys.Encryption
