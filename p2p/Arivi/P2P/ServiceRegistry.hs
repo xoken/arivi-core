@@ -70,20 +70,28 @@ makeP2Pinstance ariviP2PInstanceTvar watchersMapTvar subscriptionMapTvar topicCo
 
     return ()
 
--- API provided to service layer to send Serivce with all the topics in it to be registered at p2p layer
-registerService :: TVar AriviP2PInstance -> TVar SubscriptionMap -> TVar WatchersMap->
-                   TVar TopicContext -> ServiceCode -> [TopicCode] -> MinPeerCountPerTopic ->
-                   TransportType -> NodeType -> IO ()
-registerService ariviP2PInstanceTvar subscriptionMapTvar watchersMapTvar topicContextTvar
-                serviceCode topicCodeList minPeerCountPerTopic transport peerType = do
-                
+-- -- API provided to service layer to send Serivce with all the topics in it to be registered at p2p layer
+-- registerService :: TVar AriviP2PInstance -> TVar SubscriptionMap -> TVar WatchersMap->
+--                    TVar TopicContext -> ServiceCode -> [TopicCode] -> MinPeerCountPerTopic ->
+--                    TransportType -> NodeType -> IO ()
+registerService ariviP2PInstanceTvar subscriptionMapTvar watchersMapTvar 
+                topicContextTvar serviceCode topicToServiceMapTvar 
+                topicCodeList minPeerCountPerTopic transport peerType = do                
                 -- map topictoservice and servicetotopic
 
+                registerTopicUnderService topicToServiceMapTvar topicCodeList serviceCode
                 -- register each topic provided in topicCodelist
                 callRegisterTopic ariviP2PInstanceTvar subscriptionMapTvar watchersMapTvar topicContextTvar
                                   topicCodeList minPeerCountPerTopic transport peerType
 
-                
+registerTopicUnderService topicToServiceMapTvar topicCodeList serviceCode = 
+    if topicCodeList == [] then return ()
+    else do
+        atomically( modifyTVar topicToServiceMapTvar (Map.insert 
+                                                      (head topicCodeList) 
+                                                      serviceCode) )
+        registerTopicUnderService topicToServiceMapTvar (tail topicCodeList) serviceCode
+
 
 -- Loops through each TopicCode in TopicCodeList and call register topicCode
 callRegisterTopic :: TVar AriviP2PInstance -> TVar SubscriptionMap -> TVar WatchersMap->
@@ -152,24 +160,29 @@ handleIncomingConnections ariviP2PInstanceTvar watchersMapTvar subscriptionMapTv
     -- Network layer Blocking Call *API* which gives ConnectionId of any incoming peers
     let connId = getNewConnection
 
-    forkIO ( processIncomingFromConnection connId )
+    -- forkIO ( processIncomingFromConnection connId )
 
     handleIncomingConnections ariviP2PInstanceTvar watchersMapTvar subscriptionMapTvar
                               topicContextTvar outboundPeerQuota maxConnectionAllowed
 
 
 
-processIncomingFromConnection :: ConnectionId -> IO ()
-processIncomingFromConnection connId = do
-
+-- processIncomingFromConnection :: ConnectionId -> IO ()
+-- processIncomingFromConnection connId topicTchanMap = do
     -- check (if connection is broken or if kill message is recived ): kill this thread 
-    
-    -- Network Layer *API* which read message provided connectionId
-    -- msg = readMessage connId
 
+    -- Network Layer *API* which read message provided connectionId
+    -- let msg = readMessage connId
+
+    -- topic = rpcType msg
+    -- topictchan = fromMaybe $ Map.lookup topic topicTchanMap
+
+    -- writeTChan topictchan msg
     -- check what kind of message is recieved that is:
-    -- PubSub -> subscribe, notify, publish, response
+    -- PubSub -> subscibe, notify, publish, response
     -- RPC    -> Options, GET, Return
+    
+    -- processIncomingFromConnection connId
 
     -- case message of 
     --     Subscribe -> processIncomingSubscribe
@@ -181,7 +194,7 @@ processIncomingFromConnection connId = do
     --     Response  -> processIncomingResponse
     --     _         -> ErrorHandlerForP2PMessage
 
-    processIncomingFromConnection connId
+    -- processIncomingFromConnection connId
 
 -- functions to process each type of message provided by p2p layer
 -- processIncomingSubscribe
