@@ -1,5 +1,4 @@
-{-# LANGUAGE MagicHash #-}
-
+-- {-# LANGUAGE MagicHash #-}
 module Arivi.Kademlia.Query
 (
 queryKBucket,
@@ -25,7 +24,7 @@ import           GHC.Integer.Logarithms       ()
 import           Network.Socket
 
 -- | Return one available peer
-getAvailablePeer :: (Num t, Monad m) => t2 -> t1 -> m ([Char], t, [Char])
+getAvailablePeer :: (Num t, Monad m) => t2 -> t1 -> m (String, t, String)
 getAvailablePeer _ _ =
     -- TO BE IMPLEMENTED
     return ("127.0.0.1", 3000, "64-byte-string-NodeID")
@@ -104,5 +103,6 @@ queryKBucket localNodeId targetNodeId k kbChan localSock remoteSock sk sequ = do
     -- networkSend payl remoteSock
     -- ! import this function from arivi.network once it's implemented
     print ""
+
 
 
