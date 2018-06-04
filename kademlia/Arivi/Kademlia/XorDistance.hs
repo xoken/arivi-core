@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- |
 -- Module      : Arivi.Kademlia.XorDistance
 -- License     :
@@ -17,7 +16,7 @@ where
 
 
 import           Data.Bits
-import           Data.Char             (digitToInt)
+import           Data.Char (digitToInt)
 
 
 fn :: Char -> Int
@@ -27,7 +26,7 @@ hexToDigits :: String -> [Int]
 hexToDigits = map fn
 
 hexToDec :: (Num t1, Integral b) => [t1] -> b -> t -> t1
-hexToDec [] _ _              = 0;
+hexToDec [] _ _           = 0;
 hexToDec (xs:x) index len = hexToDec x (index+1) len + (16 ^ index)*xs
 
 hexToDecimal :: Num a => [a] -> a
