@@ -219,17 +219,19 @@ instance Serialise PortNumber where
 -- | Fix warnings generated due to use of PortNum which will be deprecated by
 -- | Lib
 
-encodePortNumber :: PortNumber -> Encoding
+encodePortNumber :: Integral a => a -> Encoding
 encodePortNumber a =
-    encodeListLen 2 <> encodeWord 0 <> encode a
+    encodeListLen 2 <> encodeWord 0 <> encode (toInteger a)
+
 
 decodePortNumber :: Decoder s PortNumber
 decodePortNumber = do
     len <- decodeListLen
     tag <- decodeWord
     case (len,tag) of
-        (2,0) -> PortNum <$> decode
+        (2,0) -> fromInteger <$> decode
         _     -> fail "Invalid PortNumber encoding"
+
 
 
 -- Serialise instance for MessageBody data type
