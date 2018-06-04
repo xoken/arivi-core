@@ -23,6 +23,7 @@ import           Arivi.Utils.Exception                   (AriviException (AriviC
 import           Control.Exception                       (throw, try)
 import           Crypto.ECC                              (SharedSecret)
 import           Crypto.Error                            (CryptoError (..),
+                                                          CryptoFailable,
                                                           eitherCryptoError)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
@@ -78,15 +79,23 @@ getEncryptionPublicKeyFromNodeId nodeId = pk where
 
 -- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
 createSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
-createSharedSecretKey remotePubKey signSK = Encryption.createSharedSecretKey encryptSK remotePubKey where
+createSharedSecretKey remotePubKey signSK = finalssk where
         encryptSK = getEncryptionSecretKey signSK
+        skOrFail = eitherCryptoError $ Encryption.createSharedSecretKey encryptSK remotePubKey
+        finalssk = case skOrFail of
+                    Left e    -> throw $ AriviCryptoException e
+                    Right ssk -> ssk
+
         -- encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
 
 -- | Takes the master secret key (signSK) and the encryption pubkey of remote and calls the Encryption.deriveSharedSecretKey with appropriate arguements
 deriveSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
-deriveSharedSecretKey remotePubKey signSK = Encryption.derivedSharedSecretKey remotePubKey encryptSK where
+deriveSharedSecretKey remotePubKey signSK =  finalssk where
         encryptSK = getEncryptionSecretKey signSK
-
+        skOrFail = eitherCryptoError $ Encryption.derivedSharedSecretKey remotePubKey encryptSK
+        finalssk = case skOrFail of
+            Left e    -> throw $ AriviCryptoException e
+            Right ssk -> ssk
 
 generateSigningKeyPair :: IO (Ed25519.SecretKey, Ed25519.PublicKey)
 generateSigningKeyPair = do

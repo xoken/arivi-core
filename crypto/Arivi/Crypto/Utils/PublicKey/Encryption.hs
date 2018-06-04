@@ -1,3 +1,4 @@
+
 module Arivi.Crypto.Utils.PublicKey.Encryption
 (
     generateKeyPair,
@@ -11,7 +12,7 @@ module Arivi.Crypto.Utils.PublicKey.Encryption
 
 
 import           Crypto.ECC               (Curve_X25519, SharedSecret, ecdh)
-import           Crypto.Error             (throwCryptoError)
+import           Crypto.Error             (CryptoFailable, throwCryptoError)
 import qualified Crypto.PubKey.Curve25519 as Curve25519
 import           Data.ByteArray           (convert)
 import           Data.ByteString.Char8    (ByteString)
@@ -55,7 +56,7 @@ curveX25519 = Proxy :: Proxy Curve_X25519
 -- | Using createSharedSecreatKey sender will create SharedSecret for himself
 -- and shares encrypted ephemeralPublicKey with remote
 
-createSharedSecretKey :: Curve25519.SecretKey -> Curve25519.PublicKey ->  Crypto.ECC.SharedSecret
+createSharedSecretKey :: Curve25519.SecretKey -> Curve25519.PublicKey ->  CryptoFailable Crypto.ECC.SharedSecret
 createSharedSecretKey = ecdh curveX25519
 
 -- | Convert a shared secret to bytestring
@@ -66,5 +67,5 @@ sharedSecretToByteString secret = Data.ByteArray.convert secret :: ByteString
 -- ephemeralPublicKey and computes SecretKey using derivedSharedSecreatKey
 -- function
 
-derivedSharedSecretKey :: Curve25519.PublicKey -> Curve25519.SecretKey -> Crypto.ECC.SharedSecret
+derivedSharedSecretKey :: Curve25519.PublicKey -> Curve25519.SecretKey -> CryptoFailable Crypto.ECC.SharedSecret
 derivedSharedSecretKey ephemeralPublicKey remotePrivateKey =  ecdh curveX25519 remotePrivateKey ephemeralPublicKey
