@@ -21,6 +21,7 @@ import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.HashTable.IO                  as MutableHashMap (new)
 -- import           Arivi.Network.Datagram             (createUDPSocket)
+import           Debug.Trace
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
@@ -58,18 +59,18 @@ sender sk rk = do
                  }
   runStdoutLoggingT $ runAppM env (do
                                        let ha = "127.0.0.1"
-                                       cid <- openConnection ha 8080 ANT.TCP (generateNodeId rk) ANT.INITIATOR
-
-                                      --  liftIO $ threadDelay 5000
-                                      --  sendMessage cid "Hallelujah"
-                                      --  sendMessage cid "YOURLORDPROTECTORJESUSCHRIST"
-                                      --  liftIO $ print ha
-                                       liftIO $ print cid
+                                       cidOrFail <- openConnection ha 8080 ANT.TCP (generateNodeId rk) ANT.INITIATOR
+                                       case cidOrFail of
+                                          Left e -> traceShow "shit" (return())
+                                          Right cid -> do
+                                            traceShow "noshit" (return())
+                                            sendMessage cid "Hallelujah"
+                                            -- sendMessage cid "YOURLORDPROTECTORJESUSCHRIST"
+                                       liftIO $ print "hooo"
 
                                    )
 receiver :: SecretKey -> IO ()
 receiver sk = do
-  print (generateNodeId sk)
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap1 <- MutableHashMap.new

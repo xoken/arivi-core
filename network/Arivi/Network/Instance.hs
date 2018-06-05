@@ -18,6 +18,7 @@ closeConnection
 , lookupCId
 ) where
 
+import           Arivi.Crypto.Utils.PublicKey.Utils   (encryptMsg)
 import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.Connection             as Conn (Connection (..),
@@ -28,13 +29,16 @@ import           Arivi.Network.Handshake
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types                  as ANT (ConnectionId,
                                                               Event (..),
+                                                              Header (..),
                                                               NodeId,
                                                               OutboundFragment,
-                                                              Parcel,
+                                                              Parcel (..),
                                                               Payload (..),
                                                               PersonalityType,
                                                               TransportType (..))
+import           Arivi.Network.Utils
 import           Arivi.Utils.Exception
+import           Codec.Serialise
 import           Control.Concurrent                   (threadDelay)
 import           Control.Concurrent.Async.Lifted.Safe
 import           Control.Concurrent.Killable          (kill)
@@ -44,14 +48,15 @@ import           Control.Exception                    (try)
 import           Control.Monad.Reader
 import           Control.Monad.STM                    (atomically)
 import           Crypto.PubKey.Ed25519                (SecretKey)
+import qualified Data.ByteString                      as B
 import           Data.ByteString.Lazy
+import           Data.ByteString.Lazy                 as L
 import           Data.HashMap.Strict                  as HM
+import           Data.Int                             (Int64)
 import           Data.Maybe                           (fromMaybe)
 import           Debug.Trace
 import           Network.Socket
 import qualified System.Timer.Updatable               as Timer (Delay, parallel)
-
-
 -- | Strcuture to hold the arivi configurations can also contain more
 --   parameters but for now just contain 3
 data NetworkConfig    = NetworkConfig {
@@ -76,9 +81,8 @@ doEncryptedHandshake :: Conn.Connection -> SecretKey -> IO Conn.Connection
 doEncryptedHandshake connection sk = do
     (serialisedParcel, updatedConn) <- initiatorHandshake sk connection
     sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel)
-    hsRespParcel <- readHandshakeRespSock (Conn.socket connection) sk
-    traceShow hsRespParcel (return ())
-    return $ receiveHandshakeResponse connection hsRespParcel
+    hsRespParcel <- readHandshakeRespSock (Conn.socket updatedConn) sk
+    return $ receiveHandshakeResponse updatedConn hsRespParcel
 
 openConnection :: (HasAriviNetworkInstance m,
                    HasSecretKey m,
@@ -112,13 +116,21 @@ openConnection addr port tt rnid pType = do
                         liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
                         return $ Right cId
 
-sendMessage :: (HasAriviNetworkInstance m)
+sendMessage :: (HasAriviNetworkInstance m, HasLogging m)
             => ANT.ConnectionId
             -> ByteString
             -> m ()
 sendMessage cId msg = do
   conn <- lookupCId cId
-  liftIO $ atomically $ writeTChan (eventTChan conn) (SendDataEvent (Payload msg))
+  let headerData = DataHeader B.empty 1 1 cId 1 1
+  let ssk = Conn.sharedSecret conn
+  let encryptedData = encryptMsg (5::Int64) ssk (L.toStrict $ serialise headerData) (lazyToStrict msg)
+  let parcel = Parcel headerData (Payload $ fromStrict encryptedData)
+  -- let parcel = Parcel headerData (Payload msg)
+  let frame = createFrame (serialise parcel)
+    -- Call the send function on the socket
+  liftIO $ sendFrame (Conn.socket conn) frame
+  -- liftIO $ atomically $ writeTChan (eventTChan conn) (SendDataEvent (Payload msg))
 
 closeConnection :: (HasAriviNetworkInstance m)
                 => ANT.ConnectionId

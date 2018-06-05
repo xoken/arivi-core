@@ -33,12 +33,15 @@ import           Debug.Trace
 --                                                   Event (..), Header (..),
 --                                                   Parcel (..),
 --                                                   deserialiseOrFail)
+import           Arivi.Network.Reassembler
 import           Arivi.Utils.Exception
 import           Control.Concurrent              (threadDelay)
 import qualified Control.Concurrent.Async        as Async (async, race)
-import           Control.Concurrent.Async.Lifted
-import           Control.Concurrent.STM          (TChan, atomically, newTChan)
+import qualified Control.Concurrent.Async.Lifted as LA (async)
+import           Control.Concurrent.STM          (TChan, atomically, newTChan,
+                                                  readTChan)
 import           Control.Concurrent.STM.TVar
+import           Control.Exception               (try)
 import           Control.Exception.Base
 import           Control.Monad                   (forever, void)
 import           Control.Monad.IO.Class
@@ -51,7 +54,6 @@ import           Data.HashMap.Strict             as HM
 import           Data.Int
 import           Network.Socket
 import qualified Network.Socket.ByteString       as N (recv)
-
 
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
 -- connectionId using `makeConnectionId`. If this connectionId is already
@@ -69,7 +71,7 @@ handleInboundConnection mSocket = do
         ariviInstance <- getAriviNetworkInstance
         let tv = ariviNetworkConnectionMap ariviInstance
         let updatesTChan = ariviConnectionUpdatesTChan ariviInstance
-        liftIO $ do
+        conn <- liftIO $ do
           socketName <- getSocketName mSocket
           mIpAddress <- inet_ntoa $ getIPAddress socketName
           let mPort = getPortNumber socketName
@@ -90,12 +92,12 @@ handleInboundConnection mSocket = do
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits
           parcel <- readHandshakeInitSock mSocket
-          traceShow parcel (return ())
           (serialisedParcel, updatedConn) <- recipientHandshake sk connection parcel
           sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel)
           atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
-          Async.async (readSock mSocket)
-          return ()
+          return updatedConn
+        LA.async $ readSock conn HM.empty
+        return ()
 
 -- | Given `SockAddr` retrieves `HostAddress`
 getIPAddress :: SockAddr -> HostAddress
@@ -121,9 +123,7 @@ acceptIncomingSocket sock = do
         (mSocket, peer) <- liftIO $ accept sock
         liftIO $ putStrLn $ "Connection from " ++ show peer
         eventTChan <- liftIO $ atomically newTChan
-        -- threadDelay 5000000
-        -- sendFrame mSocket (createFrame "msg")
-        async (handleInboundConnection mSocket) --or use forkIO
+        LA.async (handleInboundConnection mSocket) --or use forkIO
 
 
 
@@ -136,14 +136,12 @@ getFrameLength len = fromIntegral lenInt16 where
 -- | Reads frame a given socket
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getParcelWithTimeout sock timeout = do
-    winner <- race (threadDelay timeout) (N.recv sock 2)
+    winner <- Async.race (threadDelay timeout) (N.recv sock 2)
     case winner of
       Left _ -> return $ Left AriviTimeoutException
       Right lenbs ->
         do
-          traceShow lenbs (return ())
           parcelCipher <- N.recv sock $ getFrameLength lenbs
-          traceShow parcelCipher (return ())
           either
             (return . Left . AriviDeserialiseException) (return . Right)
             (deserialiseOrFail (BSL.fromStrict parcelCipher))
@@ -156,30 +154,41 @@ getParcel sock = do
     either (return . Left . AriviDeserialiseException) (return . Right)
       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
-readSock :: Socket -> IO ()
-readSock sock =
-  traceShow "here " (return ())>>
-  getParcelWithTimeout sock 30000000 >>=
-    \case
-    Left e -> traceShow e (return ()) >> readSock sock
-    Right r -> traceShow r (return ()) >> readSock sock
--- readSock sock eventTChan sk = forever $
---         getParcel sock >>=
---         either (sendFrame sock . BSLC.pack . displayException)
---                (\case
---                    e@(Parcel (HandshakeInitHeader _ _) _) -> do
---                      traceShow e (return ())
---                      atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
---                    e@(Parcel (HandshakeRespHeader _ _) _) -> do
---                     traceShow e (return ())
---                     atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
---                    e@(Parcel DataHeader {} _)    -> do
---                      traceShow e (return ())
---                      atomically $ writeTChan eventTChan (ReceiveDataEvent e)
---                    e                                      -> do
---                      traceShow e (return ())
---                      sendFrame sock "O traveller! Don't wander into uncharted terriories!"
---                )
+sendPing :: Socket -> IO()
+sendPing sock = sendFrame sock (serialise (Parcel PingHeader (Payload BSL.empty)))
+
+readSock :: HasAriviNetworkInstance m => Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
+readSock connection fragmentsHM = do
+  let sock = Conn.socket connection
+  parcelOrFail <- liftIO $ getParcelWithTimeout sock 30000000
+  case parcelOrFail of
+    -- Possibly throw before shutting down
+    Left (AriviDeserialiseException e) -> deleteConnectionFromHashMap (Conn.connectionId connection)
+    Left AriviTimeoutException -> do
+      liftIO $ sendPing (Conn.socket connection)
+      -- Possibly throw before shutting down
+      parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 60000000
+      case parcelOrFailAfterPing of
+        Left _  -> deleteConnectionFromHashMap (Conn.connectionId connection)
+        Right parcel -> processParcel parcel connection fragmentsHM
+    Right parcel -> processParcel parcel connection fragmentsHM
+
+
+processParcel :: HasAriviNetworkInstance m => Parcel -> Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
+processParcel parcel connection fragmentsHM =
+  case parcel of
+    dataParcel@(Parcel DataHeader{} _) -> do
+      res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either SomeException (HM.HashMap MessageId BSL.ByteString)))
+      case res of
+        -- possibly throw again
+        Left e -> traceShow e (return())>> deleteConnectionFromHashMap (Conn.connectionId connection)
+        Right updatedHM -> do
+          traceShow "asda" (return())
+          -- msg <- liftIO $ atomically $ readTChan (p2pMessageTChan connection)
+          -- traceShow msg (return())
+          readSock connection updatedHM
+    _ -> deleteConnectionFromHashMap(Conn.connectionId connection)
+
 
 
 readHandshakeInitSock :: Socket -> IO Parcel
@@ -203,3 +212,12 @@ readHandshakeRespSock sock sk = do
       case hsRespParcel of
         parcel@(Parcel (HandshakeRespHeader _ _ ) _ ) -> return parcel
         _ -> throw AriviWrongParcelException
+
+
+deleteConnectionFromHashMap :: HasAriviNetworkInstance m
+                            => Conn.ConnectionId
+                            -> m ()
+deleteConnectionFromHashMap connId = do
+  ariviInstance <- getAriviNetworkInstance
+  let tv = connectionMap ariviInstance
+  liftIO $ atomically $ modifyTVar tv (HM.delete connId)

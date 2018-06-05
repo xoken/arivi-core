@@ -1,3 +1,5 @@
+
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module      :  Arivi.Network.Reassembler
@@ -22,7 +24,9 @@ import           Arivi.Network.Connection           (Connection (..))
 import           Arivi.Network.Types                (Header (..), MessageId,
                                                      Parcel (..), Payload (..),
                                                      serialise)
+import           Arivi.Utils.Exception
 import           Control.Concurrent.STM             (STM, writeTChan)
+import           Control.Exception                  (throw)
 import qualified Data.ByteString.Lazy               as Lazy (ByteString, concat,
                                                              fromStrict,
                                                              toStrict)
@@ -44,27 +48,25 @@ reassembleFrames::
                -> STM (StrictHashMap.HashMap MessageId Lazy.ByteString)
 
 reassembleFrames connection parcel fragmentsHashMap = do
-
+    -- throw AriviTimeoutException
     let messageIdNo = messageId (header parcel)
     let (cipherText,authenticationTag) = getCipherTextAuthPair
                                         (Lazy.toStrict
                                           (getPayload
                                             (encryptedPayload parcel)))
-
+    traceShow parcel (return())
     let parcelHeader = Lazy.toStrict $ serialise (header parcel)
     let fragmentAead = aeadNonce (header parcel)
     let ssk = sharedSecret connection
-    let payloadMessage =  Lazy.fromStrict $ decryptMsg fragmentAead
+    let !payloadMessage =  Lazy.fromStrict $ decryptMsg fragmentAead
                                                     ssk parcelHeader
                                                     authenticationTag
                                                     cipherText
-
+    -- traceShow payloadMessage (return())
     let messages = fromMaybe  "" (StrictHashMap.lookup messageIdNo
                                                            fragmentsHashMap)
 
     let appendedMessage = Lazy.concat [messages, payloadMessage]
-    traceShow appendedMessage (return ())
-
     let currentFragmentNo = fragmentNumber (header parcel)
 
     if currentFragmentNo ==  totalFragements (header parcel)
