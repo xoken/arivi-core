@@ -22,9 +22,10 @@ import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.Connection             as Conn (Connection (..),
                                                                makeConnectionId)
+import           Arivi.Network.ConnectionHandler      (readHandshakeRespSock)
 import qualified Arivi.Network.FSM                    as FSM
+import           Arivi.Network.Handshake
 import           Arivi.Network.StreamClient
-import           Arivi.Network.StreamServer
 import           Arivi.Network.Types                  as ANT (ConnectionId,
                                                               Event (..),
                                                               NodeId,
@@ -33,17 +34,22 @@ import           Arivi.Network.Types                  as ANT (ConnectionId,
                                                               Payload (..),
                                                               PersonalityType,
                                                               TransportType (..))
+import           Arivi.Utils.Exception
+import           Control.Concurrent                   (threadDelay)
 import           Control.Concurrent.Async.Lifted.Safe
+import           Control.Concurrent.Killable          (kill)
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TChan         (TChan)
+import           Control.Exception                    (try)
 import           Control.Monad.Reader
 import           Control.Monad.STM                    (atomically)
+import           Crypto.PubKey.Ed25519                (SecretKey)
 import           Data.ByteString.Lazy
 import           Data.HashMap.Strict                  as HM
 import           Data.Maybe                           (fromMaybe)
-import           Network.Socket
-
 import           Debug.Trace
+import           Network.Socket
+import qualified System.Timer.Updatable               as Timer (Delay, parallel)
 
 
 -- | Strcuture to hold the arivi configurations can also contain more
@@ -64,21 +70,15 @@ newtype NetworkHandle = NetworkHandle { ariviUDPSock :: (Socket,SockAddr) }
                     -- ,   tcpThread    :: MVar ThreadId
                     -- ,
                     -- registry     :: MVar MP.ServiceRegistry
--- openConnection1 :: HostAddress -> PortNumber -> TransportType -> NodeId -> PersonalityType -> _ -> IO ANT.ConnectionId
--- openConnection1 addr port tt rnid pType sk = do
---   let socket = "abc"
---   socket <- createSocket (show addr) (read (show port)) tt
---   print socket
---   eventChan <- liftIO (newTChanIO :: IO (TChan Event))
---   outboundChan <- (newTChanIO :: IO (TChan OutboundFragment))
---   reassemblyChan <- (newTChanIO :: IO (TChan Parcel))
---   let cId = makeConnectionId addr port tt
---       connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, eventTChan = eventChan, outboundFragmentTChan = outboundChan, reassemblyTChan = reassemblyChan}
---   -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ withAsync (FSM.initFSM connection) (\_ -> liftIO $ atomically $ modifyTVar tv (HM.delete cId))
---   print "HEHEH"
---   -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection)
---   -- _ <- async (liftIO $ readSock socket eventChan sk)
---   return cId
+
+
+doEncryptedHandshake :: Conn.Connection -> SecretKey -> IO Conn.Connection
+doEncryptedHandshake connection sk = do
+    (serialisedParcel, updatedConn) <- initiatorHandshake sk connection
+    sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel)
+    hsRespParcel <- readHandshakeRespSock (Conn.socket connection) sk
+    traceShow hsRespParcel (return ())
+    return $ receiveHandshakeResponse connection hsRespParcel
 
 openConnection :: (HasAriviNetworkInstance m,
                    HasSecretKey m,
@@ -89,39 +89,28 @@ openConnection :: (HasAriviNetworkInstance m,
                -> TransportType
                -> NodeId
                -> PersonalityType
-               -> m ANT.ConnectionId
-openConnection addr mPort tt rnid pType = do
+               -> m (Either AriviException ANT.ConnectionId)
+openConnection addr port tt rnid pType = do
   ariviInstance <- getAriviNetworkInstance
+  let cId = makeConnectionId addr port tt
   let tv = connectionMap ariviInstance
-  sk <- getSecretKey
-  eventChan <- liftIO (newTChanIO :: IO (TChan mPort))
-  mSocket <- liftIO $ createSocket addr (read (show mPort)) tt
-  outboundChan <- liftIO (newTChanIO :: IO (TChan OutboundFragment))
-  reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
-  p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
-  let cId = makeConnectionId addr mPort tt
-      connection = Connection {connectionId = cId,
-                               remoteNodeId = rnid,
-                               ipAddress = addr,
-                               port = mPort,
-                               transportType = tt,
-                               personalityType = pType,
-                               Conn.socket = mSocket,
-                               eventTChan = eventChan,
-                               outboundFragmentTChan = outboundChan,
-                               reassemblyTChan = reassemblyChan,
-                               p2pMessageTChan = p2pMsgTChan}
-
-  liftIO $ atomically $ modifyTVar tv (HM.insert cId connection)
-  liftIO $ atomically $ writeTChan eventChan (InitHandshakeEvent sk)
-  -- tid <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
-  _ <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
-
-  -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection)
-  _ <- async (liftIO $ readSock mSocket eventChan sk)
   hm <- liftIO $ readTVarIO tv
-  traceShow ("TTTTT " ++  show (HM.size hm)) (return ())
-  return cId
+  case HM.lookup cId hm of
+    Just conn -> return $ Right cId
+    Nothing   ->
+                do
+                  sk <- getSecretKey
+                  socket <- liftIO $ createSocket addr (read (show port)) tt
+                  reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
+                  p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
+                  let connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan}
+                  res <- liftIO $ try $ doEncryptedHandshake connection sk
+                  case res of
+                    Left e -> return $ Left e
+                    Right updatedConn ->
+                      do
+                        liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
+                        return $ Right cId
 
 sendMessage :: (HasAriviNetworkInstance m)
             => ANT.ConnectionId
@@ -139,6 +128,7 @@ closeConnection cId = do
   let tv = connectionMap ariviInstance
   liftIO $ atomically $ modifyTVar tv (HM.delete cId)
 
+
 lookupCId :: (HasAriviNetworkInstance m)
           => ANT.ConnectionId
           -> m Connection
@@ -146,5 +136,4 @@ lookupCId cId = do
   ariviInstance <- getAriviNetworkInstance
   let tv = connectionMap ariviInstance
   hmap <- liftIO $ readTVarIO tv
-  traceShow ("SSSS " ++ show (HM.size hmap)) (return ())
   return $ fromMaybe (error "Something terrible happened! You have been warned not to enter the forbidden lands") (HM.lookup cId hmap)
