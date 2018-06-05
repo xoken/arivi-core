@@ -66,5 +66,6 @@ library
                        Arivi.P2P.Instance
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
+                       Arivi.P2P.RPC
 
   default-language:    Haskell2010
