@@ -22,8 +22,7 @@ import           Arivi.Network.Connection           (Connection (..))
 import           Arivi.Network.Types                (Header (..), MessageId,
                                                      Parcel (..), Payload (..),
                                                      serialise)
-import           Control.Concurrent.STM             (TChan, atomically,
-                                                     readTChan, writeTChan)
+import           Control.Concurrent.STM             (STM, writeTChan)
 import qualified Data.ByteString.Lazy               as Lazy (ByteString, concat,
                                                              fromStrict,
                                                              toStrict)
@@ -40,16 +39,11 @@ type AEADNonce = Int64
 --   list of fragmentsHashMap
 reassembleFrames::
                   Connection
-               -> TChan Parcel
-               -> TChan Lazy.ByteString
+               -> Parcel
                -> StrictHashMap.HashMap MessageId Lazy.ByteString
-               -> AEADNonce
-               -> IO ()
+               -> STM (StrictHashMap.HashMap MessageId Lazy.ByteString)
 
-reassembleFrames connection mReassemblyTChan mP2PMessageTChan
-                                            fragmentsHashMap mAEADNonce = do
-
-    parcel <- atomically $ readTChan mReassemblyTChan
+reassembleFrames connection parcel fragmentsHashMap = do
 
     let messageIdNo = messageId (header parcel)
     let (cipherText,authenticationTag) = getCipherTextAuthPair
@@ -58,8 +52,9 @@ reassembleFrames connection mReassemblyTChan mP2PMessageTChan
                                             (encryptedPayload parcel)))
 
     let parcelHeader = Lazy.toStrict $ serialise (header parcel)
+    let fragmentAead = aeadNonce (header parcel)
     let ssk = sharedSecret connection
-    let payloadMessage =  Lazy.fromStrict $ decryptMsg mAEADNonce
+    let payloadMessage =  Lazy.fromStrict $ decryptMsg fragmentAead
                                                     ssk parcelHeader
                                                     authenticationTag
                                                     cipherText
@@ -75,19 +70,13 @@ reassembleFrames connection mReassemblyTChan mP2PMessageTChan
     if currentFragmentNo ==  totalFragements (header parcel)
       then
         do
-           atomically $ writeTChan mP2PMessageTChan appendedMessage
-
+           writeTChan (p2pMessageTChan connection) appendedMessage
            let updatedFragmentsHashMap = StrictHashMap.delete messageIdNo
                                                               fragmentsHashMap
-
-           reassembleFrames connection mReassemblyTChan mP2PMessageTChan
-                                            updatedFragmentsHashMap
-                                            (mAEADNonce + 1)
+           return updatedFragmentsHashMap
     else
        do
         let updatedFragmentsHashMap = StrictHashMap.insert messageIdNo
                                                            appendedMessage
                                                            fragmentsHashMap
-        reassembleFrames connection  mReassemblyTChan mP2PMessageTChan
-                                                     updatedFragmentsHashMap
-                                                     (mAEADNonce + 1)
+        return updatedFragmentsHashMap
