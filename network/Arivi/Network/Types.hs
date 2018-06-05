@@ -151,9 +151,8 @@ data Header = HandshakeInitHeader {
                                                       --   is sent. Useful for
                                                       --   preventing Replay
                                                       --   Attacks
-  --              ,   remoteNodeId       :: NodeId      --  ^ NodeId of remote
-                                                      --    node
-
+                , aeadNonce          :: AeadNonce       -- ^ 8 Byte Nonce used
+                                                       --   for encryption
             }
             | ErrorHeader {
                   messageId          :: MessageId      -- ^ Unique Message
@@ -194,54 +193,6 @@ data Parcel = Parcel {
             deriving (Show,Eq,Generic)
 
 
-
--- | This is the structure that goes out on the wire
--- Has been tested for cborg encoding, decoding successfully
--- data Parcel   =  KeyExParcel {
---                     opcode              :: Opcode
---                 ,   handshakeCiphertext :: ByteString
---                 ,   ephemeralPublicKey  :: NodeId
---                 ,   aeadNonce           :: ByteString
---                }
-
---                | DataParcel  {
---                     opcode          :: Opcode
---                 ,   messageId       :: MessageId
---                 ,   fragmentNumber  :: FragmentNumber
---                 ,   totalFragements :: FragmentCount
---                 ,   connectionId    :: ConnectionId
---                 ,   payloadLength   :: PayloadLength
---                 ,   payload         :: Payload
---                 ,   nonce           :: Nonce
---                }
-
---                | ErrorParcel {
---                     opcode          :: Opcode
---                 ,   messageId       :: MessageId
---                 ,   fragmentNumber  :: FragmentNumber
---                 ,   totalFragements :: FragmentCount
---                 ,   descriptor      :: Descriptor
---                 ,   connectionId    :: ConnectionId
---                }
-
---                | ByeParcel {
---                     opcode          :: Opcode
---                 ,   fragmentNumber  :: FragmentNumber
---                 ,   totalFragements :: FragmentCount
---                 ,   connectionId    :: ConnectionId
---                 ,   messageId       :: MessageId
---                }
---                 deriving (Show,Eq,Generic)
-
--- makeDataParcel :: Opcode
---                -> MessageId
---                -> FragmentNumber
---                -> FragmentNumber
---                -> ConnectionId
---                -> PayloadLength
---                -> Payload
---                -> Nonce
---                -> Parcel
 makeDataParcel :: Header -> Payload -> Parcel
 makeDataParcel = Parcel
 
