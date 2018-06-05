@@ -131,13 +131,14 @@ packFindMsg nId sk sockAddr targetNode msgSeq  = PayLoad msg sgn
         sgn     = sign sk (nId :: PublicKey)
                     (Lazy.toStrict (serialise msg)) :: Sign
 
-packFnR :: NodeId -> SecretKey -> SockAddr -> NodeId -> Sequence -> PayLoad
+packFnR :: NodeId -> SecretKey -> SockAddr -> [(NodeId,NodeEndPoint)] ->
+    Sequence -> PayLoad
 packFnR nId sk sockAddr mPeerList msgSeq = PayLoad msg sgn
     where
         fromep  = NodeEndPoint (sockAddrToHostAddr sockAddr)
                     (sockAddrToPortNumber sockAddr)
                     (sockAddrToPortNumber sockAddr)
-        msgBody = FIND_NODE nId mPeerList fromep
+        msgBody = FN_RESP nId mPeerList fromep
         msg     = Message MSG04 msgBody msgSeq
         sgn     = sign sk (nId :: PublicKey)
                     (Lazy.toStrict (serialise msg)) :: Sign
