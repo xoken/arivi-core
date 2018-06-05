@@ -3,9 +3,8 @@
 -- this first being it enables the utilization of haskell's powerful type system
 -- and second it makes code cleaner and structured.
 
-{-# LANGUAGE DeriveGeneric               #-}
-{-# OPTIONS_GHC -fno-warn-orphans        #-}
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Arivi.Kademlia.Types
   (
@@ -27,20 +26,20 @@ module Arivi.Kademlia.Types
    , deserialise
   ) where
 
-import           Arivi.Kademlia.Utils         (sockAddrToHostAddr,
-                                                    sockAddrToPortNumber)
-import           Codec.Serialise           (deserialise, serialise)
-import           Codec.Serialise.Class     (Serialise (..))
+import           Arivi.Kademlia.Utils     (sockAddrToHostAddr,
+                                           sockAddrToPortNumber)
+import           Codec.Serialise          (deserialise, serialise)
+import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519     (PublicKey, SecretKey, Signature,
-                                            publicKey, sign, signature)
-import           Data.ByteArray            (convert)
+import           Crypto.PubKey.Ed25519    (PublicKey, SecretKey, Signature,
+                                           publicKey, sign, signature)
+import           Data.ByteArray           (convert)
 import           Data.ByteString
-import qualified Data.ByteString.Lazy      as Lazy (toStrict)
+import qualified Data.ByteString.Lazy     as Lazy (toStrict)
 import           Data.Monoid
-import           Data.Time.Clock.POSIX     (POSIXTime, getPOSIXTime)
+import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime)
 import           Data.Word
 import           GHC.Generics
 import           Network.Socket
@@ -220,17 +219,19 @@ instance Serialise PortNumber where
 -- | Fix warnings generated due to use of PortNum which will be deprecated by
 -- | Lib
 
-encodePortNumber :: PortNumber -> Encoding
+encodePortNumber :: Integral a => a -> Encoding
 encodePortNumber a =
-    encodeListLen 2 <> encodeWord 0 <> encode a
+    encodeListLen 2 <> encodeWord 0 <> encode (toInteger a)
+
 
 decodePortNumber :: Decoder s PortNumber
 decodePortNumber = do
     len <- decodeListLen
     tag <- decodeWord
     case (len,tag) of
-        (2,0) -> PortNum <$> decode
+        (2,0) -> fromInteger <$> decode
         _     -> fail "Invalid PortNumber encoding"
+
 
 
 -- Serialise instance for MessageBody data type
@@ -239,16 +240,16 @@ instance Serialise MessageBody where
     decode = decodeMessageBody
 
 encodeMessageBody :: MessageBody -> Encoding
-encodeMessageBody (PING nodeId fromEndPoint) =
-    encodeListLen 3 <> encodeWord 0 <> encode nodeId <> encode fromEndPoint
-encodeMessageBody (PONG nodeId toEndPoint) =
-    encodeListLen 3 <> encodeWord 1 <> encode nodeId <> encode toEndPoint
-encodeMessageBody (FIND_NODE nodeId targetNodeId nodeEndPoint) =
-    encodeListLen 4 <> encodeWord 2 <> encode nodeId <> encode targetNodeId
-                    <> encode nodeEndPoint
-encodeMessageBody (FN_RESP nodeId peerList nodeEndPoint) =
-    encodeListLen 4 <> encodeWord 3 <> encode nodeId <> encode peerList
-                    <> encode nodeEndPoint
+encodeMessageBody (PING pnodeId pfromEndPoint) =
+    encodeListLen 3 <> encodeWord 0 <> encode pnodeId <> encode pfromEndPoint
+encodeMessageBody (PONG pnodeId ptoEndPoint) =
+    encodeListLen 3 <> encodeWord 1 <> encode pnodeId <> encode ptoEndPoint
+encodeMessageBody (FIND_NODE pnodeId ptargetNodeId pnodeEndPoint) =
+    encodeListLen 4 <> encodeWord 2 <> encode pnodeId <> encode ptargetNodeId
+                    <> encode pnodeEndPoint
+encodeMessageBody (FN_RESP pnodeId ppeerList pnodeEndPoint) =
+    encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList
+                    <> encode pnodeEndPoint
 
 decodeMessageBody :: Decoder s MessageBody
 decodeMessageBody = do

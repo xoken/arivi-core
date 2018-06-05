@@ -28,7 +28,7 @@ source-repository head
 
 library
   build-depends:       async
-                    ,  base >=4.9 && <4.10
+                    ,  base >=4.9 && <4.11 
                     ,  base16-bytestring
                     ,  binary >= 0.8.3.0
                     ,  bytes
@@ -42,7 +42,7 @@ library
                     ,  hashtables <= 1.2.6.1
                     ,  integer-gmp
                     ,  memory >= 0.14.11
-                    ,  monad-logger
+                    ,  monad-logger 
                     ,  mtl
                     ,  network
                     ,  raaz >= 0.1.1
@@ -57,12 +57,8 @@ library
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
                     ,  arivi-crypto
+                    ,  arivi-network 
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
-                       -fno-warn-type-defaults
-                       -fno-warn-unused-local-binds
-                       -fno-warn-unused-top-binds
-                       -fno-warn-name-shadowing
-                       -fno-warn-unused-matches
   exposed-modules:                       
                        Arivi.Kademlia.Instance
                        Arivi.Kademlia.Node
