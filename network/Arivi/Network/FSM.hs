@@ -145,11 +145,11 @@ handleEvent connection Idle (KeyExchangeInitEvent mParcel mSecretKey) =
                                                                 updatedConn
                                                                 getAeadNonceInitiator
                                                                 getReplayNonce)
-                        _ <- async (liftIO $ reassembleFrames updatedConn
-                                                              (reassemblyTChan updatedConn)
-                                                              (p2pMessageTChan updatedConn)
-                                                              HM.empty
-                                                              getAeadNonceRecipient)
+                        -- _ <- async (liftIO $ reassembleFrames updatedConn
+                        --                                       (reassemblyTChan updatedConn)
+                        --                                       (p2pMessageTChan updatedConn)
+                        --                                       HM.empty
+                        --                                       getAeadNonceRecipient)
                         -- Send the message back to the initiator
                         liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
@@ -172,7 +172,7 @@ handleEvent connection KeyExchangeInitiated (KeyExchangeRespEvent mParcel)  =
                     do
                         let updatedConn = receiveHandshakeResponse connection mParcel
                         _ <- async (liftIO $ outboundFrameDispatcher (outboundFragmentTChan updatedConn) updatedConn getAeadNonceRecipient getReplayNonce)
-                        _ <- async (liftIO $ reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceInitiator)
+                        -- _ <- async (liftIO $ reassembleFrames updatedConn (reassemblyTChan updatedConn) (p2pMessageTChan updatedConn) HM.empty getAeadNonceInitiator)
                         return updatedConn
           case res of
             Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
@@ -187,7 +187,7 @@ handleEvent connection KeyExchangeInitiated (KeyExchangeRespEvent mParcel)  =
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent mParcel) =
   $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - ReceiveDataEvent ") LevelDebug $ do
             -- Insert into reassembly TChan. Do exception handling for deserialise failure
-            liftIO $ atomically $ writeTChan (reassemblyTChan connection) mParcel
+            -- liftIO $ atomically $ writeTChan (reassemblyTChan connection) mParcel
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
             -- addToOutputChan
             handleNextEvent connection
