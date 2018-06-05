@@ -14,16 +14,17 @@ module Arivi.Kademlia.Utils
     isNodeIdElem,
     getSockAddr,
     getRandomSequence,
-    getRandomSequence2
+    getRandomSequence2,
+    convToSockAddr
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
-import qualified Data.ByteString.Char8    as C
+import qualified Data.ByteString.Char8             as C
 import           Data.Int
-import qualified Data.List.Split          as S
+import qualified Data.List.Split                   as S
 import           Data.Word
 import           Network.Socket
-import qualified Network.Socket.Internal  as M
+import qualified Network.Socket.Internal           as M
 import           System.Random
 
 -- Helper functions to extract value from 3-tuple
@@ -58,7 +59,11 @@ stringToHostAddress x = remoteIp
                            _         -> error "stringToHostAddress: Parse failed trying to make a HostAddress."
           remoteIp = tupleToHostAddress temp2
 
--- covnerts a string of format IP:Port to SockAddr
+-- converts a given port number and a host address to a sock address
+convToSockAddr :: PortNumber -> HostAddress -> SockAddr
+convToSockAddr = SockAddrInet
+
+-- covnerts a string of format IP:Port to (PublicKey,SockAddr)
 convertToSockAddr :: String -> (PublicKey,SockAddr)
 convertToSockAddr x  = (nodeId,fSockAddr)
     where addrString = S.splitOn ":" x
