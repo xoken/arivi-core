@@ -1,7 +1,8 @@
 module Arivi.Network.StreamClient (
     createSocket,
     sendFrame,
-    createFrame
+    createFrame,
+    createSocketUDP
 ) where
 
 import           Arivi.Network.Types       (TransportType (..))
@@ -27,12 +28,37 @@ createSocket ipAdd port transportType = withSocketsDo $ do
     return sock
 
 sendFrame :: Socket -> BSL.ByteString -> IO ()
-sendFrame sock msg = N.sendAll sock (BSL.toStrict msg)
+sendFrame sock msg = do
+                socketName <- getSocketName sock
+                mIpAddress <- inet_ntoa $ getIPAddress socketName
+                print ("sendFrame " ++ mIpAddress)
+                N.sendAll sock (BSL.toStrict msg)
 
 -- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString
-createFrame parcelSerialised = BSL.concat [lenSer, parcelSerialised]
+createFrame parcelSerialised =  parcelSerialised -- BSL.concat [lenSer, parcelSerialised]
                     where
                       len = BSL.length parcelSerialised
                       lenw16 = fromIntegral len :: Int16
                       lenSer = encode lenw16
+
+createSocketUDP :: String -> Int -> TransportType -> IO Socket
+createSocketUDP ipAddress portNumber socketType = do
+        let hint = defaultHints {addrFlags = [AI_PASSIVE],
+                                 addrSocketType = Datagram}
+        addr:_ <- getAddrInfo (Just hint) (Just ipAddress)
+            (Just (show portNumber))
+
+        addr2:_ <- getAddrInfo (Just hint) (Just ipAddress)
+            (Just "4509")
+        mSocket <- socket (addrFamily addr2) (addrSocketType addr2)
+                                            (addrProtocol addr2)
+        bind mSocket (addrAddress addr2)
+
+        connect mSocket (addrAddress addr)
+        return mSocket
+
+
+getIPAddress :: SockAddr -> HostAddress
+getIPAddress (SockAddrInet _ hostAddress) = hostAddress
+getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "

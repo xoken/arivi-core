@@ -60,7 +60,8 @@ import           Data.HashMap.Strict              as HM
 import           Data.Int                         (Int64)
 import qualified System.Timer.Updatable           as Timer (Delay, parallel)
 
-
+import           Debug.Trace
+import           Network.Socket                   (getSocketName)
 -- | The different states that any thread in layer 1 can be in
 data State =  Idle
             | KeyExchangeInitiated
@@ -151,7 +152,11 @@ handleEvent connection Idle (KeyExchangeInitEvent mParcel mSecretKey) =
                                                               HM.empty
                                                               getAeadNonceRecipient)
                         -- Send the message back to the initiator
-                        liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
+                        traceShow serialisedParcel (return())
+                        traceShow ( socket updatedConn) (return())
+                        socketName <- liftIO $ getSocketName (socket updatedConn)
+                        traceShow socketName (return())
+                        $(withLoggingTH) (LogNetworkStatement "Sending handshakeresp") LevelDebug $ liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
             case res of
                 Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent

@@ -14,7 +14,7 @@ import           Arivi.Network.Connection           (Connection (..),
 import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
 import qualified Arivi.Network.Types                as ANT (PersonalityType (INITIATOR),
-                                                            TransportType (TCP))
+                                                            TransportType (TCP, UDP))
 import           Control.Concurrent                 (threadDelay)
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.Logger
@@ -58,8 +58,8 @@ sender sk rk = do
                  }
   runStdoutLoggingT $ runAppM env (do
                                        let ha = "127.0.0.1"
-                                       cid <- openConnection ha 8080 ANT.TCP (generateNodeId rk) ANT.INITIATOR
-                                       liftIO $ threadDelay 5000
+                                       cid <- openConnection ha 8070 ANT.UDP (generateNodeId rk) ANT.INITIATOR
+                                       liftIO $ threadDelay 5000000
                                        sendMessage cid "Hallelujah"
                                        sendMessage cid "YOURLORDPROTECTORJESUSCHRIST"
                                        liftIO $ print ha
@@ -80,7 +80,7 @@ receiver sk = do
                  , udpConnectionHashMap = mutableConnectionHashMap1
                  }
   runStdoutLoggingT $ runAppM env (
-                                       runTCPserver (show (envPort env))
+                                       runUDPserver (show (envPort env))
                                   )
 main :: IO ()
 main = do

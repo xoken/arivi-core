@@ -50,7 +50,7 @@ mkAriviEnv :: IO AriviEnv
 mkAriviEnv = do
   ani <- mkAriviNetworkInstance
   return AriviEnv { ariviNetworkInstance = ani
-                  , envPort = 8080
+                  , envPort = 8070
                   }
 
 data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: TVar (HashMap ConnectionId Connection)
@@ -71,7 +71,7 @@ mkAriviEnv' :: IO AriviEnv
 mkAriviEnv' = do
   ani <- mkAriviNetworkInstance'
   return AriviEnv { ariviNetworkInstance = ani
-                  , envPort = 8080
+                  , envPort = 8070
                   }
 
 mkAriviNetworkInstance' :: IO AriviNetworkInstance

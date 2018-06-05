@@ -95,7 +95,7 @@ openConnection addr mPort tt rnid pType = do
   let tv = connectionMap ariviInstance
   sk <- getSecretKey
   eventChan <- liftIO (newTChanIO :: IO (TChan mPort))
-  mSocket <- liftIO $ createSocket addr (read (show mPort)) tt
+  mSocket <- liftIO $ createSocketUDP addr (read (show mPort)) tt
   outboundChan <- liftIO (newTChanIO :: IO (TChan OutboundFragment))
   reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
   p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
@@ -118,7 +118,7 @@ openConnection addr mPort tt rnid pType = do
   _ <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
 
   -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection)
-  _ <- async (liftIO $ readSock mSocket eventChan sk)
+  _ <- async (liftIO $ readSockUDP mSocket eventChan sk)
   hm <- liftIO $ readTVarIO tv
   traceShow ("TTTTT " ++  show (HM.size hm)) (return ())
   return cId

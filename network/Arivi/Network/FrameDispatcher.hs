@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-missing-fields #-}
+-- {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 -- |
 -- Module      :  Arivi.Network.FrameDispatcher
 -- Copyright   :
@@ -25,8 +25,8 @@ import           Arivi.Network.Types
 import           Control.Concurrent.Async.Lifted (async)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan)
 import           Control.Monad.IO.Class
+import           Debug.Trace
 import           Network.Socket
-
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
 -- connectionId using `makeConnectionId`. If this connectionId is already
 -- present in the frameDispatchHashMap  then reads parcelTChan from
@@ -44,6 +44,7 @@ handleInboundConnection mSocket mEventTChan = do
         conn <- liftIO $ do
           socketName <- getSocketName mSocket
           mIpAddress <- inet_ntoa $ getIPAddress socketName
+          traceShow (show socketName ++ "frameDispatchHashMap") (return())
           let mPort = getPortNumber socketName
           let mTransportType = getTransportType mSocket
           let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType

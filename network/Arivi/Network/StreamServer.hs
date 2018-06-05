@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -9,6 +10,8 @@ module Arivi.Network.StreamServer
 (
     readSock
   , runTCPserver
+  , runUDPserver
+  , readSockUDP
 ) where
 
 import           Arivi.Env
@@ -19,6 +22,7 @@ import           Arivi.Network.Types             (DeserialiseFailure,
                                                   Event (..), Header (..),
                                                   Parcel (..),
                                                   deserialiseOrFail)
+import           Control.Concurrent              (threadDelay)
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.Lifted       (forkFinally)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan,
@@ -35,8 +39,7 @@ import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.Int
 import           Debug.Trace
 import           Network.Socket
-import qualified Network.Socket.ByteString       as N (recv)
-
+import qualified Network.Socket.ByteString       as N (recv, recvFrom)
 -- Functions for Server
 
 -- | Lifts the `withSocketDo` to a `MonadBaseControl IO m`
@@ -137,3 +140,78 @@ test = do
 --     where readSock sock eventTChan = forever $ do
 --                 parcelCipher <- getFrame sock
 --                 atomically $ writeTChan eventTChan parcelCipher
+
+
+
+
+
+
+
+runUDPserver :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => ServiceName -> m ()
+runUDPserver portNumber =  $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $ do
+
+    let hint = defaultHints {addrFlags = [AI_PASSIVE],
+                               addrSocketType = Datagram}
+
+
+    addr:_ <- liftIO $ getAddrInfo (Just hint) (Just "127.0.0.1") (Just portNumber)
+
+    mSocket <- liftIO $  socket (addrFamily addr) (addrSocketType addr)
+                                        (addrProtocol addr)
+    liftIO $ print "runUDPserver 1"
+    liftIO $  bind mSocket (addrAddress addr)
+    liftIO $ print "runUDPserver 2"
+    socketName <- liftIO $ getSocketName mSocket
+    mIpAddress <- liftIO $ inet_ntoa $ getIPAddress socketName
+    liftIO $ print mIpAddress
+    void $ forkFinally (acceptIncomingSocketUDP mSocket) (\_ -> liftIO $ close mSocket)
+
+
+-- | Server Thread that spawns new thread to
+-- | listen to client and put it to inboundTChan
+acceptIncomingSocketUDP :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => Socket -> m a
+acceptIncomingSocketUDP sock = do
+  sk <- getSecretKey
+  -- forever $ do
+        -- msg <- liftIO $ recvFrom sock 4096
+        -- liftIO $ putStrLn $ "Connection from " ++ show peer
+        -- mSocket <- liftIO $ createSocketUDP "127.0.0.1" 4500 UDP
+  eventTChan <- liftIO $ atomically newTChan
+  _ <- async (handleInboundConnection sock eventTChan)  --or use forkIO
+  _ <- async (liftIO $ readSockUDP sock eventTChan sk)
+  _ <- liftIO $ threadDelay 10000000
+  return undefined
+
+
+readSockUDP :: Socket -> TChan Event -> SecretKey -> IO ()
+readSockUDP sock eventTChan sk = forever $
+        N.recv sock 4096 >>=
+        getParcelUDP >>=
+        either (sendFrame sock . BSLC.pack . displayException)
+               (\case
+                   e@(Parcel (HandshakeInitHeader _ _) _) -> do
+                     traceShow e (return ())
+                     atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
+                   e@(Parcel (HandshakeRespHeader _ _) _) -> do
+                    traceShow e (return ())
+                    atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                   e@(Parcel DataHeader {} _)    -> do
+                     traceShow e (return ())
+                     atomically $ writeTChan eventTChan (ReceiveDataEvent e)
+                   e                                      -> do
+                     traceShow e (return ())
+                     sendFrame sock "O traveler! Don't wander into uncharted territories!"
+               )
+
+
+getParcelUDP :: _ -> IO (Either DeserialiseFailure Parcel)
+getParcelUDP msg = do
+    -- (parcelCipher,sockAddrs) <- N.recvFrom sock 4096
+    -- (parcelCipher,sockAddrs) <- N.recvFrom sock $ getFrameLength lenbs
+    print "fsd"
+    return $ deserialiseOrFail (BSL.fromStrict msg)
+
+
+getIPAddress :: SockAddr -> HostAddress
+getIPAddress (SockAddrInet _ hostAddress) = hostAddress
+getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
