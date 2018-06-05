@@ -32,7 +32,7 @@ module Arivi.P2P.Types
       , MinPeerCountPerTopic
       , Context
       , TopicContext
-      , TopicToService
+      , TopicToServiceMap
       , SubscriptionMap
       , WatchersMap
       , MessageType(..)
@@ -43,6 +43,7 @@ module Arivi.P2P.Types
       , P2PUUID
       , ResourceDetails
       , ResourceList
+      , PeerToTopicMap
 )
 
 where
@@ -58,12 +59,14 @@ type ExpiryTime = Float
 type PeerList = [ (NodeId,IP,Port,ExpiryTime) ]
 type MinPeerCountPerTopic = Int
 type Context = (MinPeerCountPerTopic, NodeType, TransportType)
-
+type ServiceCode = String 
 type TopicContext  = Map.Map TopicCode Context
-type TopicToService  = Map.Map TopicCode ServiceCode
+-- type TopicToService  = Map.Map TopicCode ServiceCode
 type SubscriptionMap = Map.Map TopicCode PeerList
 type WatchersMap = Map.Map TopicCode PeerList
 type TopicToServiceMap = Map.Map TopicCode ServiceCode
+
+type PeerToTopicMap = Map.Map TopicCode [Peer]
 
 -- need to update *starts*
 type ResourceID = String
@@ -78,11 +81,12 @@ type ResourceList = Map.Map ResourceID ResourceDetails
 
 data NodeType = FullNode | HalfNode deriving(Show)
 
-data ServiceCode = BlockInventory | BlockSync | PendingTransaction 
-                        deriving(Eq,Ord,Show)
+-- data ServiceCode = BlockInventory | BlockSync | PendingTransaction 
+--                         deriving(Eq,Ord,Show)
 
-data TopicCode = Latest_block_header | Latest_block
-                    deriving(Eq,Ord,Show,Generic)
+
+data TopicCode = LatestBlockHeader | LatestBlock 
+  deriving(Eq,Ord,Show,Generic)
 instance Serialise TopicCode
 
 data AriviP2PInstance = AriviP2PInstance { nodeId :: NodeId
@@ -129,7 +133,9 @@ data MessageType =
           expires :: ExpiryTime
         , topic   :: TopicCode
     }
-    
+    deriving(Eq,Ord,Show,Generic)
+instance Serialise MessageType
+
 data P2PMessage = P2PMessage {
           uuid :: P2PUUID
         , to :: NodeId
