@@ -8,38 +8,41 @@ module Arivi.Kademlia.Node
     maintainPendingResChan
   ) where
 
-import           Control.Concurrent           (Chan, MVar, ThreadId, forkIO,
-                                               readMVar, threadDelay
-                                              )
+import           Control.Concurrent                (Chan, MVar, ThreadId,
+                                                    forkIO, readMVar,
+                                                    threadDelay)
 
-import qualified Arivi.Kademlia.Query         as Q
 import           Arivi.Crypto.Utils.Keys.Signature
-import qualified Arivi.Kademlia.Types         as T
+import           Arivi.Env
+import qualified Arivi.Kademlia.Query              as Q
+import qualified Arivi.Kademlia.Types              as T
 import           Arivi.Kademlia.Utils
-import           Control.Concurrent.STM.TChan (TChan, isEmptyTChan, readTChan,
-                                               writeTChan)
-import           Control.Monad                (forever, mapM_, replicateM)
+import           Arivi.Network.Instance
+import           Arivi.Network.Types               as ANT
+import           Control.Concurrent.STM.TChan      (TChan, isEmptyTChan,
+                                                    readTChan, writeTChan)
+import           Control.Monad                     (forever, mapM_, replicateM)
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
-import           Control.Monad.STM            (atomically)
+import           Control.Monad.STM                 (atomically)
 import           Crypto.Util
 import           Data.ByteArray
-import qualified Data.ByteString.Char8        as C (ByteString)
-import           Data.List                    as L
-import qualified Data.Map.Strict              as Map
+import qualified Data.ByteString.Char8             as C (ByteString)
+import           Data.List                         as L
+import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
-import qualified Data.Text                    as DT
+import qualified Data.Text                         as DT
+import qualified Data.Time.Clock.POSIX             as Clock (POSIXTime,
+                                                             getPOSIXTime)
 import           GHC.Exts
 import           GHC.Integer.Logarithms
-import           Network.Socket
-import qualified Data.Time.Clock.POSIX        as Clock (POSIXTime,getPOSIXTime)
 -- | Process all the incoming messages to server and write the response to
 --   outboundChan whenever a findNode message is recieved it write that peer to
 --   peerChan
 messageHandler :: T.NodeId
                -> SecretKey
-               -> MVar SockAddr
-               -> (T.PayLoad,SockAddr)
+               -> ANT.ConnectionId
+               -> T.PayLoad
                -> TChan ((T.NodeId,T.NodeEndPoint),Int)
                -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
                -> TChan (Map.Map C.ByteString [(T.Sequence,Clock.POSIXTime)])
@@ -48,17 +51,27 @@ messageHandler :: T.NodeId
                -> Int
                -> IO ThreadId
 
-messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
+messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan logChan
     k workerId = forkIO $ forever $ runChanLoggingT logChan $ do
 
         logInfoN (DT.pack ("Reading inboundChan, WorkderID : "
             ++ show workerId))
 
-        ts        <- liftIO Clock.getPOSIXTime
-        localsock <- liftIO $ readMVar localSock
+        ts <- liftIO Clock.getPOSIXTime
 
-        let incMsg          = fst msg
-            remoteSock      = snd msg
+        -- TODO extract local port and local ip from connectionID
+        -- TODO replace `1` below with a valid sequence
+
+        let localSock = undefined
+            rs        = undefined
+        -- ariviConnection <- lookupCId ariviConnectionId
+
+        -- let remotPort  = port ariviConnection
+        --     remoteIp   = stringToHostAddress $ ipAddress ariviConnection
+        --     rs         = convToSockAddr localPort localIp
+
+        let incMsg          = msg
+            remoteSock      = rs
             senderNodeId    = T.nodeId (T.messageBody(T.message incMsg))
             senderEndPoint  = T.fromEndPoint (T.messageBody(T.message incMsg))
             senderPublicKey = senderNodeId :: PublicKey
@@ -75,14 +88,14 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
 
             -- handles the case when message type is MSG01 i.e PING
             T.MSG01 -> do
-                let payl = T.packPong nodeId sk localsock 1
-                -- Arivi.send (payl,remoteSock)
+                let payl = T.packPong nodeId sk localSock 1
+                -- sendMessage ariviConnectionId $ serialise payl
                 liftIO $ print ""
 
             -- handles the case when message type is MSG02 i.e PONG
             T.MSG02 -> do
-                let payl = T.packPing nodeId sk localsock 1
-                --  Arivi.send (payl,remoteSock)
+                let payl = T.packPing nodeId sk localSock 1
+                -- ssendMessage ariviConnectionId $ serialise payl
                 liftIO $ print ""
 
             -- handles the case when message type is MSG03 i.e FIND_NODE
@@ -93,8 +106,8 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
 
                 -- Queries k-buckets and send k-closest buckets
                 liftIO $ threadDelay 1000
-                liftIO $ Q.queryKBucket nodeId senderNodeId k kbChan localsock
-                    remoteSock sk msgSeq
+                liftIO $ Q.queryKBucket nodeId senderNodeId k kbChan
+                    ariviConnectionId sk 1
 
             -- handles the case when message type is MSG04 i.e FN_RESP
             T.MSG04 -> do
@@ -113,7 +126,7 @@ messageHandler nodeId sk localSock msg peerChan kbChan pendingResChan logChan
                                             getRandomSequence
                                         let payl         = Prelude.map
                                                             (T.packFindMsg
-                                                            nodeId sk localsock
+                                                            nodeId sk localSock
                                                              nodeId)
                                                              temp
                                             repl         =  Prelude.replicate
@@ -314,3 +327,4 @@ extractDistance localNodeId x  = (x,kbi)
           nid  = localNodeId :: PublicKey
           dis  = Data.ByteArray.xor temp nid :: C.ByteString
           kbi  = I# (integerLog2# (bs2i dis))
+
