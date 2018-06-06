@@ -19,6 +19,7 @@ module Arivi.Network.ConnectionHandler
    , getTransportType
    , handleInboundConnection
    , readHandshakeRespSock
+   , readSock
 ) where
 
 import           Arivi.Env
@@ -133,7 +134,7 @@ getFrameLength len = fromIntegral lenInt16 where
                      lenInt16 = decode lenbs :: Int16
                      lenbs = BSL.fromStrict len
 
--- | Reads frame a given socket
+-- | Races between a timer and receive parcel, returns an either type
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getParcelWithTimeout sock timeout = do
     winner <- Async.race (threadDelay timeout) (N.recv sock 2)
@@ -154,20 +155,29 @@ getParcel sock = do
     either (return . Left . AriviDeserialiseException) (return . Right)
       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
+-- | Create and send a ping message on the socket
 sendPing :: Socket -> IO()
-sendPing sock = sendFrame sock (serialise (Parcel PingHeader (Payload BSL.empty)))
+sendPing sock = do
+  let pingFrame = createFrame $ serialise (Parcel PingHeader (Payload BSL.empty))
+  sendFrame sock pingFrame
+
+-- | Create and send a pong message on the socket
+sendPong :: Socket -> IO()
+sendPong sock = do
+  let pongFrame = createFrame $ serialise (Parcel PongHeader (Payload BSL.empty))
+  sendFrame sock pongFrame
 
 readSock :: HasAriviNetworkInstance m => Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
 readSock connection fragmentsHM = do
   let sock = Conn.socket connection
-  parcelOrFail <- liftIO $ getParcelWithTimeout sock 30000000
+  parcelOrFail <- liftIO $ getParcelWithTimeout sock 3000000
   case parcelOrFail of
     -- Possibly throw before shutting down
     Left (AriviDeserialiseException e) -> deleteConnectionFromHashMap (Conn.connectionId connection)
     Left AriviTimeoutException -> do
-      liftIO $ sendPing (Conn.socket connection)
+      liftIO $ sendPing sock
       -- Possibly throw before shutting down
-      parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 60000000
+      parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 6000000
       case parcelOrFailAfterPing of
         Left _  -> deleteConnectionFromHashMap (Conn.connectionId connection)
         Right parcel -> processParcel parcel connection fragmentsHM
@@ -181,21 +191,23 @@ processParcel parcel connection fragmentsHM =
       res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either SomeException (HM.HashMap MessageId BSL.ByteString)))
       case res of
         -- possibly throw again
-        Left e -> traceShow e (return())>> deleteConnectionFromHashMap (Conn.connectionId connection)
+        Left e -> deleteConnectionFromHashMap (Conn.connectionId connection)
         Right updatedHM -> do
           msg <- liftIO $ atomically $ readTChan (p2pMessageTChan connection)
           traceShow msg (return())
           readSock connection updatedHM
+    pingParcel@(Parcel PingHeader{} _) -> do
+      liftIO $ sendPong (Conn.socket connection)
+      readSock connection fragmentsHM
+    pongParcel@(Parcel PongHeader{} _) -> readSock connection fragmentsHM
     _ -> deleteConnectionFromHashMap(Conn.connectionId connection)
 
 
-
+-- | Read on the socket for handshakeInit parcel and return it or throw AriviException
 readHandshakeInitSock :: Socket -> IO Parcel
 readHandshakeInitSock sock = do
   parcel <- getParcel sock
   either throwIO return parcel
-
-
 
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
 readHandshakeRespSock :: Socket -> SecretKey -> IO Parcel
