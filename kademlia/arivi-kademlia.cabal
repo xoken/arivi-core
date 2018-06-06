@@ -58,6 +58,7 @@ library
                     ,  uuid
                     ,  arivi-crypto
                     ,  arivi-network 
+                    ,  lifted-base
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:                       
                        Arivi.Kademlia.Instance

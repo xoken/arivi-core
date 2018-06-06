@@ -6,11 +6,13 @@ isNodeInKbucket,
 getAvailablePeer
  ) where
 
+import           Arivi.Env
 import qualified Arivi.Kademlia.Types         as T
 import           Arivi.Kademlia.Utils
 import           Arivi.Network.Instance       (sendMessage)
 import           Arivi.Network.Types          as ANT
 import           Control.Concurrent.STM.TChan
+import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Crypto.PubKey.Ed25519
 import           Crypto.Util                  ()
@@ -65,14 +67,14 @@ isNodeInKbucket kbChan nodeId kbi = do
 
 -- | Function responsible for querying K-buckets to return K-closest peers to
 --   FIND_NODE issuer
-queryKBucket :: T.NodeId
+queryKBucket :: HasAriviNetworkInstance m => T.NodeId
              -> T.NodeId
              -> Int
              -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
              -> ANT.ConnectionId
              -> SecretKey
              -> Word32
-             -> IO ()
+             -> m ()
 
 queryKBucket localNodeId targetNodeId k kbChan ariviConnectionId sk sequ = do
     -- ! See if this block is required anymore
@@ -83,7 +85,7 @@ queryKBucket localNodeId targetNodeId k kbChan ariviConnectionId sk sequ = do
     -- TODO extract localsock from connection id
     let localSock = undefined
 
-    msg <- atomically $ peekTChan kbChan
+    msg <- liftIO $ atomically $ peekTChan kbChan
     let keys = Map.keys msg
         temp = keys
 
@@ -98,10 +100,7 @@ queryKBucket localNodeId targetNodeId k kbChan ariviConnectionId sk sequ = do
     let payl = T.packFnR localNodeId sk localSock peerList sequ
 
     -- sends k-closest node back to the node making find_node request
-    -- sendMessage ariviConnectionId $ serialise payl
-    print ""
-
-
+    sendMessage ariviConnectionId $ serialise payl
 
 
 
