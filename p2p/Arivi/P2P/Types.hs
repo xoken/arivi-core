@@ -44,14 +44,18 @@ module Arivi.P2P.Types
       , ResourceDetails
       , ResourceList
       , PeerToTopicMap
+      , UUIDMap
 )
 
 where
 
 import qualified Data.Map                   as Map
+import          Data.Time.Clock
+
 import           Arivi.Network.Types        (TransportType (..),NodeId)
 import           GHC.Generics               (Generic)
 import           Codec.Serialise
+import           Control.Concurrent.STM      (TVar)
 
 type IP = String
 type Port = Int
@@ -59,7 +63,7 @@ type ExpiryTime = Float
 type PeerList = [ (NodeId,IP,Port,ExpiryTime) ]
 type MinPeerCountPerTopic = Int
 type Context = (MinPeerCountPerTopic, NodeType, TransportType)
-type ServiceCode = String 
+type ServiceCode = String
 type TopicContext  = Map.Map TopicCode Context
 -- type TopicToService  = Map.Map TopicCode ServiceCode
 type SubscriptionMap = Map.Map TopicCode PeerList
@@ -78,14 +82,28 @@ type ResourceDetails = (ServiceCode, RPCPeerList)
 type ResourceList = Map.Map ResourceID ResourceDetails
 -- need to update *ends*
 
+--hashmap for uuid store of sent options or getChar
+type CallDetail = (Peer, UTCTime)
+type UUIDMap = Map.Map P2PUUID CallDetail
+
+data P2PEnv = P2PEnv { 
+    ariviP2PInstance     :: TVar AriviP2PInstance
+  , watchersMap          :: TVar WatchersMap
+  , subscriptionMap      :: TVar SubscriptionMap
+  , peerToTopicMap       :: TVar PeerToTopicMap
+  , topicContext         :: TVar TopicContext
+  , topicToServiceMap    :: TVar TopicToServiceMap
+  , minPeerCountPerTopic :: MinPeerCountPerTopic
+}
+
 
 data NodeType = FullNode | HalfNode deriving(Show)
 
--- data ServiceCode = BlockInventory | BlockSync | PendingTransaction 
+-- data ServiceCode = BlockInventory | BlockSync | PendingTransaction
 --                         deriving(Eq,Ord,Show)
 
 
-data TopicCode = LatestBlockHeader | LatestBlock 
+data TopicCode = LatestBlockHeader | LatestBlock
   deriving(Eq,Ord,Show,Generic)
 instance Serialise TopicCode
 
@@ -97,8 +115,8 @@ data AriviP2PInstance = AriviP2PInstance { nodeId :: NodeId
                         }
 
 
-data Peer =  Peer { 
-    peerNodeId :: NodeId 
+data Peer =  Peer {
+    peerNodeId :: NodeId
   , peerIp:: String
   , peerPort:: Int
   , peerTransportType :: TransportType
@@ -126,7 +144,7 @@ data MessageType =
         , serviceMessage :: String
     }
     | Return {
-          resource :: ResourceID 
+          resource :: ResourceID
         , serviceMessage :: String
     }
     | Response {
@@ -143,6 +161,9 @@ data P2PMessage = P2PMessage {
         , responseCode :: ResponseCode
         , p2pType :: Maybe MessageType
 }
+  deriving(Eq,Ord,Show,Generic)
+instance Serialise P2PMessage
+
 
 -- =================================================================================================
 -- import           Arivi.Crypto.Utils.Keys.Encryption

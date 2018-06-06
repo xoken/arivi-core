@@ -60,12 +60,13 @@ library
                     ,  arivi-kademlia
                     ,  arivi-crypto
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
-  exposed-modules:                  
+  exposed-modules:
                        -- Arivi.P2P.FSM
                        Arivi.P2P.PubSub
                        Arivi.P2P.Instance
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.RPC
+                       Arivi.P2P.MessageHandler
 
   default-language:    Haskell2010
