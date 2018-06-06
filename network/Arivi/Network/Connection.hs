@@ -21,13 +21,15 @@ module Arivi.Network.Connection
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Types                (ConnectionId, Event (..),
-                                                     NodeId, OutboundFragment,
+import           Arivi.Network.Types                (AeadNonce, ConnectionId,
+                                                     Event (..), NodeId,
+                                                     OutboundFragment,
                                                      Parcel (..),
                                                      PersonalityType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
 import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TVar
 import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
@@ -38,25 +40,21 @@ import qualified Network.Socket                     as Network (HostName,
                                                                 Socket)
 
 data Connection = Connection {
-                          connectionId          :: ConnectionId
-                        , remoteNodeId          :: NodeId
-                        , ipAddress             :: Network.HostName
-                        , port                  :: PortNumber
-                        , ephemeralPubKey       :: Curve25519.PublicKey
-                        , ephemeralPrivKey      :: Ed25519.SecretKey
-                        , transportType         :: TransportType
-                        , personalityType       :: PersonalityType
-                        , socket                :: Network.Socket
-                        , sharedSecret          :: Keys.SharedSecret
-                        , eventTChan            :: TChan Event
-                        , outboundFragmentTChan :: TChan OutboundFragment
-                        , reassemblyTChan       :: TChan Parcel
-                        , p2pMessageTChan       :: TChan L.ByteString
-                        , egressSeqNum          :: SequenceNum
-                        , ingressSeqNum         :: SequenceNum
-                        -- , logChan               :: Chan (Loc, LogSource,
-                        --                                  LogLevel, LogStr)
-                        -- , timer                 :: Updatable
+                          connectionId     :: ConnectionId
+                        , remoteNodeId     :: NodeId
+                        , ipAddress        :: Network.HostName
+                        , port             :: PortNumber
+                        , ephemeralPubKey  :: Curve25519.PublicKey
+                        , ephemeralPrivKey :: Ed25519.SecretKey
+                        , transportType    :: TransportType
+                        , personalityType  :: PersonalityType
+                        , socket           :: Network.Socket
+                        , sharedSecret     :: Keys.SharedSecret
+                        , reassemblyTChan  :: TChan Parcel
+                        , p2pMessageTChan  :: TChan L.ByteString
+                        , egressSeqNum     :: TVar SequenceNum
+                        , ingressSeqNum    :: TVar SequenceNum-- need not be TVar
+                        , aeadNonceCounter :: TVar AeadNonce
                         } deriving (Eq, Generic)
 
 -- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString
