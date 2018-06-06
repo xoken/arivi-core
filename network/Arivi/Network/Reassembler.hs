@@ -54,7 +54,6 @@ reassembleFrames connection parcel fragmentsHashMap = do
                                         (Lazy.toStrict
                                           (getPayload
                                             (encryptedPayload parcel)))
-    traceShow parcel (return())
     let parcelHeader = Lazy.toStrict $ serialise (header parcel)
     let fragmentAead = aeadNonce (header parcel)
     let ssk = sharedSecret connection
@@ -62,7 +61,7 @@ reassembleFrames connection parcel fragmentsHashMap = do
                                                     ssk parcelHeader
                                                     authenticationTag
                                                     cipherText
-    -- traceShow payloadMessage (return())
+    traceShow payloadMessage (return())
     let messages = fromMaybe  "" (StrictHashMap.lookup messageIdNo
                                                            fragmentsHashMap)
 

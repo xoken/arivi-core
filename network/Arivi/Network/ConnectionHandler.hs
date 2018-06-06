@@ -183,9 +183,8 @@ processParcel parcel connection fragmentsHM =
         -- possibly throw again
         Left e -> traceShow e (return())>> deleteConnectionFromHashMap (Conn.connectionId connection)
         Right updatedHM -> do
-          traceShow "asda" (return())
-          -- msg <- liftIO $ atomically $ readTChan (p2pMessageTChan connection)
-          -- traceShow msg (return())
+          msg <- liftIO $ atomically $ readTChan (p2pMessageTChan connection)
+          traceShow msg (return())
           readSock connection updatedHM
     _ -> deleteConnectionFromHashMap(Conn.connectionId connection)
 

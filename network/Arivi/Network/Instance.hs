@@ -52,7 +52,7 @@ import qualified Data.ByteString                      as B
 import           Data.ByteString.Lazy
 import           Data.ByteString.Lazy                 as L
 import           Data.HashMap.Strict                  as HM
-import           Data.Int                             (Int64)
+import           Data.Int                             (Int16, Int64)
 import           Data.Maybe                           (fromMaybe)
 import           Debug.Trace
 import           Network.Socket
@@ -122,9 +122,12 @@ sendMessage :: (HasAriviNetworkInstance m, HasLogging m)
             -> m ()
 sendMessage cId msg = do
   conn <- lookupCId cId
-  let headerData = DataHeader B.empty 1 1 cId 1 1
-  let ssk = Conn.sharedSecret conn
-  let encryptedData = encryptMsg (5::Int64) ssk (L.toStrict $ serialise headerData) (lazyToStrict msg)
+  let fno = 1 :: Int16
+  let fcount = 1 :: Int16
+  let nonce = 1 :: Integer
+  let aead = 1 :: Int64
+  let headerData = DataHeader B.empty fno fcount cId nonce aead
+  let encryptedData = encryptMsg aead (Conn.sharedSecret conn) (L.toStrict $ serialise headerData) (lazyToStrict msg)
   let parcel = Parcel headerData (Payload $ fromStrict encryptedData)
   -- let parcel = Parcel headerData (Payload msg)
   let frame = createFrame (serialise parcel)
