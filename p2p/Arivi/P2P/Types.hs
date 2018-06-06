@@ -55,6 +55,7 @@ import          Data.Time.Clock
 import           Arivi.Network.Types        (TransportType (..),NodeId)
 import           GHC.Generics               (Generic)
 import           Codec.Serialise
+import           Control.Concurrent.STM      (TVar)
 
 type IP = String
 type Port = Int
@@ -84,6 +85,16 @@ type ResourceList = Map.Map ResourceID ResourceDetails
 --hashmap for uuid store of sent options or getChar
 type CallDetail = (Peer, UTCTime)
 type UUIDMap = Map.Map P2PUUID CallDetail
+
+data P2PEnv = P2PEnv { 
+    ariviP2PInstance     :: TVar AriviP2PInstance
+  , watchersMap          :: TVar WatchersMap
+  , subscriptionMap      :: TVar SubscriptionMap
+  , peerToTopicMap       :: TVar PeerToTopicMap
+  , topicContext         :: TVar TopicContext
+  , topicToServiceMap    :: TVar TopicToServiceMap
+  , minPeerCountPerTopic :: MinPeerCountPerTopic
+}
 
 
 data NodeType = FullNode | HalfNode deriving(Show)
