@@ -18,6 +18,8 @@ where
 
 
 
+import           Data.ByteString.Char8       (pack)
+import qualified Data.Map.Strict             as Map
 import           Data.Maybe
 import           Data.UUID
 import           Data.UUID.V4
@@ -27,10 +29,10 @@ import           Control.Concurrent.STM.TVar
 import           Control.Monad
 
 import           Arivi.Network.Types         (NodeId, TransportType (..))
+import           Arivi.P2P.MessageHandler
 import           Arivi.P2P.Types
-import qualified Data.Map.Strict             as Map
 
-import           Data.ByteString.Char8       (pack)
+
 
 type ServiceID = String
 
@@ -43,22 +45,7 @@ request  serviceID resourceID message uuid = do
         outgoingMessageHandler (formServiceMessage selfNodeId (getPeer resourceID) resourceID  uuid1 message (checkUUID  uuid1))
 
 
-{- forms the get or return type messsages from the service layer-}
-formServiceMessage :: NodeId -> NodeId -> ResourceID -> P2PUUID -> String -> Bool -> P2PMessage
-formServiceMessage sender receiver resourceID uuid1 message flag =
-    P2PMessage {
-        uuid = uuid1,
-        to = receiver,
-        from = sender,
-        responseCode = getResponseCodeFromFlag flag,
-        p2pType =  Just $ returnMessageType flag message resourceID
-    }
-{-returns the type based on the flag-}
-returnMessageType :: Bool -> String -> ResourceID -> MessageType
-returnMessageType flag resourceID message =
-    if flag then
-        Return{resource = resourceID, serviceMessage = message} else
-        Get{resource = resourceID, serviceMessage = message}
+
 {-takes care of sending the p2pmessage to the network layer-}
 outgoingMessageHandler :: P2PMessage -> IO P2PUUID
 outgoingMessageHandler p2pMessage =
@@ -66,7 +53,7 @@ outgoingMessageHandler p2pMessage =
 
     return (uuid p2pMessage)
 
-    {-returns a peer for the particular resource id-}
+        {-returns a peer for the particular resource id-}
 --getPeer :: ResourceID -> TVar -> NodeId
 getPeer :: ResourceID -> NodeId
 getPeer resourceID = pack "12334556"
@@ -91,47 +78,7 @@ getPeerID resourceID resourceListTVar =
                     -- needs to be written for this
                 )
 
-selfNodeId :: NodeId
-selfNodeId = pack "12334556"
 
-checkUUID ::P2PUUID -> Bool
-checkUUID uuid = True
-
-getUUID :: IO String
-getUUID = toString <$> nextRandom
-{-adds particular response for get or ret to be decided on response codes later-}
-
-getResponseCodeFromFlag :: Bool -> ResponseCode
-getResponseCodeFromFlag flag = 1
-
-
-{-forms the option message-}
-
-formOptionMessage :: NodeId -> P2PUUID -> P2PMessage
-formOptionMessage node uuid1 =
-    P2PMessage {
-        uuid = uuid1,
-        to = node,
-        from = selfNodeId,
-        responseCode = 1,
-        p2pType =  Just Options
-    }
-
-{-forms the supported message-}
-formSupportedMessage :: NodeId  --  ^
-                     -> P2PUUID
-                     -> Maybe MessageType
-                     -> ResponseCode
-                     -> P2PMessage
-formSupportedMessage node uuid1 rpctype responsecode =
-    P2PMessage {
-        uuid = uuid1,
-        to = node,
-        from = selfNodeId,
-        responseCode = responsecode,
-        p2pType = rpctype
-    }
-{--}
 
 --registerResource :: ServiceCode -> [ResourceDD] -> TVar
 registerResource [y] serviceID resourceListTVar =
