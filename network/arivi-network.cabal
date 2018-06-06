@@ -59,7 +59,7 @@ library
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:                     
                        Arivi.Network.Connection
-                       Arivi.Network.Datagram
+                       -- Arivi.Network.Datagram
                        Arivi.Network.Fragmenter
                        Arivi.Network.FrameDispatcher
                        Arivi.Network.FSM

@@ -128,7 +128,10 @@ handleEvent connection Idle (InitHandshakeEvent mSecretKey) =
                                      handshakeTimer -- 30 seconds
 
                         nextEvent <- liftIO $ atomically $ readTChan (eventTChan updatedConn)
+                        liftIO $ traceShow "inside Idle State" (return())
                         liftIO $ kill handshakeInitTimer
+                        traceShow (nextEvent) (return ())
+                        traceShow "Going to KeyExchangeInitiated" (return ())
                         handleEvent updatedConn KeyExchangeInitiated nextEvent
 
 
@@ -156,14 +159,22 @@ handleEvent connection Idle (KeyExchangeInitEvent mParcel mSecretKey) =
                         traceShow ( socket updatedConn) (return())
                         socketName <- liftIO $ getSocketName (socket updatedConn)
                         traceShow socketName (return())
-                        $(withLoggingTH) (LogNetworkStatement "Sending handshakeresp") LevelDebug $ liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
+                        $(withLoggingTH) (LogNetworkStatement "Sending handshakeresp") LevelDebug $
+                                liftIO $ sendFrame (socket updatedConn) (createFrame serialisedParcel)
                         return updatedConn
             case res of
-                Left (AriviDeserialiseException _)-> handleEvent connection Terminated CleanUpEvent
-                Left (AriviCryptoException _)-> handleEvent connection Terminated CleanUpEvent
-                Left _-> handleEvent connection Terminated CleanUpEvent
+                Left (AriviDeserialiseException _)-> do
+                  traceShow "AriviDeserialiseException" (return ())
+                  handleEvent connection Terminated CleanUpEvent
+                Left (AriviCryptoException _)-> do
+                  traceShow "AriviCryptoException" (return ())
+                  handleEvent connection Terminated CleanUpEvent
+                Left _-> do
+                  traceShow "ScopedTypeVariables" (return ())
+                  handleEvent connection Terminated CleanUpEvent
                 Right updatedConn ->
                     do
+                        traceShow "Going to SecureTransportEstablished from Idle" (return ())
                         nextEvent <- liftIO $ atomically $ readTChan (eventTChan updatedConn)
                         handleEvent updatedConn SecureTransportEstablished nextEvent
 
@@ -173,6 +184,7 @@ handleEvent connection KeyExchangeInitiated (KeyExchangeRespEvent mParcel)  =
   $(withLoggingTH) (LogNetworkStatement "KeyExchangeInitiated - KeyExchangeRespEvent ") LevelDebug $ do
           -- Need to figure out what exactly to do with the fields like
           -- versionList, nonce and connectionId
+          traceShow "In KeyExchangeInitiated" (return ())
           res <- try $
                     do
                         let updatedConn = receiveHandshakeResponse connection mParcel
@@ -185,12 +197,15 @@ handleEvent connection KeyExchangeInitiated (KeyExchangeRespEvent mParcel)  =
             Left _-> handleEvent connection Terminated CleanUpEvent
             Right updatedConn ->
               do
+                traceShow "Going to SecureTransportEstablished from KeyExchangeInitiated" (return ())
                 nextEvent <- liftIO $ atomically $ readTChan (eventTChan updatedConn)
                 handleEvent updatedConn SecureTransportEstablished nextEvent
 
 -- Receive message from the network
 handleEvent connection SecureTransportEstablished (ReceiveDataEvent mParcel) =
   $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - ReceiveDataEvent ") LevelDebug $ do
+
+            traceShow "In SecureTransportEstablished" (return ())
             -- Insert into reassembly TChan. Do exception handling for deserialise failure
             liftIO $ atomically $ writeTChan (reassemblyTChan connection) mParcel
             -- TODO handleDataMessage parcel --decodeCBOR - collectFragments -
@@ -203,6 +218,8 @@ handleEvent connection SecureTransportEstablished (ReceiveDataEvent mParcel) =
 handleEvent connection SecureTransportEstablished (SendDataEvent mPayload) =
   $(withLoggingTH) (LogNetworkStatement "SecureTransportEstablished - SendDataEvent ") LevelDebug $ do
             -- Spawn a new thread for processing the payload
+            traceShow SecureTransportEstablished (return ())
+            traceShow "In SecureTransportEstablished" (return ())
             _ <- async (liftIO $ processPayload mPayload connection)
             -- TODO chunk message, encodeCBOR, encrypt, send
             handleNextEvent connection
@@ -242,9 +259,11 @@ handleEvent connection Pinged (ReceiveDataEvent mParcel) =
         handleEvent connection SecureTransportEstablished
                                     (ReceiveDataEvent mParcel)
 
-handleEvent connection _ _  =
+handleEvent connection s e  =
   $(withLoggingTH) (LogNetworkStatement "Pattern Match Failure! Oopsie! ") LevelDebug $
-            handleEvent connection Terminated CleanUpEvent
+            traceShow s (return())
+            >> traceShow e (return())
+            >> handleEvent connection Terminated CleanUpEvent
 
 
 postHandshakeInitTimeOutEvent :: Connection -> IO ()
@@ -266,6 +285,7 @@ postPingParcelTimeOutEvent connection = do
 -- handleNextEvent :: Connection -> IO State
 handleNextEvent :: HasLogging m => Connection -> m State
 handleNextEvent connection = do
+    traceShow "In handleNextEvent" (return ())
     mDataMessageTimer <- liftIO $ Timer.parallel (postDataParcelTimeOutEvent connection)
                                                  dataMessageTimer -- 60 seconds
 

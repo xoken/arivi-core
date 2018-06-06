@@ -104,7 +104,19 @@ data Event =  InitHandshakeEvent
              | DataTimeOutEvent
              | PingTimeOutEvent
              deriving (Eq)
-
+instance Show Event where
+  show (InitHandshakeEvent _)        = "InitHandshakeEvent"
+  show (TerminateConnectionEvent _ )="TerminateConnectionEvent"
+  show (SendDataEvent _ )=           "SendDataEvent"
+  show (KeyExchangeInitEvent _ _)=   "KeyExchangeInitEvent"
+  show (KeyExchangeRespEvent _)      = "KeyExchangeRespEvent"
+  show (ReceiveDataEvent _)          = "ReceiveDataEvent"
+  show (PINGDataEvent  )=            "PINGDataEvent"
+  show (PONGDataEvent )=             "PONGDataEvent"
+  show (CleanUpEvent  )=             "CleanUpEvent"
+  show (HandshakeTimeOutEvent )      = "HandshakeTimeOutEvent"
+  show (DataTimeOutEvent )           = "DataTimeOutEvent"
+  show (PingTimeOutEvent )           = "PingTimeOutEvent"
 -- | This message is encrypted and sent in the handshake message
 data HandshakeInitMasked = HandshakeInitMessage {
       versionList   :: [Version]

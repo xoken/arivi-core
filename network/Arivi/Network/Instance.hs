@@ -118,7 +118,7 @@ openConnection addr mPort tt rnid pType = do
   _ <- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection) -- (\a -> do wait a)
 
   -- $(withLoggingTH) (LogNetworkStatement "Spawning FSM") LevelInfo $ async (FSM.initFSM connection)
-  _ <- async (liftIO $ readSockUDP mSocket eventChan sk)
+  _ <- async (readSockUDP mSocket eventChan sk)
   hm <- liftIO $ readTVarIO tv
   traceShow ("TTTTT " ++  show (HM.size hm)) (return ())
   return cId

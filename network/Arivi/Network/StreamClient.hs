@@ -9,6 +9,7 @@ import           Arivi.Network.Types       (TransportType (..))
 import           Data.Binary
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Int                  (Int16)
+import           Debug.Trace
 import           Network.Socket
 import qualified Network.Socket.ByteString as N (sendAll)
 
@@ -31,7 +32,9 @@ sendFrame :: Socket -> BSL.ByteString -> IO ()
 sendFrame sock msg = do
                 socketName <- getSocketName sock
                 mIpAddress <- inet_ntoa $ getIPAddress socketName
-                print ("sendFrame " ++ mIpAddress)
+                let mPort = getPortNumber (socketName)
+                traceShow ("sendFrame " ++ mIpAddress)  (return())
+                traceShow ("sendPort " ++ (show mPort)) (return())
                 N.sendAll sock (BSL.toStrict msg)
 
 -- | prefixes length to cborg serialised parcel
@@ -51,8 +54,8 @@ createSocketUDP ipAddress portNumber socketType = do
 
         addr2:_ <- getAddrInfo (Just hint) (Just ipAddress)
             (Just "4509")
-        mSocket <- socket (addrFamily addr2) (addrSocketType addr2)
-                                            (addrProtocol addr2)
+        mSocket <- socket (addrFamily addr) (addrSocketType addr)
+                                            (addrProtocol addr)
         bind mSocket (addrAddress addr2)
 
         connect mSocket (addrAddress addr)
@@ -62,3 +65,9 @@ createSocketUDP ipAddress portNumber socketType = do
 getIPAddress :: SockAddr -> HostAddress
 getIPAddress (SockAddrInet _ hostAddress) = hostAddress
 getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
+
+-- | Given `SockAddr` retrieves `PortNumber`
+getPortNumber :: SockAddr -> PortNumber
+getPortNumber (SockAddrInet portNumber _) = portNumber
+getPortNumber _                           = error "getPortNumber: SockAddr is not of constructor SockAddrInet "
+

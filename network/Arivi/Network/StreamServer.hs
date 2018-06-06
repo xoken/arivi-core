@@ -12,6 +12,7 @@ module Arivi.Network.StreamServer
   , runTCPserver
   , runUDPserver
   , readSockUDP
+  , readSockUDP'
 ) where
 
 import           Arivi.Env
@@ -177,38 +178,135 @@ acceptIncomingSocketUDP sock = do
         -- liftIO $ putStrLn $ "Connection from " ++ show peer
         -- mSocket <- liftIO $ createSocketUDP "127.0.0.1" 4500 UDP
   eventTChan <- liftIO $ atomically newTChan
-  _ <- async (handleInboundConnection sock eventTChan)  --or use forkIO
-  _ <- async (liftIO $ readSockUDP sock eventTChan sk)
+  -- _ <- async (handleInboundConnection sock eventTChan)  --or use forkIO
+  _ <- async (readSockUDP' sock eventTChan sk)
   _ <- liftIO $ threadDelay 10000000
   return undefined
 
 
-readSockUDP :: Socket -> TChan Event -> SecretKey -> IO ()
-readSockUDP sock eventTChan sk = forever $
-        N.recv sock 4096 >>=
-        getParcelUDP >>=
-        either (sendFrame sock . BSLC.pack . displayException)
-               (\case
-                   e@(Parcel (HandshakeInitHeader _ _) _) -> do
-                     traceShow e (return ())
-                     atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
-                   e@(Parcel (HandshakeRespHeader _ _) _) -> do
-                    traceShow e (return ())
-                    atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
-                   e@(Parcel DataHeader {} _)    -> do
-                     traceShow e (return ())
-                     atomically $ writeTChan eventTChan (ReceiveDataEvent e)
-                   e                                      -> do
-                     traceShow e (return ())
-                     sendFrame sock "O traveler! Don't wander into uncharted territories!"
-               )
+readSockUDP :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
+            => Socket -> TChan Event -> SecretKey -> m ()
+readSockUDP sock eventTChan sk = do
+      (message,sockAddra) <- liftIO $ N.recvFrom sock 4096
+      traceShow ("from sender message") (return ())
+      traceShow (message) (return ())
 
+      -- traceShow "before connect" (return ())
+      -- liftIO $ connect sock (sockAddra)
+
+      traceShow "from sender before handle" (return ())
+      _ <- async (handleInboundConnection sock eventTChan)  --or use forkIO
+      traceShow "from sender after handle" (return ())
+      liftIO $ (getParcelUDP message >>=
+             either (do traceShow "treceSHo error" (return())
+                        sendFrame sock . BSLC.pack . displayException)
+                    (\case
+                        e@(Parcel (HandshakeInitHeader _ _) _) -> do
+                          traceShow e (return ())
+                          atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
+                          traceShow "from sender  inside HandshakeInitHeader" (return ())
+                        e@(Parcel (HandshakeRespHeader _ _) _) -> do
+                         traceShow e (return ())
+                         traceShow "from sender inside HandshakeRespHeader" (return ())
+                         atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                        e@(Parcel DataHeader {} _)    -> do
+                          traceShow e (return ())
+                          atomically $ writeTChan eventTChan (ReceiveDataEvent e)
+                          traceShow "from sender  inside DataHeader" (return ())
+                        e                                      -> do
+                          traceShow e (return ())
+                          traceShow "from sender inside error" (return ())
+                          sendFrame sock "O traveler! Don't wander into uncharted territories!"
+                    ))
+
+      forever $
+           liftIO $ ( N.recv sock 4096 >>=
+            getParcelUDP >>=
+            either (do traceShow "from sender treceSHo error" (return())
+                       sendFrame sock . BSLC.pack . displayException)
+                   (\case
+                       e@(Parcel (HandshakeInitHeader _ _) _) -> do
+                         traceShow e (return ())
+                         atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
+                         traceShow "from sender inside HandshakeInitHeader" (return ())
+                       e@(Parcel (HandshakeRespHeader _ _) _) -> do
+                        traceShow e (return ())
+                        atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                        traceShow "from sender inside HandshakeRespHeader" (return ())
+                       e@(Parcel DataHeader {} _)    -> do
+                         traceShow e (return ())
+                         atomically $ writeTChan eventTChan (ReceiveDataEvent e)
+                         traceShow "from sender inside DataHeader" (return ())
+                       e                                      -> do
+                         traceShow e (return ())
+                         traceShow "from sender inside error" (return ())
+                         sendFrame sock "O traveler! Don't wander into uncharted territories!"
+                   ))
+
+readSockUDP' :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
+            => Socket -> TChan Event -> SecretKey -> m ()
+readSockUDP' sock eventTChan sk = do
+      (message,sockAddra) <- liftIO $ N.recvFrom sock 4096
+      traceShow ("message") (return ())
+      traceShow (message) (return ())
+
+      traceShow "before connect" (return ())
+      liftIO $ connect sock (sockAddra)
+
+      traceShow "before handle" (return ())
+      _ <- async (handleInboundConnection sock eventTChan)  --or use forkIO
+      traceShow "after handle" (return ())
+      liftIO $ (getParcelUDP message >>=
+             either (do traceShow "treceSHo error" (return())
+                        sendFrame sock . BSLC.pack . displayException)
+                    (\case
+                        e@(Parcel (HandshakeInitHeader _ _) _) -> do
+                          traceShow e (return ())
+                          atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
+                          traceShow "inside HandshakeInitHeader" (return ())
+                        e@(Parcel (HandshakeRespHeader _ _) _) -> do
+                         traceShow e (return ())
+                         traceShow "inside HandshakeRespHeader" (return ())
+                         atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                        e@(Parcel DataHeader {} _)    -> do
+                          traceShow e (return ())
+                          atomically $ writeTChan eventTChan (ReceiveDataEvent e)
+                          traceShow "inside DataHeader" (return ())
+                        e                                      -> do
+                          traceShow e (return ())
+                          traceShow "inside error" (return ())
+                          sendFrame sock "O traveler! Don't wander into uncharted territories!"
+                    ))
+      forever $
+           liftIO $ ( N.recv sock 4096 >>=
+            getParcelUDP >>=
+            either (do traceShow "treceSHo error" (return())
+                       sendFrame sock . BSLC.pack . displayException)
+                   (\case
+                       e@(Parcel (HandshakeInitHeader _ _) _) -> do
+                         traceShow e (return ())
+                         atomically $ writeTChan eventTChan (KeyExchangeInitEvent e sk)
+                         traceShow "inside HandshakeInitHeader" (return ())
+                       e@(Parcel (HandshakeRespHeader _ _) _) -> do
+                        traceShow e (return ())
+                        atomically $ writeTChan eventTChan (KeyExchangeRespEvent e)
+                        traceShow "inside HandshakeRespHeader" (return ())
+                       e@(Parcel DataHeader {} _)    -> do
+                         traceShow e (return ())
+                         atomically $ writeTChan eventTChan (ReceiveDataEvent e)
+                         traceShow "inside DataHeader" (return ())
+                       e                                      -> do
+                         traceShow e (return ())
+                         sendFrame sock "O traveler! Don't wander into uncharted territories!"
+                         traceShow "inside error" (return ())
+                   ))
 
 getParcelUDP :: _ -> IO (Either DeserialiseFailure Parcel)
 getParcelUDP msg = do
     -- (parcelCipher,sockAddrs) <- N.recvFrom sock 4096
     -- (parcelCipher,sockAddrs) <- N.recvFrom sock $ getFrameLength lenbs
     print "fsd"
+    -- traceShow msg (return ())
     return $ deserialiseOrFail (BSL.fromStrict msg)
 
 
