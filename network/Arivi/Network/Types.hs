@@ -16,6 +16,7 @@ module Arivi.Network.Types
     EncryptionType (..),
     TransportType  (..),
     EncodingType   (..),
+    AeadNonce,
     ContextID,
     Version        (..),
     Socket,
