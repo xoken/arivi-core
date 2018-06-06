@@ -25,7 +25,6 @@ module Arivi.Network.ConnectionHandler
 import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.Connection        as Conn
-import qualified Arivi.Network.FSM               as FSM (initFSM)
 import           Arivi.Network.Handshake
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
@@ -78,7 +77,10 @@ handleInboundConnection mSocket = do
           let mPort = getPortNumber socketName
           let mTransportType = getTransportType mSocket
           let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType
-
+          egressNonce <- liftIO (newTVarIO (0 :: SequenceNum))
+          ingressNonce <- liftIO (newTVarIO (0 :: SequenceNum))
+          -- Need to change this to proper value
+          aeadNonce <- liftIO (newTVarIO (2^63 :: AeadNonce))
           mReassemblyTChan <- atomically newTChan
           p2pMsgTChan <- atomically newTChan
           let connection = Conn.Connection { Conn.connectionId = mConnectionId
@@ -89,6 +91,9 @@ handleInboundConnection mSocket = do
                                            , Conn.socket = mSocket
                                            , Conn.reassemblyTChan = mReassemblyTChan
                                            , Conn.p2pMessageTChan = p2pMsgTChan
+                                           , Conn.egressSeqNum = egressNonce
+                                           , Conn.ingressSeqNum = ingressNonce
+                                           , Conn.aeadNonceCounter = aeadNonce
                                            }
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits

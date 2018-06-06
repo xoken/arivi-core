@@ -23,11 +23,12 @@ import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.Connection             as Conn (Connection (..),
                                                                makeConnectionId)
-import           Arivi.Network.ConnectionHandler      (readHandshakeRespSock)
+import           Arivi.Network.ConnectionHandler
 import qualified Arivi.Network.FSM                    as FSM
 import           Arivi.Network.Handshake
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types                  as ANT (ConnectionId,
+import           Arivi.Network.Types                  as ANT (AeadNonce,
+                                                              ConnectionId,
                                                               Event (..),
                                                               Header (..),
                                                               NodeId,
@@ -35,6 +36,7 @@ import           Arivi.Network.Types                  as ANT (ConnectionId,
                                                               Parcel (..),
                                                               Payload (..),
                                                               PersonalityType,
+                                                              SequenceNum,
                                                               TransportType (..))
 import           Arivi.Network.Utils
 import           Arivi.Utils.Exception
@@ -107,13 +109,17 @@ openConnection addr port tt rnid pType = do
                   socket <- liftIO $ createSocket addr (read (show port)) tt
                   reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
                   p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
-                  let connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan}
+                  egressNonce <- liftIO (newTVarIO (0 :: SequenceNum))
+                  ingressNonce <- liftIO (newTVarIO (0 :: SequenceNum))
+                  aeadNonce <- liftIO (newTVarIO (0 :: AeadNonce))
+                  let connection = Connection {connectionId = cId, remoteNodeId = rnid, ipAddress = addr, port = port, transportType = tt, personalityType = pType, Conn.socket = socket, reassemblyTChan = reassemblyChan, p2pMessageTChan = p2pMsgTChan, egressSeqNum = egressNonce, ingressSeqNum = ingressNonce, aeadNonceCounter = aeadNonce}
                   res <- liftIO $ try $ doEncryptedHandshake connection sk
                   case res of
                     Left e -> return $ Left e
                     Right updatedConn ->
                       do
                         liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
+                        async (readSock updatedConn HM.empty)
                         return $ Right cId
 
 sendMessage :: (HasAriviNetworkInstance m, HasLogging m)

@@ -44,7 +44,8 @@ processFragment fragment conn msgId fragmentNum fragmentCount = do
     -- make outbound msg
     let outboundMsg = (msgId, fragmentNum, fragmentCount, Payload fragment)
     -- put it into TChan
-    atomically $ writeTChan (Conn.outboundFragmentTChan conn) outboundMsg
+    return()
+    -- atomically $ writeTChan (Conn.outboundFragmentTChan conn) outboundMsg
 
 -- | Fragments the payload, calls processFragment on the fragment and recursively calls the remaining payload
 fragmentPayload :: BSL.ByteString -> Conn.Connection -> MessageId -> FragmentNumber -> FragmentNumber -> IO() -- Does it have to return IO?!
