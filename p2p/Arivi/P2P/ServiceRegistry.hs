@@ -34,12 +34,12 @@ import           Control.Concurrent.MVar      (MVar)
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TChan (TChan)
 import           Control.Exception            (SomeException, try)
-import           Control.Monad
+import           Control.Monad                (forever, when)
 import           Control.Monad.IO.Class       (liftIO)
 import           Data.ByteString.Char8        as Char8 (ByteString, pack)
 import qualified Data.ByteString.Lazy         as ByteStringLazy (ByteString,
                                                                  toStrict)
-import           Data.HashTable.IO
+
 import qualified Data.List                    as List
 import qualified Data.Map                     as Map
 import           Data.Maybe                   (Maybe, fromJust, fromMaybe)
@@ -92,7 +92,7 @@ registerService serviceCode topicCodeList minPeerCountPerTopic transport peerTyp
                 liftIO $ insertIntoTopicToServiceMap topicToServiceMapTvar serviceCode topicCodeList
 
                 -- register each topic provided in topicCodelist
-                _ <- mapM (registerTopic  minPeerCountPerTopic transport peerType) topicCodeList
+                _ <- mapM_ (registerTopic  minPeerCountPerTopic transport peerType) topicCodeList
                 return ()
 
 
@@ -140,7 +140,7 @@ registerTopicSubMapOrWatchMapTvar topicCode subscriptionSubOrWatchMap =
                              _ -> subscriptionSubOrWatchMap
 
 processIncomingFromConnection :: ConnectionId -> IO ()
-processIncomingFromConnection connId = forever $ do
+processIncomingFromConnection connId = forever $
 
     -- check (if connection is broken or if kill message is recived ): kill this thread
 
