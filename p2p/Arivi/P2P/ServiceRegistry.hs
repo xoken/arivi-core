@@ -20,21 +20,22 @@ module Arivi.P2P.ServiceRegistry
     -- , registerTopic
 ) where
 
-import           Arivi.Kademlia.Query
 import           Arivi.Network.Connection     (Connection)
 import           Arivi.Network.Types          (ConnectionId, NodeId,
                                                TransportType (..))
+import           Arivi.P2P.Kademlia.Query
 import           Arivi.P2P.MessageHandler
+import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Codec.Serialise              (deserialise, serialise)
 import           Control.Concurrent
+import           Control.Concurrent.Lifted    (fork)
 import           Control.Concurrent.MVar      (MVar)
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TChan (TChan)
 import           Control.Exception            (SomeException, try)
 import           Control.Monad
 import           Control.Monad.IO.Class       (liftIO)
-import           Control.Concurrent.Lifted    (fork)
 import           Data.ByteString.Char8        as Char8 (ByteString, pack)
 import qualified Data.ByteString.Lazy         as ByteStringLazy (ByteString,
                                                                  toStrict)
@@ -49,7 +50,6 @@ import           Data.UUID.V1                 (nextUUID)
 import           Network                      (PortID (..), PortNumber (..),
                                                connectTo)
 import           System.IO
-import           Arivi.P2P.P2PEnv
 
 
 
@@ -59,7 +59,7 @@ makeP2Pinstance nodeId ip port minPeerCount outboundPeerQuota maxConnectionAllow
 
     ariviP2PInstanceTvar <-  atomically( newTVar  ( AriviP2PInstance nodeId ip port
                                                      outboundPeerQuota maxConnectionAllowed) )
-    
+
     -- create p2p environment and intitalize all the map empty
     p2p' <- makeP2PEnvironment
     let p2pEnv = p2p' {   tvarAriviP2PInstance = ariviP2PInstanceTvar
@@ -83,21 +83,21 @@ handleIncomingConnections outboundPeerQuota maxConnectionAllowed = forever $ do
     liftIO $ forkIO ( processIncomingFromConnection connId )
 
 
-registerService :: (HasP2PEnv m) => ServiceCode -> [TopicCode] -> 
+registerService :: (HasP2PEnv m) => ServiceCode -> [TopicCode] ->
                    MinPeerCountPerTopic -> TransportType -> NodeType -> m ()
 registerService serviceCode topicCodeList minPeerCountPerTopic transport peerType = do
-                
+
                 -- map topictoservice and servicetotopic
-                topicToServiceMapTvar <- getTopicToServiceMapP2PEnv 
+                topicToServiceMapTvar <- getTopicToServiceMapP2PEnv
                 liftIO $ insertIntoTopicToServiceMap topicToServiceMapTvar serviceCode topicCodeList
 
-                -- register each topic provided in topicCodelist 
+                -- register each topic provided in topicCodelist
                 _ <- mapM (registerTopic  minPeerCountPerTopic transport peerType) topicCodeList
                 return ()
 
 
 insertIntoTopicToServiceMap :: TVar TopicToServiceMap -> ServiceCode -> [TopicCode] -> IO ()
-insertIntoTopicToServiceMap topicToServiceMapTvar serviceCode topicCodeList = 
+insertIntoTopicToServiceMap topicToServiceMapTvar serviceCode topicCodeList =
     when (topicCodeList /= []) (do
         atomically( modifyTVar topicToServiceMapTvar (Map.insert  (head topicCodeList) serviceCode) )
         insertIntoTopicToServiceMap topicToServiceMapTvar serviceCode (tail topicCodeList) )
@@ -106,34 +106,34 @@ insertIntoTopicToServiceMap topicToServiceMapTvar serviceCode topicCodeList =
 -- To newly register provided topic into TopicContextMap, SubscriptionMap and WatcherMap
 registerTopic :: (HasP2PEnv m ) => MinPeerCountPerTopic -> TransportType -> NodeType -> TopicCode -> m ()
 registerTopic minPeerCountPerTopic transport peerType topicCode = do
-   
+
     ariviP2PInstanceTvar  <- getAriviTVarP2PEnv
     subscriptionMapTvar   <- getSubscriptionMapP2PEnv
     watchersMapTvar       <- getWatchersMapTVarP2PEnv
     topicContextMapTvar   <- getTopicContextMapP2PEnv
-    
+
     (maxConnectionAllowed',outboundPeerQuota') <- liftIO $ do
-        atomically( modifyTVar topicContextMapTvar (registerTopicInTopicCntxtTvar topicCode 
+        atomically( modifyTVar topicContextMapTvar (registerTopicInTopicCntxtTvar topicCode
                                                      minPeerCountPerTopic peerType transport))
         atomically( modifyTVar subscriptionMapTvar (registerTopicSubMapOrWatchMapTvar topicCode))
         atomically( modifyTVar watchersMapTvar (registerTopicSubMapOrWatchMapTvar topicCode))
 
         ariviP2PInstance <- liftIO $ atomically( readTVar ariviP2PInstanceTvar )
         return (maxConnectionAllowed ariviP2PInstance, outboundPeerQuota ariviP2PInstance)
-    
+
     _ <- fork (addSubscriberThread topicCode minPeerCountPerTopic maxConnectionAllowed')
 
     return ()
 
 
--- TO BE USED IN modifyTVar to register a new Topic in the given TopicContextMap with required context details 
-registerTopicInTopicCntxtTvar :: TopicCode -> MinPeerCountPerTopic -> NodeType -> 
+-- TO BE USED IN modifyTVar to register a new Topic in the given TopicContextMap with required context details
+registerTopicInTopicCntxtTvar :: TopicCode -> MinPeerCountPerTopic -> NodeType ->
     TransportType-> TopicContextMap -> TopicContextMap
-registerTopicInTopicCntxtTvar topicCode minPeerCountPerTopic peerType transport topCntxt = 
+registerTopicInTopicCntxtTvar topicCode minPeerCountPerTopic peerType transport topCntxt =
     let context = (minPeerCountPerTopic, peerType, transport)
     in  Map.insert topicCode context topCntxt
 
--- TO BE USED IN modifyTVar to register/initalize the new topic if it does not already existing in Subscription Map and Watchers Map 
+-- TO BE USED IN modifyTVar to register/initalize the new topic if it does not already existing in Subscription Map and Watchers Map
 registerTopicSubMapOrWatchMapTvar topicCode subscriptionSubOrWatchMap =
     let hasTopicCode = Map.lookup topicCode subscriptionSubOrWatchMap
     in  case hasTopicCode of Nothing ->  Map.insert topicCode [] subscriptionSubOrWatchMap
@@ -142,8 +142,8 @@ registerTopicSubMapOrWatchMapTvar topicCode subscriptionSubOrWatchMap =
 processIncomingFromConnection :: ConnectionId -> IO ()
 processIncomingFromConnection connId = forever $ do
 
-    -- check (if connection is broken or if kill message is recived ): kill this thread 
-    
+    -- check (if connection is broken or if kill message is recived ): kill this thread
+
     -- Network Layer *API* which read message provided connectionId
     -- msg = readMessage connId
 
@@ -151,7 +151,7 @@ processIncomingFromConnection connId = forever $ do
     -- PubSub -> subscribe, notify, publish, response
     -- RPC    -> Options, GET, Return
 
-    -- case message of 
+    -- case message of
     --     Subscribe -> processIncomingSubscribe
     --     Notify    -> processIncomingNotify
     --     Publish   -> processIncomingPublish
@@ -177,7 +177,7 @@ processIncomingFromConnection connId = forever $ do
 intToFloat :: Int -> Float
 intToFloat n = fromInteger (toInteger n)
 
--- Check if addition of an inbound/Watcher violates the outboundPeerQuota raito 
+-- Check if addition of an inbound/Watcher violates the outboundPeerQuota raito
 willViolateRaito :: (HasP2PEnv m) => TopicCode -> Float -> Int -> m Bool
 willViolateRaito topicCode outboundPeerQuota maxConnectionAllowed = do
 
@@ -193,18 +193,18 @@ willViolateRaito topicCode outboundPeerQuota maxConnectionAllowed = do
         let watchersLen     = uniqueLen watchersMap
 
         -- Addition of 1 is to check that will ratio be violated after adding the peer
-        let totalCount        =  subscriptionLen + watchersLen + 1 
-        let subscribeToTotalRatio = intToFloat subscriptionLen / intToFloat totalCount 
+        let totalCount        =  subscriptionLen + watchersLen + 1
+        let subscribeToTotalRatio = intToFloat subscriptionLen / intToFloat totalCount
 
         return ((totalCount < maxConnectionAllowed) && (subscribeToTotalRatio >= outboundPeerQuota))
 
 getNodeIdFromContext :: (NodeId, IP, Port, ExpiryTime) -> NodeId
-getNodeIdFromContext (nodeId,_,_,_) = nodeId 
+getNodeIdFromContext (nodeId,_,_,_) = nodeId
 
 -- Finds out if topic needs peer based on minimun peer count taking TopicCode as input
 neededPeerCount :: TopicCode -> TopicContextMap -> SubscriptionMap -> WatchersMap -> Int
-neededPeerCount topicCode topicContextMapMap subscriptionMap watchersMap = 
-    let 
+neededPeerCount topicCode topicContextMapMap subscriptionMap watchersMap =
+    let
     -- In case lookup gives a nothing fromMaybe will take care of it
     topicContextMap   = Map.lookup topicCode topicContextMapMap
     subpeerlist    = fromMaybe [] (Map.lookup topicCode subscriptionMap)
@@ -215,7 +215,7 @@ neededPeerCount topicCode topicContextMapMap subscriptionMap watchersMap =
 
     minimumPeerConnection = case topicContextMap of Nothing -> 0
                                                     Just (peerCount, _, _) -> peerCount
-    in  minimumPeerConnection - totalconnectioncount 
+    in  minimumPeerConnection - totalconnectioncount
 
 
 -- It checks minimum PeerConnection requirement and sends subscribe messages to Peer
@@ -226,7 +226,7 @@ addSubscriberThread topicCode minPeerCount maxConnectionAllowed = forever $ do
     topicContextMapTvar   <- getTopicContextMapP2PEnv
     peerToTopicMapTvar <- getPeerToTopicMapP2PEnv
 
-    liftIO $ do    
+    liftIO $ do
         subscriptionMap   <- atomically( readTVar subscriptionMapTvar )
         watchersMap       <- atomically( readTVar watchersMapTvar )
         topicContextMap   <- atomically( readTVar topicContextMapTvar )
@@ -244,7 +244,7 @@ addSubscriberThread topicCode minPeerCount maxConnectionAllowed = forever $ do
                 -- wait for certain timeout 30 seconds before checking or sending subscribe message to a another peer
                 threadDelay (30*1000000)
                 return ()
-        else 
+        else
             do
                 -- wait for certain timeout 100 seconds before checking or sending subscribe message to a another peer
                 threadDelay (100*1000000)
@@ -255,10 +255,10 @@ sendSubscriptionToNPeers peerToTopicMapTvar topicCode num = do
     -- get peer from topicToPeerMap
     peer <- getPeer topicCode peerToTopicMapTvar
 
-    -- asking network layer gives connectionId first by checking if connection already exists and if not by forming a new one 
+    -- asking network layer gives connectionId first by checking if connection already exists and if not by forming a new one
     let connId = openConnection (peerNodeId peer) (peerIp peer) (peerPort peer) (peerTransportType peer)
 
-    -- sending a subscribe message to kademila provided nodeId for given topic 
+    -- sending a subscribe message to kademila provided nodeId for given topic
     subscribeMessage connId topicCode
     when (num > 0) (sendSubscriptionToNPeers peerToTopicMapTvar topicCode (num-1) )
 
