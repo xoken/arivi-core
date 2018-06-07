@@ -7,7 +7,7 @@
 --
 -- This module provides generation of xor distance between two node Id's
 --
-module Arivi.Kademlia.XorDistance(
+module Arivi.P2P.Kademlia.XorDistance(
 
     getXorDistance,
     getRawXor

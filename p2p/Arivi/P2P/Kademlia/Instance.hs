@@ -14,7 +14,7 @@
 -- alpha parameter, nodeID to be used etc.
 --
 
-module Arivi.Kademlia.Instance
+module Arivi.P2P.Kademlia.Instance
 (
     createKademliaInstance,
     runKademliaInstance,
@@ -24,8 +24,8 @@ module Arivi.Kademlia.Instance
 
 import           Arivi.Crypto.Utils.Keys.Signature as CS
 import           Arivi.Crypto.Utils.Random
-import qualified Arivi.Kademlia.Types              as T
-import           Arivi.Kademlia.Utils
+import qualified Arivi.P2P.Kademlia.Types          as T
+import           Arivi.P2P.Kademlia.Utils
 import           Control.Concurrent                (Chan, ThreadId, forkIO,
                                                     newChan, newEmptyMVar,
                                                     readChan)

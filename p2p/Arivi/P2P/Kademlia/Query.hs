@@ -1,5 +1,5 @@
 -- {-# LANGUAGE MagicHash #-}
-module Arivi.Kademlia.Query
+module Arivi.P2P.Kademlia.Query
 (
 queryKBucket,
 isNodeInKbucket,
@@ -7,10 +7,10 @@ getAvailablePeer
  ) where
 
 import           Arivi.Env
-import qualified Arivi.Kademlia.Types         as T
-import           Arivi.Kademlia.Utils
 import           Arivi.Network.Instance       (sendMessage)
 import           Arivi.Network.Types          as ANT
+import qualified Arivi.P2P.Kademlia.Types     as T
+import           Arivi.P2P.Kademlia.Utils
 import           Control.Concurrent.STM.TChan
 import           Control.Monad.IO.Class
 import           Control.Monad.STM

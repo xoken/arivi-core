@@ -1,6 +1,6 @@
 {-# LANGUAGE MagicHash #-}
 
-module Arivi.Kademlia.Node
+module Arivi.P2P.Kademlia.Node
   (
     messageHandler,
     loadDefaultPeers,
@@ -14,12 +14,12 @@ import           Control.Concurrent                (Chan, MVar, ThreadId,
 
 import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Env
-import qualified Arivi.Kademlia.Query              as Q
-import qualified Arivi.Kademlia.Types              as T
-import           Arivi.Kademlia.Utils
 import           Arivi.Network.Connection          (ipAddress, port)
 import           Arivi.Network.Instance
 import           Arivi.Network.Types               as ANT
+import qualified Arivi.P2P.Kademlia.Query          as Q
+import qualified Arivi.P2P.Kademlia.Types          as T
+import           Arivi.P2P.Kademlia.Utils
 import qualified Control.Concurrent.Lifted         as CCL (fork)
 import           Control.Concurrent.STM.TChan      (TChan, isEmptyTChan,
                                                     readTChan, writeTChan)

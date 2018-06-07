@@ -70,5 +70,11 @@ library
                        Arivi.P2P.RPC
                        Arivi.P2P.MessageHandler
                        Arivi.P2P.P2PEnv
+                       Arivi.P2P.Kademlia.Instance
+                       Arivi.P2P.Kademlia.Node
+                       Arivi.P2P.Kademlia.Query
+                       Arivi.P2P.Kademlia.Types
+                       Arivi.P2P.Kademlia.XorDistance
+                       Arivi.P2P.Kademlia.Utils
 
   default-language:    Haskell2010

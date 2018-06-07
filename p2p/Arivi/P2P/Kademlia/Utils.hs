@@ -1,4 +1,4 @@
-module Arivi.Kademlia.Utils
+module Arivi.P2P.Kademlia.Utils
 (
     extractFirst,
     extractSecond,

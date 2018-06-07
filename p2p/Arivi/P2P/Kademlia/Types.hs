@@ -6,7 +6,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Arivi.Kademlia.Types
+module Arivi.P2P.Kademlia.Types
   (
      Message(..)
    , MessageBody(..)
@@ -26,7 +26,7 @@ module Arivi.Kademlia.Types
    , deserialise
   ) where
 
-import           Arivi.Kademlia.Utils     (sockAddrToHostAddr,
+import           Arivi.P2P.Kademlia.Utils (sockAddrToHostAddr,
                                            sockAddrToPortNumber)
 import           Codec.Serialise          (deserialise, serialise)
 import           Codec.Serialise.Class    (Serialise (..))
