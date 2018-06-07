@@ -77,10 +77,10 @@ handleInboundConnection mSocket = do
           let mPort = getPortNumber socketName
           let mTransportType = getTransportType mSocket
           let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType
-          egressNonce <- liftIO (newTVarIO (0 :: SequenceNum))
-          ingressNonce <- liftIO (newTVarIO (0 :: SequenceNum))
+          egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
+          ingressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
           -- Need to change this to proper value
-          aeadNonce <- liftIO (newTVarIO (2^63 :: AeadNonce))
+          aeadNonce <- liftIO (newTVarIO (2^63+1 :: AeadNonce))
           mReassemblyTChan <- atomically newTChan
           p2pMsgTChan <- atomically newTChan
           let connection = Conn.Connection { Conn.connectionId = mConnectionId
@@ -191,15 +191,14 @@ readSock connection fragmentsHM = do
 
 processParcel :: HasAriviNetworkInstance m => Parcel -> Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
 processParcel parcel connection fragmentsHM =
+  -- traceShow parcel (return()) >>
   case parcel of
     dataParcel@(Parcel DataHeader{} _) -> do
-      res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either SomeException (HM.HashMap MessageId BSL.ByteString)))
+      res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
       case res of
         -- possibly throw again
         Left e -> deleteConnectionFromHashMap (Conn.connectionId connection)
-        Right updatedHM -> do
-          msg <- liftIO $ atomically $ readTChan (p2pMessageTChan connection)
-          traceShow msg (return())
+        Right updatedHM ->
           readSock connection updatedHM
     pingParcel@(Parcel PingHeader{} _) -> do
       liftIO $ sendPong (Conn.socket connection)

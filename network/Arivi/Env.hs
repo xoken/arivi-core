@@ -50,7 +50,7 @@ mkAriviEnv :: IO AriviEnv
 mkAriviEnv = do
   ani <- mkAriviNetworkInstance
   return AriviEnv { ariviNetworkInstance = ani
-                  , envPort = 8080
+                  , envPort = 8083
                   }
 
 data AriviNetworkInstance = AriviNetworkInstance {

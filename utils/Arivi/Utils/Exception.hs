@@ -11,6 +11,7 @@ data AriviException =       AriviDeserialiseException DeserialiseFailure
                             | AriviSignatureVerificationFailedException
                             | AriviSocketException
                             | AriviWrongParcelException
-                            | AriviTimeoutException deriving(Show)
+                            | AriviTimeoutException
+                            | AriviInvalidConnectionIdException deriving(Show)
 
 instance Exception AriviException
