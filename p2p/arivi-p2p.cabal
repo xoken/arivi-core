@@ -59,7 +59,6 @@ library
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
                     ,  arivi-network
-                    ,  arivi-kademlia
                     ,  arivi-crypto
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
