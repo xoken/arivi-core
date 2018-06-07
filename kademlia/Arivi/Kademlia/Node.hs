@@ -17,8 +17,10 @@ import           Arivi.Env
 import qualified Arivi.Kademlia.Query              as Q
 import qualified Arivi.Kademlia.Types              as T
 import           Arivi.Kademlia.Utils
+import           Arivi.Network.Connection          (ipAddress, port)
 import           Arivi.Network.Instance
 import           Arivi.Network.Types               as ANT
+import qualified Control.Concurrent.Lifted         as CCL (fork)
 import           Control.Concurrent.STM.TChan      (TChan, isEmptyTChan,
                                                     readTChan, writeTChan)
 import           Control.Monad                     (forever, mapM_, replicateM)
@@ -39,7 +41,8 @@ import           GHC.Integer.Logarithms
 -- | Process all the incoming messages to server and write the response to
 --   outboundChan whenever a findNode message is recieved it write that peer to
 --   peerChan
-messageHandler :: T.NodeId
+-- TODO implement the logger functionality
+messageHandler :: HasAriviNetworkInstance m => T.NodeId
                -> SecretKey
                -> ANT.ConnectionId
                -> T.PayLoad
@@ -49,26 +52,21 @@ messageHandler :: T.NodeId
                -> Chan (Loc, LogSource, LogLevel, LogStr)
                -> Int
                -> Int
-               -> IO ThreadId
+               -> m ThreadId
 
 messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan logChan
-    k workerId = forkIO $ forever $ runChanLoggingT logChan $ do
-
-        logInfoN (DT.pack ("Reading inboundChan, WorkderID : "
-            ++ show workerId))
+    k workerId = CCL.fork $ forever $ do
 
         ts <- liftIO Clock.getPOSIXTime
 
-        -- TODO extract local port and local ip from connectionID
         -- TODO replace `1` below with a valid sequence
-
         let localSock = undefined
-            rs        = undefined
-        -- ariviConnection <- lookupCId ariviConnectionId
 
-        -- let remotPort  = port ariviConnection
-        --     remoteIp   = stringToHostAddress $ ipAddress ariviConnection
-        --     rs         = convToSockAddr localPort localIp
+        ariviConnection <- lookupCId ariviConnectionId
+
+        let remotePort  = port ariviConnection
+            remoteIp    = stringToHostAddress $ ipAddress ariviConnection
+            rs          = convToSockAddr remotePort remoteIp
 
         let incMsg          = msg
             remoteSock      = rs
@@ -81,22 +79,19 @@ messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan lo
                                 :: C.ByteString
             kbi             = I# (integerLog2# (bs2i dis))
 
-        logInfoN (DT.pack ("WorkerID :  " ++ show workerId ++
-            " |Incoming Payload : " ++ show incMsg))
-
         case T.messageType (T.message incMsg)  of
 
             -- handles the case when message type is MSG01 i.e PING
             T.MSG01 -> do
                 let payl = T.packPong nodeId sk localSock 1
-                -- sendMessage ariviConnectionId $ serialise payl
-                liftIO $ print ""
+                sendMessage ariviConnectionId $ serialise payl
+                -- liftIO $ print ""
 
             -- handles the case when message type is MSG02 i.e PONG
             T.MSG02 -> do
                 let payl = T.packPing nodeId sk localSock 1
-                -- ssendMessage ariviConnectionId $ serialise payl
-                liftIO $ print ""
+                sendMessage ariviConnectionId $ serialise payl
+                -- liftIO $ print ""
 
             -- handles the case when message type is MSG03 i.e FIND_NODE
             -- Adds peer issuing FIND_NODE to it's appropriate k-bucket
@@ -106,7 +101,7 @@ messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan lo
 
                 -- Queries k-buckets and send k-closest buckets
                 liftIO $ threadDelay 1000
-                liftIO $ Q.queryKBucket nodeId senderNodeId k kbChan
+                Q.queryKBucket nodeId senderNodeId k kbChan
                     ariviConnectionId sk 1
 
             -- handles the case when message type is MSG04 i.e FN_RESP
@@ -143,6 +138,7 @@ messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan lo
                                         liftIO $ mapM_ (addToPendingResChan
                                                             pendingResChan)
                                                             tempm
+                                        -- TODO import sendMesage from Arivi.Network
                                         -- liftIO $ mapM_ (Arivi.send)
                                         -- (zip payl sockAddrList)
                                         liftIO $ print ""
@@ -151,13 +147,11 @@ messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan lo
                         else do
                                     liftIO $ print "Cannot Send FIND_NODE becasueof empty FN_RESP"
                                     liftIO $ putStrLn ""
-                                    logInfoN (DT.pack "Cannot Send FIND_NODE becasue of empty FN_RESP")
 
                 else
                     do
                         liftIO $ print "Invalid/timed out message OR empty pendingResChan"
                         liftIO $ putStrLn ""
-                        logInfoN (DT.pack "Invalid/timed out message OR empty pendingResChan")
 
 isPlistFilled :: Foldable t => t a -> Bool
 isPlistFilled plist
