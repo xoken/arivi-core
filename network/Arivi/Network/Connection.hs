@@ -37,6 +37,7 @@ import           Data.ByteString.Char8              (ByteString, append, pack)
 import qualified Data.ByteString.Lazy               as L
 import           GHC.Generics
 import qualified Network.Socket                     as Network (HostName,
+                                                                SockAddr,
                                                                 Socket)
 
 data Connection = Connection {
@@ -50,6 +51,7 @@ data Connection = Connection {
                         , personalityType  :: PersonalityType
                         , socket           :: Network.Socket
                         , sharedSecret     :: Keys.SharedSecret
+                        , remoteSockAddr   :: Network.SockAddr
                         , reassemblyTChan  :: TChan Parcel
                         , p2pMessageTChan  :: TChan L.ByteString
                         , egressSeqNum     :: TVar SequenceNum
