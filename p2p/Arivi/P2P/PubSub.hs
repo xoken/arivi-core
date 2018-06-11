@@ -17,9 +17,8 @@ module Arivi.P2P.PubSub
 
 ) where
 
-import           Arivi.Network.Types          ( TransportType(..), NodeId, ConnectionId)
-import           Arivi.P2P.Types              ( ExpiryTime, TopicCode(..), MessageType(..),
-                                                P2PMessage(..), Peer(..), ResponseCode)
+import           Arivi.Network.Types ()
+import           Arivi.P2P.Types     ()
 
 
 -- =========================================================================================

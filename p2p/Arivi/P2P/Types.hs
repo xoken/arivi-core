@@ -22,7 +22,7 @@ module Arivi.P2P.Types
 --   ,ServiceType(..)
 --   ,ServiceRequest(..)
         NodeType(..)
-      , ServiceCode(..)
+      , ServiceCode
       , TopicCode(..)
       , AriviP2PInstance(..)
       , IP

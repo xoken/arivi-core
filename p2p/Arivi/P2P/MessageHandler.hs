@@ -20,21 +20,20 @@ module Arivi.P2P.MessageHandler
 where
 
 import           Data.ByteString.Char8       as Char8 (ByteString, pack)
-import qualified Data.ByteString.Lazy        as ByteStringLazy (ByteString,
-                                                                toStrict)
+import qualified Data.ByteString.Lazy        as ByteStringLazy (toStrict)
 import qualified Data.Map                    as Map
-import           Data.Maybe
+import           Data.Maybe                  ()
 import           Data.Time.Clock
 import           Data.UUID                   as UUID
 import           Data.UUID.V4
 
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TVar
-import           Control.Monad
+import           Control.Monad               ()
 
-import           Codec.Serialise             (deserialise, serialise)
+import           Codec.Serialise             (serialise)
 
-import           Arivi.Network.Connection    (Connection)
+import           Arivi.Network.Connection    ()
 import           Arivi.Network.Types         (ConnectionId, NodeId,
                                               TransportType (..))
 import           Arivi.P2P.Types
