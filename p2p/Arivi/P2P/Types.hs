@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Arivi.P2P.Types
 -- Copyright   :
@@ -20,7 +21,6 @@ module Arivi.P2P.Types
 --   ,ServiceName
 --   ,ServiceType(..)
 --   ,ServiceRequest(..)
-
         NodeType(..)
       , ServiceCode(..)
       , TopicCode(..)
@@ -31,18 +31,31 @@ module Arivi.P2P.Types
       , PeerList
       , MinPeerCountPerTopic
       , Context
-      , TopicContext
-      , TopicToService
+      , TopicContextMap
+      , TopicToServiceMap
       , SubscriptionMap
       , WatchersMap
+      , MessageType(..)
+      , P2PMessage(..)
+      , Peer(..)
+      , ResourceID
+      , ResponseCode
+      , P2PUUID
+      , ResourceDetails
+      , ResourceList
+      , PeerToTopicMap
+      , UUIDMap
 )
 
 where
 
-import qualified Data.Map                   as Map
-import           Arivi.Network.Types        (TransportType (..),NodeId)
-import           GHC.Generics 
-import           Codec.Serialise
+import qualified Data.Map                       as Map
+import           Data.Time.Clock
+
+import           Arivi.Network.Types            (TransportType (..),NodeId)
+import           GHC.Generics                   (Generic)
+import           Codec.Serialise                (Serialise)
+
 
 type IP = String
 type Port = Int
@@ -50,27 +63,95 @@ type ExpiryTime = Float
 type PeerList = [ (NodeId,IP,Port,ExpiryTime) ]
 type MinPeerCountPerTopic = Int
 type Context = (MinPeerCountPerTopic, NodeType, TransportType)
-
-type TopicContext  = Map.Map TopicCode Context
-type TopicToService  = Map.Map TopicCode ServiceCode
+type ServiceCode = String
+type TopicContextMap  = Map.Map TopicCode Context
+-- type TopicToService  = Map.Map TopicCode ServiceCode
 type SubscriptionMap = Map.Map TopicCode PeerList
 type WatchersMap = Map.Map TopicCode PeerList
+type TopicToServiceMap = Map.Map TopicCode ServiceCode
+
+type PeerToTopicMap = Map.Map TopicCode [Peer]
+
+-- need to update *starts*
+type ResourceID = String
+type ResponseCode = Int
+type P2PUUID = String
+
+type RPCPeerList = [ Peer ]
+type ResourceDetails = (ServiceCode, RPCPeerList)
+type ResourceList = Map.Map ResourceID ResourceDetails
+-- need to update *ends*
+
+--hashmap for uuid store of sent options or getChar
+type CallDetail = (Peer, UTCTime)
+type UUIDMap = Map.Map P2PUUID CallDetail
 
 data NodeType = FullNode | HalfNode deriving(Show)
 
-data ServiceCode = BlockInventory | BlockSync | PendingTransaction 
-                        deriving(Eq,Ord,Show)
+-- data ServiceCode = BlockInventory | BlockSync | PendingTransaction
+--                         deriving(Eq,Ord,Show)
 
-data TopicCode = Latest_block_header | Latest_block
-                    deriving(Eq,Ord,Show,Generic)
+
+data TopicCode = LatestBlockHeader | LatestBlock
+  deriving(Eq,Ord,Show,Generic)
+instance Serialise TopicCode
 
 data AriviP2PInstance = AriviP2PInstance { nodeId :: NodeId
                                          , ip:: String
                                          , port:: Int
                                          , outboundPeerQuota:: Float
-                                         , maxConnectionAllowed:: Int}
+                                         , maxConnectionAllowed:: Int
+                        }
 
-instance Serialise TopicCode
+
+data Peer =  Peer {
+    peerNodeId :: NodeId
+  , peerIp:: String
+  , peerPort:: Int
+  , peerTransportType :: TransportType
+}
+
+data MessageType =
+      Subscribe {
+          expires :: ExpiryTime
+        , topic   :: TopicCode
+    }
+    | Notify {
+          topic   :: TopicCode
+        , serviceMessage :: String
+    }
+    | Publish {
+          topic   :: TopicCode
+        , serviceMessage :: String
+    }
+    | Options
+    | Supported {
+          resourceList :: [ResourceID]
+    }
+    | Get {
+          resource :: ResourceID
+        , serviceMessage :: String
+    }
+    | Return {
+          resource :: ResourceID
+        , serviceMessage :: String
+    }
+    | Response {
+          expires :: ExpiryTime
+        , topic   :: TopicCode
+    }
+    deriving(Eq,Ord,Show,Generic)
+instance Serialise MessageType
+
+data P2PMessage = P2PMessage {
+          uuid :: P2PUUID
+        , to :: NodeId
+        , from :: NodeId
+        , responseCode :: ResponseCode
+        , p2pType :: Maybe MessageType
+}
+  deriving(Eq,Ord,Show,Generic)
+instance Serialise P2PMessage
 
 
 -- =================================================================================================

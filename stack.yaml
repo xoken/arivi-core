@@ -38,7 +38,6 @@ allow-newer: true
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - crypto
-- kademlia
 - network
 - p2p
 - utils

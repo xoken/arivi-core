@@ -14,18 +14,17 @@
 -- alpha parameter, nodeID to be used etc.
 --
 
-module Arivi.Kademlia.Instance
+module Arivi.P2P.Kademlia.Instance
 (
     createKademliaInstance,
-    runKademliaInstance,
     Config      (..),
     T.NodeId
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature as CS
 import           Arivi.Crypto.Utils.Random
-import qualified Arivi.Kademlia.Types              as T
-import           Arivi.Kademlia.Utils
+import qualified Arivi.P2P.Kademlia.Types          as T
+import           Arivi.P2P.Kademlia.Utils
 import           Control.Concurrent                (Chan, ThreadId, forkIO,
                                                     newChan, newEmptyMVar,
                                                     readChan)
@@ -65,15 +64,6 @@ genPublicKey sk seed
     temp2 = CS.getSecretKey seed
     temp3 = CS.getPublicKey temp2
 
-
-writeLog :: Show d => T.NodeId -> Chan (a, b, c, d) -> FilePath -> IO ThreadId
-writeLog _ logChan logFile = forkIO $ forever $ runFileLoggingT
-    logFile $ do
-
-  logMsg <- liftIO $ readChan logChan
-  let (_, _, _, logStr) = logMsg
-  logInfoN (Data.Text.pack (show logStr))
-
 createKademliaInstance :: Config -> Network.Socket -> IO KademliaHandle
 createKademliaInstance cfg ksocket = do
     seed <- getRandomByteString 32
@@ -81,28 +71,3 @@ createKademliaInstance cfg ksocket = do
     let nid = snd $ genPublicKey (privateKey cfg) seed
     return (KH nid ksocket cfg outBoundChan)
 
-runKademliaInstance :: KademliaHandle -> IO()
-runKademliaInstance ki = do
-
-    let workerCount = 5
-
-    peerChan       <- atomically newTChan
-    kbChan         <- atomically newTChan
-    pendingResChan <- atomically newTChan
-    logChan        <- newChan
-    localSock      <- newEmptyMVar
-
-    -- addtoKbChanTids    <- mapM (addToKbChan kbChan peerChan logChan )
-    --                         [1..workerCount]
-
-    -- pendingResChanTids <- mapM (maintainPendingResChan pendingResChan
-    --                         ((fromIntegral $ kademliaResponseTime ki)
-    --                         ::T.POSIXTime) (kthreadSleepTime ki) )
-    --                         [1..workerCount]
-
-    -- writeLogTids       <- writeLog (nodeId ki) logChan (klogFilePath ki)
-
-    let peerList        = bootStrapPeers (config ki)
-        defaultPeerList = Prelude.map convertToSockAddr peerList
-
-    return ()

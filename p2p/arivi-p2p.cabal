@@ -41,7 +41,9 @@ library
                     ,  fast-logger
                     ,  hashtables <= 1.2.6.1
                     ,  integer-gmp
+                    ,  lifted-base
                     ,  memory >= 0.14.11
+                    ,  monad-control
                     ,  monad-logger
                     ,  mtl
                     ,  network
@@ -57,14 +59,23 @@ library
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
                     ,  arivi-network
-                    ,  arivi-kademlia
                     ,  arivi-crypto
+                    ,  hashable
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
-  exposed-modules:                  
-                       -- Arivi.P2P.FSM
+  exposed-modules:
                        Arivi.P2P.PubSub
                        Arivi.P2P.Instance
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
+                       Arivi.P2P.MessageHandler
+                       Arivi.P2P.P2PEnv
+                       Arivi.P2P.MessageHandler.Functions
+                       Arivi.P2P.MessageHandler.Types
+                       Arivi.P2P.Kademlia.Instance
+                       Arivi.P2P.Kademlia.Node
+                       Arivi.P2P.Kademlia.Query
+                       Arivi.P2P.Kademlia.Types
+                       Arivi.P2P.Kademlia.XorDistance
+                       Arivi.P2P.Kademlia.Utils
 
   default-language:    Haskell2010
