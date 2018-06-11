@@ -26,8 +26,30 @@ pipeline {
 
           emailext (
               subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-              body: """<p>'${env.PROJECT_NAME}' - Build #'${env.BUILD_NUMBER}' - '${env.BUILD_STATUS}':</p><p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+              body: """
+              <p> BUILD_NUMBER : '${env.BUILD_NUMBER}' </p>
+              <p> BUILD_ID : '${env.BUILD_ID}' </p>
+              <p> BUILD_URL : '${env.BUILD_URL}' </p>
+              <p> NODE_NAME : '${env.NODE_NAME}' </p>
+              <p> JOB_NAME : '${env.JOB_NAME}' </p>
+              <p> BUILD_TAG : '${env.BUILD_TAG}' </p>
+              <p> JENKINS_URL : '${env.JENKINS_URL}' </p>
+              <p> EXECUTOR_NUMBER : '${env.EXECUTOR_NUMBER}' </p>
+              <p> JAVA_HOME : '${env.JAVA_HOME}' </p>
+              <p> WORKSPACE : '${env.WORKSPACE}' </p>
+              <p> SVN_REVISION : '${env.SVN_REVISION}' </p>
+              <p> CVS_BRANCH : '${env.CVS_BRANCH}' </p>
+              <p> GIT_COMMIT : '${env.GIT_COMMIT}' </p>
+              <p> GIT_URL : '${env.GIT_URL}' </p>
+              <p> GIT_BRANCH : '${env.GIT_BRANCH}' </p>
+              <p> PROMOTED_URL : '${env.PROMOTED_URL}' </p>
+              <p> PROMOTED_JOB_NAME : '${env.PROMOTED_JOB_NAME}' </p>
+              <p> PROMOTED_NUMBER : '${env.PROMOTED_NUMBER}' </p>
+              <p> PROMOTED_ID : '${env.PROMOTED_ID}' </p>
+              <p> BUILD_URL : '${env.BUILD_URL}' </p>
+              <p> JOB_NAME : '${env.JOB_NAME}' </p>
+              <p> BUILD_NUMBER : '${env.BUILD_NUMBER}' </p>
+                """,
               to: "xokensjenkins@flockgroups.com"
             )
         }
@@ -36,8 +58,30 @@ pipeline {
 
           emailext (
               subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-              body: """<p>'${env.PROJECT_NAME}' - Build #'${env.BUILD_NUMBER}' - '${env.BUILD_STATUS}':</p><p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-                <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+             body: """
+              <p> BUILD_NUMBER : '${env.BUILD_NUMBER}' </p>
+              <p> BUILD_ID : '${env.BUILD_ID}' </p>
+              <p> BUILD_URL : '${env.BUILD_URL}' </p>
+              <p> NODE_NAME : '${env.NODE_NAME}' </p>
+              <p> JOB_NAME : '${env.JOB_NAME}' </p>
+              <p> BUILD_TAG : '${env.BUILD_TAG}' </p>
+              <p> JENKINS_URL : '${env.JENKINS_URL}' </p>
+              <p> EXECUTOR_NUMBER : '${env.EXECUTOR_NUMBER}' </p>
+              <p> JAVA_HOME : '${env.JAVA_HOME}' </p>
+              <p> WORKSPACE : '${env.WORKSPACE}' </p>
+              <p> SVN_REVISION : '${env.SVN_REVISION}' </p>
+              <p> CVS_BRANCH : '${env.CVS_BRANCH}' </p>
+              <p> GIT_COMMIT : '${env.GIT_COMMIT}' </p>
+              <p> GIT_URL : '${env.GIT_URL}' </p>
+              <p> GIT_BRANCH : '${env.GIT_BRANCH}' </p>
+              <p> PROMOTED_URL : '${env.PROMOTED_URL}' </p>
+              <p> PROMOTED_JOB_NAME : '${env.PROMOTED_JOB_NAME}' </p>
+              <p> PROMOTED_NUMBER : '${env.PROMOTED_NUMBER}' </p>
+              <p> PROMOTED_ID : '${env.PROMOTED_ID}' </p>
+              <p> BUILD_URL : '${env.BUILD_URL}' </p>
+              <p> JOB_NAME : '${env.JOB_NAME}' </p>
+              <p> BUILD_NUMBER : '${env.BUILD_NUMBER}' </p>
+                """,
               to: "xokensjenkins@flockgroups.com"
             )
         }
