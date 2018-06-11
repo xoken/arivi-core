@@ -10,13 +10,17 @@
 module Arivi.P2P.Kademlia.XorDistance(
 
     getXorDistance,
-    getRawXor
+    getRawXor,
+    getKbIndex
 )
 where
 
 
+import           Arivi.Crypto.Utils.Keys.Signature
+import qualified Arivi.P2P.Kademlia.Types          as T
 import           Data.Bits
-import           Data.Char (digitToInt)
+import qualified Data.ByteString.Char8             as C
+import           Data.Char                         (digitToInt)
 
 
 fn :: Char -> Int
@@ -52,3 +56,12 @@ getXorDistance firstNodeId secondNodeId = if rawXor == 0
                                           else logBase 2 (fromIntegral rawXor)
                                           where rawXor = getRawXor firstNodeId
                                                     secondNodeId
+
+-- | Gives the KB-index for two given node ids i.e gives the index at which
+--  the node will be stored in the kbucket hash table
+
+getKbIndex :: T.NodeId -> T.NodeId -> Int
+getKbIndex node1 node2 = kbi
+    where node1Str  = C.unpack $ publicKeytoHex node1
+          node2Str  = C.unpack $ publicKeytoHex node2
+          kbi       = round $ getXorDistance node1Str node2Str
