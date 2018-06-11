@@ -10,7 +10,8 @@ module Arivi.P2P.MessageHandler.Types
   P2PUUID,
   Message,
   UUIDMap,
-  PeerUUIDMap
+  PeerUUIDMap,
+  MessageInfo
 {-
 
 -}
@@ -19,27 +20,25 @@ where
 
 
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar
+import           Control.Concurrent.STM.TVar()
 import           Control.Concurrent.MVar
-import           Control.Monad
+import           Control.Monad()
 
 import           Codec.Serialise                (Serialise)
 
 import           GHC.Generics                   (Generic)
 
-import              Data.ByteString.Char8       as Char8 (ByteString, pack)
-import              Data.UUID                   (UUID)
-import              Data.UUID.V4                (nextRandom)
+import              Data.ByteString.Char8       as Char8 (ByteString)
+
 import              Data.HashMap.Strict         as HM
 import              Data.Hashable
 
-import           Arivi.Network.Types            (TransportType (..),NodeId)
+import           Arivi.Network.Types            (NodeId)
 
 --import Arivi.P2P.Types
 type IP = String
 type Port = Int
 type P2PUUID = String
-type MessageType = String -- for now
 type Message = ByteString
 data P2PMessage = P2PMessage {
           uuid :: P2PUUID
@@ -61,6 +60,7 @@ instance Hashable Peer
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 type PeerUUIDMap = HM.HashMap Peer (TVar UUIDMap)
 
+type MessageInfo = (P2PUUID, Message)
 {-
 PeerToUUIDMap =
 TVar( HashMap[ NodeId->TVar( HashMap[ UUID->MVar] ) ] )

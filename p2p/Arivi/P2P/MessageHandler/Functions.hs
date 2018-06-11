@@ -2,31 +2,30 @@
 
 module Arivi.P2P.MessageHandler.Functions
 (
-{-
-sendRequest ()
--}
+
+sendRequest
+
 )
 where
 import           Data.ByteString.Char8          as Char8 (ByteString, pack)
-import qualified Data.ByteString.Lazy           as ByteStringLazy (ByteString,
-                                                                   toStrict)
+import qualified Data.ByteString.Lazy           as ByteStringLazy (toStrict)
 import           Data.HashMap.Strict            as HM
 
 import           Data.Maybe
-import qualified Data.UUID                      as UUID (UUID, toString)
+import qualified Data.UUID                      as UUID (toString)
 import           Data.UUID.V4                   (nextRandom)
 
 
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar
+import           Control.Concurrent.STM.TVar    ()
 import qualified Control.Exception.Lifted       as Exception (SomeException,
                                                               try)
-import           Control.Monad
+import           Control.Monad                  ()
 
-import           Codec.Serialise                (Serialise, serialise)
+import           Codec.Serialise                (serialise)
 
-import           Arivi.Network.Connection       (Connection)
+import           Arivi.Network.Connection       ()
 import           Arivi.Network.Types            (ConnectionId, NodeId,
                                                  TransportType (..))
 import           Arivi.P2P.MessageHandler.Types
@@ -55,7 +54,7 @@ sendRequest :: TVar PeerUUIDMap -> Peer -> MessageCode -> Message -> TransportTy
 sendRequest peerUUIDMapTVar peer mCode message transportType =
     do
         --peerUUIDMapTVar <- getpeerUUIDMapTVar
-        uuid <- getUUID
+        newuuid <- getUUID
         peerUUIDMap <- readTVarIO peerUUIDMapTVar
         mvar <- newEmptyMVar ::IO (MVar P2PMessage)
         --need try  herefor formJust
@@ -63,13 +62,12 @@ sendRequest peerUUIDMapTVar peer mCode message transportType =
         atomically (
             do
                 a <- readTVar uuidMapTVar
-                let b = HM.insert uuid mvar a
+                let b = HM.insert newuuid mvar a
                 writeTVar uuidMapTVar b
             )
         let
-            p2pMessage = generateP2PMessage mCode message uuid
+            p2pMessage = generateP2PMessage mCode message newuuid
             port = if UDP== transportType then peerUDPPort peer else peerTCPPort peer
-            connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
         --need try
         res <- Exception.try $ do
             let connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
@@ -82,7 +80,7 @@ sendRequest peerUUIDMapTVar peer mCode message transportType =
                     atomically (
                         do
                             a <- readTVar uuidMapTVar
-                            let b = HM.delete uuid a
+                            let b = HM.delete newuuid a
                             writeTVar uuidMapTVar b
                         )
                     let returnMessage = typeMessage p2pReturnMessage
@@ -95,7 +93,8 @@ sendRequest peerUUIDMapTVar peer mCode message transportType =
 
 {-
 readRequest (connid)
--- do forever
+-- fork
+--do forever
 try
 --p2pMEssage = readmessage (connid) {ANP, blocking}
 catch exceptions thrown by ANP
@@ -110,6 +109,19 @@ else
         case RPC -> put it in RPCTChan
         case PubSub -> put it in PubSubTChan
 -}
+{-
+readRequest :: TVar PeerUUIDMap ->  TQueue MessageInfo ->  TQueue MessageInfo ->  TQueue MessageInfo -> Peer -> IO()
+readRequest peerUUIDMapTVar kademTQueue rpcTQueue pubsubTQueue peer =
+    do
+        res <- Exception.try $ do
+            let connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
+            sendMessage connId (ByteStringLazy.toStrict $ serialise p2pMessage)
+        case res of
+            Left( _ :: Exception.SomeException)-> return ()
+            Right _ ->
+                do
+-}
+
 
 {-Support Functions===========================================================-}
 generateP2PMessage :: MessageCode -> Message -> P2PUUID -> P2PMessage
