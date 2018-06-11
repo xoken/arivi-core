@@ -38,7 +38,7 @@ getAeadNonceInitiator = 1 :: Int64
 
 
 getAeadNonceRecipient :: Int64
-getAeadNonceRecipient = 20001::Int64 -- Need to get precise value
+getAeadNonceRecipient = 2^64::Int64 -- Need to get precise value
 
 getVersion :: [Version]
 getVersion = [V0]

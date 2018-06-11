@@ -9,6 +9,9 @@ import           Crypto.Error      (CryptoError (..))
 data AriviException =       AriviDeserialiseException DeserialiseFailure
                             | AriviCryptoException CryptoError
                             | AriviSignatureVerificationFailedException
-                            | AriviSocketException deriving(Show)
+                            | AriviSocketException
+                            | AriviWrongParcelException
+                            | AriviTimeoutException
+                            | AriviInvalidConnectionIdException deriving(Show)
 
 instance Exception AriviException

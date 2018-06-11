@@ -20,7 +20,7 @@ outboundFrameDispatcher :: TChan OutboundFragment -> Connection -> Int64 -> Inte
 outboundFrameDispatcher outboundTChan conn aeadnonce replayNonce = do
     (msgId, fragmentNum, fragmentCount, fragment) <- atomically $ readTChan outboundTChan
     -- Generate header
-    let headerData = DataHeader msgId fragmentNum fragmentCount (Conn.connectionId conn) replayNonce
+    let headerData = DataHeader msgId fragmentNum fragmentCount (Conn.connectionId conn) replayNonce aeadnonce
     -- Generate encrypted payload
     let encryptedData = encryptMsg aeadnonce (sharedSecret conn) (L.toStrict $ serialise headerData) (lazyToStrict $ getPayload fragment)
     -- Create parcel

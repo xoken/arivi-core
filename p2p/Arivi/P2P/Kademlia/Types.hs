@@ -234,6 +234,7 @@ decodePortNumber = do
         _     -> fail "Invalid PortNumber encoding"
 
 
+
 -- Serialise instance for MessageBody data type
 instance Serialise MessageBody where
     encode = encodeMessageBody
