@@ -50,10 +50,12 @@ mkAriviEnv :: IO AriviEnv
 mkAriviEnv = do
   ani <- mkAriviNetworkInstance
   return AriviEnv { ariviNetworkInstance = ani
-                  , envPort = 8080
+                  , envPort = 8083
                   }
 
-data AriviNetworkInstance = AriviNetworkInstance { ariviNetworkConnectionMap :: TVar (HashMap ConnectionId Connection)
+data AriviNetworkInstance = AriviNetworkInstance {
+  ariviNetworkConnectionMap   :: TVar (HashMap ConnectionId Connection),
+  ariviConnectionUpdatesTChan :: TChan (ConnectionId, String)
                                                  }
 
 mkAriviNetworkInstance :: IO AriviNetworkInstance
@@ -66,7 +68,7 @@ connectionMap :: AriviNetworkInstance
 connectionMap = ariviNetworkConnectionMap
 
 
--- DE:ETE LATER
+-- DELETE LATER
 mkAriviEnv' :: IO AriviEnv
 mkAriviEnv' = do
   ani <- mkAriviNetworkInstance'

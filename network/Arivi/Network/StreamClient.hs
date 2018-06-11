@@ -4,10 +4,12 @@ module Arivi.Network.StreamClient (
     createFrame
 ) where
 
-import           Arivi.Network.Types       (TransportType (..))
+import           Arivi.Network.Types       (Parcel (..), TransportType (..))
+import qualified Codec.Serialise           as Ser
 import           Data.Binary
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Int                  (Int16)
+import           Debug.Trace
 import           Network.Socket
 import qualified Network.Socket.ByteString as N (sendAll)
 
@@ -27,7 +29,10 @@ createSocket ipAdd port transportType = withSocketsDo $ do
     return sock
 
 sendFrame :: Socket -> BSL.ByteString -> IO ()
-sendFrame sock msg = N.sendAll sock (BSL.toStrict msg)
+sendFrame sock msg = do
+    -- let (_, parcelSer) = BSL.splitAt 2 msg
+    -- traceShow (Ser.deserialise parcelSer :: Parcel) return()
+    N.sendAll sock (BSL.toStrict msg)
 
 -- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString

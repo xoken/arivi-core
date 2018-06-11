@@ -12,11 +12,14 @@ module Arivi.Network.Utils
 (
     lazyToStrict
   , strictToLazy
+  , getIPAddress
+  , getPortNumber
 ) where
 
 
 import           Data.ByteString      (ByteString)
 import qualified Data.ByteString.Lazy as Lazy (ByteString, fromStrict, toStrict)
+import           Network.Socket       (HostAddress, PortNumber, SockAddr (..))
 
 
 -- | Converts lazy ByteString to Strict ByteString
@@ -29,3 +32,15 @@ lazyToStrict =  Lazy.toStrict
 -- TODO: Find usage and depreacate this function
 strictToLazy :: ByteString -> Lazy.ByteString
 strictToLazy = Lazy.fromStrict
+
+
+
+-- | Given `SockAddr` retrieves `HostAddress`
+getIPAddress :: SockAddr -> HostAddress
+getIPAddress (SockAddrInet _ hostAddress) = hostAddress
+getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
+
+-- | Given `SockAddr` retrieves `PortNumber`
+getPortNumber :: SockAddr -> PortNumber
+getPortNumber (SockAddrInet portNumber _) = portNumber
+getPortNumber _                           = error "getPortNumber: SockAddr is not of constructor SockAddrInet "
