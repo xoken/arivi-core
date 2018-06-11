@@ -2,7 +2,7 @@
 
 module Arivi.P2P.MessageHandler.Types
 (
-  MessageCode,
+  MessageCode(..),
   P2PMessage(..),
   Peer(..),
   IP,
