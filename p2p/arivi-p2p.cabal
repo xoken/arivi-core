@@ -60,15 +60,17 @@ library
                     ,  uuid
                     ,  arivi-network
                     ,  arivi-crypto
+                    ,  hashable
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.P2P.PubSub
                        Arivi.P2P.Instance
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
-                       Arivi.P2P.RPC
                        Arivi.P2P.MessageHandler
                        Arivi.P2P.P2PEnv
+                       Arivi.P2P.MessageHandler.Functions
+                       Arivi.P2P.MessageHandler.Types
                        Arivi.P2P.Kademlia.Instance
                        Arivi.P2P.Kademlia.Node
                        Arivi.P2P.Kademlia.Query
