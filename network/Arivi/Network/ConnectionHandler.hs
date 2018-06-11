@@ -34,6 +34,7 @@ import           Debug.Trace
 --                                                   Parcel (..),
 --                                                   deserialiseOrFail)
 import           Arivi.Network.Reassembler
+import           Arivi.Network.Utils             (getIPAddress, getPortNumber)
 import           Arivi.Utils.Exception
 import           Control.Concurrent              (threadDelay)
 import qualified Control.Concurrent.Async        as Async (async, race)
@@ -52,8 +53,11 @@ import qualified Data.ByteString.Lazy            as BSL
 import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.HashMap.Strict             as HM
 import           Data.Int
-import           Network.Socket
-import qualified Network.Socket.ByteString       as N (recv)
+import           Network.Socket                  (HostAddress, SockAddr (..),
+                                                  Socket (..), SocketType (..),
+                                                  accept, bind, connect,
+                                                  getSocketName, inet_ntoa)
+import qualified Network.Socket.ByteString       as Network (recv, recvFrom)
 
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
 -- connectionId using `makeConnectionId`. If this connectionId is already
@@ -67,13 +71,14 @@ import qualified Network.Socket.ByteString       as N (recv)
 --      -> IO (HashMap ConnectionId (TChan ByteString))
 handleInboundConnection :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => Socket -> m ()
 handleInboundConnection mSocket = do
+        liftIO $ traceShow "Inside handleInboundConnection" (return())
         sk <- getSecretKey
         ariviInstance <- getAriviNetworkInstance
         let tv = ariviNetworkConnectionMap ariviInstance
         let updatesTChan = ariviConnectionUpdatesTChan ariviInstance
         conn <- liftIO $ do
           socketName <- getSocketName mSocket
-          mIpAddress <- inet_ntoa $ getIPAddress socketName
+          mIpAddress <- getIPAddress socketName
           let mPort = getPortNumber socketName
           let mTransportType = getTransportType mSocket
           let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType
@@ -97,39 +102,105 @@ handleInboundConnection mSocket = do
                                            }
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits
+          liftIO $ traceShow "before readHandshakeInitSock" (return())
+
           parcel <- readHandshakeInitSock mSocket
+          liftIO $ traceShow "after readHandshakeInitSock" (return())
+
+          traceShow parcel (return())
           (serialisedParcel, updatedConn) <- recipientHandshake sk connection parcel
-          sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel)
+          sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel
+                                                           mTransportType)
           atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
           return updatedConn
         LA.async $ readSock conn HM.empty
         return ()
 
--- | Given `SockAddr` retrieves `HostAddress`
-getIPAddress :: SockAddr -> HostAddress
-getIPAddress (SockAddrInet _ hostAddress) = hostAddress
-getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
+-- handleUDPInboundConnection :: (HasAriviNetworkInstance m
+--                               , HasSecretKey m
+--                               , HasLogging m)
+--                            => Socket
+--                            -> BSLByteString
+--                            -> m ()
+-- handleUDPInboundConnection slefSocket message = do
 
--- | Given `SockAddr` retrieves `PortNumber`
-getPortNumber :: SockAddr -> PortNumber
-getPortNumber (SockAddrInet portNumber _) = portNumber
-getPortNumber _                           = error "getPortNumber: SockAddr is not of constructor SockAddrInet "
+--       sk <- getSecretKey
+
+--       ariviInstance <- getAriviNetworkInstance
+--       let tv = ariviNetworkConnectionMap ariviInstance
+--       let updatesTChan = ariviConnectionUpdatesTChan ariviInstance
+
+--       conn <- liftIO $ do
+--         socketName <- getSocketName slefSocket
+--         mIpAddress <- inet_ntoa $ getIPAddress socketName
+--         let mPort = getPortNumber socketName
+--         let mTransportType = getTransportType slefSocket
+--         let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType
+
+--         egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
+--         ingressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
+
+--         -- Need to change this to proper value
+
+--         aeadNonce <- liftIO (newTVarIO (2^63+1 :: AeadNonce))
+--         mReassemblyTChan <- atomically newTChan
+--         p2pMsgTChan <- atomically newTChan
+
+--         let connection = Conn.Connection { Conn.connectionId = mConnectionId
+--                                          , Conn.ipAddress = mIpAddress
+--                                          , Conn.port = mPort
+--                                          , Conn.transportType = mTransportType
+--                                          , Conn.personalityType = RECIPIENT
+--                                          , Conn.socket = slefSocket
+--                                          , Conn.reassemblyTChan = mReassemblyTChan
+--                                          , Conn.p2pMessageTChan = p2pMsgTChan
+--                                          , Conn.egressSeqNum = egressNonce
+--                                          , Conn.ingressSeqNum = ingressNonce
+--                                          , Conn.aeadNonceCounter = aeadNonce
+--                                          }
+--         -- getParcel, recipientHandshake and sendFrame might fail
+--         -- In any case, the thread just quits
+--         parcel <- readHandshakeInitSock slefSocket
+
+--         (serialisedParcel, updatedConn) <- recipientHandshake sk connection parcel
+
+--         sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel
+--                                                          mTransportType)
+
+--         atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
+
+--         return updatedConn
+--       LA.async $ readSock conn HM.empty
+--       return ()
+
+
 
 -- | Given `Socket` retrieves `TransportType`
 getTransportType :: Socket -> TransportType
-getTransportType (MkSocket _ _ Stream _ _) = TCP
-getTransportType _                         = UDP
+getTransportType (MkSocket _ _ Stream _ _)   = TCP
+getTransportType (MkSocket _ _ Datagram _ _) = UDP
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
-acceptIncomingSocket :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => Socket -> m a
-acceptIncomingSocket sock = do
+acceptIncomingSocket :: ( HasAriviNetworkInstance m
+                        , HasSecretKey m
+                        , HasLogging m)
+                     => Socket
+                     -> m a
+acceptIncomingSocket selfSocket = do
   sk <- getSecretKey
-  forever $ do
-        (mSocket, peer) <- liftIO $ accept sock
-        liftIO $ putStrLn $ "Connection from " ++ show peer
-        eventTChan <- liftIO $ atomically newTChan
-        LA.async (handleInboundConnection mSocket) --or use forkIO
+  case getTransportType selfSocket of
+      TCP -> forever $ do
+                  (mSocket, peer) <- liftIO $ accept selfSocket
+                  liftIO $ putStrLn $ "Connection from " ++ show peer
+                  eventTChan <- liftIO $ atomically newTChan
+                  LA.async (handleInboundConnection mSocket) --or use forkIO
+      UDP -> -- forever $ do
+            do
+             -- (message,sockAddra) <- Network.recvFrom selfSocket 4096
+             LA.async (handleInboundConnection selfSocket)   --or use forkIO
+    -- threadDelay 1000000000000
+             return undefined
 
 
 
@@ -142,34 +213,67 @@ getFrameLength len = fromIntegral lenInt16 where
 -- | Races between a timer and receive parcel, returns an either type
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getParcelWithTimeout sock timeout = do
-    winner <- Async.race (threadDelay timeout) (N.recv sock 2)
-    case winner of
-      Left _ -> return $ Left AriviTimeoutException
-      Right lenbs ->
-        do
-          parcelCipher <- N.recv sock $ getFrameLength lenbs
-          either
-            (return . Left . AriviDeserialiseException) (return . Right)
-            (deserialiseOrFail (BSL.fromStrict parcelCipher))
+  if (getTransportType sock == TCP)
+    then do
+      winner <- Async.race (threadDelay timeout) (Network.recv sock 2)
+      -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
+      -- traceShow winner (return())
+      -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
+      case winner of
+        Left _ -> return $ Left AriviTimeoutException
+        Right lenbs ->
+          do
+            parcelCipher <- Network.recv sock $ getFrameLength lenbs
+            either
+              (return . Left . AriviDeserialiseException) (return . Right)
+              (deserialiseOrFail (BSL.fromStrict parcelCipher))
+    else do
+      -- (parcelCipher,sockAddra) <- Network.recvFrom sock 4096
+      -- connect sock sockAddra
+       winner <- Async.race (threadDelay timeout) (Network.recv sock 4096)
+       -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
+       -- traceShow winner (return())
+       -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
+       case winner of
+          Left _ -> return $ Left AriviTimeoutException
+          Right parcelCipher ->
+            do
+              either
+                (return . Left . AriviDeserialiseException) (return . Right)
+                (deserialiseOrFail (BSL.fromStrict parcelCipher))
+      -- either
+      --       (return . Left . AriviDeserialiseException) (return . Right)
+      --       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
 -- | Reads frame a given socket
 getParcel :: Socket -> IO (Either AriviException Parcel)
 getParcel sock = do
-    lenbs <- N.recv sock 2
-    parcelCipher <- N.recv sock $ getFrameLength lenbs
+    lenbs <- Network.recv sock 2
+    parcelCipher <- Network.recv sock $ getFrameLength lenbs
     either (return . Left . AriviDeserialiseException) (return . Right)
       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
--- | Create and send a ping message on the socket
-sendPing :: Socket -> IO()
-sendPing sock = do
-  let pingFrame = createFrame $ serialise (Parcel PingHeader (Payload BSL.empty))
+-- | Reads frame a given socket
+getParcelUDP :: Socket -> IO (Either AriviException (Parcel))
+getParcelUDP sock = do
+     -- parcelCipher <- Network.recv sock 4096
+     (parcelCipher,peerAddr) <- Network.recvFrom sock 4096
+     -- connect sock peerAddr
+     either (return . Left . AriviDeserialiseException) (return . Right)
+      (deserialiseOrFail (BSL.fromStrict parcelCipher))
+
+-- -- | Create and send a ping message on the socket
+sendPing :: Socket -> TransportType -> IO()
+sendPing sock mTransportType = do
+  let pingFrame = createFrame (serialise (Parcel PingHeader (Payload BSL.empty)))
+                               mTransportType
   sendFrame sock pingFrame
 
 -- | Create and send a pong message on the socket
-sendPong :: Socket -> IO()
-sendPong sock = do
-  let pongFrame = createFrame $ serialise (Parcel PongHeader (Payload BSL.empty))
+sendPong :: Socket -> TransportType -> IO()
+sendPong sock mTransportType = do
+  let pongFrame = createFrame  (serialise (Parcel PongHeader (Payload BSL.empty)))
+                                mTransportType
   sendFrame sock pongFrame
 
 readSock :: HasAriviNetworkInstance m => Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
@@ -180,7 +284,7 @@ readSock connection fragmentsHM = do
     -- Possibly throw before shutting down
     Left (AriviDeserialiseException e) -> deleteConnectionFromHashMap (Conn.connectionId connection)
     Left AriviTimeoutException -> do
-      liftIO $ sendPing sock
+      liftIO $ sendPing sock (transportType connection)
       -- Possibly throw before shutting down
       parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 6000000
       case parcelOrFailAfterPing of
@@ -201,7 +305,7 @@ processParcel parcel connection fragmentsHM =
         Right updatedHM ->
           readSock connection updatedHM
     pingParcel@(Parcel PingHeader{} _) -> do
-      liftIO $ sendPong (Conn.socket connection)
+      liftIO $ sendPong (Conn.socket connection) (transportType connection)
       readSock connection fragmentsHM
     pongParcel@(Parcel PongHeader{} _) -> readSock connection fragmentsHM
     _ -> deleteConnectionFromHashMap(Conn.connectionId connection)
@@ -209,14 +313,30 @@ processParcel parcel connection fragmentsHM =
 
 -- | Read on the socket for handshakeInit parcel and return it or throw AriviException
 readHandshakeInitSock :: Socket -> IO Parcel
-readHandshakeInitSock sock = do
-  parcel <- getParcel sock
-  either throwIO return parcel
+readHandshakeInitSock sock =
+  if (getTransportType sock == TCP)
+    then do
+        traceShow "inside readHandshakeInitSock TCP" (return())
+        parcel <- getParcel sock
+        either throwIO return parcel
+  else  do
+        traceShow "inside readHandshakeInitSock UDP" (return())
+        parcel <- getParcelUDP sock
+        either throwIO return parcel
+
 
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
 readHandshakeRespSock :: Socket -> SecretKey -> IO Parcel
 readHandshakeRespSock sock sk = do
+  traceShow "" (return())
+  traceShow "" (return())
+  traceShow "" (return())
+  traceShow "before parcelOrFail inside readHandshakeRespSock"  (return())
   parcelOrFail <- getParcelWithTimeout sock 30000000
+  traceShow (parcelOrFail)  (return())
+  traceShow "after parcelOrFail inside readHandshakeRespSock" (return())
+  traceShow "" (return())
+  traceShow "" (return())
   case parcelOrFail of
     Left (AriviDeserialiseException e) ->
       do
@@ -227,6 +347,7 @@ readHandshakeRespSock sock sk = do
       case hsRespParcel of
         parcel@(Parcel (HandshakeRespHeader _ _ ) _ ) -> return parcel
         _ -> throw AriviWrongParcelException
+        -- parcel@_ -> return parcel
 
 
 deleteConnectionFromHashMap :: HasAriviNetworkInstance m

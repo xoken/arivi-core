@@ -14,7 +14,7 @@ import           Arivi.Network.Connection           (Connection (..),
 import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
 import qualified Arivi.Network.Types                as ANT (PersonalityType (INITIATOR),
-                                                            TransportType (TCP))
+                                                            TransportType (..))
 import           Control.Concurrent                 (threadDelay)
 import           Control.Concurrent.Async
 import qualified Control.Concurrent.Async.Lifted    as LA
@@ -65,8 +65,8 @@ sender sk rk = do
   runStdoutLoggingT $ runAppM env (do
 
                                        let ha = "127.0.0.1"
-                                       cidOrFail <- openConnection ha 8083 ANT.TCP (generateNodeId rk) ANT.INITIATOR
-                                       cidOrFail1 <- openConnection ha 8082 ANT.TCP (generateNodeId rk) ANT.INITIATOR
+                                       cidOrFail <- openConnection ha 8083 4000 ANT.UDP (generateNodeId rk) ANT.INITIATOR
+                                       cidOrFail1 <- openConnection ha 8082 4000 ANT.UDP (generateNodeId rk) ANT.INITIATOR
                                        case cidOrFail of
                                           Left e ->  (return())
                                           Right cid -> do
@@ -75,7 +75,7 @@ sender sk rk = do
                                               Right cid1 -> do
                                                 time <- liftIO $ getCurrentTime
                                                 liftIO $ print time
-                                                mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid1 a)) [1..2000]
+                                                mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid1 a)) [1..2]
                                                 time2 <- liftIO $ getCurrentTime
                                                 liftIO $ print time2
                                        liftIO $ print "done"
@@ -93,7 +93,8 @@ receiver sk = do
                  , udpConnectionHashMap = mutableConnectionHashMap1
                  }
   runStdoutLoggingT $ runAppM env (
-                                       runTCPserver (show (envPort env))
+                                       -- runTCPserver (show (envPort env))
+                                       runUDPserver (show (envPort env))
                                   )
 
 
@@ -111,7 +112,8 @@ receiver1 sk = do
                  , envPort = 8082
                  }
   runStdoutLoggingT $ runAppM env (
-                                       runTCPserver (show (envPort env))
+                                       -- runTCPserver (show (envPort env))
+                                       runUDPserver (show (envPort env))
                                   )
 
 main :: IO ()
@@ -119,6 +121,7 @@ main = do
   (sender_sk, _) <- generateKeyPair
   (recv_sk, _) <- generateKeyPair
   a <- (receiver recv_sk) `concurrently` (threadDelay 1000000 >> sender sender_sk recv_sk) `concurrently` (receiver1 recv_sk)
+  -- (threadDelay 1000000 >> sender sender_sk recv_sk)
   print a
   threadDelay 1000000000000
   return ()

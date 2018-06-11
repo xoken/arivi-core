@@ -11,7 +11,8 @@ import           Arivi.Network.Connection           as Conn (Connection (..))
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types                (FragmentNumber,
                                                      Header (..), MessageId,
-                                                     Parcel (..), Payload (..))
+                                                     Parcel (..), Payload (..),
+                                                     TransportType (..))
 import           Codec.Serialise
 import           Control.Concurrent.STM             (STM, atomically,
                                                      modifyTVar, readTVar,
@@ -58,10 +59,10 @@ processFragment fragment conn msgId fragmentNum fragmentCount = do
 
     modifyTVar (Conn.aeadNonceCounter conn) (+1)
     modifyTVar (Conn.egressSeqNum conn) (+1)
-    return $ serialiseAndFrame parcel
+    return $ serialiseAndFrame parcel (transportType conn)
 
-serialiseAndFrame :: Parcel -> BSL.ByteString
-serialiseAndFrame = createFrame . serialise
+serialiseAndFrame :: Parcel -> TransportType -> BSL.ByteString
+serialiseAndFrame parcel transportType = createFrame (serialise parcel) transportType
 
 
 -- | Fragments the payload, calls processFragment on the fragment and recursively calls the remaining payload

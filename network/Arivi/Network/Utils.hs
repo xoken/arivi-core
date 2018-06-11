@@ -19,7 +19,8 @@ module Arivi.Network.Utils
 
 import           Data.ByteString      (ByteString)
 import qualified Data.ByteString.Lazy as Lazy (ByteString, fromStrict, toStrict)
-import           Network.Socket       (HostAddress, PortNumber, SockAddr (..))
+import           Network.Socket       (HostName, PortNumber, SockAddr (..),
+                                       inet_ntoa)
 
 
 -- | Converts lazy ByteString to Strict ByteString
@@ -36,8 +37,8 @@ strictToLazy = Lazy.fromStrict
 
 
 -- | Given `SockAddr` retrieves `HostAddress`
-getIPAddress :: SockAddr -> HostAddress
-getIPAddress (SockAddrInet _ hostAddress) = hostAddress
+getIPAddress :: SockAddr -> IO HostName
+getIPAddress (SockAddrInet _ hostAddress) = inet_ntoa $ hostAddress
 getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
 
 -- | Given `SockAddr` retrieves `PortNumber`

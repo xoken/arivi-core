@@ -83,8 +83,15 @@ newtype NetworkHandle = NetworkHandle { ariviUDPSock :: (Socket,SockAddr) }
 doEncryptedHandshake :: Conn.Connection -> SecretKey -> IO Conn.Connection
 doEncryptedHandshake connection sk = do
     (serialisedParcel, updatedConn) <- initiatorHandshake sk connection
-    sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel)
+    -- print "before sendFrame: doEncryptedHandshake"
+    sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel
+                                                     (transportType connection))
+    -- print "after sendFrame: doEncryptedHandshake"
+    traceShow "before readHandshakeRespSock: doEncryptedHandshake" (return())
     hsRespParcel <- readHandshakeRespSock (Conn.socket updatedConn) sk
+    traceShow "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" (return())
+    traceShow hsRespParcel (return())
+    traceShow "after readHandshakeRespSock: doEncryptedHandshake" (return())
     return $ receiveHandshakeResponse updatedConn hsRespParcel
 
 openConnection :: (HasAriviNetworkInstance m,
@@ -93,11 +100,12 @@ openConnection :: (HasAriviNetworkInstance m,
                    Forall (Pure m))
                => HostName
                -> PortNumber
+               -> PortNumber
                -> TransportType
                -> NodeId
                -> PersonalityType
                -> m (Either AriviException ANT.ConnectionId)
-openConnection addr port tt rnid pType = do
+openConnection addr port selfPort tt rnid pType = do
 
   ariviInstance <- getAriviNetworkInstance
   let cId = makeConnectionId addr port tt
@@ -109,7 +117,7 @@ openConnection addr port tt rnid pType = do
     Just conn -> return $ Right cId
     Nothing   -> do
           sk <- getSecretKey
-          socket <- liftIO $ createSocket addr (read (show port)) tt
+          socket <- liftIO $ createSocket addr (read (show port)) selfPort tt
           reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
           p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
           egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))

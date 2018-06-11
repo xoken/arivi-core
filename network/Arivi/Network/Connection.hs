@@ -28,6 +28,7 @@ import           Arivi.Network.Types                (AeadNonce, ConnectionId,
                                                      PersonalityType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
+import           Control.Concurrent.MVar            (MVar)
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import qualified Crypto.PubKey.Curve25519           as Curve25519
@@ -41,22 +42,23 @@ import qualified Network.Socket                     as Network (HostName,
                                                                 Socket)
 
 data Connection = Connection {
-                          connectionId     :: ConnectionId
-                        , remoteNodeId     :: NodeId
-                        , ipAddress        :: Network.HostName
-                        , port             :: PortNumber
-                        , ephemeralPubKey  :: Curve25519.PublicKey
-                        , ephemeralPrivKey :: Ed25519.SecretKey
-                        , transportType    :: TransportType
-                        , personalityType  :: PersonalityType
-                        , socket           :: Network.Socket
-                        , sharedSecret     :: Keys.SharedSecret
-                        , remoteSockAddr   :: Network.SockAddr
-                        , reassemblyTChan  :: TChan Parcel
-                        , p2pMessageTChan  :: TChan L.ByteString
-                        , egressSeqNum     :: TVar SequenceNum
-                        , ingressSeqNum    :: TVar SequenceNum-- need not be TVar
-                        , aeadNonceCounter :: TVar AeadNonce
+                          connectionId      :: ConnectionId
+                        , remoteNodeId      :: NodeId
+                        , ipAddress         :: Network.HostName
+                        , port              :: PortNumber
+                        , ephemeralPubKey   :: Curve25519.PublicKey
+                        , ephemeralPrivKey  :: Ed25519.SecretKey
+                        , transportType     :: TransportType
+                        , personalityType   :: PersonalityType
+                        , socket            :: Network.Socket
+                        , sharedSecret      :: Keys.SharedSecret
+                        , remoteSockAddr    :: Network.SockAddr
+                        , reassemblyTChan   :: TChan Parcel
+                        , p2pMessageTChan   :: TChan L.ByteString
+                        , egressSeqNum      :: TVar SequenceNum
+                        , ingressSeqNum     :: TVar SequenceNum-- need not be TVar
+                        , aeadNonceCounter  :: TVar AeadNonce
+                        , handshakeComplete:: TVar Bool
                         } deriving (Eq, Generic)
 
 -- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString

@@ -8,7 +8,8 @@
 module Arivi.Network.StreamServer
 (
     -- readSock,
-  runTCPserver
+    runTCPserver
+  , runUDPserver
 ) where
 
 import           Arivi.Env
@@ -60,6 +61,36 @@ runTCPserver port = $(withLoggingTH) (LogNetworkStatement "Server started...") L
     liftIO $ bind sock (addrAddress addr)
     liftIO $ listen sock 5
     void $ forkFinally (acceptIncomingSocket sock) (\_ -> liftIO $ close sock)
+
+
+
+
+runUDPserver :: ( HasAriviNetworkInstance m
+                , HasSecretKey m
+                , HasLogging m)
+             => ServiceName
+             -> m ()
+runUDPserver port =
+  $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $
+
+  liftWithSocketsDo $ do
+
+    let hints = defaultHints {
+                                addrFlags = [AI_PASSIVE]
+                              , addrSocketType = Datagram
+                             }
+
+    selfAddr:_ <- liftIO $ getAddrInfo (Just hints) Nothing (Just port)
+
+    -- TODO: Deal with socket exceptions
+    selfSocket <- liftIO $ socket (addrFamily selfAddr)
+                                  (addrSocketType selfAddr)
+                                  (addrProtocol selfAddr)
+
+    liftIO $ bind selfSocket (addrAddress selfAddr)
+
+    void $ forkFinally (acceptIncomingSocket selfSocket)
+                       (\_ -> liftIO $ close selfSocket)
 
 -- -- | Server Thread that spawns new thread to
 -- -- | listen to client and put it to inboundTChan

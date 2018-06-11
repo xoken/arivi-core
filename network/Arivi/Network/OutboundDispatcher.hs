@@ -26,7 +26,7 @@ outboundFrameDispatcher outboundTChan conn aeadnonce replayNonce = do
     -- Create parcel
     let parcel = Parcel headerData (Payload $ strictToLazy encryptedData)
     -- Create frame
-    let frame = createFrame (serialise parcel)
+    let frame = createFrame (serialise parcel) (transportType conn)
     -- Call the send function on the socket
     sendFrame(socket conn) frame
     -- Recursively call function with nonces incremented
