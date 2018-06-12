@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -20,9 +21,10 @@ import           Arivi.Crypto.Utils.PublicKey.Utils   (encryptMsg)
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Env
 import           Arivi.Logging
-import           Arivi.Network.Connection             as Conn (Connection (..),
+import           Arivi.Network.Connection             as Conn (Connection (..), HandshakeStatus (..),
                                                                makeConnectionId)
 import           Arivi.Network.ConnectionHandler
+import           Arivi.Network.Datagram
 import           Arivi.Network.Fragmenter
 import qualified Arivi.Network.FSM                    as FSM
 import           Arivi.Network.Handshake
@@ -53,13 +55,15 @@ import           Control.Monad.Reader
 import           Control.Monad.STM                    (atomically)
 import           Crypto.PubKey.Ed25519                (SecretKey)
 import qualified Data.ByteString                      as B
-import           Data.ByteString.Lazy                 as L
+import           Data.ByteString.Lazy                 as Lazy
 import           Data.HashMap.Strict                  as HM
 import           Data.Int                             (Int16, Int64)
 import           Data.Maybe                           (fromMaybe)
 import           Debug.Trace
 import           Network.Socket
-
+import qualified Network.Socket.ByteString            as Network (recvFrom,
+                                                                  sendAll,
+                                                                  sendTo)
 -- | Strcuture to hold the arivi configurations can also contain more
 --   parameters but for now just contain 3
 data NetworkConfig    = NetworkConfig {
@@ -83,15 +87,13 @@ newtype NetworkHandle = NetworkHandle { ariviUDPSock :: (Socket,SockAddr) }
 doEncryptedHandshake :: Conn.Connection -> SecretKey -> IO Conn.Connection
 doEncryptedHandshake connection sk = do
     (serialisedParcel, updatedConn) <- initiatorHandshake sk connection
-    -- print "before sendFrame: doEncryptedHandshake"
+    -- traceShow "before sendFrame: doEncryptedHandshake" (return())
+    -- traceShow "before sendFrame: doEncryptedHandshake" (return ())
     sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel
-                                                     (transportType connection))
-    -- print "after sendFrame: doEncryptedHandshake"
-    traceShow "before readHandshakeRespSock: doEncryptedHandshake" (return())
+                                               (transportType connection))
+
+
     hsRespParcel <- readHandshakeRespSock (Conn.socket updatedConn) sk
-    traceShow "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" (return())
-    traceShow hsRespParcel (return())
-    traceShow "after readHandshakeRespSock: doEncryptedHandshake" (return())
     return $ receiveHandshakeResponse updatedConn hsRespParcel
 
 openConnection :: (HasAriviNetworkInstance m,
@@ -117,35 +119,55 @@ openConnection addr port selfPort tt rnid pType = do
     Just conn -> return $ Right cId
     Nothing   -> do
           sk <- getSecretKey
-          socket <- liftIO $ createSocket addr (read (show port)) selfPort tt
+          socket <- liftIO $ createSocket addr port selfPort tt
           reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
           p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
           egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
           ingressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
           aeadNonce <- liftIO (newTVarIO (2 :: AeadNonce))
+          hsCompleteTVar <- liftIO $ newTVarIO Conn.HandshakeNotStarted
 
-          let connection = Connection {Conn.connectionId = cId,
-                                       Conn.remoteNodeId = rnid,
-                                       Conn.ipAddress = addr,
-                                       Conn.port = port,
-                                       Conn.transportType = tt,
-                                       Conn.personalityType = pType,
-                                       Conn.socket = socket,
-                                       Conn.reassemblyTChan = reassemblyChan,
-                                       Conn.p2pMessageTChan = p2pMsgTChan,
-                                       Conn.egressSeqNum = egressNonce,
-                                       Conn.ingressSeqNum = ingressNonce,
-                                       Conn.aeadNonceCounter = aeadNonce}
 
-          res <- liftIO $ try $ doEncryptedHandshake connection sk
+          let connection = Connection
+                                   { Conn.connectionId = cId
+                                  ,  Conn.remoteNodeId = rnid
+                                  ,  Conn.ipAddress = addr
+                                  ,  Conn.port = port
+                                  ,  Conn.transportType = tt
+                                  ,  Conn.personalityType = pType
+                                  ,  Conn.socket = socket
+                                  ,  Conn.reassemblyTChan = reassemblyChan
+                                  ,  Conn.p2pMessageTChan = p2pMsgTChan
+                                  ,  Conn.egressSeqNum = egressNonce
+                                  ,  Conn.ingressSeqNum = ingressNonce
+                                  ,  Conn.aeadNonceCounter = aeadNonce
+                                  ,  Conn.handshakeComplete = hsCompleteTVar}
 
-          case res of
-            Left e -> return $ Left e
-            Right updatedConn ->
-              do
-                liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
-                async (readSock updatedConn HM.empty)
-                return $ Right cId
+          if tt == TCP
+            then do
+              res <- liftIO $ try $ doEncryptedHandshake connection sk
+
+              case res of
+                Left e -> return $ Left e
+                Right updatedConn ->
+                  do
+                    liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
+                    async (readSock updatedConn HM.empty)
+                    return $ Right cId
+            else do
+               (serialisedParcel, updatedConn) <- liftIO $ initiatorHandshake sk connection
+               liftIO $ atomically $ writeTVar (Conn.handshakeComplete updatedConn) Conn.HandshakeInitiated
+               liftIO $ sendFrame (Conn.socket updatedConn) (createUDPFrame serialisedParcel)
+               _ <- async (readFromUDPSocketForever updatedConn)
+
+               hsRespParcel <- liftIO $ readHandshakeRespFromTChan (Conn.reassemblyTChan updatedConn) sk
+
+               liftIO $ atomically $ writeTVar (Conn.handshakeComplete updatedConn) Conn.HandshakeDone
+
+               traceShow "after readHandshakeRespFromTChan" (return ())
+               traceShow hsRespParcel (return ())
+
+               return $ Right cId
 
 sendMessage :: (HasAriviNetworkInstance m, HasLogging m)
             => ANT.ConnectionId

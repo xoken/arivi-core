@@ -23,7 +23,7 @@ createSocket ipAdd port selfPort transportType = withSocketsDo $ do
     let portNo = Just (show port)
     let transport_type = getAddressType transportType
 
-    if (transportType == TCP)
+    if transportType == TCP
         then do
             let hints = defaultHints {addrSocketType = transport_type}
             addr:_ <- getAddrInfo (Just hints) (Just ipAdd) portNo
@@ -39,13 +39,13 @@ createSocket ipAdd port selfPort transportType = withSocketsDo $ do
 
             selfSocket <- socket (addrFamily selfAddr) (addrSocketType selfAddr)
                                             (addrProtocol selfAddr)
-            bind selfSocket (addrAddress peerAddr)
+            bind selfSocket (addrAddress selfAddr)
 
             connect selfSocket (addrAddress peerAddr)
             return selfSocket
 
 sendFrame :: Socket -> BSL.ByteString -> IO ()
-sendFrame sock msg = do
+sendFrame sock msg =
     -- let (_, parcelSer) = BSL.splitAt 2 msg
     -- traceShow (Ser.deserialise parcelSer :: Parcel) return()
     -- traceShow "before sending " (return())

@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE LambdaCase        #-}
+-- {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -213,8 +213,6 @@ getFrameLength len = fromIntegral lenInt16 where
 -- | Races between a timer and receive parcel, returns an either type
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getParcelWithTimeout sock timeout = do
-  if (getTransportType sock == TCP)
-    then do
       winner <- Async.race (threadDelay timeout) (Network.recv sock 2)
       -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
       -- traceShow winner (return())
@@ -227,23 +225,6 @@ getParcelWithTimeout sock timeout = do
             either
               (return . Left . AriviDeserialiseException) (return . Right)
               (deserialiseOrFail (BSL.fromStrict parcelCipher))
-    else do
-      -- (parcelCipher,sockAddra) <- Network.recvFrom sock 4096
-      -- connect sock sockAddra
-       winner <- Async.race (threadDelay timeout) (Network.recv sock 4096)
-       -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
-       -- traceShow winner (return())
-       -- traceShow "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" (return())
-       case winner of
-          Left _ -> return $ Left AriviTimeoutException
-          Right parcelCipher ->
-            do
-              either
-                (return . Left . AriviDeserialiseException) (return . Right)
-                (deserialiseOrFail (BSL.fromStrict parcelCipher))
-      -- either
-      --       (return . Left . AriviDeserialiseException) (return . Right)
-      --       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
 -- | Reads frame a given socket
 getParcel :: Socket -> IO (Either AriviException Parcel)
@@ -253,14 +234,14 @@ getParcel sock = do
     either (return . Left . AriviDeserialiseException) (return . Right)
       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
--- | Reads frame a given socket
-getParcelUDP :: Socket -> IO (Either AriviException (Parcel))
-getParcelUDP sock = do
-     -- parcelCipher <- Network.recv sock 4096
-     (parcelCipher,peerAddr) <- Network.recvFrom sock 4096
-     -- connect sock peerAddr
-     either (return . Left . AriviDeserialiseException) (return . Right)
-      (deserialiseOrFail (BSL.fromStrict parcelCipher))
+-- -- | Reads frame a given socket
+-- getParcelUDP :: Socket -> IO (Either AriviException (Parcel))
+-- getParcelUDP sock = do
+--      -- parcelCipher <- Network.recv sock 4096
+--      (parcelCipher,peerAddr) <- Network.recvFrom sock 4096
+--      -- connect sock peerAddr
+--      either (return . Left . AriviDeserialiseException) (return . Right)
+--       (deserialiseOrFail (BSL.fromStrict parcelCipher))
 
 -- -- | Create and send a ping message on the socket
 sendPing :: Socket -> TransportType -> IO()
@@ -313,30 +294,24 @@ processParcel parcel connection fragmentsHM =
 
 -- | Read on the socket for handshakeInit parcel and return it or throw AriviException
 readHandshakeInitSock :: Socket -> IO Parcel
-readHandshakeInitSock sock =
-  if (getTransportType sock == TCP)
-    then do
-        traceShow "inside readHandshakeInitSock TCP" (return())
-        parcel <- getParcel sock
-        either throwIO return parcel
-  else  do
-        traceShow "inside readHandshakeInitSock UDP" (return())
-        parcel <- getParcelUDP sock
-        either throwIO return parcel
+readHandshakeInitSock sock = do
+      traceShow "inside readHandshakeInitSock TCP" (return())
+      parcel <- getParcel sock
+      either throwIO return parcel
 
 
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
 readHandshakeRespSock :: Socket -> SecretKey -> IO Parcel
 readHandshakeRespSock sock sk = do
-  traceShow "" (return())
-  traceShow "" (return())
-  traceShow "" (return())
-  traceShow "before parcelOrFail inside readHandshakeRespSock"  (return())
+  -- traceShow "" (return())
+  -- traceShow "" (return())
+  -- traceShow "" (return())
+  -- traceShow "before parcelOrFail inside readHandshakeRespSock"  (return())
   parcelOrFail <- getParcelWithTimeout sock 30000000
-  traceShow (parcelOrFail)  (return())
-  traceShow "after parcelOrFail inside readHandshakeRespSock" (return())
-  traceShow "" (return())
-  traceShow "" (return())
+  -- traceShow (parcelOrFail)  (return())
+  -- traceShow "after parcelOrFail inside readHandshakeRespSock" (return())
+  -- traceShow "" (return())
+  -- traceShow "" (return())
   case parcelOrFail of
     Left (AriviDeserialiseException e) ->
       do

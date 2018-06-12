@@ -1,9 +1,13 @@
 module Arivi.Network.Datagram
 (
     -- createUDPSocket
-    getUDPConnectionId
+    createUDPFrame
+  , getUDPConnectionId
   , makeSocket
+  , readFromUDPSocketForever
+  , readHandshakeRespFromTChan
   , runUDPServerForever
+  , sendUDPFrame
 ) where
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
@@ -29,17 +33,19 @@ import qualified Arivi.Network.Utils                as Utils (getIPAddress,
 import           Arivi.Utils.Exception              (AriviException (..))
 import           Control.Concurrent.Async.Lifted    (async)
 import           Control.Concurrent.STM             (atomically)
-import           Control.Concurrent.STM.TChan       (newTChan, readTChan,
+import           Control.Concurrent.STM.TChan       (TChan, newTChan, readTChan,
                                                      writeTChan)
 import           Control.Concurrent.STM.TVar        (modifyTVar, newTVarIO,
                                                      readTVarIO, writeTVar)
 import           Control.Exception                  (throw)
 import           Control.Monad.IO.Class             (liftIO)
+import           Crypto.PubKey.Ed25519              (SecretKey)
 import qualified Data.ByteString.Char8              as Char8 (ByteString, pack)
 import qualified Data.ByteString.Lazy               as Lazy (ByteString, concat,
                                                              fromStrict,
                                                              toStrict)
 import           Data.HashMap.Strict                as StrictHashMap
+import           Debug.Trace
 import           Network.Socket
 import qualified Network.Socket.ByteString          as Network (recvFrom,
                                                                 sendTo)
@@ -100,6 +106,7 @@ handleUDPInboundConnection connection =   do
     handshakeStatus <- liftIO $ readTVarIO (Conn.handshakeComplete connection)
 
     parcel <- liftIO $ atomically $ readTChan (Conn.reassemblyTChan connection)
+    traceShow parcel (return())
 
     if handshakeStatus /= Conn.HandshakeDone
         then do
@@ -112,9 +119,11 @@ handleUDPInboundConnection connection =   do
                                                     recipientHandshake sk
                                                             connection parcel
 
+              traceShow "before sendUDPFrame HandshakeDone" (return())
               _ <- liftIO $ sendUDPFrame (Conn.socket updatedConn)
                                         (Conn.remoteSockAddr updatedConn)
                                         (createUDPFrame serialisedParcel)
+              traceShow "after sendUDPFrame HandshakeDone" (return())
 
               let cid = Conn.connectionId updatedConn
 
@@ -150,8 +159,11 @@ runUDPServerForever :: (HasAriviNetworkInstance m
                     => Socket
                     -> m ()
 runUDPServerForever mSocket = do
+    -- traceShow "inside runUDPServerForever" (return())
     (receivedMessage,peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
-
+    -- traceShow receivedMessage (return())
+    -- traceShow "after recvFrom" (return())
+    -- traceShow receivedMessage (return())
     ariviNetworkInstance <- getAriviNetworkInstance
     let hashMapTVar = ariviNetworkConnectionMap ariviNetworkInstance
     cid <- liftIO $ getUDPConnectionId peerSockAddr
@@ -167,6 +179,7 @@ runUDPServerForever mSocket = do
                                 _ <- liftIO $ atomically $ writeTChan
                                                             (Conn.reassemblyTChan conn)
                                                             parcel
+                                -- traceShow parcel (return())
                                 runUDPServerForever mSocket
                 Nothing ->  do
                             newConnection <- liftIO $ do
@@ -205,9 +218,9 @@ runUDPServerForever mSocket = do
                             liftIO $ atomically $ modifyTVar hashMapTVar
                                         (StrictHashMap.insert cid newConnection)
 
-                            _ <-  async
-                                            (handleUDPInboundConnection
+                            _ <-  async (handleUDPInboundConnection
                                                             newConnection)
+                            -- traceShow parcel (return())
                             runUDPServerForever mSocket
 
 
@@ -226,6 +239,19 @@ runUDPServerForever mSocket = do
     --         reassemblyTChan = getConnection nobejet using peerSockAddr
     --         insert into reassemblyTChan
 
+
+readFromUDPSocketForever updatedConn = do
+    -- traceShow "inside readFromUDPSocketForever" (return())
+    (receivedMessage,peerSockAddr) <- liftIO $ Network.recvFrom
+                                                (Conn.socket updatedConn)
+                                                4096
+    eitherExeptionParcel <- deserialiseParcel receivedMessage
+    case eitherExeptionParcel of
+        Left deserialiseException -> throw deserialiseException
+        Right parcel ->  liftIO $ atomically $ writeTChan (Conn.reassemblyTChan updatedConn)
+                                                              parcel
+    -- traceShow "after recvFrom readFromUDPSocketForever" (return())
+    readFromUDPSocketForever updatedConn
 
 getUDPConnectionId :: SockAddr -> IO ConnectionId
 getUDPConnectionId peerSockAddr = do
@@ -265,3 +291,14 @@ sendUDPFrame mSocket peerSockAddr msg =
 
 createUDPFrame :: Lazy.ByteString -> Lazy.ByteString
 createUDPFrame parcelSerialised  =  Lazy.concat [parcelSerialised]
+
+
+
+readHandshakeRespFromTChan :: TChan Parcel-> SecretKey -> IO Parcel
+readHandshakeRespFromTChan reassemblyTChan sk = do
+
+  hsRespParcel <- atomically $ readTChan reassemblyTChan
+
+  case hsRespParcel of
+    parcel@(Parcel (HandshakeRespHeader _ _ ) _ ) -> return parcel
+    _ -> throw AriviWrongParcelException
