@@ -22,15 +22,12 @@ module Arivi.Network.Connection
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Network.Types                (AeadNonce, ConnectionId,
-                                                     Event (..), NodeId,
-                                                     OutboundFragment,
-                                                     Parcel (..),
+                                                     NodeId, Parcel (..),
                                                      PersonalityType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
-import           Control.Concurrent.MVar            (MVar)
-import           Control.Concurrent.STM.TChan
-import           Control.Concurrent.STM.TVar
+import           Control.Concurrent.STM.TChan       (TChan)
+import           Control.Concurrent.STM.TVar        (TVar)
 import qualified Crypto.PubKey.Curve25519           as Curve25519
 import qualified Crypto.PubKey.Ed25519              as Ed25519
 import           Data.ByteString.Base16             (encode)
