@@ -3,12 +3,13 @@
 module Arivi.P2P.MessageHandler.Functions
 (
 
-sendRequest
+sendRequest,
+readRequest
 
 )
 where
 import           Data.ByteString.Char8          as Char8 (ByteString, pack)
-import qualified Data.ByteString.Lazy           as ByteStringLazy (toStrict)
+import qualified Data.ByteString.Lazy           as Lazy (fromStrict, toStrict)
 import           Data.HashMap.Strict            as HM
 
 import           Data.Maybe
@@ -18,12 +19,14 @@ import           Data.UUID.V4                   (nextRandom)
 
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TQueue  ()
 import           Control.Concurrent.STM.TVar    ()
+
 import qualified Control.Exception.Lifted       as Exception (SomeException,
                                                               try)
-import           Control.Monad                  ()
+import           Control.Monad                  (forever)
 
-import           Codec.Serialise                (serialise)
+import           Codec.Serialise                (deserialise, serialise)
 
 import           Arivi.Network.Connection       ()
 import           Arivi.Network.Types            (ConnectionId, NodeId,
@@ -71,7 +74,7 @@ sendRequest peerUUIDMapTVar peer mCode message transportType =
         --need try
         res <- Exception.try $ do
             let connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
-            sendMessage connId (ByteStringLazy.toStrict $ serialise p2pMessage)
+            sendMessage connId (Lazy.toStrict $ serialise p2pMessage)
         case res of
             Left( _ :: Exception.SomeException)-> return $ pack "000000"
             Right _ ->
@@ -109,18 +112,39 @@ else
         case RPC -> put it in RPCTChan
         case PubSub -> put it in PubSubTChan
 -}
-{-
-readRequest :: TVar PeerUUIDMap ->  TQueue MessageInfo ->  TQueue MessageInfo ->  TQueue MessageInfo -> Peer -> IO()
-readRequest peerUUIDMapTVar kademTQueue rpcTQueue pubsubTQueue peer =
+
+readRequest :: TVar PeerUUIDMap ->  TQueue MessageInfo ->  TQueue MessageInfo ->  TQueue MessageInfo -> Peer -> TransportType -> IO()
+readRequest peerUUIDMapTVar kademTQueue rpcTQueue pubsubTQueue peer transportType =
     do
-        res <- Exception.try $ do
-            let connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
-            sendMessage connId (ByteStringLazy.toStrict $ serialise p2pMessage)
-        case res of
-            Left( _ :: Exception.SomeException)-> return ()
-            Right _ ->
-                do
--}
+        peerUUIDMap <- readTVarIO peerUUIDMapTVar
+        let uuidMapTVar = fromJust (HM.lookup peer peerUUIDMap)
+            port = if UDP== transportType then peerUDPPort peer else peerTCPPort peer
+            connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
+        forever $ do
+            eitherByteMessage <- Exception.try  $ readMessage connId
+            case eitherByteMessage of
+                Left ( _ :: Exception.SomeException)-> return ()
+                Right byteMessage -> do
+                    let networkMessage = (deserialise (Lazy.fromStrict byteMessage)) :: P2PMessage
+                    uuidMap <- atomically (readTVar uuidMapTVar)
+                    let temp = HM.lookup (uuid networkMessage) uuidMap
+                    if isNothing temp then
+                        do
+                            let newRequest = (uuid networkMessage, typeMessage networkMessage)
+                            case messageCode networkMessage of
+                                Kademlia -> atomically (writeTQueue kademTQueue newRequest)
+                                RPC -> atomically (writeTQueue rpcTQueue newRequest)
+                                PubSub -> atomically (writeTQueue pubsubTQueue newRequest)
+                    else
+                        do
+                            let mVar = fromJust temp
+                            putMVar mVar networkMessage
+
+
+
+
+
+
 
 
 {-Support Functions===========================================================-}
@@ -137,11 +161,17 @@ getUUID = UUID.toString <$> nextRandom
 
 {-Dummy Functions========================================================-}
 
-selfNodeId :: NodeId
-selfNodeId = pack "12334556"
+-- selfNodeId :: NodeId
+-- selfNodeId = pack "12334556"
 
 openConnection :: NodeId -> IP -> Port -> TransportType -> ConnectionId
 openConnection nodeId ip port transportType = pack "892sadasd346384"
 
 sendMessage :: ConnectionId -> Char8.ByteString -> IO ()
 sendMessage connectionId byteString = return ()
+
+readMessage :: ConnectionId -> IO ByteString
+readMessage connId = do
+
+    uuid2 <- getUUID
+    return (Lazy.toStrict $ serialise (generateP2PMessage Kademlia (pack "892sadasd346384") uuid2 ))
