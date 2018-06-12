@@ -14,6 +14,7 @@ module Arivi.Network.Connection
 (
     ConnectionId
   , Connection (..)
+  , HandshakeStatus(..)
   , concatenate
   , genConnectionId
   , makeConnectionId
@@ -55,9 +56,13 @@ data Connection = Connection {
                         , egressSeqNum      :: TVar SequenceNum
                         , ingressSeqNum     :: TVar SequenceNum-- need not be TVar
                         , aeadNonceCounter  :: TVar AeadNonce
-                        , handshakeComplete:: TVar Bool
+                        , handshakeComplete :: TVar HandshakeStatus
                         } deriving (Eq, Generic)
 
+data HandshakeStatus = HandshakeNotStarted
+                     | HandshakeInitiated
+                     | HandshakeDone
+                     deriving (Eq,Generic,Show)
 -- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString
 -- generation
 genConnectionId :: IO ByteString
