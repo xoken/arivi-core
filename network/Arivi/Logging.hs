@@ -15,11 +15,13 @@ module Arivi.Logging
   , LogLevel (..)
   , LogChan
   , HasLogging (..)
+  , withIOLogging
   )
 where
 
 import           Control.Concurrent.STM
 import           Control.Exception.Lifted    as CEL
+import           Control.Exception           as CE
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
@@ -87,3 +89,14 @@ timeIt ioa = do
   let t :: Double
       t = fromIntegral (t2 - t1) * 1e-12
   return (t, a)
+
+withIOLogging :: String -> IO a -> IO a
+withIOLogging ls ioa = do
+  result <- CE.try ioa
+  case result of
+    Left (e :: SomeException) -> do
+      print (displayException e)
+      throw e
+    Right r -> do
+      print ls
+      return r

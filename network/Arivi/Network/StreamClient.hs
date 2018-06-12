@@ -1,17 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Arivi.Network.StreamClient (
     createSocket,
     sendFrame,
     createFrame
 ) where
 
-import           Arivi.Network.Types       (Parcel (..), TransportType (..))
-import qualified Codec.Serialise           as Ser
+import           Arivi.Network.Types       (TransportType (..))
 import           Data.Binary
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Int                  (Int16)
-import           Debug.Trace
 import           Network.Socket
-import qualified Network.Socket.ByteString as N (sendAll)
+import           Control.Concurrent.MVar
+import qualified Network.Socket.ByteString.Lazy as N (sendAll)
 
 getAddressType :: TransportType -> SocketType
 getAddressType TCP = Stream
@@ -28,11 +28,13 @@ createSocket ipAdd port transportType = withSocketsDo $ do
     connect sock (addrAddress addr)
     return sock
 
-sendFrame :: Socket -> BSL.ByteString -> IO ()
-sendFrame sock msg = do
+sendFrame :: MVar Int -> Socket -> BSL.ByteString -> IO ()
+sendFrame writeLock sock msg = do
     -- let (_, parcelSer) = BSL.splitAt 2 msg
     -- traceShow (Ser.deserialise parcelSer :: Parcel) return()
-    N.sendAll sock (BSL.toStrict msg)
+    a <- takeMVar writeLock
+    N.sendAll sock msg
+    putMVar writeLock a
 
 -- | prefixes length to cborg serialised parcel
 createFrame :: BSL.ByteString -> BSL.ByteString

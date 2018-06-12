@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -35,7 +36,7 @@ import           Debug.Trace
 --                                                   deserialiseOrFail)
 import           Arivi.Network.Reassembler
 import           Arivi.Utils.Exception
-import           Control.Concurrent              (threadDelay)
+import           Control.Concurrent              (threadDelay, MVar, newMVar)
 import qualified Control.Concurrent.Async        as Async (async, race)
 import qualified Control.Concurrent.Async.Lifted as LA (async)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan,
@@ -53,7 +54,7 @@ import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.HashMap.Strict             as HM
 import           Data.Int
 import           Network.Socket
-import qualified Network.Socket.ByteString       as N (recv)
+import qualified Network.Socket.ByteString.Lazy  as N (recv)
 
 -- | Reads encryptedPayload and socket from inboundTChan, constructs
 -- connectionId using `makeConnectionId`. If this connectionId is already
@@ -66,7 +67,7 @@ import qualified Network.Socket.ByteString       as N (recv)
 --      -> HashMap ConnectionId (TChan ByteString)
 --      -> IO (HashMap ConnectionId (TChan ByteString))
 handleInboundConnection :: (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m) => Socket -> m ()
-handleInboundConnection mSocket = do
+handleInboundConnection mSocket = $(withLoggingTH) (LogNetworkStatement "handleInboundConnection: ") LevelDebug $  do
         sk <- getSecretKey
         ariviInstance <- getAriviNetworkInstance
         let tv = ariviNetworkConnectionMap ariviInstance
@@ -77,29 +78,29 @@ handleInboundConnection mSocket = do
           let mPort = getPortNumber socketName
           let mTransportType = getTransportType mSocket
           let mConnectionId = Conn.makeConnectionId mIpAddress mPort mTransportType
-          egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
-          ingressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
+          egressNonce <- newTVarIO (2 :: SequenceNum)
+          ingressNonce <- newTVarIO (2 :: SequenceNum)
           -- Need to change this to proper value
-          aeadNonce <- liftIO (newTVarIO (2^63+1 :: AeadNonce))
-          mReassemblyTChan <- atomically newTChan
+          aeadNonce <- newTVarIO (2^63+1 :: AeadNonce)
           p2pMsgTChan <- atomically newTChan
-          let connection = Conn.Connection { Conn.connectionId = mConnectionId
-                                           , Conn.ipAddress = mIpAddress
-                                           , Conn.port = mPort
-                                           , Conn.transportType = mTransportType
-                                           , Conn.personalityType = RECIPIENT
-                                           , Conn.socket = mSocket
-                                           , Conn.reassemblyTChan = mReassemblyTChan
-                                           , Conn.p2pMessageTChan = p2pMsgTChan
-                                           , Conn.egressSeqNum = egressNonce
-                                           , Conn.ingressSeqNum = ingressNonce
-                                           , Conn.aeadNonceCounter = aeadNonce
-                                           }
+          writeLock <- newMVar 0
+          let connection = Conn.mkIncompleteConnection' { Conn.connectionId = mConnectionId
+                                                        , Conn.ipAddress = mIpAddress
+                                                        , Conn.port = mPort
+                                                        , Conn.transportType = mTransportType
+                                                        , Conn.personalityType = RECIPIENT
+                                                        , Conn.socket = mSocket
+                                                        , Conn.waitWrite = writeLock
+                                                        , Conn.p2pMessageTChan = p2pMsgTChan
+                                                        , Conn.egressSeqNum = egressNonce
+                                                        , Conn.ingressSeqNum = ingressNonce
+                                                        , Conn.aeadNonceCounter = aeadNonce
+                                                        }
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits
           parcel <- readHandshakeInitSock mSocket
           (serialisedParcel, updatedConn) <- recipientHandshake sk connection parcel
-          sendFrame (Conn.socket updatedConn) (createFrame serialisedParcel)
+          sendFrame (Conn.waitWrite updatedConn) (Conn.socket updatedConn) (createFrame serialisedParcel)
           atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
           return updatedConn
         LA.async $ readSock conn HM.empty
@@ -108,11 +109,13 @@ handleInboundConnection mSocket = do
 -- | Given `SockAddr` retrieves `HostAddress`
 getIPAddress :: SockAddr -> HostAddress
 getIPAddress (SockAddrInet _ hostAddress) = hostAddress
+getIPAddress (SockAddrInet6 _ _ (_,_,_,hA6) _) = hA6
 getIPAddress _                            = error "getIPAddress: SockAddr is not of constructor SockAddrInet "
 
 -- | Given `SockAddr` retrieves `PortNumber`
 getPortNumber :: SockAddr -> PortNumber
 getPortNumber (SockAddrInet portNumber _) = portNumber
+getPortNumber (SockAddrInet6 portNumber _ _ _) = portNumber
 getPortNumber _                           = error "getPortNumber: SockAddr is not of constructor SockAddrInet "
 
 -- | Given `Socket` retrieves `TransportType`
@@ -131,65 +134,65 @@ acceptIncomingSocket sock = do
         eventTChan <- liftIO $ atomically newTChan
         LA.async (handleInboundConnection mSocket) --or use forkIO
 
-
-
 -- | Converts length in byteString to Num
-getFrameLength :: Num b => BS.ByteString -> b
+getFrameLength :: BSL.ByteString -> Int64
 getFrameLength len = fromIntegral lenInt16 where
-                     lenInt16 = decode lenbs :: Int16
-                     lenbs = BSL.fromStrict len
+                     lenInt16 = decode len :: Int16
 
 -- | Races between a timer and receive parcel, returns an either type
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getParcelWithTimeout sock timeout = do
-    winner <- Async.race (threadDelay timeout) (N.recv sock 2)
+    winner <- Async.race (threadDelay timeout) (recvAll sock 2)
     case winner of
       Left _ -> return $ Left AriviTimeoutException
       Right lenbs ->
         do
-          parcelCipher <- N.recv sock $ getFrameLength lenbs
+          parcelCipher <- recvAll sock $ getFrameLength lenbs
           either
             (return . Left . AriviDeserialiseException) (return . Right)
-            (deserialiseOrFail (BSL.fromStrict parcelCipher))
+            (deserialiseOrFail parcelCipher)
 
 -- | Reads frame a given socket
 getParcel :: Socket -> IO (Either AriviException Parcel)
 getParcel sock = do
-    lenbs <- N.recv sock 2
-    parcelCipher <- N.recv sock $ getFrameLength lenbs
+    lenbs <- recvAll sock 2
+    parcelCipher <- recvAll sock $ getFrameLength lenbs
     either (return . Left . AriviDeserialiseException) (return . Right)
-      (deserialiseOrFail (BSL.fromStrict parcelCipher))
+      (deserialiseOrFail parcelCipher)
 
 -- | Create and send a ping message on the socket
-sendPing :: Socket -> IO()
-sendPing sock = do
+sendPing :: MVar Int -> Socket -> IO()
+sendPing writeLock sock =
   let pingFrame = createFrame $ serialise (Parcel PingHeader (Payload BSL.empty))
-  sendFrame sock pingFrame
+  in
+  sendFrame writeLock sock pingFrame
 
 -- | Create and send a pong message on the socket
-sendPong :: Socket -> IO()
-sendPong sock = do
+sendPong :: MVar Int -> Socket -> IO()
+sendPong writeLock sock =
   let pongFrame = createFrame $ serialise (Parcel PongHeader (Payload BSL.empty))
-  sendFrame sock pongFrame
+  in
+  sendFrame writeLock sock pongFrame
 
-readSock :: HasAriviNetworkInstance m => Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
-readSock connection fragmentsHM = do
-  let sock = Conn.socket connection
-  parcelOrFail <- liftIO $ getParcelWithTimeout sock 3000000
+readSock :: (HasAriviNetworkInstance m, HasLogging m) => Conn.CompleteConnection -> HM.HashMap MessageId BSL.ByteString -> m ()
+readSock connection fragmentsHM = $(withLoggingTH) (LogNetworkStatement "readSock: ") LevelDebug $ do
+  let sock      = Conn.socket connection
+      writeLock = Conn.waitWrite connection
+  parcelOrFail <- liftIO $ getParcelWithTimeout sock 30000000
   case parcelOrFail of
     -- Possibly throw before shutting down
     Left (AriviDeserialiseException e) -> deleteConnectionFromHashMap (Conn.connectionId connection)
     Left AriviTimeoutException -> do
-      liftIO $ sendPing sock
+      liftIO $ sendPing writeLock sock
       -- Possibly throw before shutting down
-      parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 6000000
+      parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 60000000
       case parcelOrFailAfterPing of
         Left _  -> deleteConnectionFromHashMap (Conn.connectionId connection)
         Right parcel -> processParcel parcel connection fragmentsHM
     Right parcel -> processParcel parcel connection fragmentsHM
 
 
-processParcel :: HasAriviNetworkInstance m => Parcel -> Conn.Connection -> HM.HashMap MessageId BSL.ByteString -> m ()
+processParcel :: (HasAriviNetworkInstance m, HasLogging m) => Parcel -> Conn.CompleteConnection -> HM.HashMap MessageId BSL.ByteString -> m ()
 processParcel parcel connection fragmentsHM =
   -- traceShow parcel (return()) >>
   case parcel of
@@ -201,7 +204,7 @@ processParcel parcel connection fragmentsHM =
         Right updatedHM ->
           readSock connection updatedHM
     pingParcel@(Parcel PingHeader{} _) -> do
-      liftIO $ sendPong (Conn.socket connection)
+      liftIO $ sendPong (Conn.waitWrite connection) (Conn.socket connection)
       readSock connection fragmentsHM
     pongParcel@(Parcel PongHeader{} _) -> readSock connection fragmentsHM
     _ -> deleteConnectionFromHashMap(Conn.connectionId connection)
@@ -214,13 +217,13 @@ readHandshakeInitSock sock = do
   either throwIO return parcel
 
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
-readHandshakeRespSock :: Socket -> SecretKey -> IO Parcel
-readHandshakeRespSock sock sk = do
+readHandshakeRespSock :: MVar Int -> Socket -> SecretKey -> IO Parcel
+readHandshakeRespSock writeLock sock sk = do
   parcelOrFail <- getParcelWithTimeout sock 30000000
   case parcelOrFail of
     Left (AriviDeserialiseException e) ->
       do
-        sendFrame sock $ BSLC.pack (displayException e)
+        sendFrame writeLock sock $ BSLC.pack (displayException e)
         throw $ AriviDeserialiseException e
     Left e -> throw e
     Right hsRespParcel ->
@@ -236,3 +239,13 @@ deleteConnectionFromHashMap connId = do
   ariviInstance <- getAriviNetworkInstance
   let tv = connectionMap ariviInstance
   liftIO $ atomically $ modifyTVar tv (HM.delete connId)
+
+-- Helper Functions
+recvAll :: Socket
+        -> Int64
+        -> IO BSL.ByteString
+recvAll sock len = do
+  msg <- N.recv sock len
+  if BSL.length msg == len
+     then return msg
+     else BSL.append msg <$> recvAll sock (len - BSL.length msg)

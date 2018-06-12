@@ -62,11 +62,9 @@ library
                        Arivi.Network.Datagram
                        Arivi.Network.Fragmenter
                        Arivi.Network.ConnectionHandler
-                       Arivi.Network.FSM
                        Arivi.Network.Handshake
                        Arivi.Network.HandshakeUtils
                        Arivi.Network.Instance
-                       Arivi.Network.OutboundDispatcher
                        Arivi.Network.Reassembler
                        Arivi.Network.StreamClient
                        Arivi.Network.StreamServer

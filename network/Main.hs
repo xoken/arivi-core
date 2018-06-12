@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -9,24 +10,23 @@ import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Logging
-import           Arivi.Network.Connection           (Connection (..),
-                                                     ConnectionId)
+import           Arivi.Network.Connection           (CompleteConnection, ConnectionId)
 import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
 import qualified Arivi.Network.Types                as ANT (PersonalityType (INITIATOR),
                                                             TransportType (TCP))
 import           Control.Concurrent                 (threadDelay)
 import           Control.Concurrent.Async
-import qualified Control.Concurrent.Async.Lifted    as LA
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.HashTable.IO                  as MutableHashMap (new)
 -- import           Arivi.Network.Datagram             (createUDPSocket)
-import           Data.ByteString.Char8              (pack)
-import           Data.ByteString.Lazy               (ByteString, fromStrict)
+import           Data.ByteString.Lazy           as BSL    (ByteString)
+import           Data.ByteString.Lazy.Char8     as BSLC   (pack)
 import           Data.Time
-import           Debug.Trace
+import Control.Exception
+import System.Environment (getArgs)
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
@@ -50,12 +50,12 @@ runAppM = flip runReaderT
 
 
 
-sender :: SecretKey -> SecretKey -> IO ()
-sender sk rk = do
+sender :: SecretKey -> SecretKey -> Int -> Int -> IO ()
+sender sk rk n size = do
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap <- MutableHashMap.new
-                                    :: IO (HashTable ConnectionId Connection)
+                                    :: IO (HashTable ConnectionId CompleteConnection)
   env' <- mkAriviEnv
   let env = env' { ariviCryptoEnv = CryptoEnv sk
                  , loggerChan = tq
@@ -66,18 +66,14 @@ sender sk rk = do
 
                                        let ha = "127.0.0.1"
                                        cidOrFail <- openConnection ha 8083 ANT.TCP (generateNodeId rk) ANT.INITIATOR
-                                       cidOrFail1 <- openConnection ha 8082 ANT.TCP (generateNodeId rk) ANT.INITIATOR
                                        case cidOrFail of
-                                          Left e ->  (return())
+                                          Left e -> throw e
                                           Right cid -> do
-                                            case cidOrFail1 of
-                                              Left e -> return ()
-                                              Right cid1 -> do
-                                                time <- liftIO $ getCurrentTime
-                                                liftIO $ print time
-                                                mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid1 a)) [1..2000]
-                                                time2 <- liftIO $ getCurrentTime
-                                                liftIO $ print time2
+                                            time <- liftIO $ getCurrentTime
+                                            liftIO $ print time
+                                            mapM_ (\_ -> (sendMessage cid (a size))) [1..n]
+                                            time2 <- liftIO $ getCurrentTime
+                                            liftIO $ print time2
                                        liftIO $ print "done"
                                    )
 receiver :: SecretKey -> IO ()
@@ -85,7 +81,7 @@ receiver sk = do
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap1 <- MutableHashMap.new
-                                    :: IO (HashTable ConnectionId Connection)
+                                    :: IO (HashTable ConnectionId CompleteConnection)
   env' <- mkAriviEnv
   let env = env' { ariviCryptoEnv = CryptoEnv sk
                  , loggerChan = tq
@@ -93,39 +89,17 @@ receiver sk = do
                  , udpConnectionHashMap = mutableConnectionHashMap1
                  }
   runStdoutLoggingT $ runAppM env (
-                                       runTCPserver (show (envPort env))
-                                  )
-
-
-receiver1 :: SecretKey -> IO ()
-receiver1 sk = do
-  tq <- newTQueueIO :: IO LogChan
-  -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
-  mutableConnectionHashMap1 <- MutableHashMap.new
-                                    :: IO (HashTable ConnectionId Connection)
-  env' <- mkAriviEnv
-  let env = env' { ariviCryptoEnv = CryptoEnv sk
-                 , loggerChan = tq
-                 -- , udpSocket = sock
-                 , udpConnectionHashMap = mutableConnectionHashMap1
-                 , envPort = 8082
-                 }
-  runStdoutLoggingT $ runAppM env (
-                                       runTCPserver (show (envPort env))
+                                       runTCPServer (show (envPort env))
                                   )
 
 main :: IO ()
 main = do
+  [size, n] <- getArgs
   (sender_sk, _) <- generateKeyPair
   (recv_sk, _) <- generateKeyPair
-  a <- (receiver recv_sk) `concurrently` (threadDelay 1000000 >> sender sender_sk recv_sk) `concurrently` (receiver1 recv_sk)
-  print a
+  _ <- (receiver recv_sk) `concurrently` (threadDelay 1000000 >> sender sender_sk recv_sk (read n) (read size))
   threadDelay 1000000000000
   return ()
 
-a :: ByteString
-a = fromStrict (pack (take 1000 $ repeat 'a'))
-
-
-a' :: ByteString
-a' = fromStrict (pack (take 1000 $ repeat 'A'))
+a :: Int -> BSL.ByteString
+a n = BSLC.pack (replicate n 'a')
