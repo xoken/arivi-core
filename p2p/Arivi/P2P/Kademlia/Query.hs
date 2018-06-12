@@ -1,7 +1,6 @@
 -- {-# LANGUAGE MagicHash #-}
 module Arivi.P2P.Kademlia.Query
 (
-queryKBucket,
 isNodeInKbucket,
 getAvailablePeer
  ) where
@@ -65,43 +64,43 @@ isNodeInKbucket kbChan nodeId kbi = do
 
     if nodeId `elem` temp3 then return True else return False
 
--- | Function responsible for querying K-buckets to return K-closest peers to
---   FIND_NODE issuer
-queryKBucket :: HasAriviNetworkInstance m => T.NodeId
-             -> T.NodeId
-             -> Int
-             -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
-             -> ANT.ConnectionId
-             -> SecretKey
-             -> Word32
-             -> m ()
+-- -- | Function responsible for querying K-buckets to return K-closest peers to
+-- --   FIND_NODE issuer
+-- queryKBucket :: T.NodeId -- HasAriviNetworkInstance m =>
+--              -> T.NodeId
+--              -> Int
+--              -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
+--              -> ANT.ConnectionId
+--              -> SecretKey
+--              -> Word32
+--              -> IO () -- m ()
 
-queryKBucket localNodeId targetNodeId k kbChan ariviConnectionId sk sequ = do
-    -- ! See if this block is required anymore
-    -- let dis = Data.ByteArray.xor (localNodeId :: PublicKey)
-    --             (targetNodeId :: PublicKey) :: C.ByteString
-    --     kbi = I# (integerLog2# (bs2i dis))
+-- queryKBucket localNodeId targetNodeId k kbChan ariviConnectionId sk sequ = do
+--     -- ! See if this block is required anymore
+--     -- let dis = Data.ByteArray.xor (localNodeId :: PublicKey)
+--     --             (targetNodeId :: PublicKey) :: C.ByteString
+--     --     kbi = I# (integerLog2# (bs2i dis))
 
-    -- TODO extract localsock from connection id
-    let localSock = undefined
+--     -- TODO extract localsock from connection id
+--     let localSock = undefined
 
-    msg <- liftIO $ atomically $ peekTChan kbChan
-    let keys = Map.keys msg
-        temp = keys
+--     msg <- liftIO $ atomically $ peekTChan kbChan
+--     let keys = Map.keys msg
+--         temp = keys
 
-    let peerList2    = getPeerListFromKeyList temp k msg
-        tempfromep   = T.NodeEndPoint (sockAddrToHostAddr localSock)
-                        (sockAddrToPortNumber localSock)
-                        (sockAddrToPortNumber localSock)
-        peerList     = L.deleteBy (\(x,_) (a,_) -> a==x)
-                        (targetNodeId,tempfromep) peerList2
+--     let peerList2    = getPeerListFromKeyList temp k msg
+--         tempfromep   = T.NodeEndPoint (sockAddrToHostAddr localSock)
+--                         (sockAddrToPortNumber localSock)
+--                         (sockAddrToPortNumber localSock)
+--         peerList     = L.deleteBy (\(x,_) (a,_) -> a==x)
+--                         (targetNodeId,tempfromep) peerList2
 
-    -- TODO replace `1` in below line with a valid sequence
-    let payl = T.packFnR localNodeId sk localSock peerList sequ
+--     -- TODO replace `1` in below line with a valid sequence
+--     let payl = T.packFnR localNodeId sk localSock peerList sequ
 
-    -- sends k-closest node back to the node making find_node request
-    sendMessage ariviConnectionId $ serialise payl
-
+--     -- sends k-closest node back to the node making find_node request
+--     -- sendMessage ariviConnectionId $ serialise payl
+--     print ""
 
 
 

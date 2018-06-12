@@ -2,7 +2,6 @@
 
 module Arivi.P2P.Kademlia.Node
   (
-    messageHandler,
     loadDefaultPeers,
     addToKbChan,
     maintainPendingResChan
@@ -38,120 +37,6 @@ import qualified Data.Time.Clock.POSIX             as Clock (POSIXTime,
                                                              getPOSIXTime)
 import           GHC.Exts
 import           GHC.Integer.Logarithms
--- | Process all the incoming messages to server and write the response to
---   outboundChan whenever a findNode message is recieved it write that peer to
---   peerChan
--- TODO implement the logger functionality
-messageHandler :: HasAriviNetworkInstance m => T.NodeId
-               -> SecretKey
-               -> ANT.ConnectionId
-               -> T.PayLoad
-               -> TChan ((T.NodeId,T.NodeEndPoint),Int)
-               -> TChan (Map.Map Int [(T.NodeId,T.NodeEndPoint)])
-               -> TChan (Map.Map C.ByteString [(T.Sequence,Clock.POSIXTime)])
-               -> Chan (Loc, LogSource, LogLevel, LogStr)
-               -> Int
-               -> Int
-               -> m ThreadId
-
-messageHandler nodeId sk ariviConnectionId msg peerChan kbChan pendingResChan logChan
-    k workerId = CCL.fork $ forever $ do
-
-        ts <- liftIO Clock.getPOSIXTime
-
-        -- TODO replace `1` below with a valid sequence
-        let localSock = undefined
-
-        ariviConnection <- lookupCId ariviConnectionId
-
-        let remotePort  = port ariviConnection
-            remoteIp    = stringToHostAddress $ ipAddress ariviConnection
-            rs          = convToSockAddr remotePort remoteIp
-
-        let incMsg          = msg
-            remoteSock      = rs
-            senderNodeId    = T.nodeId (T.messageBody(T.message incMsg))
-            senderEndPoint  = T.fromEndPoint (T.messageBody(T.message incMsg))
-            senderPublicKey = senderNodeId :: PublicKey
-            msgSeq          = T.sequence (T.message incMsg)
-
-            dis             =  Data.ByteArray.xor senderNodeId nodeId
-                                :: C.ByteString
-            kbi             = I# (integerLog2# (bs2i dis))
-
-        case T.messageType (T.message incMsg)  of
-
-            -- handles the case when message type is MSG01 i.e PING
-            T.MSG01 -> do
-                let payl = T.packPong nodeId sk localSock 1
-                sendMessage ariviConnectionId $ serialise payl
-                -- liftIO $ print ""
-
-            -- handles the case when message type is MSG02 i.e PONG
-            T.MSG02 -> do
-                let payl = T.packPing nodeId sk localSock 1
-                sendMessage ariviConnectionId $ serialise payl
-                -- liftIO $ print ""
-
-            -- handles the case when message type is MSG03 i.e FIND_NODE
-            -- Adds peer issuing FIND_NODE to it's appropriate k-bucket
-            T.MSG03 -> do
-                liftIO $ atomically $ writeTChan peerChan
-                    ((senderNodeId,senderEndPoint),kbi)
-
-                -- Queries k-buckets and send k-closest buckets
-                liftIO $ threadDelay 1000
-                Q.queryKBucket nodeId senderNodeId k kbChan
-                    ariviConnectionId sk 1
-
-            -- handles the case when message type is MSG04 i.e FN_RESP
-            T.MSG04 -> do
-                let plist   = T.peerList (T.messageBody(T.message incMsg))
-                    kbil    = map (extractDistance nodeId) plist
-                (isValidRequest,tstemp) <- liftIO $ checkResponseValidity
-                    pendingResChan (senderNodeId,msgSeq)
-                if isValidRequest then
-                    do
-                        liftIO $ atomically $ mapM_ (writeTChan peerChan) kbil
-                        if isPlistFilled plist then
-                                if isExpired ts tstemp 10 then
-                                    do
-                                        temp <- liftIO $
-                                            replicateM (Prelude.length plist)
-                                            getRandomSequence
-                                        let payl         = Prelude.map
-                                                            (T.packFindMsg
-                                                            nodeId sk localSock
-                                                             nodeId)
-                                                             temp
-                                            repl         =  Prelude.replicate
-                                                            (Prelude.length
-                                                            plist)
-                                            sockAddrList = Prelude.map (\ x ->
-                                                            getSockAddr
-                                                            (T.nodeIp x)
-                                                            (T.udpPort x))
-                                            tempm        =  zip payl
-                                                            (Prelude.map fst
-                                                             plist )
-
-                                        liftIO $ mapM_ (addToPendingResChan
-                                                            pendingResChan)
-                                                            tempm
-                                        -- TODO import sendMesage from Arivi.Network
-                                        -- liftIO $ mapM_ (Arivi.send)
-                                        -- (zip payl sockAddrList)
-                                        liftIO $ print ""
-                                    else liftIO $ print ""
-
-                        else do
-                                    liftIO $ print "Cannot Send FIND_NODE becasueof empty FN_RESP"
-                                    liftIO $ putStrLn ""
-
-                else
-                    do
-                        liftIO $ print "Invalid/timed out message OR empty pendingResChan"
-                        liftIO $ putStrLn ""
 
 isPlistFilled :: Foldable t => t a -> Bool
 isPlistFilled plist
