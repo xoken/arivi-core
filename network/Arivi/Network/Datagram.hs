@@ -14,7 +14,7 @@ import           Arivi.Env                          (HasAriviNetworkInstance,
                                                      getAriviNetworkInstance,
                                                      getSecretKey)
 import           Arivi.Logging                      (HasLogging)
-import qualified Arivi.Network.Connection           as Conn (Connection (..))
+import qualified Arivi.Network.Connection           as Conn (Connection (..), HandshakeStatus (..))
 import           Arivi.Network.Handshake            (recipientHandshake)
 import           Arivi.Network.Types                (AeadNonce, ConnectionId,
                                                      Header (..), Parcel (..),
@@ -97,11 +97,11 @@ handleUDPInboundConnection :: (HasAriviNetworkInstance m
                            => Conn.Connection
                            -> m ()
 handleUDPInboundConnection connection =   do
-    isHandshakeComplete <- liftIO $ readTVarIO (Conn.handshakeComplete connection)
+    handshakeStatus <- liftIO $ readTVarIO (Conn.handshakeComplete connection)
 
     parcel <- liftIO $ atomically $ readTChan (Conn.reassemblyTChan connection)
 
-    if not isHandshakeComplete
+    if handshakeStatus /= Conn.HandshakeDone
         then do
           -- doHandshake
               sk <- getSecretKey
@@ -120,7 +120,8 @@ handleUDPInboundConnection connection =   do
 
 
               liftIO $ atomically $ writeTVar
-                                      (Conn.handshakeComplete updatedConn) True
+                                      (Conn.handshakeComplete updatedConn)
+                                          Conn.HandshakeDone
 
               liftIO $ atomically $ modifyTVar hashMapTVar
                                                     (StrictHashMap.insert cid
@@ -183,7 +184,7 @@ runUDPServerForever mSocket = do
                                                               parcel
 
                                 p2pMsgTChan <- atomically newTChan
-                                hsCompleteTVar <- newTVarIO False
+                                hsCompleteTVar <- newTVarIO Conn.HandshakeNotStarted
                                 let connection = Conn.Connection
                                                { Conn.connectionId = cid
                                                , Conn.ipAddress = mIpAddress
