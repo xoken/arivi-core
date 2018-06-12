@@ -26,7 +26,7 @@ data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
                                                          --   client Socket for
                                                          --   ALL connections
                          , udpConnectionHashMap :: HashTable ConnectionId
-                                                                    Connection
+                                                                    CompleteConnection
                          }
 
 data CryptoEnv = CryptoEnv { cryptoEnvSercretKey :: Ed25519.SecretKey
@@ -54,7 +54,7 @@ mkAriviEnv = do
                   }
 
 data AriviNetworkInstance = AriviNetworkInstance {
-  ariviNetworkConnectionMap   :: TVar (HashMap ConnectionId Connection),
+  ariviNetworkConnectionMap   :: TVar (HashMap ConnectionId CompleteConnection),
   ariviConnectionUpdatesTChan :: TChan (ConnectionId, String)
                                                  }
 
@@ -64,7 +64,7 @@ mkAriviNetworkInstance = do
   return AriviNetworkInstance { ariviNetworkConnectionMap = tv }
 
 connectionMap :: AriviNetworkInstance
-              -> TVar (HashMap ConnectionId Connection)
+              -> TVar (HashMap ConnectionId CompleteConnection)
 connectionMap = ariviNetworkConnectionMap
 
 

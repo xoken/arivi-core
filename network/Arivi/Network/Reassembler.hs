@@ -20,7 +20,7 @@ module Arivi.Network.Reassembler
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
 import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg)
-import           Arivi.Network.Connection           (Connection (..))
+import           Arivi.Network.Connection           (p2pMessageTChan, sharedSecret, CompleteConnection)
 import           Arivi.Network.Types                (Header (..), MessageId,
                                                      Parcel (..), Payload (..),
                                                      serialise)
@@ -34,18 +34,15 @@ import qualified Data.HashMap.Strict                as StrictHashMap (HashMap,
                                                                       delete,
                                                                       insert,
                                                                       lookup)
-import           Data.Int                           (Int64)
 import           Data.Maybe                         (fromMaybe)
 import           Debug.Trace
-type AEADNonce = Int64
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
 --   list of fragmentsHashMap
-reassembleFrames::
-                  Connection
-               -> Parcel
-               -> StrictHashMap.HashMap MessageId Lazy.ByteString
-               -> STM (StrictHashMap.HashMap MessageId Lazy.ByteString)
+reassembleFrames :: CompleteConnection
+                 -> Parcel
+                 -> StrictHashMap.HashMap MessageId Lazy.ByteString
+                 -> STM (StrictHashMap.HashMap MessageId Lazy.ByteString)
 
 reassembleFrames connection parcel fragmentsHashMap = do
     -- throw AriviTimeoutException
@@ -72,6 +69,7 @@ reassembleFrames connection parcel fragmentsHashMap = do
     if currentFragmentNo ==  totalFragements (header parcel)
       then
         do
+           traceShow "appendedMessage" (return ())
            writeTChan (p2pMessageTChan connection) appendedMessage
            let updatedFragmentsHashMap = StrictHashMap.delete messageIdNo
                                                               fragmentsHashMap

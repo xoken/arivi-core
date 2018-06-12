@@ -74,11 +74,11 @@ type ContextID      = Int
 -- type ServiceContext = Int32
 type SerialisedMsg = BSL.ByteString
 
-type SequenceNum = Integer -- ^ TODO Control.Concurrent.STM.Counter
+type SequenceNum = Int64 -- ^ TODO Control.Concurrent.STM.Counter
 -- | Following are the ranges for the aead nonces
 type AeadNonce = Int64
 -- | This is the nonce for preventing replays. Don't need ranges for sender and receiver
-type Nonce = Integer
+type Nonce = Int64
 type NodeId = ByteString
 type PlainText = ByteString
 type CipherText = ByteString

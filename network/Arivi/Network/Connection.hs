@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE EmptyDataDecls #-}
 -- |
 -- Module      :  Arivi.Network.Connection
 -- Copyright   :
@@ -13,7 +14,25 @@
 module Arivi.Network.Connection
 (
     ConnectionId
-  , Connection (..)
+  , CompleteConnection
+  , IncompleteConnection
+  , mkIncompleteConnection
+  , mkIncompleteConnection'
+  , mkCompleteConnection
+  , connectionId
+  , remoteNodeId
+  , ipAddress
+  , port
+  , transportType
+  , personalityType
+  , socket
+  , waitWrite
+  , sharedSecret
+  , remoteSockAddr
+  , p2pMessageTChan
+  , egressSeqNum
+  , ingressSeqNum
+  , aeadNonceCounter
   , concatenate
   , genConnectionId
   , makeConnectionId
@@ -21,17 +40,10 @@ module Arivi.Network.Connection
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Types                (AeadNonce, ConnectionId,
-                                                     Event (..), NodeId,
-                                                     OutboundFragment,
-                                                     Parcel (..),
-                                                     PersonalityType (..),
-                                                     PortNumber, SequenceNum,
-                                                     TransportType)
+import           Arivi.Network.Types                (AeadNonce, ConnectionId, NodeId, PersonalityType (..), PortNumber, SequenceNum, TransportType)
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
-import qualified Crypto.PubKey.Curve25519           as Curve25519
-import qualified Crypto.PubKey.Ed25519              as Ed25519
+import           Control.Concurrent.MVar            (MVar, newMVar)
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
 import qualified Data.ByteString.Lazy               as L
@@ -40,24 +52,60 @@ import qualified Network.Socket                     as Network (HostName,
                                                                 SockAddr,
                                                                 Socket)
 
-data Connection = Connection {
-                          connectionId     :: ConnectionId
-                        , remoteNodeId     :: NodeId
-                        , ipAddress        :: Network.HostName
-                        , port             :: PortNumber
-                        , ephemeralPubKey  :: Curve25519.PublicKey
-                        , ephemeralPrivKey :: Ed25519.SecretKey
-                        , transportType    :: TransportType
-                        , personalityType  :: PersonalityType
-                        , socket           :: Network.Socket
-                        , sharedSecret     :: Keys.SharedSecret
-                        , remoteSockAddr   :: Network.SockAddr
-                        , reassemblyTChan  :: TChan Parcel
-                        , p2pMessageTChan  :: TChan L.ByteString
-                        , egressSeqNum     :: TVar SequenceNum
-                        , ingressSeqNum    :: TVar SequenceNum-- need not be TVar
-                        , aeadNonceCounter :: TVar AeadNonce
-                        } deriving (Eq, Generic)
+data Connection a = Connection {
+                            connectionId     :: ConnectionId
+                          , remoteNodeId     :: NodeId
+                          , ipAddress        :: Network.HostName
+                          , port             :: PortNumber
+                          , transportType    :: TransportType
+                          , personalityType  :: PersonalityType
+                          , socket           :: Network.Socket
+                          , waitWrite        :: MVar Int
+                          , _cSharedSecret   :: Keys.SharedSecret
+                          , remoteSockAddr   :: Network.SockAddr
+                          , p2pMessageTChan  :: TChan L.ByteString
+                          , egressSeqNum     :: TVar SequenceNum
+                          , ingressSeqNum    :: TVar SequenceNum-- need not be TVar
+                          , aeadNonceCounter :: TVar AeadNonce
+                          } deriving (Eq, Generic)
+
+data Complete
+data Incomplete
+
+type IncompleteConnection = Connection Incomplete
+type CompleteConnection   = Connection Complete
+
+mkIncompleteConnection :: ConnectionId -> NodeId -> Network.HostName -> PortNumber -> TransportType -> PersonalityType -> Network.Socket -> AeadNonce -> IO (IncompleteConnection)
+mkIncompleteConnection cid rnid host portNum tt pt sock nonce = do
+  msgChan    <- newTChanIO
+  egressNum  <- newTVarIO 0
+  ingressNum <- newTVarIO 0
+  aeadNonce  <- newTVarIO nonce
+  writeLock  <- newMVar 0
+  return Connection { connectionId     = cid
+                    , remoteNodeId     = rnid
+                    , ipAddress        = host
+                    , port             = portNum
+                    , transportType    = tt
+                    , personalityType  = pt
+                    , socket           = sock
+                    , waitWrite        = writeLock
+                    , p2pMessageTChan  = msgChan
+                    , egressSeqNum     = egressNum
+                    , ingressSeqNum    = ingressNum
+                    , aeadNonceCounter = aeadNonce
+                    }
+
+mkIncompleteConnection' :: Connection Incomplete
+mkIncompleteConnection' = Connection {}
+
+mkCompleteConnection :: Connection Incomplete -> Keys.SharedSecret -> CompleteConnection
+mkCompleteConnection connection ssk =
+  connection { _cSharedSecret = ssk
+             }
+
+sharedSecret :: Connection Complete -> Keys.SharedSecret
+sharedSecret = _cSharedSecret
 
 -- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString
 -- generation
@@ -85,4 +133,3 @@ makeConnectionId mIpAddress mPort mTransportType =
                                                      ++ show mPort
                                                      ++ "|"
                                                      ++ show mTransportType
-
