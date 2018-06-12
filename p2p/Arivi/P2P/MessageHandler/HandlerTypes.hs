@@ -33,7 +33,7 @@ import              Data.ByteString.Char8       as Char8 (ByteString)
 import              Data.HashMap.Strict         as HM
 import              Data.Hashable
 
-import           Arivi.Network.Types            (NodeId)
+import           Arivi.Network.Types            (NodeId,ConnectionId,TransportType)
 
 --import Arivi.P2P.Types
 type IP = String
@@ -61,6 +61,9 @@ type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 type PeerUUIDMap = HM.HashMap Peer (TVar UUIDMap)
 
 type MessageInfo = (P2PUUID, Message)
+
+
+type PeerConnectionMap = HM.HashMap (Peer, TransportType) (ConnectionId, Bool)
 {-
 PeerToUUIDMap =
 TVar( HashMap[ NodeId->TVar( HashMap[ UUID->MVar] ) ] )

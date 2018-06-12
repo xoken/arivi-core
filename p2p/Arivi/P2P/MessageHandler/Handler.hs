@@ -151,7 +151,16 @@ readRequest peer transportType =
                                 putMVar mVar networkMessage
 
 
-
+--newIncomingConnection :: (HasP2PEnv m ) => m()
+--newIncomingConnection =
+    --forever $ do
+        {--}
+{-
+call getnewconnection from ANP,  this return connId
+when it returns add it to PeerConnectionMapTVar with a value true
+fork a readRequest on the particular connId you get from ANP
+repeat
+-}
 
 
 
