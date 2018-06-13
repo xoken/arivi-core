@@ -19,9 +19,10 @@ module Arivi.P2P.Kademlia.Kbucket
     Kbucket (..),
     Peer (..),
     createKbucket,
-    ifPeerExist,
+    getDefaultNodeId,
     getPeerList,
     getPeerListByKIndex,
+    ifPeerExist,
     addToKBucket,
     removePeer
   ) where
@@ -64,6 +65,18 @@ createKbucket localPeer = do
   H.insert m 0 [localPeer]
   return (Kbucket m)
 
+
+-- | Gets default peer relative to which all the peers are stores in Kbucket
+--   hash table based on XorDistance
+getDefaultNodeId :: Kbucket Int [Peer] -> IO (Either AriviException T.NodeId)
+getDefaultNodeId kbucket = do
+  let kb = getKbucket kbucket
+  lp <- H.lookup kb 0
+  let localPeer = fromMaybe [] lp
+  if null localPeer
+    then return $ Left KademliaDefaultPeerDoesNotExists
+    else return $ Right $ fst $ getPeer $ head localPeer
+
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 -- given peer with respect to the default peer or local peer for which
 -- the kbucket is created. If peer doesn't exist it returns an empty list
@@ -71,19 +84,20 @@ getPeerList :: Peer
             -> Kbucket Int [Peer]
             -> IO (Either AriviException [Peer])
 getPeerList peerR kbucket = do
-  let kb = getKbucket kbucket
-  lp <- H.lookup kb 0
-  let localPeer  = fst $ getPeer $ head $ fromMaybe [] lp
-      peer       = fst $ getPeer peerR
-      kbDistance = getKbIndex localPeer peer
+  lp <- getDefaultNodeId kbucket
+  case lp of
+    Right localPeer ->  do
+                            let peer       = fst $ getPeer peerR
+                                kbDistance = getKbIndex localPeer peer
+                            pl <- H.lookup (getKbucket kbucket) kbDistance
+                            let peerList = fromMaybe [] pl
+                            case peerList of
+                              [] -> return $ Left KademliaInvalidPeer
+                              _  -> return $ Right peerList
 
-  pl <- H.lookup kb kbDistance
-  let peerList = fromMaybe [] pl
-  case peerList of
-    [] -> return $ Left KademliaInvalidPeer
-    _  -> return $ Right peerList
+    Left _          -> return $ Left KademliaDefaultPeerDoesNotExists
 
--- | gets Peer by Kbucket-Index (kb-index) Index
+-- -- | gets Peer by Kbucket-Index (kb-index) Index
 getPeerListByKIndex :: Int
                     -> Kbucket Int [Peer]
                     -> IO (Either AriviException [Peer])
@@ -94,7 +108,7 @@ getPeerListByKIndex kbi kbucket = do
     [] -> return $ Left KademliaKbIndexDoesNotExist
     _  -> return $ Right pl
 
--- checks if a peer already exists
+-- -- checks if a peer already exists
 ifPeerExist :: Peer
             -> Kbucket Int [Peer]
             -> IO (Either AriviException Bool)
@@ -112,40 +126,40 @@ addToKBucket :: Peer
              -> Kbucket Int [Peer]
              -> IO (Either AriviException (IO()))
 addToKBucket peerR kbucket = do
-  peerList <- getPeerList peerR kbucket
-  case peerList of
-    Right pl -> do
-      let kb = getKbucket kbucket
-      lp <- H.lookup kb 0
-      let localPeer  = fst $ getPeer $ head $ fromMaybe [] lp
-          peer       = fst $ getPeer peerR
-          kbDistance = getKbIndex localPeer peer
-      if peerR `elem` pl
-        then return $ Right $ H.insert kb kbDistance (pl ++ [peerR])
-        else return $ Right $ H.insert kb kbDistance [peerR]
+  lp <- getDefaultNodeId kbucket
+  case lp of
+    Right localPeer -> do
+      peerList <- getPeerList peerR kbucket
+      case peerList of
+        Right pl -> do
+          let kb = getKbucket kbucket
+          let peer       = fst $ getPeer peerR
+              kbDistance = getKbIndex localPeer peer
+          if peerR `elem` pl
+            then return $ Right $ H.insert kb kbDistance (pl ++ [peerR])
+            else return $ Right $ H.insert kb kbDistance [peerR]
 
-    Left _ -> return $ Left KademliaInvalidPeer
+        Left _ -> return $ Left KademliaInvalidPeer
 
+    Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
+
+-- | Removes a given peer from kbucket
 removePeer :: Peer
            -> Kbucket Int [Peer]
            -> IO (Either AriviException (IO()))
 removePeer peerR kbucket = do
-  peerList <- getPeerList peerR kbucket
-  case peerList of
-    Right pl -> do
-      let kb = getKbucket kbucket
-      lp <- H.lookup kb 0
-      let localPeer  = fst $ getPeer $ head $ fromMaybe [] lp
-          peer       = fst $ getPeer peerR
-          kbDistance = getKbIndex localPeer peer
-      if peerR `elem` pl
-        then return $ Right $ H.insert kb kbDistance (L.delete peerR pl)
-        else return $ Right $ H.insert kb kbDistance [peerR]
+  lp <- getDefaultNodeId kbucket
+  case lp of
+    Right localPeer -> do
+      peerList <- getPeerList peerR kbucket
+      case peerList of
+        Right pl -> do
+          let kb = getKbucket kbucket
+              peer       = fst $ getPeer peerR
+              kbDistance = getKbIndex localPeer peer
+          if peerR `elem` pl
+            then return $ Right $ H.insert kb kbDistance (L.delete peerR pl)
+            else return $ Right $ H.insert kb kbDistance [peerR]
 
-    Left _ -> return $ Left KademliaInvalidPeer
-
--- loadDefaulPeer :: Config
---                -> IO ()
--- loadDefaultPeer cfg = do
---   let fn = packFN
---   m <- sendRequest fn
+        Left _ -> return $ Left KademliaInvalidPeer
+    Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
