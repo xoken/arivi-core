@@ -9,10 +9,11 @@ readRequest
 )
 where
 import           Data.ByteString.Char8                 as Char8 (ByteString,
-                                                                 pack)
+                                                                 pack, unpack)
 import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
                                                                 toStrict)
 import           Data.HashMap.Strict                   as HM
+import           Data.List.Split                       (splitOn)
 
 import           Data.Maybe
 import qualified Data.UUID                             as UUID (toString)
@@ -32,8 +33,7 @@ import           Control.Monad.IO.Class                (liftIO)
 import           Codec.Serialise                       (deserialise, serialise)
 
 import           Arivi.Network.Connection              ()
-import           Arivi.Network.Types                   (ConnectionId, NodeId,
-                                                        TransportType (..))
+--import           Arivi.Network.Types                   (TransportType (..))
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 
@@ -75,10 +75,10 @@ sendRequest peer mCode message transportType =
                 )
             let
                 p2pMessage = generateP2PMessage mCode message newuuid
-                port = if UDP== transportType then peerUDPPort peer else peerTCPPort peer
+                port = if UDP== transportType then udpPort peer else tcpPort peer
             --need try
             res <- Exception.try $ do
-                let connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
+                let connId = openConnection (nodeId peer) (ip peer) port transportType
                 sendMessage connId (Lazy.toStrict $ serialise p2pMessage)
             case res of
                 Left( _ :: Exception.SomeException)-> return $ pack "000000"
@@ -128,27 +128,28 @@ readRequest peer transportType =
         liftIO $ do
             peerUUIDMap <- readTVarIO peerUUIDMapTVar
             let uuidMapTVar = fromJust (HM.lookup peer peerUUIDMap)
-                port = if UDP== transportType then peerUDPPort peer else peerTCPPort peer
-                connId = openConnection (peerNodeId peer) (peerIp peer) port transportType
+                port = if UDP== transportType then udpPort peer else tcpPort peer
+                connId = openConnection (nodeId peer) (ip peer) port transportType
             forever $ do
                 eitherByteMessage <- Exception.try  $ readMessage connId
                 case eitherByteMessage of
                     Left ( _ :: Exception.SomeException)-> return ()
-                    Right byteMessage -> do
-                        let networkMessage = (deserialise (Lazy.fromStrict byteMessage)) :: P2PMessage
-                        uuidMap <- atomically (readTVar uuidMapTVar)
-                        let temp = HM.lookup (uuid networkMessage) uuidMap
-                        if isNothing temp then
-                            do
-                                let newRequest = (uuid networkMessage, typeMessage networkMessage)
-                                case messageCode networkMessage of
-                                    Kademlia -> atomically (writeTQueue kademTQueue newRequest)
-                                    RPC -> atomically (writeTQueue rpcTQueue newRequest)
-                                    PubSub -> atomically (writeTQueue pubsubTQueue newRequest)
-                        else
-                            do
-                                let mVar = fromJust temp
-                                putMVar mVar networkMessage
+                    Right byteMessage ->
+                        do
+                            let networkMessage = (deserialise (Lazy.fromStrict byteMessage)) :: P2PMessage
+                            uuidMap <- atomically (readTVar uuidMapTVar)
+                            let temp = HM.lookup (uuid networkMessage) uuidMap
+                            if isNothing temp then
+                                do
+                                    let newRequest = (uuid networkMessage, typeMessage networkMessage)
+                                    case messageCode networkMessage of
+                                        Kademlia -> atomically (writeTQueue kademTQueue newRequest)
+                                        RPC -> atomically (writeTQueue rpcTQueue newRequest)
+                                        PubSub -> atomically (writeTQueue pubsubTQueue newRequest)
+                            else
+                                do
+                                    let mVar = fromJust temp
+                                    putMVar mVar networkMessage
 
 
 --newIncomingConnection :: (HasP2PEnv m ) => m()
@@ -177,6 +178,34 @@ generateP2PMessage mCode message1 uuid1 =
 
 getUUID :: IO P2PUUID
 getUUID = UUID.toString <$> nextRandom
+
+makeConnectionId :: NodeId
+                 -> IP
+                 -> Port
+                 -> TransportType
+                 -> ConnectionId
+makeConnectionId nodeId mIpAddress mPort mTransportType =
+
+                                            pack $  nodeId
+                                                     ++ "|"
+                                                     ++ mIpAddress
+                                                     ++ "|"
+                                                     ++ show mPort
+                                                     ++ "|"
+                                                     ++ show mTransportType
+
+getPeerInfo  :: ConnectionId -> ConnectionInfo
+getPeerInfo connId =
+
+        ConnectionInfo {
+            peerNodeId = read (infolist!!0) :: NodeId,
+            peerIp = read (infolist!!1) ::IP,
+            port = read (infolist!!2) ::Port,
+            transportType = read (infolist!!3) ::TransportType
+        }where  str = unpack connId
+                infolist = splitOn "|" str
+
+
 
 {-Dummy Functions========================================================-}
 
