@@ -34,6 +34,7 @@ import           Control.Monad
 import qualified Data.HashTable.IO              as H
 import qualified Data.List                      as L
 import           Data.Maybe
+
 -- | Peer information encapsulated in a single structure
 newtype Peer = Peer {
                         getPeer :: (T.NodeId,T.NodeEndPoint)
@@ -49,10 +50,6 @@ newtype Kbucket k v = Kbucket {
                       }
                       deriving (Show)
 
--- | creates a new kbucket
--- TODO define a new class called hasKademliaInstance which will make sure
--- TODO that only a valid kademlia instance  gets a kbucket
-
 -- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
 -- from it's own address is zero. This will help insert the new peers into
@@ -64,7 +61,6 @@ createKbucket localPeer = do
   m <- H.new
   H.insert m 0 [localPeer]
   return (Kbucket m)
-
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
@@ -163,3 +159,4 @@ removePeer peerR kbucket = do
 
         Left _ -> return $ Left KademliaInvalidPeer
     Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
+
