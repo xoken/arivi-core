@@ -60,6 +60,7 @@ library
                     ,  uuid
                     ,  arivi-network
                     ,  arivi-crypto
+                    ,  arivi-utils 
                     ,  hashable
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:

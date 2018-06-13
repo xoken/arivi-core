@@ -8,7 +8,7 @@
 -- Portability : portable
 --
 -- This module provides access to Kbucket which is responsible for storing
--- peers.
+-- peers, and other helper functions to work with kbucket.
 --
 
 {-# LANGUAGE FlexibleContexts    #-}
@@ -16,38 +16,43 @@
 
 module Arivi.P2P.Kademlia.Kbucket
   (
-    Kbucket,
-    Peer,
-    createKbucket
-    -- addToKBucket,
-    -- ifPeerExist
+    Kbucket (..),
+    Peer (..),
+    createKbucket,
+    ifPeerExist,
+    getPeerList,
+    getPeerListByKIndex,
+    addToKBucket,
+    removePeer
   ) where
 
-import qualified Arivi.P2P.Kademlia.Types as T
+import qualified Arivi.P2P.Kademlia.Types       as T
+import           Arivi.P2P.Kademlia.XorDistance
+import           Arivi.Utils.Exception
 import           Control.Monad
-import qualified Data.HashTable.IO        as H
+import qualified Data.HashTable.IO              as H
+import qualified Data.List                      as L
 import           Data.Maybe
-
--- Peer information encapsulated in a single structure
+-- | Peer information encapsulated in a single structure
 newtype Peer = Peer {
                         getPeer :: (T.NodeId,T.NodeEndPoint)
                       }
                       deriving (Show)
 
 instance Eq Peer where
-  Peer (x,y) == Peer (a,b) = a == x
+  Peer (x,_) == Peer (a,_) = a == x
 
--- K-bucket to store peers
+-- | K-bucket to store peers
 newtype Kbucket k v = Kbucket {
                         getKbucket :: H.CuckooHashTable k v
                       }
                       deriving (Show)
 
--- creates a new kbucket
+-- | creates a new kbucket
 -- TODO define a new class called hasKademliaInstance which will make sure
 -- TODO that only a valid kademlia instance  gets a kbucket
 
--- Creates a new K-bucket which is a mutable hash table, and inserts the local
+-- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
 -- from it's own address is zero. This will help insert the new peers into
 -- kbucket with respect to the local peer
@@ -59,28 +64,88 @@ createKbucket localPeer = do
   H.insert m 0 [localPeer]
   return (Kbucket m)
 
--- checks if a peer already exists for a given K-b index
-ifPeerExist :: Peer
+-- | Gives a peerList of which a peer is part of in kbucket hashtable for any
+-- given peer with respect to the default peer or local peer for which
+-- the kbucket is created. If peer doesn't exist it returns an empty list
+getPeerList :: Peer
             -> Kbucket Int [Peer]
-            -> IO Bool
-ifPeerExist peer kbucket = do
+            -> IO (Either AriviException [Peer])
+getPeerList peerR kbucket = do
   let kb = getKbucket kbucket
   lp <- H.lookup kb 0
-  -- TODO think of a better fallback case other than zero
-  let localPeer  = fromMaybe [] lp
-      -- TODO use getXorDistance
-      kbDistance = 1
+  let localPeer  = fst $ getPeer $ head $ fromMaybe [] lp
+      peer       = fst $ getPeer peerR
+      kbDistance = getKbIndex localPeer peer
+
   pl <- H.lookup kb kbDistance
   let peerList = fromMaybe [] pl
-  if peer `elem` peerList then return True else return False
+  case peerList of
+    [] -> return $ Left KademliaInvalidPeer
+    _  -> return $ Right peerList
 
+-- | gets Peer by Kbucket-Index (kb-index) Index
+getPeerListByKIndex :: Int
+                    -> Kbucket Int [Peer]
+                    -> IO (Either AriviException [Peer])
+getPeerListByKIndex kbi kbucket = do
+  peerl <- H.lookup (getKbucket kbucket) kbi
+  let pl = fromMaybe [] peerl
+  case pl of
+    [] -> return $ Left KademliaKbIndexDoesNotExist
+    _  -> return $ Right pl
 
+-- checks if a peer already exists
+ifPeerExist :: Peer
+            -> Kbucket Int [Peer]
+            -> IO (Either AriviException Bool)
+ifPeerExist peer kbucket = do
+  peerList <- getPeerList peer kbucket
+  case peerList of
+    Right pl  -> if peer `elem` pl
+                  then return (Right True)
+                  else return (Right False)
+    Left  _   -> return (Left KademliaInvalidPeer)
 
--- adds a peer to a kbucket
--- addToKBucket :: Int -> (T.NodeId,T.NodeEndPoint) -> Kbucket -> IO ()
--- addToKBucket kbi peer kb = do
---   pli <- H.lookup kb kbi
---   let pl = fromMaybe [] pli
---   Control.Monad.when (ifPeerExist peer pl) $ H.insert kb kbi pl
+-- |Adds a given peer to kbucket hash table by calculating the appropriate
+-- kbindex based on the XOR Distance.
+addToKBucket :: Peer
+             -> Kbucket Int [Peer]
+             -> IO (Either AriviException (IO()))
+addToKBucket peerR kbucket = do
+  peerList <- getPeerList peerR kbucket
+  case peerList of
+    Right pl -> do
+      let kb = getKbucket kbucket
+      lp <- H.lookup kb 0
+      let localPeer  = fst $ getPeer $ head $ fromMaybe [] lp
+          peer       = fst $ getPeer peerR
+          kbDistance = getKbIndex localPeer peer
+      if peerR `elem` pl
+        then return $ Right $ H.insert kb kbDistance (pl ++ [peerR])
+        else return $ Right $ H.insert kb kbDistance [peerR]
 
+    Left _ -> return $ Left KademliaInvalidPeer
 
+removePeer :: Peer
+           -> Kbucket Int [Peer]
+           -> IO (Either AriviException (IO()))
+removePeer peerR kbucket = do
+  peerList <- getPeerList peerR kbucket
+  case peerList of
+    Right pl -> do
+      let kb = getKbucket kbucket
+      lp <- H.lookup kb 0
+      let localPeer  = fst $ getPeer $ head $ fromMaybe [] lp
+          peer       = fst $ getPeer peerR
+          kbDistance = getKbIndex localPeer peer
+      if peerR `elem` pl
+        then return $ Right $ H.insert kb kbDistance (L.delete peerR pl)
+        else return $ Right $ H.insert kb kbDistance [peerR]
+
+    Left _ -> return $ Left KademliaInvalidPeer
+
+-- loadDefaulPeer :: Config
+--                -> IO ()
+-- loadDefaultPeer cfg = do
+--   let fn = packFN
+--   m <- sendRequest fn

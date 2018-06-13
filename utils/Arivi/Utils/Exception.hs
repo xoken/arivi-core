@@ -12,6 +12,10 @@ data AriviException =       AriviDeserialiseException DeserialiseFailure
                             | AriviSocketException
                             | AriviWrongParcelException
                             | AriviTimeoutException
-                            | AriviInvalidConnectionIdException deriving(Show)
+                            | AriviInvalidConnectionIdException
+                            | KademliaKbIndexDoesNotExist
+                            | KademliaInvalidPeer
+                            deriving(Show)
 
 instance Exception AriviException
+
