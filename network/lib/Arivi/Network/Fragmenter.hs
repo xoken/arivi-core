@@ -18,23 +18,19 @@ import           Control.Concurrent.STM             (STM, modifyTVar, readTVar)
 
 import qualified Data.ByteString.Char8              as B
 import qualified Data.ByteString.Lazy               as BSL
-import           Data.Int                           (Int16, Int64)
-import           Debug.Trace
--- | Convert GHC.Int64 to Data.Int.Int16
-fromInt64ToInt16 :: Int64 -> Int16
-fromInt64ToInt16 = fromIntegral
+import           Data.Int                           (Int64)
 
 
 -- | Hardcoded currently to 256 bytes
-getFragmentSize :: Int16
+getFragmentSize :: Int64
 getFragmentSize = 1024
 
-getFragmentCount :: Int16 -> Int16
-getFragmentCount payloadLength | payloadLength `mod` getFragmentSize == 0 =
-                                   quot payloadLength getFragmentSize
-                               | otherwise =
-                                   quot payloadLength getFragmentSize + 1
-
+getFragmentCount :: Int64 -> Int64
+getFragmentCount payloadLength
+   | payloadLength `mod` getFragmentSize == 0 =
+       quot payloadLength getFragmentSize
+   | otherwise =
+       quot payloadLength getFragmentSize + 1
 
 -- | This function is called in a different thread for each message
 processPayload :: Payload -> Conn.CompleteConnection -> IO [STM BSL.ByteString]
@@ -42,7 +38,7 @@ processPayload payload conn = do
     msgId <- generateMessageId
     let fragmentNum = 1 :: FragmentNumber
     -- Verify that converting payload length to Int16 and dividing won't cause problems
-    let fragmentCount = getFragmentCount (fromInt64ToInt16 (BSL.length (getPayload payload)))
+    let fragmentCount = getFragmentCount (BSL.length (getPayload payload))
     return $ fragmentPayload (getPayload payload) conn msgId fragmentNum fragmentCount
 
 
@@ -52,7 +48,7 @@ processFragment fragment conn msgId fragmentNum fragmentCount = do
     aeadNonce <- readTVar (Conn.aeadNonceCounter conn)
     egressNonce <- readTVar (Conn.egressSeqNum conn)
     let headerData = DataHeader msgId fragmentNum fragmentCount (Conn.connectionId conn) egressNonce aeadNonce
-    let encryptedData = encryptMsg aeadNonce (Conn.sharedSecret conn) (BSL.toStrict $ traceShow (BSL.length $ serialise headerData) (serialise headerData)) (BSL.toStrict fragment)
+    let encryptedData = encryptMsg aeadNonce (Conn.sharedSecret conn) (BSL.toStrict $ serialise headerData) (BSL.toStrict fragment)
     let parcel = Parcel headerData (Payload $ BSL.fromStrict encryptedData)
 
     modifyTVar (Conn.aeadNonceCounter conn) (+1)

@@ -65,7 +65,7 @@ type ConnectionId   = ByteString
 type SessionId      = Int32
 -- need to be changed to Int24
 -- type PayloadLength  = Int16
-type FragmentNumber = Int16
+type FragmentNumber = Int64
 -- type FragmentCount  = Int16
 type MessageId      = ByteString
 type ServiceId      = Int8
