@@ -122,6 +122,7 @@ openConnection addr port selfPort tt rnid pType = do
           sk <- getSecretKey
           socket <- liftIO $ createSocket addr port selfPort tt
           reassemblyChan <- liftIO (newTChanIO :: IO (TChan Parcel))
+          mHSBufferTChan <- liftIO (newTChanIO :: IO (TChan Parcel))
           p2pMsgTChan <- liftIO (newTChanIO :: IO (TChan ByteString))
           egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
           ingressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
@@ -138,6 +139,7 @@ openConnection addr port selfPort tt rnid pType = do
                                   ,  Conn.personalityType = pType
                                   ,  Conn.socket = socket
                                   ,  Conn.reassemblyTChan = reassemblyChan
+                                  ,  Conn.hsBufferTChan = mHSBufferTChan
                                   ,  Conn.p2pMessageTChan = p2pMsgTChan
                                   ,  Conn.egressSeqNum = egressNonce
                                   ,  Conn.ingressSeqNum = ingressNonce
@@ -195,14 +197,29 @@ sendMessage cId msg = do
     Nothing -> throw AriviInvalidConnectionIdException
     Just conn -> do
       let sock = Conn.socket conn
-      fragments <- liftIO $ processPayload (Payload msg) conn
+      case Conn.transportType conn of
+          TCP -> do
+                fragments <- liftIO $ processPayload (Payload msg) conn
 
-      mapM_ (\frame -> liftIO (atomically frame >>= (try.sendFrame sock))
-            >>= \case
-                     Left (_::SomeException) -> closeConnection cId
-                                             >> throw AriviSocketException
-                     Right _ -> return ()
-                     ) fragments
+                mapM_ (\frame -> liftIO (atomically frame >>= (try.sendFrame sock))
+                      >>= \case
+                               Left (_::SomeException) -> closeConnection cId
+                                                       >> throw AriviSocketException
+                               Right _ -> return ()
+                               ) fragments
+          UDP -> do
+                    serialisedParcel <- liftIO $ prepareDispatchParcel (Payload msg) conn
+                    parcelToDispatch <- liftIO $ atomically $ serialisedParcel
+                    liftIO $ sendUDPFrame (Conn.socket conn)
+                                        (Conn.remoteSockAddr conn)
+                                        (createUDPFrame parcelToDispatch)
+                    -- mapM_ (\frame -> liftIO (atomically frame >>= (try.sendFrame sock))
+                    --   >>= \case
+                    --            Left (_::SomeException) -> closeConnection cId
+                    --                                    >> throw AriviSocketException
+                    --            Right _ -> return ()
+                    --            ) serialisedParcel
+                    return ()
 
 
 closeConnection :: (HasAriviNetworkInstance m)

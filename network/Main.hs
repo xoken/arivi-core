@@ -89,15 +89,15 @@ sender sk rk = do
                                        --          mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid1 a)) [1..2]
                                        --          time2 <- liftIO $ getCurrentTime
                                        --          liftIO $ print time2
-
-                                       -- case cidOrFail of
-                                       --    Left e -> return ()
-                                       --    Right cid -> do
-                                       --      time <- liftIO $ getCurrentTime
-                                       --      liftIO $ print time
-                                       --      mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid a)) [1..2]
-                                       --      time2 <- liftIO $ getCurrentTime
-                                       --      liftIO $ print time2
+                                       case cidOrFail of
+                                          Left e -> return ()
+                                          Right cid -> do
+                                            traceShow cid (return())
+                                            time <- liftIO $ getCurrentTime
+                                            liftIO $ print time
+                                            mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid a)) [1..2]
+                                            time2 <- liftIO $ getCurrentTime
+                                            liftIO $ print time2
                                        liftIO $ print "done"
                                    )
 receiver :: SecretKey -> IO ()
