@@ -11,7 +11,11 @@ module Arivi.P2P.MessageHandler.HandlerTypes
   Message,
   UUIDMap,
   PeerUUIDMap,
-  MessageInfo
+  MessageInfo,
+  NodeId,
+  ConnectionId,
+  ConnectionInfo(..),
+  TransportType(..)
 {-
 
 -}
@@ -33,13 +37,15 @@ import              Data.ByteString.Char8       as Char8 (ByteString)
 import              Data.HashMap.Strict         as HM
 import              Data.Hashable
 
-import           Arivi.Network.Types            (NodeId,ConnectionId,TransportType)
+--import           Arivi.Network.Types            (TransportType(..))
 
 --import Arivi.P2P.Types
 type IP = String
 type Port = Int
+type NodeId = String
 type P2PUUID = String
 type Message = ByteString
+type ConnectionId = ByteString
 data P2PMessage = P2PMessage {
           uuid :: P2PUUID
         , messageCode :: MessageCode
@@ -49,21 +55,35 @@ instance Serialise P2PMessage
 data MessageCode = Kademlia | RPC | PubSub deriving(Eq,Ord,Show,Generic)
 instance Serialise MessageCode
 
-data Peer =  Peer {
+data ConnectionInfo =  ConnectionInfo {
     peerNodeId :: NodeId
   , peerIp:: IP
-  , peerUDPPort:: Port
-  , peerTCPPort:: Port
-} deriving(Eq,Ord,Show,Generic)
+  , port:: Port
+  , transportType ::TransportType
+} deriving(Eq,Show,Generic)
 
+data Peer =  Peer {
+    nodeId :: NodeId
+  , ip:: IP
+  , udpPort:: Port
+  , tcpPort:: Port
+} deriving(Eq,Show,Generic)
+
+data TransportType =
+  UDP
+  | TCP
+  deriving (Eq,Show,Generic, Read)
+
+instance Hashable TransportType
 instance Hashable Peer
+instance Hashable ConnectionInfo
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 type PeerUUIDMap = HM.HashMap Peer (TVar UUIDMap)
 
 type MessageInfo = (P2PUUID, Message)
 
 
-type PeerConnectionMap = HM.HashMap (Peer, TransportType) (ConnectionId, Bool)
+type ConnectionInfoMap = HM.HashMap ConnectionInfo Bool
 {-
 PeerToUUIDMap =
 TVar( HashMap[ NodeId->TVar( HashMap[ UUID->MVar] ) ] )
