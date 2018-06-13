@@ -114,7 +114,7 @@ ifPeerExist peer kbucket = do
     Right pl  -> if peer `elem` pl
                   then return (Right True)
                   else return (Right False)
-    Left  _   -> return (Left KademliaInvalidPeer)
+    Left  _   -> return (Left KademliaKbIndexDoesNotExist)
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 -- kbindex based on the XOR Distance.
