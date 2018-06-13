@@ -29,6 +29,7 @@ import qualified Control.Exception.Lifted              as Exception (SomeExcepti
                                                                      try)
 import           Control.Monad                         (forever)
 import           Control.Monad.IO.Class                (liftIO)
+import           Control.Monad.Trans
 
 import           Codec.Serialise                       (deserialise, serialise)
 
@@ -66,7 +67,7 @@ sendRequest peer mCode message transportType =
             peerUUIDMap <- readTVarIO peerUUIDMapTVar
             mvar <- newEmptyMVar ::IO (MVar P2PMessage)
             --need try  herefor formJust
-            let uuidMapTVar = fromJust (HM.lookup peer peerUUIDMap)
+            let uuidMapTVar = fromJust (HM.lookup (nodeId peer) peerUUIDMap)
             atomically (
                 do
                     a <- readTVar uuidMapTVar
@@ -118,38 +119,44 @@ else
         case PubSub -> put it in PubSubTChan
 -}
 
-readRequest :: (HasP2PEnv m ) => Peer -> TransportType -> m ()
-readRequest peer transportType =
+readRequest :: (HasP2PEnv m ) => ConnectionInfo -> m ()
+readRequest conInfo  =
     do
         peerUUIDMapTVar <- getpeerUUIDMapTVarP2PEnv
         kademTQueue <- getkademTQueueP2PEnv
         rpcTQueue <- getrpcTQueueP2PEnv
         pubsubTQueue <- getpubsubTQueueP2PEnv
+        tvarConnectionInfoMap <- getConnectionInfoMapTVarP2PEnv
         liftIO $ do
             peerUUIDMap <- readTVarIO peerUUIDMapTVar
-            let uuidMapTVar = fromJust (HM.lookup peer peerUUIDMap)
-                port = if UDP== transportType then udpPort peer else tcpPort peer
-                connId = openConnection (nodeId peer) (ip peer) port transportType
+            let pNodeId = peerNodeId conInfo
+                uuidMapTVar = fromJust (HM.lookup pNodeId peerUUIDMap)
+                pport = port conInfo
+                connId = makeConnectionId pNodeId (peerIp conInfo) pport (transportType conInfo)
             forever $ do
-                eitherByteMessage <- Exception.try  $ readMessage connId
-                case eitherByteMessage of
-                    Left ( _ :: Exception.SomeException)-> return ()
-                    Right byteMessage ->
-                        do
-                            let networkMessage = (deserialise (Lazy.fromStrict byteMessage)) :: P2PMessage
-                            uuidMap <- atomically (readTVar uuidMapTVar)
-                            let temp = HM.lookup (uuid networkMessage) uuidMap
-                            if isNothing temp then
-                                do
-                                    let newRequest = (uuid networkMessage, typeMessage networkMessage)
-                                    case messageCode networkMessage of
-                                        Kademlia -> atomically (writeTQueue kademTQueue newRequest)
-                                        RPC -> atomically (writeTQueue rpcTQueue newRequest)
-                                        PubSub -> atomically (writeTQueue pubsubTQueue newRequest)
-                            else
-                                do
-                                    let mVar = fromJust temp
-                                    putMVar mVar networkMessage
+                -- if checkConnection conInfo then do
+                    eitherByteMessage <- Exception.try  $ readMessage connId
+                    case eitherByteMessage of
+                        Left ( _ :: Exception.SomeException)-> return ()
+                        Right byteMessage ->
+                            do
+                                let networkMessage = (deserialise (Lazy.fromStrict byteMessage)) :: P2PMessage
+                                uuidMap <- atomically (readTVar uuidMapTVar)
+                                let temp = HM.lookup (uuid networkMessage) uuidMap
+                                if isNothing temp then
+                                    do
+                                        let newRequest = (uuid networkMessage, typeMessage networkMessage)
+                                        case messageCode networkMessage of
+                                            Kademlia -> atomically (writeTQueue kademTQueue newRequest)
+                                            RPC -> atomically (writeTQueue rpcTQueue newRequest)
+                                            PubSub -> atomically (writeTQueue pubsubTQueue newRequest)
+                                else
+                                    do
+                                        let mVar = fromJust temp
+                                        putMVar mVar networkMessage
+                -- else
+
+
 
 
 --newIncomingConnection :: (HasP2PEnv m ) => m()

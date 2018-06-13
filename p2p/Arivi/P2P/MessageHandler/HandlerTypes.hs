@@ -15,7 +15,8 @@ module Arivi.P2P.MessageHandler.HandlerTypes
   NodeId,
   ConnectionId,
   ConnectionInfo(..),
-  TransportType(..)
+  TransportType(..),
+  ConnectionInfoMap
 {-
 
 -}
@@ -78,7 +79,7 @@ instance Hashable TransportType
 instance Hashable Peer
 instance Hashable ConnectionInfo
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
-type PeerUUIDMap = HM.HashMap Peer (TVar UUIDMap)
+type PeerUUIDMap = HM.HashMap NodeId (TVar UUIDMap)
 
 type MessageInfo = (P2PUUID, Message)
 
