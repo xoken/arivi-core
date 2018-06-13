@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -64,6 +63,7 @@ import           Network.Socket
 import qualified Network.Socket.ByteString            as Network (recvFrom,
                                                                   sendAll,
                                                                   sendTo)
+
 -- | Strcuture to hold the arivi configurations can also contain more
 --   parameters but for now just contain 3
 data NetworkConfig    = NetworkConfig {
@@ -99,6 +99,7 @@ doEncryptedHandshake connection sk = do
 openConnection :: (HasAriviNetworkInstance m,
                    HasSecretKey m,
                    HasLogging m,
+                   HasUDPListnerStatusTVar m,
                    Forall (Pure m))
                => HostName
                -> PortNumber
@@ -155,19 +156,34 @@ openConnection addr port selfPort tt rnid pType = do
                     async (readSock updatedConn HM.empty)
                     return $ Right cId
             else do
-               (serialisedParcel, updatedConn) <- liftIO $ initiatorHandshake sk connection
-               liftIO $ atomically $ writeTVar (Conn.handshakeComplete updatedConn) Conn.HandshakeInitiated
-               liftIO $ sendFrame (Conn.socket updatedConn) (createUDPFrame serialisedParcel)
-               _ <- async (readFromUDPSocketForever updatedConn)
 
-               hsRespParcel <- liftIO $ readHandshakeRespFromTChan (Conn.reassemblyTChan updatedConn) sk
+               -- _ <- async (readFromUDPSocketForever updatedConn)
+               udpListnerStatusTVar <- getUDPListnerStatusTVar
+               udpListnerStatus <- liftIO $ readTVarIO udpListnerStatusTVar
+               if udpListnerStatus
+                then
+                    return undefined
+                else do
+                    liftIO $ atomically $ writeTVar udpListnerStatusTVar True
+                    async $ readFromUDPSocketForever socket
+               -- traceShow "openConnection udpListner started successfully" (return ())
+               liftIO $ atomically $ modifyTVar tv (HM.insert cId connection)
 
-               liftIO $ atomically $ writeTVar (Conn.handshakeComplete updatedConn) Conn.HandshakeDone
+               liftIO $ atomically $ writeTVar (Conn.handshakeComplete connection) Conn.HandshakeInitiated
+               res <- liftIO $ try $ doEncryptedHandshakeForUDP connection sk
 
-               traceShow "after readHandshakeRespFromTChan" (return ())
-               traceShow hsRespParcel (return ())
+               case res of
+                    Left e ->  do
+                                closeConnection cId
+                                return $ Left e
 
-               return $ Right cId
+                    Right updatedConn -> do
+                        liftIO $ atomically $ writeTVar (Conn.handshakeComplete updatedConn) Conn.HandshakeDone
+                        liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
+                        return $ Right cId
+
+               -- traceShow "after readHandshakeRespFromTChan" (return ())
+               -- traceShow hsRespParcel (return ())
 
 sendMessage :: (HasAriviNetworkInstance m, HasLogging m)
             => ANT.ConnectionId

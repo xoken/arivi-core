@@ -5,7 +5,7 @@ module Arivi.Network.Datagram
   , getUDPConnectionId
   , makeSocket
   , readFromUDPSocketForever
-  , readHandshakeRespFromTChan
+  , doEncryptedHandshakeForUDP
   , runUDPServerForever
   , sendUDPFrame
 ) where
@@ -19,7 +19,10 @@ import           Arivi.Env                          (HasAriviNetworkInstance,
                                                      getSecretKey)
 import           Arivi.Logging                      (HasLogging)
 import qualified Arivi.Network.Connection           as Conn (Connection (..), HandshakeStatus (..))
-import           Arivi.Network.Handshake            (recipientHandshake)
+import           Arivi.Network.Handshake            (initiatorHandshake,
+                                                     receiveHandshakeResponse,
+                                                     recipientHandshake)
+import           Arivi.Network.StreamClient         (sendFrame)
 import           Arivi.Network.Types                (AeadNonce, ConnectionId,
                                                      Header (..), Parcel (..),
                                                      Payload (..),
@@ -239,19 +242,37 @@ runUDPServerForever mSocket = do
     --         reassemblyTChan = getConnection nobejet using peerSockAddr
     --         insert into reassemblyTChan
 
+readFromUDPSocketForever :: HasAriviNetworkInstance m => Socket -> m ()
+readFromUDPSocketForever mSocket = do
+    traceShow "inside readFromUDPSocketForever" (return())
+    (receivedMessage,peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
 
-readFromUDPSocketForever updatedConn = do
-    -- traceShow "inside readFromUDPSocketForever" (return())
-    (receivedMessage,peerSockAddr) <- liftIO $ Network.recvFrom
-                                                (Conn.socket updatedConn)
-                                                4096
+    ariviNetworkInstance <- getAriviNetworkInstance
+    let hashMapTVar = ariviNetworkConnectionMap ariviNetworkInstance
+    cid <- liftIO $ getUDPConnectionId peerSockAddr
+    hm <- liftIO $ readTVarIO hashMapTVar
+
     eitherExeptionParcel <- deserialiseParcel receivedMessage
+
     case eitherExeptionParcel of
         Left deserialiseException -> throw deserialiseException
-        Right parcel ->  liftIO $ atomically $ writeTChan (Conn.reassemblyTChan updatedConn)
-                                                              parcel
-    -- traceShow "after recvFrom readFromUDPSocketForever" (return())
-    readFromUDPSocketForever updatedConn
+        Right parcel -> do
+
+            traceShow parcel (return())
+            case StrictHashMap.lookup cid hm of
+                Just conn -> do
+                                _ <- liftIO $ atomically $ writeTChan
+                                                            (Conn.reassemblyTChan conn)
+                                                            parcel
+
+                                let newConnection = conn
+                                               {
+                                                Conn.remoteSockAddr = peerSockAddr
+                                               }
+                                liftIO $ atomically $ modifyTVar hashMapTVar
+                                       (StrictHashMap.insert cid newConnection)
+                                readFromUDPSocketForever mSocket
+                Nothing -> throw AriviWrongParcelException
 
 getUDPConnectionId :: SockAddr -> IO ConnectionId
 getUDPConnectionId peerSockAddr = do
@@ -294,11 +315,23 @@ createUDPFrame parcelSerialised  =  Lazy.concat [parcelSerialised]
 
 
 
-readHandshakeRespFromTChan :: TChan Parcel-> SecretKey -> IO Parcel
-readHandshakeRespFromTChan reassemblyTChan sk = do
+doEncryptedHandshakeForUDP :: Conn.Connection-> SecretKey -> IO Conn.Connection
+doEncryptedHandshakeForUDP connection sk = do
 
-  hsRespParcel <- atomically $ readTChan reassemblyTChan
+  (serialisedParcel, updatedConn) <- liftIO $ initiatorHandshake sk connection
 
+  liftIO $ atomically $ writeTVar (Conn.handshakeComplete updatedConn) Conn.HandshakeInitiated
+
+  liftIO $ sendFrame (Conn.socket updatedConn) (createUDPFrame serialisedParcel)
+
+  hsRespParcel <- readFromReassemblyTChan connection
+
+  return $ receiveHandshakeResponse connection hsRespParcel
+
+readFromReassemblyTChan :: Conn.Connection -> IO Parcel
+readFromReassemblyTChan connection  = do
+
+  hsRespParcel <- atomically $ readTChan (Conn.reassemblyTChan connection)
   case hsRespParcel of
     parcel@(Parcel (HandshakeRespHeader _ _ ) _ ) -> return parcel
     _ -> throw AriviWrongParcelException
