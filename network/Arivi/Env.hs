@@ -27,6 +27,7 @@ data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
                                                          --   ALL connections
                          , udpConnectionHashMap :: HashTable ConnectionId
                                                                     Connection
+                         , udpListnerStatusTVar :: TVar Bool
                          }
 
 data CryptoEnv = CryptoEnv { cryptoEnvSercretKey :: Ed25519.SecretKey
@@ -45,6 +46,10 @@ class (HasEnv m) => HasSecretKey m where
 
 class (HasEnv m) => HasUDPSocket m where
   getUDPSocket :: m Network.Socket
+
+
+class (HasEnv m) => HasUDPListnerStatusTVar m where
+  getUDPListnerStatusTVar :: m (TVar Bool)
 
 mkAriviEnv :: IO AriviEnv
 mkAriviEnv = do

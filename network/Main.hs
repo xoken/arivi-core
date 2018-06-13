@@ -24,11 +24,13 @@ import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.HashTable.IO                  as MutableHashMap (new)
 -- import           Arivi.Network.Datagram             (createUDPSocket)
+import           Control.Concurrent.STM.TVar        (newTVarIO)
 import           Data.ByteString.Char8              (pack)
 import           Data.ByteString.Lazy               (ByteString, fromStrict)
 import           Data.Time
 import           Debug.Trace
 import           Network.Socket                     (SocketType (..))
+
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
 instance HasEnv AppM where
@@ -46,6 +48,12 @@ instance HasLogging AppM where
 instance HasUDPSocket AppM where
   getUDPSocket = udpSocket <$> getEnv
 
+
+instance HasUDPListnerStatusTVar AppM where
+  getUDPListnerStatusTVar = udpListnerStatusTVar <$> getEnv
+
+
+
 runAppM :: AriviEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
@@ -57,11 +65,13 @@ sender sk rk = do
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
+  mUDPListerStatusTVar <- newTVarIO  False
   env' <- mkAriviEnv
   let env = env' { ariviCryptoEnv = CryptoEnv sk
                  , loggerChan = tq
                  -- , udpSocket = sock
                  , udpConnectionHashMap = mutableConnectionHashMap
+                 , udpListnerStatusTVar = mUDPListerStatusTVar
                  }
   runStdoutLoggingT $ runAppM env (do
 
