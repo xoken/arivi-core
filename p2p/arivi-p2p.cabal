@@ -78,7 +78,7 @@ library
                        Arivi.P2P.Kademlia.Types
                        Arivi.P2P.Kademlia.XorDistance
                        Arivi.P2P.Kademlia.Utils
+                       Arivi.P2P.RPC.Functions
+                       Arivi.P2P.RPC.Types
                        Arivi.P2P.Kademlia.Kbucket
-                       Arivi.P2P.Kademlia.LoadDefaultPeers  
-
   default-language:    Haskell2010
