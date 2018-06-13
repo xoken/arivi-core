@@ -100,15 +100,15 @@ makeSocket ipAddress portNumber socketType = do
 --     (receivedMessage,peerSockAddr) <- Network.recvFrom sock 4096
 --     let cid = sockAddrToConnectionId
 
-handleUDPInboundConnection :: (HasAriviNetworkInstance m
+handleInboundDatagrams :: (HasAriviNetworkInstance m
                              , HasSecretKey m
                              , HasLogging m)
                            => Conn.Connection
                            -> m ()
-handleUDPInboundConnection connection =   do
+handleInboundDatagrams connection =   do
     handshakeStatus <- liftIO $ readTVarIO (Conn.handshakeComplete connection)
 
-    parcel <- liftIO $ atomically $ readTChan (Conn.reassemblyTChan connection)
+    parcel <- liftIO $ atomically $ readTChan (Conn.hsBufferTChan connection)
     traceShow parcel (return())
 
     if handshakeStatus /= Conn.HandshakeDone
@@ -138,7 +138,7 @@ handleUDPInboundConnection connection =   do
               liftIO $ atomically $ modifyTVar hashMapTVar
                                                     (StrictHashMap.insert cid
                                                             updatedConn)
-              handleUDPInboundConnection updatedConn
+              handleInboundDatagrams updatedConn
         else
             do
             let (cipherText,authenticationTag) = getCipherTextAuthPair
@@ -154,7 +154,7 @@ handleUDPInboundConnection connection =   do
                                                             cipherText
             _ <- liftIO $ atomically $ writeTChan (Conn.p2pMessageTChan connection)
                                                       payloadMessage
-            handleUDPInboundConnection connection
+            handleInboundDatagrams connection
 
 runUDPServerForever :: (HasAriviNetworkInstance m
                         , HasSecretKey m
@@ -180,7 +180,7 @@ runUDPServerForever mSocket = do
                 Just conn -> do
                                 -- cid <- liftIO $ getUDPConnectionId peerSockAddr
                                 _ <- liftIO $ atomically $ writeTChan
-                                                            (Conn.reassemblyTChan conn)
+                                                            (Conn.hsBufferTChan conn)
                                                             parcel
                                 -- traceShow parcel (return())
                                 runUDPServerForever mSocket
@@ -196,7 +196,8 @@ runUDPServerForever mSocket = do
                                 mAEADNonce <- liftIO (newTVarIO (2^63+1 :: AeadNonce))
 
                                 mReassemblyTChan <- atomically newTChan
-                                _ <- atomically $ writeTChan mReassemblyTChan
+                                mHSBufferTChan <- atomically newTChan
+                                _ <- atomically $ writeTChan mHSBufferTChan
                                                               parcel
 
                                 p2pMsgTChan <- atomically newTChan
@@ -209,6 +210,7 @@ runUDPServerForever mSocket = do
                                                , Conn.personalityType = RECIPIENT
                                                , Conn.socket = mSocket
                                                , Conn.reassemblyTChan = mReassemblyTChan
+                                               , Conn.hsBufferTChan = mHSBufferTChan
                                                , Conn.p2pMessageTChan = p2pMsgTChan
                                                , Conn.egressSeqNum = egressNonce
                                                , Conn.ingressSeqNum = ingressNonce
@@ -221,7 +223,7 @@ runUDPServerForever mSocket = do
                             liftIO $ atomically $ modifyTVar hashMapTVar
                                         (StrictHashMap.insert cid newConnection)
 
-                            _ <-  async (handleUDPInboundConnection
+                            _ <-  async (handleInboundDatagrams
                                                             newConnection)
                             -- traceShow parcel (return())
                             runUDPServerForever mSocket
@@ -231,16 +233,16 @@ runUDPServerForever mSocket = do
     -- if (isNewConnection)
     --     then
 
-    --         new reassemblyTChan
-    --         insert into reassemblyTChan
+    --         new hsBufferTChan
+    --         insert into hsBufferTChan
     --         connection = makeConnection
     --         insert into HashMap
     --         handleUDPInboundConnection
     --     else do
     --         cid <- getUDPConnectionId peerSockAddr
 
-    --         reassemblyTChan = getConnection nobejet using peerSockAddr
-    --         insert into reassemblyTChan
+    --         hsBufferTChan = getConnection nobejet using peerSockAddr
+    --         insert into hsBufferTChan
 
 readFromUDPSocketForever :: HasAriviNetworkInstance m => Socket -> m ()
 readFromUDPSocketForever mSocket = do
@@ -262,7 +264,7 @@ readFromUDPSocketForever mSocket = do
             case StrictHashMap.lookup cid hm of
                 Just conn -> do
                                 _ <- liftIO $ atomically $ writeTChan
-                                                            (Conn.reassemblyTChan conn)
+                                                            (Conn.hsBufferTChan conn)
                                                             parcel
 
                                 let newConnection = conn
@@ -273,6 +275,8 @@ readFromUDPSocketForever mSocket = do
                                        (StrictHashMap.insert cid newConnection)
                                 readFromUDPSocketForever mSocket
                 Nothing -> throw AriviWrongParcelException
+
+
 
 getUDPConnectionId :: SockAddr -> IO ConnectionId
 getUDPConnectionId peerSockAddr = do
@@ -331,7 +335,7 @@ doEncryptedHandshakeForUDP connection sk = do
 readFromReassemblyTChan :: Conn.Connection -> IO Parcel
 readFromReassemblyTChan connection  = do
 
-  hsRespParcel <- atomically $ readTChan (Conn.reassemblyTChan connection)
+  hsRespParcel <- atomically $ readTChan (Conn.hsBufferTChan connection)
   case hsRespParcel of
     parcel@(Parcel (HandshakeRespHeader _ _ ) _ ) -> return parcel
     _ -> throw AriviWrongParcelException
