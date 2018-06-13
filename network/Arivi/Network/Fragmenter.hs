@@ -1,8 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ViewPatterns #-}
 module Arivi.Network.Fragmenter
 (
-    processPayload
+      processPayload
+    , prepareDispatchParcel
 ) where
 
 import           Arivi.Crypto.Utils.PublicKey.Utils (encryptMsg)
@@ -62,7 +62,7 @@ processFragment fragment conn msgId fragmentNum fragmentCount = do
     return $ serialiseAndFrame parcel (transportType conn)
 
 serialiseAndFrame :: Parcel -> TransportType -> BSL.ByteString
-serialiseAndFrame parcel transportType = createFrame (serialise parcel) transportType
+serialiseAndFrame parcel  = createFrame (serialise parcel)
 
 
 -- | Fragments the payload, calls processFragment on the fragment and recursively calls the remaining payload
@@ -83,3 +83,9 @@ generateMessageId = getRandomByteString 8
 --         fragment = BSL.take n payload
 --         process = createFrame.serialise.processFragment
 
+prepareDispatchParcel :: Payload -> Conn.Connection -> IO (STM BSL.ByteString)
+prepareDispatchParcel messagePayload connection = do
+    messageId <- generateMessageId
+    let fragmentNo = 1 :: FragmentNumber
+    let fragmentCount = 1 :: FragmentNumber
+    return $ processFragment (getPayload messagePayload) connection messageId fragmentNo fragmentCount
