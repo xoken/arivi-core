@@ -87,9 +87,7 @@ getPeerList peerR kbucket = do
                                 kbDistance = getKbIndex localPeer peer
                             pl <- H.lookup (getKbucket kbucket) kbDistance
                             let peerList = fromMaybe [] pl
-                            case peerList of
-                              [] -> return $ Left KademliaInvalidPeer
-                              _  -> return $ Right peerList
+                            return $ Right peerList
 
     Left _          -> return $ Left KademliaDefaultPeerDoesNotExists
 
@@ -120,7 +118,7 @@ ifPeerExist peer kbucket = do
 -- kbindex based on the XOR Distance.
 addToKBucket :: Peer
              -> Kbucket Int [Peer]
-             -> IO (Either AriviException (IO()))
+             -> IO ()
 addToKBucket peerR kbucket = do
   lp <- getDefaultNodeId kbucket
   case lp of
@@ -132,17 +130,15 @@ addToKBucket peerR kbucket = do
           let peer       = fst $ getPeer peerR
               kbDistance = getKbIndex localPeer peer
           if peerR `elem` pl
-            then return $ Right $ H.insert kb kbDistance (pl ++ [peerR])
-            else return $ Right $ H.insert kb kbDistance [peerR]
-
-        Left _ -> return $ Left KademliaInvalidPeer
-
-    Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
+            then H.insert kb kbDistance (pl ++ [peerR])
+            else H.insert kb kbDistance [peerR]
+        Left _ -> return ()
+    Left _ -> return ()
 
 -- | Removes a given peer from kbucket
 removePeer :: Peer
            -> Kbucket Int [Peer]
-           -> IO (Either AriviException (IO()))
+           -> IO ()
 removePeer peerR kbucket = do
   lp <- getDefaultNodeId kbucket
   case lp of
@@ -154,9 +150,8 @@ removePeer peerR kbucket = do
               peer       = fst $ getPeer peerR
               kbDistance = getKbIndex localPeer peer
           if peerR `elem` pl
-            then return $ Right $ H.insert kb kbDistance (L.delete peerR pl)
-            else return $ Right $ H.insert kb kbDistance [peerR]
-
-        Left _ -> return $ Left KademliaInvalidPeer
-    Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
+            then H.insert kb kbDistance (L.delete peerR pl)
+            else H.insert kb kbDistance [peerR]
+        Left _ -> return ()
+    Left _ -> return ()
 
