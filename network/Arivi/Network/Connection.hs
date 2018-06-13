@@ -52,6 +52,7 @@ data Connection = Connection {
                         , sharedSecret      :: Keys.SharedSecret
                         , remoteSockAddr    :: Network.SockAddr
                         , reassemblyTChan   :: TChan Parcel
+                        , hsBufferTChan     :: TChan Parcel
                         , p2pMessageTChan   :: TChan L.ByteString
                         , egressSeqNum      :: TVar SequenceNum
                         , ingressSeqNum     :: TVar SequenceNum-- need not be TVar
