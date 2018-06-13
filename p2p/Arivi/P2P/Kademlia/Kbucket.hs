@@ -132,7 +132,7 @@ addToKBucket peerR kbucket = do
           if peerR `elem` pl
             then H.insert kb kbDistance (pl ++ [peerR])
             else H.insert kb kbDistance [peerR]
-        Left _ -> print "something"
+        Left _ -> return ()
     Left _ -> return ()
 
 -- | Removes a given peer from kbucket
