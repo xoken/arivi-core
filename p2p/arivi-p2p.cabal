@@ -51,7 +51,7 @@ library
                     ,  random
                     ,  serialise
                     ,  split
-                    ,  stm >= 2.4.4.1
+                    ,  stm >= 2.4.5
                     ,  template-haskell
                     ,  text
                     ,  time
@@ -60,7 +60,7 @@ library
                     ,  uuid
                     ,  arivi-network
                     ,  arivi-crypto
-                    ,  arivi-utils 
+                    ,  arivi-utils
                     ,  hashable
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:

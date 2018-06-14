@@ -19,6 +19,7 @@ data AriviException =       AriviDeserialiseException DeserialiseFailure
                             | KademliaDefaultPeerDoesNotExists
                             | HandlerSendMessageTimeout
                             | HandlerOpenConnectionError
+                            | HandlerConnectionBroken
                             deriving(Show)
 
 instance Exception AriviException
