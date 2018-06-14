@@ -91,7 +91,7 @@ isNodeIdElem (x:xs) m
     | fst x == m     = True
     | otherwise        = isNodeIdElem xs m
 
-randomList :: Int -> IO([Int])
+randomList :: Int -> IO [Int]
 randomList 0 = return []
 randomList n = do
   r  <- randomRIO (1,255)
