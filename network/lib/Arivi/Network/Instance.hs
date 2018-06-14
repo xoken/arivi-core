@@ -135,7 +135,8 @@ openConnection addr port tt rnid pType = do
             Right updatedConn ->
               do
                 liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
-                async (readSock updatedConn HM.empty)
+                -- async (readSock updatedConn HM.empty)
+                async (readSock' updatedConn)
 
                 return $ Right cId
 
