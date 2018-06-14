@@ -24,6 +24,8 @@ import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.HashTable.IO                  as MutableHashMap (new)
 -- import           Arivi.Network.Datagram             (createUDPSocket)
+import           Arivi.Network.Types                (Parcel (..))
+import           Control.Concurrent.STM.TChan       (TChan)
 import           Control.Concurrent.STM.TVar        (newTVarIO)
 import           Data.ByteString.Char8              (pack)
 import           Data.ByteString.Lazy               (ByteString, fromStrict)
@@ -65,6 +67,8 @@ sender sk rk = do
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
+  mDatagramHashMap <- MutableHashMap.new
+                                    :: IO (HashTable ConnectionId (TChan Parcel))
   mUDPListerStatusTVar <- newTVarIO  False
   env' <- mkAriviEnv
   let env = env' { ariviCryptoEnv = CryptoEnv sk
@@ -72,6 +76,7 @@ sender sk rk = do
                  -- , udpSocket = sock
                  , udpConnectionHashMap = mutableConnectionHashMap
                  , udpListnerStatusTVar = mUDPListerStatusTVar
+                 , datagramHashMap = mDatagramHashMap
                  }
   runStdoutLoggingT $ runAppM env (do
 
@@ -93,10 +98,10 @@ sender sk rk = do
                                           Left e -> return ()
                                           Right cid -> do
                                             traceShow cid (return())
-                                            time <- liftIO $ getCurrentTime
+                                            time <- liftIO  getCurrentTime
                                             liftIO $ print time
-                                            mapM_ (\_ -> (sendMessage cid a) `LA.concurrently` (sendMessage cid a)) [1..2]
-                                            time2 <- liftIO $ getCurrentTime
+                                            mapM_ (\_ -> sendMessage cid a `LA.concurrently` sendMessage cid a) [1..2]
+                                            time2 <- liftIO getCurrentTime
                                             liftIO $ print time2
                                        liftIO $ print "done"
                                    )
@@ -106,11 +111,14 @@ receiver sk = do
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   mutableConnectionHashMap1 <- MutableHashMap.new
                                     :: IO (HashTable ConnectionId Connection)
+  mDatagramHashMap1 <- MutableHashMap.new
+                                    :: IO (HashTable ConnectionId (TChan Parcel))
   env' <- mkAriviEnv
   let env = env' { ariviCryptoEnv = CryptoEnv sk
                  , loggerChan = tq
                  -- , udpSocket = sock
                  , udpConnectionHashMap = mutableConnectionHashMap1
+                 , datagramHashMap = mDatagramHashMap1
                  }
   runStdoutLoggingT $ runAppM env ( do
                                        -- runTCPserver (show (envPort env))

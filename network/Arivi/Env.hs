@@ -6,6 +6,7 @@ module Arivi.Env (module Arivi.Env) where
 
 import           Arivi.Logging
 import           Arivi.Network.Connection
+import           Arivi.Network.Types         (Parcel (..))
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
@@ -27,6 +28,8 @@ data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
                                                          --   ALL connections
                          , udpConnectionHashMap :: HashTable ConnectionId
                                                                     Connection
+                         , datagramHashMap :: HashTable ConnectionId (TChan Parcel)
+
                          , udpListnerStatusTVar :: TVar Bool
                          }
 
@@ -60,6 +63,7 @@ mkAriviEnv = do
 
 data AriviNetworkInstance = AriviNetworkInstance {
   ariviNetworkConnectionMap   :: TVar (HashMap ConnectionId Connection),
+  ariviNetworkDatagramMap     :: TVar (HashMap ConnectionId (TChan Parcel)),
   ariviConnectionUpdatesTChan :: TChan (ConnectionId, String)
                                                  }
 
@@ -71,6 +75,10 @@ mkAriviNetworkInstance = do
 connectionMap :: AriviNetworkInstance
               -> TVar (HashMap ConnectionId Connection)
 connectionMap = ariviNetworkConnectionMap
+
+datagramMap :: AriviNetworkInstance
+            -> TVar (HashMap ConnectionId (TChan Parcel))
+datagramMap = ariviNetworkDatagramMap
 
 
 -- DELETE LATER
