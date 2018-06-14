@@ -8,7 +8,7 @@ module Arivi.P2P.MessageHandler.HandlerTypes
   IP,
   Port,
   P2PUUID,
-  Message,
+  P2PPayload,
   UUIDMap,
   PeerUUIDMap,
   MessageInfo,
@@ -45,12 +45,12 @@ type IP = String
 type Port = Int
 type NodeId = String
 type P2PUUID = String
-type Message = ByteString
+type P2PPayload = ByteString
 type ConnectionId = ByteString
 data P2PMessage = P2PMessage {
           uuid :: P2PUUID
         , messageCode :: MessageCode
-        , typeMessage :: Message
+        , typeMessage :: P2PPayload
 }deriving(Eq,Ord,Show,Generic)
 instance Serialise P2PMessage
 data MessageCode = Kademlia | RPC | PubSub deriving(Eq,Ord,Show,Generic)
@@ -81,7 +81,7 @@ instance Hashable ConnectionInfo
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 type PeerUUIDMap = HM.HashMap NodeId (TVar UUIDMap)
 
-type MessageInfo = (P2PUUID, Message)
+type MessageInfo = (P2PUUID, P2PPayload)
 
 
 type ConnectionInfoMap = HM.HashMap ConnectionInfo Bool
