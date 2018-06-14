@@ -24,17 +24,18 @@ module Arivi.P2P.Kademlia.Kbucket
     getPeerListByKIndex,
     ifPeerExist,
     addToKBucket,
-    removePeer
+    removePeer,
+    getKClosestPeers
   ) where
 
 import qualified Arivi.P2P.Kademlia.Types       as T
+import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.Utils.Exception
 import           Control.Monad
 import qualified Data.HashTable.IO              as H
 import qualified Data.List                      as L
 import           Data.Maybe
-
 -- | Peer information encapsulated in a single structure
 newtype Peer = Peer {
                         getPeer :: (T.NodeId,T.NodeEndPoint)
@@ -155,3 +156,44 @@ removePeer peerR kbucket = do
         Left _ -> return ()
     Left _ -> return ()
 
+-- Gives a peer list given a list of keys
+getPeerListFromKeyList :: Int
+                       -> [Int]
+                       -> Kbucket Int [Peer]
+                       -> IO [Peer]
+getPeerListFromKeyList _ [] _           = return []
+getPeerListFromKeyList 0 _ _            = return []
+getPeerListFromKeyList k (x:xs) kbucket = do
+  pl <- H.lookup (getKbucket kbucket) x
+  let peerList = fromMaybe [] pl
+      ple      = fst $ L.splitAt k peerList
+  if L.length peerList >= k then return ple else do
+      temp <- getPeerListFromKeyList (k- L.length ple) xs kbucket
+      return $ ple ++ temp
+
+-- | Gets k-closest peers to a given peeer if k-peer exist in kbukcet being
+--   queried else returns all availaible peers.
+getKClosestPeers :: Peer
+                 -> Int
+                 -> Kbucket Int [Peer]
+                 -> IO (Either AriviException [Peer])
+getKClosestPeers peerR k kbucket = do
+  kvList <- H.toList (getKbucket kbucket)
+  lp <- getDefaultNodeId kbucket
+  case lp of
+    Right localPeer -> do
+      let peer = fst $ getPeer peerR
+          kbi  = getKbIndex localPeer peer
+          keys = L.sort $ fmap fst kvList
+      peerl <- getPeerListFromKeyList k keys kbucket
+      return (Right peerl)
+    Left x  -> return (Left x)
+
+
+getKRandomPeers :: Peer
+                -> Int
+                -> Kbucket Int [Peer]
+                -> IO [Peer]
+getKRandomPeers peerR k kbucket = do
+  keyl <- U.randomList k
+  getPeerListFromKeyList k keyl kbucket
