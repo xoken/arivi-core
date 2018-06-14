@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE OverloadedStrings     #-}
 
 module Arivi.Network.Instance
 (
@@ -41,7 +41,7 @@ import           Arivi.Network.Types                  as ANT (AeadNonce,
 import           Arivi.Network.Utils
 import           Arivi.Utils.Exception
 import           Codec.Serialise
-import           Control.Concurrent                   (threadDelay, newMVar)
+import           Control.Concurrent                   (newMVar, threadDelay)
 import           Control.Concurrent.Async.Lifted.Safe
 import           Control.Concurrent.Killable          (kill)
 import           Control.Concurrent.STM
@@ -130,13 +130,13 @@ openConnection addr port tt rnid pType = do
                                                     Conn.aeadNonceCounter = aeadNonce}
 
           res <- liftIO $ try $ doEncryptedHandshake connection sk
-
           case res of
             Left e -> return $ Left e
             Right updatedConn ->
               do
                 liftIO $ atomically $ modifyTVar tv (HM.insert cId updatedConn)
                 async (readSock updatedConn HM.empty)
+
                 return $ Right cId
 
 sendMessage :: (HasAriviNetworkInstance m, HasLogging m)
@@ -166,7 +166,12 @@ closeConnection :: (HasAriviNetworkInstance m)
 closeConnection cId = do
   ariviInstance <- getAriviNetworkInstance
   let tv = connectionMap ariviInstance
-  liftIO $ atomically $ modifyTVar tv (HM.delete cId)
+  hmap <- liftIO $ readTVarIO tv
+  let connOrFail = HM.lookup cId hmap
+  case connOrFail of
+    Nothing -> return ()
+    Just conn -> liftIO (close (Conn.socket conn)) >> liftIO (atomically $ modifyTVar tv (HM.delete cId))
+
 
 
 lookupCId :: (HasAriviNetworkInstance m)
