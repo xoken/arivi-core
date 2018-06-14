@@ -25,11 +25,15 @@ import           GHC.Generics        (Generic)
 
 
 
+type Port = Int
+type IP = String
 
 
 
 
 data AriviP2PInstance = AriviP2PInstance {
-  nodeId :: NodeId,
-  ip     :: String
-}
+  selfNodeId  :: NodeId,
+  selfIP      :: String,
+  selfUDPPort :: Port,
+  selfTCPPort :: Port
+}deriving(Eq,Ord,Show,Generic)
