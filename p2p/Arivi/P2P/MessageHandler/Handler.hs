@@ -60,7 +60,7 @@ sendRequest(Peer, MessageType, TransportType)
 -- delete uuid from PeerToUUIDMap
 --
 -}
-sendRequest :: (HasP2PEnv m ) =>  Peer -> MessageCode -> Message -> TransportType -> m  ByteString
+sendRequest :: (HasP2PEnv m ) =>  Peer -> MessageCode -> P2PPayload -> TransportType -> m  ByteString
 sendRequest peer mCode message transportType =
     do
         peerUUIDMapTVar <- getpeerUUIDMapTVarP2PEnv
@@ -243,7 +243,7 @@ repeat
 
 
 {-Support Functions===========================================================-}
-generateP2PMessage :: MessageCode -> Message -> P2PUUID -> P2PMessage
+generateP2PMessage :: MessageCode -> P2PPayload -> P2PUUID -> P2PMessage
 generateP2PMessage mCode message1 uuid1 =
     P2PMessage {
         uuid = uuid1,
