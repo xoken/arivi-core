@@ -188,11 +188,13 @@ readSock connection fragmentsHM = $(withLoggingTH) (LogNetworkStatement "readSoc
       parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 60000000
       case parcelOrFailAfterPing of
         Left _  -> deleteConnectionFromHashMap (Conn.connectionId connection)
-        Right parcel -> processParcel parcel connection fragmentsHM
-    Right parcel -> processParcel parcel connection fragmentsHM
+        Right parcel -> processParcel parcel connection fragmentsHM >>= 
+                        readSock connection
+    Right parcel -> processParcel parcel connection fragmentsHM >>= 
+                    readSock connection
 
 
-processParcel :: (HasAriviNetworkInstance m, HasLogging m) => Parcel -> Conn.CompleteConnection -> HM.HashMap MessageId BSL.ByteString -> m ()
+processParcel :: (HasAriviNetworkInstance m, HasLogging m) => Parcel -> Conn.CompleteConnection -> HM.HashMap MessageId BSL.ByteString -> m (HM.HashMap MessageId BSL.ByteString)
 processParcel parcel connection fragmentsHM =
   -- traceShow parcel (return()) >>
   case parcel of
@@ -200,14 +202,13 @@ processParcel parcel connection fragmentsHM =
       res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
       case res of
         -- possibly throw again
-        Left e -> deleteConnectionFromHashMap (Conn.connectionId connection)
-        Right updatedHM ->
-          readSock connection updatedHM
+        Left e -> deleteConnectionFromHashMap (Conn.connectionId connection) >> throw e
+        Right updatedHM -> return updatedHM
     pingParcel@(Parcel PingHeader{} _) -> do
       liftIO $ sendPong (Conn.waitWrite connection) (Conn.socket connection)
-      readSock connection fragmentsHM
-    pongParcel@(Parcel PongHeader{} _) -> readSock connection fragmentsHM
-    _ -> deleteConnectionFromHashMap(Conn.connectionId connection)
+      return fragmentsHM
+    pongParcel@(Parcel PongHeader{} _) -> return fragmentsHM
+    _ -> deleteConnectionFromHashMap(Conn.connectionId connection) >> throw AriviWrongParcelException
 
 
 -- | Read on the socket for handshakeInit parcel and return it or throw AriviException
@@ -238,7 +239,11 @@ deleteConnectionFromHashMap :: HasAriviNetworkInstance m
 deleteConnectionFromHashMap connId = do
   ariviInstance <- getAriviNetworkInstance
   let tv = connectionMap ariviInstance
-  liftIO $ atomically $ modifyTVar tv (HM.delete connId)
+  hmap <- liftIO $ readTVarIO tv
+  let connOrFail = HM.lookup connId hmap
+  case connOrFail of
+    Nothing -> return ()
+    Just conn -> liftIO (close (Conn.socket conn)) >> liftIO (atomically $ modifyTVar tv (HM.delete connId))
 
 -- Helper Functions
 recvAll :: Socket
