@@ -15,7 +15,8 @@ module Arivi.P2P.Kademlia.Utils
     getSockAddr,
     getRandomSequence,
     getRandomSequence2,
-    convToSockAddr
+    convToSockAddr,
+    randomList
 ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
@@ -89,6 +90,13 @@ isNodeIdElem [] _      = False
 isNodeIdElem (x:xs) m
     | fst x == m     = True
     | otherwise        = isNodeIdElem xs m
+
+randomList :: Int -> IO([Int])
+randomList 0 = return []
+randomList n = do
+  r  <- randomRIO (1,255)
+  rs <- randomList (n-1)
+  return (r:rs)
 
 -- Generates a random number of type Word32
 getRandomSequence :: IO Word32
