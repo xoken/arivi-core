@@ -2,6 +2,8 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
 -- Copyright   :
@@ -42,7 +44,7 @@ import qualified Control.Concurrent.Async.Lifted as LA (async)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan,
                                                   readTChan)
 import           Control.Concurrent.STM.TVar
-import           Control.Exception               (try)
+import           Control.Exception               (try, mapException)
 import           Control.Exception.Base
 import           Control.Monad                   (forever, void)
 import           Control.Monad.IO.Class
@@ -142,15 +144,17 @@ getFrameLength len = fromIntegral lenInt16 where
 -- | Races between a timer and receive parcel, returns an either type
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getParcelWithTimeout sock timeout = do
-    winner <- Async.race (threadDelay timeout) (recvAll sock 2)
+    winner <- Async.race (threadDelay timeout) (try $ recvAll sock 2)
     case winner of
       Left _ -> return $ Left AriviTimeoutException
-      Right lenbs ->
-        do
-          parcelCipher <- recvAll sock $ getFrameLength lenbs
-          either
-            (return . Left . AriviDeserialiseException) (return . Right)
-            (deserialiseOrFail parcelCipher)
+      Right lenbsOrFail -> 
+        case lenbsOrFail of  
+          Left e -> return (Left e)
+          Right lenbs -> do
+            parcelCipher <- recvAll sock (getFrameLength lenbs) 
+            either
+              (return . Left . AriviDeserialiseException) (return . Right)
+              (deserialiseOrFail parcelCipher)
 
 -- | Reads frame a given socket
 getParcel :: Socket -> IO (Either AriviException Parcel)
@@ -188,15 +192,15 @@ readSock connection fragmentsHM = $(withLoggingTH) (LogNetworkStatement "readSoc
       parcelOrFailAfterPing <- liftIO $ getParcelWithTimeout sock 60000000
       case parcelOrFailAfterPing of
         Left _  -> deleteConnectionFromHashMap (Conn.connectionId connection)
-        Right parcel -> processParcel parcel connection fragmentsHM >>= 
+        Right parcel -> processParcel parcel connection fragmentsHM >>=
                         readSock connection
-    Right parcel -> processParcel parcel connection fragmentsHM >>= 
+    Left AriviSocketException -> deleteConnectionFromHashMap (Conn.connectionId connection)
+    Right parcel -> processParcel parcel connection fragmentsHM >>=
                     readSock connection
 
 
 processParcel :: (HasAriviNetworkInstance m, HasLogging m) => Parcel -> Conn.CompleteConnection -> HM.HashMap MessageId BSL.ByteString -> m (HM.HashMap MessageId BSL.ByteString)
 processParcel parcel connection fragmentsHM =
-  -- traceShow parcel (return()) >>
   case parcel of
     dataParcel@(Parcel DataHeader{} _) -> do
       res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
@@ -250,7 +254,16 @@ recvAll :: Socket
         -> Int64
         -> IO BSL.ByteString
 recvAll sock len = do
-  msg <- N.recv sock len
-  if BSL.length msg == len
-     then return msg
-     else BSL.append msg <$> recvAll sock (len - BSL.length msg)
+  msg <- mapIOException (\(_::SomeException) -> AriviSocketException) (N.recv sock len)
+  if BSL.null msg then
+    throw AriviSocketException
+  else
+    if BSL.length msg == len
+      then return msg
+        else BSL.append msg <$> recvAll sock (len - BSL.length msg)
+
+mapIOException f ioa = do
+  aOrFail <- try ioa
+  case aOrFail of
+    Left (e :: SomeException) -> throw (f e)
+    Right r -> return r        
