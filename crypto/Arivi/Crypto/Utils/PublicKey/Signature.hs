@@ -2,7 +2,8 @@ module Arivi.Crypto.Utils.PublicKey.Signature
 (
     generateKeyPair,
     toByteString,
-    getPublicKey
+    getPublicKey,
+    getSecretKey
 ) where
 
 import           Arivi.Crypto.Utils.Random
