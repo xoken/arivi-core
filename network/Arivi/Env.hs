@@ -70,7 +70,9 @@ data AriviNetworkInstance = AriviNetworkInstance {
 mkAriviNetworkInstance :: IO AriviNetworkInstance
 mkAriviNetworkInstance = do
   tv <- newTVarIO HM.empty
-  return AriviNetworkInstance { ariviNetworkConnectionMap = tv }
+  tvDatagram <- newTVarIO HM.empty
+  return AriviNetworkInstance { ariviNetworkConnectionMap = tv,
+                                ariviNetworkDatagramMap = tvDatagram }
 
 connectionMap :: AriviNetworkInstance
               -> TVar (HashMap ConnectionId Connection)
