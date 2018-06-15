@@ -1,32 +1,40 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Arivi.P2P.RPC.Types
-	(
-		ServiceId,
-		ResourceList,
-		ResourceToPeerMap,
-		ResourceId,
-		Peer(..)
-	)
+    ( ServiceId
+    , ResourceList
+    , ResourceToPeerMap
+    , ResourceId
+    , MessageTypeRPC(..)
+    ) where
 
-where
+import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
+import           Codec.Serialise                       (Serialise)
+import           Control.Concurrent.STM.TQueue
+import           Control.Concurrent.STM.TVar
+import           Data.HashMap.Strict                   as HM
+import           GHC.Generics                          (Generic)
 
-import  GHC.Generics (Generic)
-import	Data.HashMap.Strict as HM
-import  Control.Concurrent.STM.TVar
-import  Control.Concurrent.STM.TQueue
-import  Arivi.Network.Types (NodeId)
-
-data Peer =  Peer {
-    peerNodeId :: NodeId
-  , peerIp:: IP
-  , peerUDPPort:: Port
-  , peerTCPPort:: Port
-} deriving(Eq,Ord,Show,Generic)
+type NodeId = String
 
 type IP = String
+
 type Port = Int
+
 type ResourceId = String
+
 type ServiceId = String
+
 type ResourceList = [ResourceId]
-type ResourceToPeerMap = HM.HashMap ResourceId (ServiceId , TQueue Peer)
+
+type ResourceToPeerMap = HM.HashMap ResourceId (ServiceId, TQueue Peer)
+
+data MessageTypeRPC
+    = Options { to   :: NodeId
+              , from :: NodeId }
+    | Support { to                 :: NodeId
+              , from               :: NodeId
+              , supportedResources :: [ResourceId] }
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise MessageTypeRPC
