@@ -1,20 +1,20 @@
 module Arivi.Network.Datagram
-(
     -- createUDPSocket
-    createUDPFrame
-  , getUDPConnectionId
-  , makeSocket
-  , readFromUDPSocketForever
-  , doEncryptedHandshakeForUDP
-  , runUDPServerForever
-  , sendUDPFrame
-) where
+    ( createUDPFrame
+    , getUDPConnectionId
+    , makeSocket
+    , readFromUDPSocketForever
+    , doEncryptedHandshakeForUDP
+    , runUDPServerForever
+    , sendUDPFrame
+    ) where
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
 import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg)
 import           Arivi.Env                          (HasAriviNetworkInstance,
                                                      HasSecretKey,
                                                      ariviNetworkConnectionMap,
+                                                     ariviNetworkDatagramMap,
                                                      getAriviNetworkInstance,
                                                      getSecretKey)
 import           Arivi.Logging                      (HasLogging)
@@ -38,8 +38,9 @@ import           Control.Concurrent.Async.Lifted    (async)
 import           Control.Concurrent.STM             (atomically)
 import           Control.Concurrent.STM.TChan       (TChan, newTChan, readTChan,
                                                      writeTChan)
-import           Control.Concurrent.STM.TVar        (modifyTVar, newTVarIO,
-                                                     readTVarIO, writeTVar)
+import           Control.Concurrent.STM.TVar        (TVar, modifyTVar,
+                                                     newTVarIO, readTVarIO,
+                                                     writeTVar)
 import           Control.Exception                  (throw)
 import           Control.Monad.IO.Class             (liftIO)
 import           Crypto.PubKey.Ed25519              (SecretKey)
@@ -56,119 +57,110 @@ import qualified Network.Socket.ByteString          as Network (recvFrom,
 -- runUDPServerForever :: Socket
 --                     -> SockAddr
 --                     -> IO ()
-
 -- runUDPServerForever sock sockAddr  = do
-
 --     bind sock sockAddr
 --     print ("UDP Server now listening for requests at : " ++ show sockAddr)
 --     forever $
 --                 do
 --             (mesg, socaddr2) <- Network.recvFrom sock 4096
 --             print ""
-
 -- createUDPSocket :: Show portNumber => HostName -> portNumber -> IO Socket
 -- createUDPSocket ipAddress portNumber = do
 --     let hint = defaultHints {addrFlags = [AI_PASSIVE],
 --                              addrSocketType = Datagram}
-
 --     selfAddr:_  <- getAddrInfo (Just hint) (Just ipAddress)
 --                                             (Just (show portNumber))
-
 --     mSocket <- socket (addrFamily selfAddr) (addrSocketType selfAddr)
 --                                         (addrProtocol selfAddr)
 --     bind mSocket (addrAddress selfAddr)
 --     return mSocket
-
-
 makeSocket :: HostName -> PortNumber -> SocketType -> IO Socket
 makeSocket ipAddress portNumber socketType = do
-        let hint = defaultHints {addrFlags = [AI_PASSIVE],
-                                 addrSocketType = socketType}
-
-        selfAddr:_ <- getAddrInfo (Just hint) (Just ipAddress)
-                                        (Just (show portNumber))
-
-        selfSocket <- socket (addrFamily selfAddr) (addrSocketType selfAddr)
-                                            (addrProtocol selfAddr)
-        bind selfSocket (addrAddress selfAddr)
-        return selfSocket
-
-
+    let hint =
+            defaultHints {addrFlags = [AI_PASSIVE], addrSocketType = socketType}
+    selfAddr:_ <-
+        getAddrInfo (Just hint) (Just ipAddress) (Just (show portNumber))
+    selfSocket <-
+        socket
+            (addrFamily selfAddr)
+            (addrSocketType selfAddr)
+            (addrProtocol selfAddr)
+    bind selfSocket (addrAddress selfAddr)
+    return selfSocket
 
 -- runUDPServerForever sock = forever
 --     $ do
 --     (receivedMessage,peerSockAddr) <- Network.recvFrom sock 4096
 --     let cid = sockAddrToConnectionId
-
-handleInboundDatagrams :: (HasAriviNetworkInstance m
-                             , HasSecretKey m
-                             , HasLogging m)
-                           => Conn.Connection
-                           -> m ()
-handleInboundDatagrams connection =   do
+handleInboundDatagrams ::
+       (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
+    => Conn.Connection
+    -> m ()
+handleInboundDatagrams connection = do
     handshakeStatus <- liftIO $ readTVarIO (Conn.handshakeComplete connection)
-
-    parcel <- liftIO $ atomically $ readTChan (Conn.hsBufferTChan connection)
-    traceShow parcel (return())
-
+    parcel <-
+        liftIO $ atomically $ readTChan (Conn.inboundDatagramTChan connection)
+    traceShow parcel (return ())
     if handshakeStatus /= Conn.HandshakeDone
-        then do
           -- doHandshake
-              sk <- getSecretKey
-              ariviNetworkInstance <- getAriviNetworkInstance
-              let hashMapTVar = ariviNetworkConnectionMap ariviNetworkInstance
-
-              (serialisedParcel, updatedConn) <- liftIO $
-                                                    recipientHandshake sk
-                                                            connection parcel
-
-              traceShow "before sendUDPFrame HandshakeDone" (return())
-              _ <- liftIO $ sendUDPFrame (Conn.socket updatedConn)
-                                        (Conn.remoteSockAddr updatedConn)
-                                        (createUDPFrame serialisedParcel)
-              traceShow "after sendUDPFrame HandshakeDone" (return())
-
-              let cid = Conn.connectionId updatedConn
-
-
-              liftIO $ atomically $ writeTVar
-                                      (Conn.handshakeComplete updatedConn)
-                                          Conn.HandshakeDone
-
-              liftIO $ atomically $ modifyTVar hashMapTVar
-                                                    (StrictHashMap.insert cid
-                                                            updatedConn)
-              handleInboundDatagrams updatedConn
-        else
-            do
-            let (cipherText,authenticationTag) = getCipherTextAuthPair
-                                                (Lazy.toStrict
-                                                  (getPayload
-                                                    (encryptedPayload parcel)))
+        then do
+            sk <- getSecretKey
+            ariviNetworkInstance <- getAriviNetworkInstance
+            let hashMapTVar = ariviNetworkConnectionMap ariviNetworkInstance
+            (serialisedParcel, updatedConn) <-
+                liftIO $ recipientHandshake sk connection parcel
+            traceShow "before sendUDPFrame HandshakeDone" (return ())
+            _ <-
+                liftIO $
+                sendUDPFrame
+                    (Conn.socket updatedConn)
+                    (Conn.remoteSockAddr updatedConn)
+                    (createUDPFrame serialisedParcel)
+            traceShow "after sendUDPFrame HandshakeDone" (return ())
+            let cid = Conn.connectionId updatedConn
+            liftIO $
+                atomically $
+                writeTVar
+                    (Conn.handshakeComplete updatedConn)
+                    Conn.HandshakeDone
+            liftIO $
+                atomically $
+                modifyTVar hashMapTVar (StrictHashMap.insert cid updatedConn)
+            handleInboundDatagrams updatedConn
+        else do
+            let (cipherText, authenticationTag) =
+                    getCipherTextAuthPair
+                        (Lazy.toStrict (getPayload (encryptedPayload parcel)))
             let parcelHeader = Lazy.toStrict $ serialise (header parcel)
             let fragmentAead = aeadNonce (header parcel)
             let ssk = Conn.sharedSecret connection
-            let payloadMessage =  Lazy.fromStrict $ decryptMsg fragmentAead
-                                                            ssk parcelHeader
-                                                            authenticationTag
-                                                            cipherText
-            _ <- liftIO $ atomically $ writeTChan (Conn.p2pMessageTChan connection)
-                                                      payloadMessage
+            let payloadMessage =
+                    Lazy.fromStrict $
+                    decryptMsg
+                        fragmentAead
+                        ssk
+                        parcelHeader
+                        authenticationTag
+                        cipherText
+            _ <-
+                liftIO $
+                atomically $
+                writeTChan (Conn.p2pMessageTChan connection) payloadMessage
             handleInboundDatagrams connection
 
-runUDPServerForever :: (HasAriviNetworkInstance m
-                        , HasSecretKey m
-                        , HasLogging m)
-                    => Socket
-                    -> m ()
-runUDPServerForever mSocket = do
+runUDPServerForever ::
+       (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
+    => Socket
+    -> m ()
+runUDPServerForever mSocket
     -- traceShow "inside runUDPServerForever" (return())
-    (receivedMessage,peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
+ = do
+    (receivedMessage, peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
     -- traceShow receivedMessage (return())
     -- traceShow "after recvFrom" (return())
     -- traceShow receivedMessage (return())
     ariviNetworkInstance <- getAriviNetworkInstance
-    let hashMapTVar = ariviNetworkConnectionMap ariviNetworkInstance
+    let hashMapTVar = ariviNetworkDatagramMap ariviNetworkInstance
     cid <- liftIO $ getUDPConnectionId peerSockAddr
     hm <- liftIO $ readTVarIO hashMapTVar
     eitherExeptionParcel <- deserialiseParcel receivedMessage
@@ -176,13 +168,12 @@ runUDPServerForever mSocket = do
         Left deserialiseException -> throw deserialiseException
         Right parcel ->
             case StrictHashMap.lookup cid hm of
-                Just conn
+                Just hInboundDatagramTChan
                                 -- cid <- liftIO $ getUDPConnectionId peerSockAddr
                  -> do
                     _ <-
                         liftIO $
-                        atomically $
-                        writeTChan (Conn.inboundDatagramTChan conn) parcel
+                        atomically $ writeTChan hInboundDatagramTChan parcel
                                 -- traceShow parcel (return())
                     runUDPServerForever mSocket
                 Nothing -> do
@@ -199,7 +190,7 @@ runUDPServerForever mSocket = do
 processNewConnection ::
        (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
     => ConnectionId
-    -> TVar (HashMap ConnectionId Conn.Connection)
+    -> TVar (HashMap ConnectionId (TChan Parcel))
     -> SockAddr
     -> Socket
     -> Parcel
@@ -237,7 +228,7 @@ processNewConnection cid hashMapTVar peerSockAddr mSocket parcel = do
             }
     liftIO $
         atomically $
-        modifyTVar hashMapTVar (StrictHashMap.insert cid newConnection)
+        modifyTVar hashMapTVar (StrictHashMap.insert cid mInboundDatagramTChan)
     handleInboundDatagrams newConnection
     -- if (isNewConnection)
     --     then
