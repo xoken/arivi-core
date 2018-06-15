@@ -52,10 +52,8 @@ sendOptionsToPeer sendingPeer recievingPeer = do
                     deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
             case supportMessage of
                 Support _ fromPeer resourceList ->
-                    Control.Monad.when $
-                    (to message == fromPeer)
-                        updateResourcePeers
-                        (recievingPeer, resourceList)
+                    Control.Monad.when (to message == fromPeer) $
+                    updateResourcePeers (recievingPeer, resourceList)
                 _ -> return () -- should handle this better
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
