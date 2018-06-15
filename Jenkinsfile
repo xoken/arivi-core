@@ -5,8 +5,13 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building..'
-                sh 'hlint --extension=hs .'
                 sh 'stack build'
+            }
+        }
+        stage('Lint Checking') {
+            steps {
+                echo 'Checking lint..'
+                sh 'hlint --extension=hs .'
             }
         }
         stage('Test') {
