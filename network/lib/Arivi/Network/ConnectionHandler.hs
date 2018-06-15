@@ -214,9 +214,9 @@ processParcel parcelTChan connection fragmentsHM = forever $ do
   parcel <- liftIO $ atomically (readTChan parcelTChan)
   case parcel of
     dataParcel@(Parcel DataHeader{} _) -> do
-      -- res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
-      liftIO $ reassembleFrames' (header dataParcel)
-      res <-  liftIO (return (Right fragmentsHM) :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
+      res <- liftIO (try $ atomically $ reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
+      -- liftIO $ reassembleFrames' (header dataParcel)
+      -- res <-  liftIO (return (Right fragmentsHM) :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
       case res of
         -- possibly throw again
         Left e -> deleteConnectionFromHashMap (Conn.connectionId connection) >> throw e
@@ -227,9 +227,9 @@ processParcel parcelTChan connection fragmentsHM = forever $ do
     pongParcel@(Parcel PongHeader{} _) -> return ()
     _ -> deleteConnectionFromHashMap(Conn.connectionId connection) >> throw AriviWrongParcelException
 
-reassembleFrames' currentFragment = if totalFragements currentFragment == fragmentNumber currentFragment
-                                       then print "appendedMessage"
-                                       else return ()
+-- reassembleFrames' currentFragment = if totalFragements currentFragment == fragmentNumber currentFragment
+--                                        then print "appendedMessage"
+--                                        else return ()
 
 -- | Read on the socket for handshakeInit parcel and return it or throw AriviException
 readHandshakeInitSock :: Socket -> IO Parcel
