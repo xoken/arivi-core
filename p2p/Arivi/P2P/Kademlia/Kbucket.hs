@@ -33,9 +33,12 @@ import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.Utils.Exception
 import           Control.Monad
-import qualified Data.HashTable.IO              as H
+import           Control.Monad.STM
 import qualified Data.List                      as L
 import           Data.Maybe
+import           ListT
+import qualified STMContainers.Map              as H
+
 -- | Peer information encapsulated in a single structure
 newtype Peer = Peer {
                         getPeer :: (T.NodeId,T.NodeEndPoint)
@@ -47,9 +50,9 @@ instance Eq Peer where
 
 -- | K-bucket to store peers
 newtype Kbucket k v = Kbucket {
-                        getKbucket :: H.CuckooHashTable k v
+                        getKbucket :: H.Map k v
                       }
-                      deriving (Show)
+                      deriving ()
 
 -- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
@@ -59,8 +62,8 @@ newtype Kbucket k v = Kbucket {
 createKbucket :: Peer
               -> IO (Kbucket Int [Peer])
 createKbucket localPeer = do
-  m <- H.new
-  H.insert m 0 [localPeer]
+  m <- atomically H.new
+  atomically $ H.insert [localPeer] 0 m
   return (Kbucket m)
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
@@ -68,11 +71,11 @@ createKbucket localPeer = do
 getDefaultNodeId :: Kbucket Int [Peer] -> IO (Either AriviException T.NodeId)
 getDefaultNodeId kbucket = do
   let kb = getKbucket kbucket
-  lp <- H.lookup kb 0
+  lp <- atomically $ H.lookup 0 kb
   let localPeer = fromMaybe [] lp
-  if null localPeer
+  if Prelude.null localPeer
     then return $ Left KademliaDefaultPeerDoesNotExists
-    else return $ Right $ fst $ getPeer $ head localPeer
+    else return $ Right $ fst $ getPeer $ Prelude.head localPeer
 
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 -- given peer with respect to the default peer or local peer for which
@@ -86,7 +89,7 @@ getPeerList peerR kbucket = do
     Right localPeer ->  do
                             let peer       = fst $ getPeer peerR
                                 kbDistance = getKbIndex localPeer peer
-                            pl <- H.lookup (getKbucket kbucket) kbDistance
+                            pl <- atomically $ H.lookup kbDistance (getKbucket kbucket)
                             let peerList = fromMaybe [] pl
                             return $ Right peerList
 
@@ -97,7 +100,7 @@ getPeerListByKIndex :: Int
                     -> Kbucket Int [Peer]
                     -> IO (Either AriviException [Peer])
 getPeerListByKIndex kbi kbucket = do
-  peerl <- H.lookup (getKbucket kbucket) kbi
+  peerl <- atomically $ H.lookup kbi (getKbucket kbucket)
   let pl = fromMaybe [] peerl
   case pl of
     [] -> return $ Left KademliaKbIndexDoesNotExist
@@ -131,8 +134,8 @@ addToKBucket peerR kbucket = do
           let peer       = fst $ getPeer peerR
               kbDistance = getKbIndex localPeer peer
           if peerR `elem` pl
-            then H.insert kb kbDistance (pl ++ [peerR])
-            else H.insert kb kbDistance [peerR]
+            then atomically $ H.insert (pl ++ [peerR]) kbDistance kb
+            else atomically $ H.insert [peerR] kbDistance kb
         Left _ -> return ()
     Left _ -> return ()
 
@@ -151,8 +154,8 @@ removePeer peerR kbucket = do
               peer       = fst $ getPeer peerR
               kbDistance = getKbIndex localPeer peer
           if peerR `elem` pl
-            then H.insert kb kbDistance (L.delete peerR pl)
-            else H.insert kb kbDistance [peerR]
+            then atomically $ H.insert (L.delete peerR pl) kbDistance kb
+            else atomically $ H.insert [peerR] kbDistance kb
         Left _ -> return ()
     Left _ -> return ()
 
@@ -164,7 +167,7 @@ getPeerListFromKeyList :: Int
 getPeerListFromKeyList _ [] _           = return []
 getPeerListFromKeyList 0 _ _            = return []
 getPeerListFromKeyList k (x:xs) kbucket = do
-  pl <- H.lookup (getKbucket kbucket) x
+  pl <- atomically $ H.lookup x (getKbucket kbucket)
   let peerList = fromMaybe [] pl
       ple      = fst $ L.splitAt k peerList
   if L.length peerList >= k then return ple else do
@@ -178,7 +181,8 @@ getKClosestPeers :: Peer
                  -> Kbucket Int [Peer]
                  -> IO (Either AriviException [Peer])
 getKClosestPeers peerR k kbucket = do
-  kvList <- H.toList (getKbucket kbucket)
+  let kbtemp = H.stream (getKbucket kbucket)
+  kvList <- atomically $ toList kbtemp
   lp <- getDefaultNodeId kbucket
   case lp of
     Right localPeer -> do
@@ -189,11 +193,13 @@ getKClosestPeers peerR k kbucket = do
       return (Right peerl)
     Left x  -> return (Left x)
 
-
+-- | gets 'k' random peers from the kbucket for a given 'k', notice in this
+--   case peers returned will not be closest peers
 getKRandomPeers :: Peer
                 -> Int
                 -> Kbucket Int [Peer]
                 -> IO [Peer]
 getKRandomPeers peerR k kbucket = do
-  keyl <- U.randomList k
+  keyl <- U.randomList 255
   getPeerListFromKeyList k keyl kbucket
+

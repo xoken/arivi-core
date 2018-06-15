@@ -62,6 +62,8 @@ library
                     ,  arivi-crypto
                     ,  arivi-utils
                     ,  hashable
+                    ,  stm-containers >= 0.2.16
+                    ,  list-t >= 1.0.0.1     
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                       --  Arivi.P2P.PubSub
