@@ -200,7 +200,10 @@ getKClosestPeers peerR k = do
       kbucket <- getKb
       let kbtemp = H.stream (getKbucket kbucket)
       kvList <- liftIO $ atomically $ toList kbtemp
-      let keys = L.sort $ fmap fst kvList
+      let  peer   = fst $ getPeer peerR
+           kbi    = getKbIndex localPeer peer
+           tkeys  = L.sort $ fmap fst kvList
+           keys   = (\(x,y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
       peerl <- getPeerListFromKeyList k keys
       return (Right peerl)
     Left x  -> return (Left x)
@@ -213,6 +216,3 @@ getKRandomPeers :: (HasKbucket m) => Peer
 getKRandomPeers peerR k = do
   keyl <- liftIO $ U.randomList 255
   getPeerListFromKeyList k keyl
-
-
-
