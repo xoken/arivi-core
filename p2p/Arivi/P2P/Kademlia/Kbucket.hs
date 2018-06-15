@@ -11,6 +11,7 @@
 -- peers, and other helper functions to work with kbucket.
 --
 
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -36,9 +37,9 @@ import qualified Arivi.P2P.Kademlia.Types       as T
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.Utils.Exception
-import           Control.Monad
+import           Control.Monad                  ()
 import           Control.Monad.IO.Class
-import           Control.Monad.Reader
+import           Control.Monad.Reader           ()
 import           Control.Monad.STM
 import           Control.Monad.Trans.Control
 import qualified Data.List                      as L
@@ -122,7 +123,6 @@ getPeerListByKIndex kbi = do
 ifPeerExist :: (HasKbucket m) => Peer
             -> m (Either AriviException Bool)
 ifPeerExist peer = do
-  kbucket <- getKb
   peerList <- getPeerList peer
   case peerList of
     Right pl  -> if peer `elem` pl
@@ -146,7 +146,9 @@ addToKBucket peerR = do
           let peer       = fst $ getPeer peerR
               kbDistance = getKbIndex localPeer peer
           if peerR `elem` pl
-            then liftIO $ atomically $ H.insert (pl ++ [peerR]) kbDistance kb
+            then do
+              removePeer peerR
+              liftIO $ atomically $ H.insert (pl ++ [peerR]) kbDistance kb
             else liftIO $ atomically $ H.insert [peerR] kbDistance kb
         Left _ -> return ()
     Left _ -> return ()
@@ -192,15 +194,13 @@ getKClosestPeers ::(HasKbucket m) => Peer
                  -> Int
                  -> m (Either AriviException [Peer])
 getKClosestPeers peerR k = do
-  kbucket <- getKb
-  let kbtemp = H.stream (getKbucket kbucket)
-  kvList <- liftIO $ atomically $ toList kbtemp
   lp <- getDefaultNodeId
   case lp of
     Right localPeer -> do
-      let peer = fst $ getPeer peerR
-          kbi  = getKbIndex localPeer peer
-          keys = L.sort $ fmap fst kvList
+      kbucket <- getKb
+      let kbtemp = H.stream (getKbucket kbucket)
+      kvList <- liftIO $ atomically $ toList kbtemp
+      let keys = L.sort $ fmap fst kvList
       peerl <- getPeerListFromKeyList k keys
       return (Right peerl)
     Left x  -> return (Left x)
@@ -213,4 +213,6 @@ getKRandomPeers :: (HasKbucket m) => Peer
 getKRandomPeers peerR k = do
   keyl <- liftIO $ U.randomList 255
   getPeerListFromKeyList k keyl
+
+
 
