@@ -210,9 +210,8 @@ getKClosestPeers peerR k = do
 
 -- | gets 'k' random peers from the kbucket for a given 'k', notice in this
 --   case peers returned will not be closest peers
-getKRandomPeers :: (HasKbucket m) => Peer
-                -> Int
-                -> m [Peer]
-getKRandomPeers peerR k = do
+getKRandomPeers :: HasKbucket m -> Int -> m [Peer]
+getKRandomPeers k = do
   keyl <- liftIO $ U.randomList 255
   getPeerListFromKeyList k keyl
+
