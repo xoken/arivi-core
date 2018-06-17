@@ -41,7 +41,7 @@ module Arivi.Network.Connection
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
 import           Arivi.Network.Types                (AeadNonce, ConnectionId,
-                                                     NodeId,
+                                                     NodeId, Parcel (..),
                                                      PersonalityType (..),
                                                      PortNumber, SequenceNum,
                                                      TransportType)
