@@ -1,11 +1,14 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
--- {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 
-module Arivi.Env (module Arivi.Env) where
+-- {-# OPTIONS_GHC -fno-warn-missing-fields #-}
+module Arivi.Env
+    ( module Arivi.Env
+    ) where
 
 import           Arivi.Logging
 import           Arivi.Network.Connection
+import           Arivi.Network.Types         (Parcel (..))
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
@@ -16,23 +19,23 @@ import           Network.Socket              as Network
 
 type HashTable k v = Mutable.CuckooHashTable k v
 
-data AriviEnv = AriviEnv { ariviNetworkInstance :: AriviNetworkInstance
-                         , ariviCryptoEnv :: CryptoEnv
-                         , loggerChan :: LogChan
-                         , envPort :: Int                -- ^ TCP an UDP bind
+data AriviEnv = AriviEnv
+    { ariviNetworkInstance :: AriviNetworkInstance
+    , ariviCryptoEnv       :: CryptoEnv
+    , loggerChan           :: LogChan
+    , envPort              :: Int -- ^ TCP an UDP bind
                                                          --   port for new
                                                          --   connections
-                         , udpSocket ::  Network.Socket  -- ^ UDP server and
+    , udpSocket            :: Network.Socket -- ^ UDP server and
                                                          --   client Socket for
                                                          --   ALL connections
-                         , udpConnectionHashMap :: HashTable ConnectionId
-                                                                    CompleteConnection
-                         }
+    , udpConnectionHashMap :: HashTable ConnectionId CompleteConnection
+    , datagramHashMap      :: HashTable ConnectionId (TChan Parcel)
+    }
 
-data CryptoEnv = CryptoEnv { cryptoEnvSercretKey :: Ed25519.SecretKey
-                           }
-
-
+data CryptoEnv = CryptoEnv
+    { cryptoEnvSercretKey :: Ed25519.SecretKey
+    }
 
 class (MonadIO m, MonadBaseControl IO m) => HasEnv m where
   getEnv :: m AriviEnv
@@ -40,43 +43,48 @@ class (MonadIO m, MonadBaseControl IO m) => HasEnv m where
 class (HasEnv m) => HasAriviNetworkInstance m where
   getAriviNetworkInstance :: m AriviNetworkInstance
 
+
 class (HasEnv m) => HasSecretKey m where
   getSecretKey :: m Ed25519.SecretKey
+
 
 class (HasEnv m) => HasUDPSocket m where
   getUDPSocket :: m Network.Socket
 
 mkAriviEnv :: IO AriviEnv
 mkAriviEnv = do
-  ani <- mkAriviNetworkInstance
-  return AriviEnv { ariviNetworkInstance = ani
-                  , envPort = 8083
-                  }
+    ani <- mkAriviNetworkInstance
+    return AriviEnv {ariviNetworkInstance = ani, envPort = 8083}
 
-data AriviNetworkInstance = AriviNetworkInstance {
-  ariviNetworkConnectionMap   :: TVar (HashMap ConnectionId CompleteConnection),
-  ariviConnectionUpdatesTChan :: TChan (ConnectionId, String)
-                                                 }
+data AriviNetworkInstance = AriviNetworkInstance
+    { ariviNetworkConnectionMap :: TVar (HashMap ConnectionId CompleteConnection)
+    , ariviNetworkDatagramMap :: TVar (HashMap ConnectionId (TChan Parcel))
+    , ariviConnectionUpdatesTChan :: TChan (ConnectionId, String)
+    }
 
 mkAriviNetworkInstance :: IO AriviNetworkInstance
 mkAriviNetworkInstance = do
-  tv <- newTVarIO HM.empty
-  return AriviNetworkInstance { ariviNetworkConnectionMap = tv }
+    tv <- newTVarIO HM.empty
+    tvDatagram <- newTVarIO HM.empty
+    return
+        AriviNetworkInstance
+        {ariviNetworkConnectionMap = tv, ariviNetworkDatagramMap = tvDatagram}
 
-connectionMap :: AriviNetworkInstance
-              -> TVar (HashMap ConnectionId CompleteConnection)
+connectionMap ::
+       AriviNetworkInstance -> TVar (HashMap ConnectionId CompleteConnection)
 connectionMap = ariviNetworkConnectionMap
 
+datagramMap ::
+       AriviNetworkInstance -> TVar (HashMap ConnectionId (TChan Parcel))
+datagramMap = ariviNetworkDatagramMap
 
 -- DELETE LATER
 mkAriviEnv' :: IO AriviEnv
 mkAriviEnv' = do
-  ani <- mkAriviNetworkInstance'
-  return AriviEnv { ariviNetworkInstance = ani
-                  , envPort = 8080
-                  }
+    ani <- mkAriviNetworkInstance'
+    return AriviEnv {ariviNetworkInstance = ani, envPort = 8080}
 
 mkAriviNetworkInstance' :: IO AriviNetworkInstance
 mkAriviNetworkInstance' = do
-  tv <- newTVarIO HM.empty
-  return AriviNetworkInstance { ariviNetworkConnectionMap = tv }
+    tv <- newTVarIO HM.empty
+    return AriviNetworkInstance {ariviNetworkConnectionMap = tv}
