@@ -16,26 +16,26 @@ module Arivi.Network.Connection
     , CompleteConnection
     , HandshakeStatus(..)
     , IncompleteConnection
-    , mkIncompleteConnection
-    , mkIncompleteConnection'
-    , mkCompleteConnection
-    , connectionId
-    , remoteNodeId
-    , ipAddress
-    , port
-    , transportType
-    , personalityType
-    , socket
-    , waitWrite
-    , sharedSecret
-    , remoteSockAddr
-    , p2pMessageTChan
-    , egressSeqNum
-    , ingressSeqNum
     , aeadNonceCounter
     , concatenate
+    , connectionId
+    , egressSeqNum
     , genConnectionId
+    , ingressSeqNum
+    , ipAddress
     , makeConnectionId
+    , mkCompleteConnection
+    , mkIncompleteConnection
+    , mkIncompleteConnection'
+    , p2pMessageTChan
+    , personalityType
+    , port
+    , remoteNodeId
+    , remoteSockAddr
+    , sharedSecret
+    , socket
+    , transportType
+    , waitWrite
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
@@ -63,21 +63,22 @@ data HandshakeStatus
     deriving (Eq, Generic, Show)
 
 data Connection a = Connection
-    { connectionId      :: ConnectionId
-    , remoteNodeId      :: NodeId
-    , ipAddress         :: Network.HostName
-    , port              :: PortNumber
-    , transportType     :: TransportType
-    , personalityType   :: PersonalityType
-    , socket            :: Network.Socket
-    , waitWrite         :: MVar Int
-    , _cSharedSecret    :: Keys.SharedSecret
-    , remoteSockAddr    :: Network.SockAddr
-    , p2pMessageTChan   :: TChan L.ByteString
-    , egressSeqNum      :: TVar SequenceNum
-    , ingressSeqNum     :: TVar SequenceNum -- need not be TVar
-    , aeadNonceCounter  :: TVar AeadNonce
-    , handshakeComplete :: TVar HandshakeStatus
+    { connectionId         :: ConnectionId
+    , remoteNodeId         :: NodeId
+    , ipAddress            :: Network.HostName
+    , port                 :: PortNumber
+    , transportType        :: TransportType
+    , personalityType      :: PersonalityType
+    , socket               :: Network.Socket
+    , waitWrite            :: MVar Int
+    , _cSharedSecret       :: Keys.SharedSecret
+    , remoteSockAddr       :: Network.SockAddr
+    , inboundDatagramTChan :: TChan Parcel
+    , p2pMessageTChan      :: TChan L.ByteString
+    , egressSeqNum         :: TVar SequenceNum
+    , ingressSeqNum        :: TVar SequenceNum -- need not be TVar
+    , aeadNonceCounter     :: TVar AeadNonce
+    , handshakeComplete    :: TVar HandshakeStatus
     } deriving (Eq, Generic)
 
 data Complete
