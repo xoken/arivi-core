@@ -153,7 +153,7 @@ sendMessage cId msg = $(withLoggingTH) (LogNetworkStatement "Sending Message: ")
           lock = Conn.waitWrite conn
       fragments <- liftIO $ processPayload (Payload msg) conn
 
-      mapM_ (\frame -> liftIO (atomically frame >>= (try.(sendFrame lock) sock))
+      mapM_ (\frame -> liftIO (atomically frame >>= (try.sendFrame lock sock))
             >>= \case
                      Left (_::SomeException) -> closeConnection cId
                                              >> throw AriviSocketException
@@ -179,8 +179,8 @@ lookupCId :: (HasAriviNetworkInstance m)
           => ANT.ConnectionId
           -> m (Maybe CompleteConnection)
 lookupCId cId = do
-  ariviInstance <- getAriviNetworkInstance
-  let tv = connectionMap ariviInstance
+  ariviInstance' <- getAriviNetworkInstance
+  let tv = connectionMap ariviInstance'
   hmap <- liftIO $ readTVarIO tv
   return $ HM.lookup cId hmap
 

@@ -71,10 +71,10 @@ sender sk rk n size = do
                                        case cidOrFail of
                                           Left e -> throw e
                                           Right cid -> do
-                                            time <- liftIO $ getCurrentTime
+                                            time <- liftIO  getCurrentTime
                                             liftIO $ print time
-                                            mapM_ (\_ -> (sendMessage cid (a size))) [1..n]
-                                            time2 <- liftIO $ getCurrentTime
+                                            mapM_ (const (sendMessage cid (a size))) [1..n]
+                                            time2 <- liftIO  getCurrentTime
                                             liftIO $ print time2
                                        liftIO $ print "done"
                                    )
@@ -104,7 +104,7 @@ initiator = do
   return ()
 
 recipient :: IO ()
-recipient = do  
+recipient = do
   let recv_sk = ACUPS.getSecretKey "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
   receiver recv_sk
   threadDelay 1000000000000

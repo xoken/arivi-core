@@ -1,5 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ViewPatterns #-}
 module Arivi.Network.Fragmenter
 (
     processPayload
@@ -7,7 +6,11 @@ module Arivi.Network.Fragmenter
 
 import           Arivi.Crypto.Utils.PublicKey.Utils (encryptMsg)
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Connection           as Conn (CompleteConnection, egressSeqNum, aeadNonceCounter, sharedSecret, connectionId)
+import           Arivi.Network.Connection           as Conn (CompleteConnection,
+                                                             aeadNonceCounter,
+                                                             connectionId,
+                                                             egressSeqNum,
+                                                             sharedSecret)
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types                (FragmentNumber,
                                                      Header (..), MessageId,

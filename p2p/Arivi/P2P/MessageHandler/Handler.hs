@@ -140,7 +140,7 @@ readRequest conInfo  =
                         Left ( _ :: Exception.SomeException)-> return ()
                         Right byteMessage ->
                             do
-                                let networkMessage = (deserialise (Lazy.fromStrict byteMessage)) :: P2PMessage
+                                let networkMessage = deserialise (Lazy.fromStrict byteMessage) :: P2PMessage
                                 uuidMap <- atomically (readTVar uuidMapTVar)
                                 let temp = HM.lookup (uuid networkMessage) uuidMap
                                 if isNothing temp then
@@ -205,7 +205,7 @@ getPeerInfo  :: ConnectionId -> ConnectionInfo
 getPeerInfo connId =
 
         ConnectionInfo {
-            peerNodeId = read (infolist!!0) :: NodeId,
+            peerNodeId = read (head infolist) :: NodeId,
             peerIp = read (infolist!!1) ::IP,
             port = read (infolist!!2) ::Port,
             transportType = read (infolist!!3) ::TransportType
@@ -226,7 +226,5 @@ sendMessage :: ConnectionId -> Char8.ByteString -> IO ()
 sendMessage connectionId byteString = return ()
 
 readMessage :: ConnectionId -> IO ByteString
-readMessage connId = do
-
-    uuid2 <- getUUID
-    return (Lazy.toStrict $ serialise (generateP2PMessage Kademlia (pack "892sadasd346384") uuid2 ))
+readMessage connId =
+    Lazy.toStrict . serialise . generateP2PMessage Kademlia (pack "892sadasd346384") <$> getUUID

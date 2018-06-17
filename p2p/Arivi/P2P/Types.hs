@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 
 -- |
 -- Module      :  Arivi.P2P.Types
@@ -17,9 +16,9 @@ module Arivi.P2P.Types
   AriviP2PInstance(..)
 ) where
 
-import           Arivi.Network.Types            (TransportType (..),NodeId)
-import           GHC.Generics                   (Generic)
-import           Codec.Serialise                (Serialise)
+import           Arivi.Network.Types (NodeId, TransportType (..))
+import           Codec.Serialise     (Serialise)
+import           GHC.Generics        (Generic)
 
 
 
@@ -31,6 +30,6 @@ import           Codec.Serialise                (Serialise)
 
 
 data AriviP2PInstance = AriviP2PInstance {
-  nodeId  :: NodeId,
-  ip      :: String
+  nodeId :: NodeId,
+  ip     :: String
 }

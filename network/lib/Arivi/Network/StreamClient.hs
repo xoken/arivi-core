@@ -1,16 +1,15 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Arivi.Network.StreamClient (
     createSocket,
     sendFrame,
     createFrame
 ) where
 
-import           Arivi.Network.Types       (TransportType (..))
-import           Data.Binary
-import qualified Data.ByteString.Lazy      as BSL
-import           Data.Int                  (Int16)
-import           Network.Socket
+import           Arivi.Network.Types            (TransportType (..))
 import           Control.Concurrent.MVar
+import           Data.Binary
+import qualified Data.ByteString.Lazy           as BSL
+import           Data.Int                       (Int16)
+import           Network.Socket
 import qualified Network.Socket.ByteString.Lazy as N (sendAll)
 
 getAddressType :: TransportType -> SocketType
