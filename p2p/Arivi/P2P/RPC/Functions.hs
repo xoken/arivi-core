@@ -1,29 +1,26 @@
+--{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Arivi.P2P.RPC.Functions where
 
-import           Arivi.Network.Types                   (ConnectionId, NodeId,
+import           Arivi.Network.Types                   (ConnectionId,
                                                         TransportType (..))
 import           Arivi.P2P.MessageHandler.Handler
-import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
+import           Arivi.P2P.MessageHandler.HandlerTypes (MessageCode (..),
+                                                        P2PPayload, Peer (..))
 import           Arivi.P2P.RPC.Types
+import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (forkIO, threadDelay)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import           Control.Monad                         (forever)
 import           Control.Monad.STM
+import           Data.ByteString.Char8                 as Char8 (ByteString)
+import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
+                                                                toStrict)
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
-{-
---getResource(resourceID serviceMessage)
--- form messageType
---getPeer from ResourcetoPeerList
---ret = sendRequest peer messageType Tcp
--- check ret format with try catch
---if not good then return getResource(resourceID serviceMessage)
--- else return (serviceMessage ret)
--}
 {-
   structure of HashMap entry => key : ResourceId, value : (ServiceId, TQueue Peers)
 -}
@@ -89,8 +86,66 @@ writeBackToTQueue currTQ (currentElem:listOfTQ) = do
 -- signature of the function to ask Kademlia for peers
 askKademliaForPeers :: Int -> Peer -> [Peer]
 askKademliaForPeers numberOfPeers peer = [peer]
+
 {-
 acceptRequest (ResourceID)
 --read from ResourceID TChan
 return (serviceMessage,
 -}
+{-
+--getResource(resourceID serviceMessage)
+-- form messageType
+--getPeer from ResourcetoPeerList
+--ret = sendRequest peer messageType Tcp
+-- check ret format with try catch
+--if not good then return getResource(resourceID serviceMessage)
+-- else return (serviceMessage ret)
+-}
+getResource ::
+       NodeId
+    -> ResourceId
+    -> TVar ResourceToPeerMap
+    -> ByteString
+    -> IO ByteString
+getResource mynodeid resourceID resourceToPeerMapTvar servicemessage = do
+    resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
+    let temp = HM.lookup resourceID resourceToPeerMap
+    let peerTQ = snd (fromJust temp)
+    getPeer peerTQ resourceID mynodeid servicemessage
+
+getPeer :: TQueue Peer -> ResourceId -> NodeId -> ByteString -> IO ByteString
+getPeer peerTQ resourceID mynodeid servicemessage = do
+    peer <- atomically (readTQueue peerTQ)
+    let tonodeid = nodeId peer
+    let message1 =
+            RequestRC
+                { to = tonodeid
+                , from = mynodeid
+                , rid = resourceID -- add RID
+                , serviceMessage = servicemessage
+                }
+    let message = Lazy.toStrict $ serialise message1
+    let a = sendRequest1 peer RPC message TCP
+    let inmessage = deserialise (Lazy.fromStrict message) :: MessageTypeRPC
+    let d = to inmessage
+    let b = from inmessage
+    let c = serviceMessage inmessage
+    let e = rid inmessage
+    if (mynodeid == d && tonodeid == b) && resourceID == e
+                --writeTQueue :: TQueue a -> a -> STM ()
+        then atomically (writeTQueue peerTQ peer) >>
+                --writeTVar resourceToPeerMap temp
+             return c
+        else getPeer peerTQ resourceID mynodeid servicemessage
+
+sendRequest1 :: Peer -> MessageCode -> P2PPayload -> TransportType -> ByteString
+sendRequest1 peer mCode message transportType = do
+    let inmessage = deserialise (Lazy.fromStrict message) :: MessageTypeRPC
+    let message1 =
+            ReplyRC
+                { to = to inmessage
+                , from = from inmessage
+                , rid = rid inmessage
+                , serviceMessage = serviceMessage inmessage
+                }
+    Lazy.toStrict $ serialise message1
