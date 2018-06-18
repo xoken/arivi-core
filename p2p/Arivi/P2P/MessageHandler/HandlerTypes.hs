@@ -1,88 +1,101 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Arivi.P2P.MessageHandler.HandlerTypes
-(
-  MessageCode(..),
-  P2PMessage(..),
-  Peer(..),
-  IP,
-  Port,
-  P2PUUID,
-  P2PPayload,
-  UUIDMap,
-  PeerUUIDMap,
-  MessageInfo,
-  NodeId,
-  ConnectionId,
-  ConnectionInfo(..),
-  TransportType(..),
-  ConnectionInfoMap
+    ( MessageCode(..)
+    , P2PMessage(..)
+    , Peer(..)
+    , IP
+    , Port
+    , P2PUUID
+    , P2PPayload
+    , UUIDMap
+    , PeerUUIDMap
+    , MessageInfo
+    , NodeId
+    , ConnectionId
+    , ConnectionInfo(..)
+    , TransportType(..)
+    , ConnectionInfoMap
+    ) where
+
+import           Control.Concurrent.MVar
+
 {-
 
 -}
-)
-where
-
-
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar()
-import           Control.Concurrent.MVar
-import           Control.Monad()
+import           Control.Concurrent.STM.TVar ()
+import           Control.Monad               ()
 
-import           Codec.Serialise                (Serialise)
+import           Codec.Serialise             (Serialise)
 
-import           GHC.Generics                   (Generic)
+import           GHC.Generics                (Generic)
 
-import              Data.ByteString.Char8       as Char8 (ByteString)
+import           Data.ByteString.Char8       as Char8 (ByteString)
 
-import              Data.HashMap.Strict         as HM
-import              Data.Hashable
+import           Data.Hashable
+import           Data.HashMap.Strict         as HM
 
 --import           Arivi.Network.Types            (TransportType(..))
-
 --import Arivi.P2P.Types
 type IP = String
+
 type Port = Int
+
 type NodeId = String
+
 type P2PUUID = String
+
 type P2PPayload = ByteString
+
 type ConnectionId = ByteString
-data P2PMessage = P2PMessage {
-          uuid :: P2PUUID
-        , messageCode :: MessageCode
-        , typeMessage :: P2PPayload
-}deriving(Eq,Ord,Show,Generic)
+
+data P2PMessage = P2PMessage
+    { uuid        :: P2PUUID
+    , messageCode :: MessageCode
+    , typeMessage :: P2PPayload
+    } deriving (Eq, Ord, Show, Generic)
+
 instance Serialise P2PMessage
-data MessageCode = Kademlia | RPC | PubSub deriving(Eq,Ord,Show,Generic)
+
+data MessageCode
+    = Kademlia
+    | RPC
+    | PubSub
+    deriving (Eq, Ord, Show, Generic)
+
 instance Serialise MessageCode
 
-data ConnectionInfo =  ConnectionInfo {
-    peerNodeId :: NodeId
-  , peerIp:: IP
-  , port:: Port
-  , transportType ::TransportType
-} deriving(Eq,Show,Generic)
+data ConnectionInfo = ConnectionInfo
+    { peerNodeId    :: NodeId
+    , peerIp        :: IP
+    , port          :: Port
+    , transportType :: TransportType
+    } deriving (Eq, Show, Generic)
 
-data Peer =  Peer {
-    nodeId :: NodeId
-  , ip:: IP
-  , udpPort:: Port
-  , tcpPort:: Port
-} deriving(Eq,Show,Generic)
+data Peer = Peer
+    { nodeId  :: NodeId
+    , ip      :: IP
+    , udpPort :: Port
+    , tcpPort :: Port
+    } deriving (Eq, Show, Generic)
 
-data TransportType =
-  UDP
-  | TCP
-  deriving (Eq,Show,Generic, Read)
+data TransportType
+    = UDP
+    | TCP
+    deriving (Eq, Show, Generic, Read)
 
 instance Hashable TransportType
+
 instance Hashable Peer
+
 instance Hashable ConnectionInfo
+
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
+
 type PeerUUIDMap = HM.HashMap NodeId (TVar UUIDMap)
 
 type MessageInfo = (P2PUUID, P2PPayload)
-
 
 type ConnectionInfoMap = HM.HashMap ConnectionInfo Bool
 {-
