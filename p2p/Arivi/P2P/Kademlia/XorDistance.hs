@@ -19,9 +19,9 @@ where
 import           Arivi.Crypto.Utils.Keys.Signature
 import qualified Arivi.P2P.Kademlia.Types          as T
 import           Data.Bits
+import           Data.ByteString.Base16            (encode)
 import qualified Data.ByteString.Char8             as C
 import           Data.Char                         (digitToInt)
-
 
 fn :: Char -> Int
 fn str =  digitToInt str :: Int
@@ -62,6 +62,6 @@ getXorDistance firstNodeId secondNodeId = if rawXor == 0
 
 getKbIndex :: T.NodeId -> T.NodeId -> Int
 getKbIndex node1 node2 = kbi
-    where node1Str  = C.unpack $ publicKeytoHex node1
-          node2Str  = C.unpack $ publicKeytoHex node2
+    where node1Str  = C.unpack $ Data.ByteString.Base16.encode node1
+          node2Str  = C.unpack $ Data.ByteString.Base16.encode node2
           kbi       = round $ getXorDistance node1Str node2Str
