@@ -8,12 +8,16 @@ import           Arivi.Network.Types                   (ConnectionId,
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageCode (..),
                                                         P2PPayload, Peer (..))
+import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (forkIO, threadDelay)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
+import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                     try)
 import           Control.Monad                         (forever)
+import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
 import           Data.ByteString.Char8                 as Char8 (ByteString)
 import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
@@ -102,20 +106,28 @@ return (serviceMessage,
 -- else return (serviceMessage ret)
 -}
 getResource ::
-       NodeId
+       (HasP2PEnv m)
+    => NodeId
     -> ResourceId
     -> TVar ResourceToPeerMap
     -> ByteString
-    -> IO ByteString
+    -> m ByteString
 getResource mynodeid resourceID resourceToPeerMapTvar servicemessage = do
-    resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
+    resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+    --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let temp = HM.lookup resourceID resourceToPeerMap
     let peerTQ = snd (fromJust temp)
     getPeer peerTQ resourceID mynodeid servicemessage
 
-getPeer :: TQueue Peer -> ResourceId -> NodeId -> ByteString -> IO ByteString
+getPeer ::
+       (HasP2PEnv m)
+    => TQueue Peer
+    -> ResourceId
+    -> NodeId
+    -> ByteString
+    -> m ByteString
 getPeer peerTQ resourceID mynodeid servicemessage = do
-    peer <- atomically (readTQueue peerTQ)
+    peer <- liftIO $ atomically (readTQueue peerTQ)
     let tonodeid = nodeId peer
     let message1 =
             RequestRC
@@ -125,6 +137,23 @@ getPeer peerTQ resourceID mynodeid servicemessage = do
                 , serviceMessage = servicemessage
                 }
     let message = Lazy.toStrict $ serialise message1
+    {-
+sendOptionsToPeer :: (HasP2PEnv m) => Peer -> Peer -> m ()
+sendOptionsToPeer sendingPeer recievingPeer = do
+    let message = Options {to = nodeId recievingPeer, from = nodeId sendingPeer}
+    let byteStringMessage = Lazy.toStrict $ serialise message
+    res1 <- Exception.try $ sendRequest recievingPeer RPC byteStringMessage UDP -- not exactly RPC needs to be changed
+    case res1 of
+        Left (e :: Exception.SomeException) -> return ()
+        Right returnMessage -> do
+            let supportMessage =
+                    deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
+            case supportMessage of
+                Support _ fromPeer resourceList ->
+                    Control.Monad.when (to message == fromPeer) $
+                    updateResourcePeers (recievingPeer, resourceList)
+                _ -> return () -- should handle this better
+    -}
     let a = sendRequest1 peer RPC message TCP
     let inmessage = deserialise (Lazy.fromStrict message) :: MessageTypeRPC
     let d = to inmessage
@@ -133,7 +162,8 @@ getPeer peerTQ resourceID mynodeid servicemessage = do
     let e = rid inmessage
     if (mynodeid == d && tonodeid == b) && resourceID == e
                 --writeTQueue :: TQueue a -> a -> STM ()
-        then atomically (writeTQueue peerTQ peer) >>
+        then liftIO $
+             atomically (writeTQueue peerTQ peer) >>
                 --writeTVar resourceToPeerMap temp
              return c
         else getPeer peerTQ resourceID mynodeid servicemessage
