@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE OverloadedStrings     #-}
 
 module Arivi.Network.Instance
 (
@@ -41,7 +41,7 @@ import           Arivi.Network.Types                  as ANT (AeadNonce,
 import           Arivi.Network.Utils
 import           Arivi.Utils.Exception
 import           Codec.Serialise
-import           Control.Concurrent                   (threadDelay, newMVar)
+import           Control.Concurrent                   (newMVar, threadDelay)
 import           Control.Concurrent.Async.Lifted.Safe
 import           Control.Concurrent.Killable          (kill)
 import           Control.Concurrent.STM
@@ -152,7 +152,7 @@ sendMessage cId msg = $(withLoggingTH) (LogNetworkStatement "Sending Message: ")
           lock = Conn.waitWrite conn
       fragments <- liftIO $ processPayload (Payload msg) conn
 
-      mapM_ (\frame -> liftIO (atomically frame >>= (try.(sendFrame lock) sock))
+      mapM_ (\frame -> liftIO (atomically frame >>= (try.sendFrame lock sock))
             >>= \case
                      Left (_::SomeException) -> closeConnection cId
                                              >> throw AriviSocketException

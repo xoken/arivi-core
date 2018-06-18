@@ -40,10 +40,14 @@ module Arivi.Network.Connection
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Crypto.Utils.Random
-import           Arivi.Network.Types                (AeadNonce, ConnectionId, NodeId, PersonalityType (..), PortNumber, SequenceNum, TransportType)
+import           Arivi.Network.Types                (AeadNonce, ConnectionId,
+                                                     NodeId,
+                                                     PersonalityType (..),
+                                                     PortNumber, SequenceNum,
+                                                     TransportType)
+import           Control.Concurrent.MVar            (MVar, newMVar)
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
-import           Control.Concurrent.MVar            (MVar, newMVar)
 import           Data.ByteString.Base16             (encode)
 import           Data.ByteString.Char8              (ByteString, append, pack)
 import qualified Data.ByteString.Lazy               as L
@@ -75,7 +79,7 @@ data Incomplete
 type IncompleteConnection = Connection Incomplete
 type CompleteConnection   = Connection Complete
 
-mkIncompleteConnection :: ConnectionId -> NodeId -> Network.HostName -> PortNumber -> TransportType -> PersonalityType -> Network.Socket -> AeadNonce -> IO (IncompleteConnection)
+mkIncompleteConnection :: ConnectionId -> NodeId -> Network.HostName -> PortNumber -> TransportType -> PersonalityType -> Network.Socket -> AeadNonce -> IO IncompleteConnection
 mkIncompleteConnection cid rnid host portNum tt pt sock nonce = do
   msgChan    <- newTChanIO
   egressNum  <- newTVarIO 0
