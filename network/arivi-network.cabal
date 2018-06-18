@@ -89,3 +89,4 @@ executable arivi-network-exe
                     ,  arivi-crypto
                     ,  arivi-utils
                     ,  arivi-network
+                    ,  network
