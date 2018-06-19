@@ -10,7 +10,10 @@ import           Control.Concurrent                (Chan, MVar, ThreadId,
                                                     threadDelay)
 
 import           Arivi.Crypto.Utils.Keys.Signature
-import qualified Arivi.P2P.Kademlia.Query          as Q
+import           Arivi.Env
+import           Arivi.Network.Connection          (ipAddress, port)
+import           Arivi.Network.Instance
+import           Arivi.Network.Types               as ANT
 import qualified Arivi.P2P.Kademlia.Types          as T
 import           Arivi.P2P.Kademlia.Utils
 import qualified Control.Concurrent.Lifted         as CCL (fork)
@@ -29,9 +32,9 @@ import           Data.Maybe
 import qualified Data.Text                         as DT
 import qualified Data.Time.Clock.POSIX             as Clock (POSIXTime,
                                                              getPOSIXTime)
-import           Network.Socket (SockAddr(..))
 import           GHC.Exts
 import           GHC.Integer.Logarithms
+import           Network.Socket                    (SockAddr (..))
 -- isPlistFilled :: Foldable t => t a -> Bool
 -- isPlistFilled plist
 --     | L.null plist = False
