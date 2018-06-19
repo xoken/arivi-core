@@ -3,6 +3,9 @@
 module Arivi.P2P.RPC.SendOptions where
 
 import           Arivi.Network.Types                   (ConnectionId, NodeId)
+import           Arivi.P2P.Kademlia.Utils              (extractFirst,
+                                                        extractSecond,
+                                                        extractThird)
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageCode (..),
                                                         MessageInfo, Peer (..),
@@ -78,7 +81,7 @@ updateResourcePeersHelper peer (currResource:listOfResources) resourceToPeerMap 
     if isNothing temp
         then updateResourcePeersHelper peer listOfResources resourceToPeerMap
         else do
-            let currTQ = snd (fromJust temp)
+            let currTQ = extractSecond (fromJust temp)
             atomically (writeTQueue currTQ peer)
             tmp <-
                 updateResourcePeersHelper peer listOfResources resourceToPeerMap
