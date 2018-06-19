@@ -3,8 +3,7 @@
 
 module Arivi.P2P.RPC.Functions where
 
-import           Arivi.Network.Types                   (ConnectionId,
-                                                        TransportType (..))
+import           Arivi.Network.Types                   (ConnectionId)
 import           Arivi.P2P.Kademlia.Utils              (extractFirst,
                                                         extractSecond,
                                                         extractThird)
@@ -106,7 +105,7 @@ askKademliaForPeers numberOfPeers peer = [peer]
 
 ------------- Functions for reading requests and responding to them -------------------
 getResource ::
-       (HasP2PEnv m) => NodeId -> ResourceId -> ByteString -> m ByteString
+       (HasP2PEnv m) => NodeId -> ResourceId -> ServiceMessage -> m ByteString
 getResource mynodeid resourceID servicemessage = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
@@ -120,7 +119,7 @@ getPeer ::
     => TQueue Peer
     -> ResourceId
     -> NodeId
-    -> ByteString
+    -> ServiceMessage
     -> m ByteString
 getPeer peerTQ resourceID mynodeid servicemessage = do
     peer <- liftIO $ atomically (readTQueue peerTQ)
@@ -147,19 +146,6 @@ getPeer peerTQ resourceID mynodeid servicemessage = do
             if (mynodeid == d && tonodeid == b) && resourceID == e
                 then liftIO $ atomically (writeTQueue peerTQ peer) >> return c
                 else getPeer peerTQ resourceID mynodeid servicemessage
-
---dummy function
-sendRequest1 :: Peer -> MessageCode -> P2PPayload -> TransportType -> ByteString
-sendRequest1 peer mCode message transportType = do
-    let inmessage = deserialise (Lazy.fromStrict message) :: MessageTypeRPC
-    let message1 =
-            ReplyRC
-                { to = to inmessage
-                , from = from inmessage
-                , rid = rid inmessage
-                , serviceMessage = serviceMessage inmessage
-                }
-    Lazy.toStrict $ serialise message1
 
 resourceRequestThread :: (HasP2PEnv m) => m ()
 resourceRequestThread = do
@@ -193,6 +179,37 @@ resourceRequestHelper resourceToPeerMap = do
             putIntoTQueue sid currTQ newEntry
             resourceRequestHelper resourceToPeerMap
 
+sendResource :: (HasP2PEnv m) => ServicePayload -> NodeId -> m ()
+sendResource servicemessage fromNodeId --we wont be passing from node id
+                                            --we get the nodeid we use the environment variable
+ = do
+    let resourceId = resid servicemessage
+    let message1 = message servicemessage
+    let extrainfo = extra servicemessage
+    let info = fromJust extrainfo
+    let uuid1 = uuid info
+    let node1 = node info
+    let servicemessage1 =
+            ReplyRC
+                { to = node1
+                , from = fromNodeId
+                , rid = resourceId
+                , serviceMessage = message1
+                }
+    let servicemessage2 = Lazy.toStrict $ serialise message1
+    {-
+    sendResponse ::
+       (HasP2PEnv m)
+    => MessageInfo
+    -> Peer
+    -> TransportType
+    -> MessageCode
+    -> m ()
+    -}
+    let messageinfo = (uuid1, servicemessage2)
+    --sendResponse messageinfo TCP RPC
+    return ()
+
 -- currently passing the TQ later need to find correct TQ using ServiceId
 putIntoTQueue ::
        (HasP2PEnv m)
@@ -202,3 +219,16 @@ putIntoTQueue ::
     -> m ()
 putIntoTQueue sid tqueue newEntry =
     liftIO $ atomically (writeTQueue tqueue newEntry)
+
+--dummy function
+sendRequest1 :: Peer -> MessageCode -> P2PPayload -> TransportType -> ByteString
+sendRequest1 peer mCode message transportType = do
+    let inmessage = deserialise (Lazy.fromStrict message) :: MessageTypeRPC
+    let message1 =
+            ReplyRC
+                { to = to inmessage
+                , from = from inmessage
+                , rid = rid inmessage
+                , serviceMessage = serviceMessage inmessage
+                }
+    Lazy.toStrict $ serialise message1

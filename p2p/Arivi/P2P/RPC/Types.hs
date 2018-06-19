@@ -10,6 +10,7 @@ module Arivi.P2P.RPC.Types
     , P2PUUID
     , ServicePayload(..)
     , P2Pinfo(..)
+    , ServiceMessage
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
@@ -32,6 +33,8 @@ type NodeId = String
 
 type ServiceId = String
 
+type ServiceMessage = ByteString
+
 type ResourceList = [ResourceId]
 
 type ResourceToPeerMap
@@ -46,11 +49,11 @@ data MessageTypeRPC
     | RequestRC { to             :: NodeId
                 , from           :: NodeId
                 , rid            :: ResourceId
-                , serviceMessage :: ByteString }
+                , serviceMessage :: ServiceMessage }
     | ReplyRC { to             :: NodeId
               , from           :: NodeId
               , rid            :: ResourceId
-              , serviceMessage :: ByteString }
+              , serviceMessage :: ServiceMessage }
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypeRPC
