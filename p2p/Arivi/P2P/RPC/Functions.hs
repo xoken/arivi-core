@@ -12,6 +12,7 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (forkIO, threadDelay)
+import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import qualified Control.Exception.Lifted              as Exception (SomeException,
