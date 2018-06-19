@@ -7,6 +7,8 @@ module Arivi.P2P.RPC.Types
     , ResourceId
     , MessageTypeRPC(..)
     , NodeId
+    , P2PUUID
+    , ReadResourceWrapper(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
@@ -14,17 +16,18 @@ import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString
+import           Data.ByteString.Char8                 as Char8 (ByteString)
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
 
 --import              Data.Hashable
-type NodeId = String
-
 type IP = String
 
 type Port = Int
 
 type ResourceId = String
+
+type NodeId = String
 
 type ServiceId = String
 
@@ -49,6 +52,7 @@ data MessageTypeRPC
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypeRPC
+
 --instance Hashable MessageTypeRPC
 {-
 data MessageRC = RequestRC{
@@ -61,3 +65,12 @@ data MessageRC = RequestRC{
   ,serviceMessage :: String
 }deriving(Eq,Ord,Show,Generic)
 -}
+type P2PUUID = String
+
+-- assort the extra things in a tuple
+data ReadResourceWrapper = ReadResourceWrapper
+    { uuid    :: P2PUUID
+    , resid   :: ResourceId
+    , message :: ByteString
+    , node    :: NodeId
+    } deriving (Eq, Show)
