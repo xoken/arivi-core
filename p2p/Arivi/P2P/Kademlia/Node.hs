@@ -4,36 +4,34 @@ module Arivi.P2P.Kademlia.Node
     -- maintainPendingResChan
     (
     ) where
-
-import           Control.Concurrent                (Chan, MVar, ThreadId,
-                                                    forkIO, readMVar,
-                                                    threadDelay)
-
-import           Arivi.Crypto.Utils.Keys.Signature
-import           Arivi.Env
-import           Arivi.Network.Connection          (ipAddress, port)
-import           Arivi.Network.Instance
-import           Arivi.Network.Types               as ANT
-import qualified Arivi.P2P.Kademlia.Types          as T
-import           Arivi.P2P.Kademlia.Utils
-import qualified Control.Concurrent.Lifted         as CCL (fork)
-import           Control.Concurrent.STM.TChan      (TChan, isEmptyTChan,
-                                                    readTChan, writeTChan)
-import           Control.Monad                     (forever, mapM_, replicateM)
-import           Control.Monad.IO.Class
-import           Control.Monad.Logger
-import           Control.Monad.STM                 (atomically)
-import           Crypto.Util
-import           Data.ByteArray
-import qualified Data.ByteString.Char8             as C (ByteString)
-import           Data.List                         as L
-import qualified Data.Map.Strict                   as Map
-import           Data.Maybe
-import qualified Data.Text                         as DT
-import qualified Data.Time.Clock.POSIX             as Clock (POSIXTime,
-                                                             getPOSIXTime)
-import           GHC.Exts
-import           GHC.Integer.Logarithms
+-- import           Control.Concurrent                (Chan, MVar, ThreadId,
+--                                                     forkIO, readMVar,
+--                                                     threadDelay)
+-- import           Arivi.Crypto.Utils.Keys.Signature
+-- import           Arivi.Env
+-- import           Arivi.Network.Connection          (ipAddress, port)
+-- import           Arivi.Network.Instance
+-- import           Arivi.Network.Types               as ANT
+-- import qualified Arivi.P2P.Kademlia.Types          as T
+-- import           Arivi.P2P.Kademlia.Utils
+-- import qualified Control.Concurrent.Lifted         as CCL (fork)
+-- import           Control.Concurrent.STM.TChan      (TChan, isEmptyTChan,
+--                                                     readTChan, writeTChan)
+-- import           Control.Monad                     (forever, mapM_, replicateM)
+-- import           Control.Monad.IO.Class
+-- import           Control.Monad.Logger
+-- import           Control.Monad.STM                 (atomically)
+-- import           Crypto.Util
+-- import           Data.ByteArray
+-- import qualified Data.ByteString.Char8             as C (ByteString)
+-- import           Data.List                         as L
+-- import qualified Data.Map.Strict                   as Map
+-- import           Data.Maybe
+-- import qualified Data.Text                         as DT
+-- import qualified Data.Time.Clock.POSIX             as Clock (POSIXTime,
+--                                                              getPOSIXTime)
+-- import           GHC.Exts
+-- import           GHC.Integer.Logarithms
 -- isPlistFilled :: Foldable t => t a -> Bool
 -- isPlistFilled plist
 --     | L.null plist = False
