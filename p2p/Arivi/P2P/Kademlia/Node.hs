@@ -14,7 +14,6 @@ import           Arivi.Env
 import           Arivi.Network.Connection          (ipAddress, port)
 import           Arivi.Network.Instance
 import           Arivi.Network.Types               as ANT
-import qualified Arivi.P2P.Kademlia.Query          as Q
 import qualified Arivi.P2P.Kademlia.Types          as T
 import           Arivi.P2P.Kademlia.Utils
 import qualified Control.Concurrent.Lifted         as CCL (fork)
