@@ -19,7 +19,8 @@ module Arivi.Network.Datagram
     , doEncryptedHandshakeForUDP
     , runUDPServerForever
     , sendUDPFrame
-    ) where -- , readFromUDPSocketForever
+    , readFromUDPSocketForever
+    ) where
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305   (getCipherTextAuthPair)
 import           Arivi.Crypto.Utils.PublicKey.Utils   (decryptMsg)
@@ -69,6 +70,7 @@ import           Debug.Trace
 import           Network.Socket
 import qualified Network.Socket.ByteString            as Network (recvFrom,
                                                                   sendTo)
+import qualified Network.Socket.ByteString.Lazy       as Network (sendAll)
 
 import           Control.Monad.Catch                  (displayException)
 
@@ -122,16 +124,18 @@ runUDPServerForever ::
     -> m ()
 runUDPServerForever mSocket = do
     (receivedMessage, peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
-    traceShow receivedMessage (return ())
-    traceShow peerSockAddr (return ())
     ariviNetworkInstance <- getAriviNetworkInstance
     let hashMapTVar = ariviNetworkDatagramMap ariviNetworkInstance
+    traceShow receivedMessage (return ())
+    traceShow peerSockAddr (return ())
     cid <- liftIO $ getUDPConnectionId peerSockAddr
     hm <- liftIO $ readTVarIO hashMapTVar
     eitherExeptionParcel <- deserialiseParcel receivedMessage
     case eitherExeptionParcel of
         Left deserialiseException -> throw deserialiseException
-        Right parcel ->
+        Right parcel -> do
+            traceShow parcel (return ())
+            traceShow "peerSockAddr" (return ())
             case StrictHashMap.lookup cid hm of
                 Just hInboundDatagramTChan -> do
                     _ <-
@@ -197,6 +201,7 @@ processNewConnection cid hashMapTVar peerSockAddr mSocket parcel pType = do
         modifyTVar hashMapTVar (StrictHashMap.insert cid mInboundDatagramTChan)
     -- sk <- getSecretKey
     let pType = getPersonalityType parcel
+    traceShow pType (return ())
     newConnection <- doEncryptedHandshakeForUDP connection pType
     handleInboundDatagrams newConnection
 
@@ -271,34 +276,35 @@ handleInboundDatagrams connection = do
     --         hsBufferTChan = getConnection nobejet using peerSockAddr
     --         insert into hsBufferTChan
 
-{-readFromUDPSocketForever :: HasAriviNetworkInstance m => Socket -> m ()
+readFromUDPSocketForever :: HasAriviNetworkInstance m => Socket -> m ()
 readFromUDPSocketForever mSocket = do
     traceShow "inside readFromUDPSocketForever" (return ())
     (receivedMessage, peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
+    traceShow "after readFromUDPSocketForever" (return ())
     ariviNetworkInstance <- getAriviNetworkInstance
-    let hashMapTVar = ariviNetworkConnectionMap ariviNetworkInstance
+    let hashMapTVar = ariviNetworkDatagramMap ariviNetworkInstance
     cid <- liftIO $ getUDPConnectionId peerSockAddr
-    hm <- liftIO $ readTVarIO hashMapTVar
+    hmDatagram <- liftIO $ readTVarIO hashMapTVar
     eitherExeptionParcel <- deserialiseParcel receivedMessage
     case eitherExeptionParcel of
         Left deserialiseException -> throw deserialiseException
         Right parcel -> do
             traceShow parcel (return ())
-            case StrictHashMap.lookup cid hm of
-                Just conn -> do
+            case StrictHashMap.lookup cid hmDatagram of
+                Just mInboundDatagramTChan -> do
                     _ <-
                         liftIO $
-                        atomically $
-                        writeTChan (Conn.inboundDatagramTChan conn) parcel
-                    let newConnection =
-                            conn {Conn.remoteSockAddr = peerSockAddr}
+                        atomically $ writeTChan mInboundDatagramTChan parcel
+                    -- let newConnection =
+                    --         conn {Conn.remoteSockAddr = peerSockAddr}
                     liftIO $
                         atomically $
                         modifyTVar
                             hashMapTVar
-                            (StrictHashMap.insert cid newConnection)
+                            (StrictHashMap.insert cid mInboundDatagramTChan)
                     readFromUDPSocketForever mSocket
-                Nothing -> throw AriviWrongParcelException-}
+                Nothing -> throw AriviWrongParcelException
+
 getUDPConnectionId :: SockAddr -> IO ConnectionId
 getUDPConnectionId peerSockAddr = do
     ipAddress <- Utils.getIPAddress peerSockAddr
@@ -358,10 +364,13 @@ doEncryptedHandshakeForUDP connection pType = do
                     (Conn.waitWrite connection)
                     (Conn.socket connection)
                     (createUDPFrame serialisedParcel)
+            -- (receivedMessage, peerSockAddr) <- liftIO $ Network.recvFrom (Conn.socket connection) 4096
+            -- liftIO $ Network.sendAll (Conn.socket connection) (Lazy.toStrict $ createUDPFrame serialisedParcel)
             hsRespParcel <-
                 liftIO $
                 readHandshakeRespFromTChan
                     (Conn.inboundDatagramTChan connection)
+            traceShow "inside INITIATOR" (return ())
             return
                 (receiveHandshakeResponse
                      connection
@@ -375,13 +384,18 @@ doEncryptedHandshakeForUDP connection pType = do
             (serialisedParcel, updatedConn) <-
                 liftIO $ recipientHandshake sk connection parcel
             traceShow "before sendUDPFrame HandshakeDone" (return ())
-            _ <-
-                liftIO $
-                sendUDPFrame
-                    (Conn.waitWrite connection)
+            -- _ <-
+            --     liftIO $
+            --     sendUDPFrame
+            --         (Conn.waitWrite connection)
+            --         (Conn.socket updatedConn)
+            --         (Conn.remoteSockAddr updatedConn)
+            --         (createUDPFrame serialisedParcel)
+            liftIO $
+                Network.sendTo
                     (Conn.socket updatedConn)
+                    (Lazy.toStrict $ createUDPFrame serialisedParcel)
                     (Conn.remoteSockAddr updatedConn)
-                    (createUDPFrame serialisedParcel)
             traceShow "after sendUDPFrame HandshakeDone" (return ())
             let cid = Conn.connectionId updatedConn
             liftIO $
@@ -392,6 +406,7 @@ doEncryptedHandshakeForUDP connection pType = do
             liftIO $
                 atomically $
                 modifyTVar hashMapTVar (StrictHashMap.insert cid updatedConn)
+            traceShow "end of doEncryptedHandshakeForUDP" (return ())
             return updatedConn
 
 readFromReassemblyTChan :: TChan Parcel -> IO Parcel
@@ -404,8 +419,8 @@ readFromReassemblyTChan inboundDatagramTChan = do
 getPersonalityType :: Parcel -> PersonalityType
 getPersonalityType receivedParcel =
     case receivedParcel of
-        (Parcel (HandshakeInitHeader _ _) _) -> INITIATOR
-        (Parcel (HandshakeRespHeader _ _) _) -> RECIPIENT
+        (Parcel (HandshakeInitHeader _ _) _) -> RECIPIENT
+        (Parcel (HandshakeRespHeader _ _) _) -> INITIATOR
         _                                    -> error "Wrong PersonalityType"
 
 readHandshakeRespFromTChan :: TChan Parcel -> IO Parcel

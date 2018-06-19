@@ -75,7 +75,7 @@ data NetworkConfig = NetworkConfig
 --   different instances of arivi.
 newtype NetworkHandle = NetworkHandle
     { ariviUDPSock :: (Socket, SockAddr)
-    }-- ,   ariviTCPSock :: (Socket,SockAddr)
+    } -- ,   ariviTCPSock :: (Socket,SockAddr)
                     -- ,   udpThread    :: MVar ThreadId
                     -- ,   tcpThread    :: MVar ThreadId
                     -- ,
@@ -154,18 +154,64 @@ openConnection addr port tt rnid pType = do
                             async (readSock updatedConn HM.empty)
                             return $ Right cId
                 else do
-                    traceShow "before Handshake" (return ())
-                    res <- CEL.try $ doEncryptedHandshakeForUDP connection pType
-                    traceShow "after Handshake" (return ())
-                    case res of
-                        Left e -> return $ Left e
-                        Right updatedConn -> do
+                    let tv = ariviNetworkDatagramMap ariviInstance
+                    hm <- liftIO $ readTVarIO tv
+                    case HM.lookup cId hm of
+                        Just conn -> return $ Right cId
+                        Nothing
+                            -- sk <- getSecretKey
+                            -- socket <-
+                            --     liftIO $ createSocket addr (read (show port)) tt
+                            -- p2pMsgTChan <-
+                            --     liftIO (newTChanIO :: IO (TChan ByteString))
+                            -- egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
+                            -- ingressNonce <-
+                            --     liftIO (newTVarIO (2 :: SequenceNum))
+                            -- aeadNonce <- liftIO (newTVarIO (2 :: AeadNonce))
+                            -- writeLock <- liftIO $ newMVar 0
+                            -- hsCompleteTVar <-
+                            --     liftIO $ newTVarIO Conn.HandshakeNotStarted
+                            -- mInboundDatagramTChan <-
+                            --     liftIO $ atomically newTChan
+                            -- let connection =
+                            --         mkIncompleteConnection'
+                            --         { Conn.connectionId = cId
+                            --         , Conn.remoteNodeId = rnid
+                            --         , Conn.ipAddress = addr
+                            --         , Conn.port = port
+                            --         , Conn.transportType = tt
+                            --         , Conn.personalityType = pType
+                            --         , Conn.socket = socket
+                            --         , Conn.inboundDatagramTChan =
+                            --               mInboundDatagramTChan
+                            --         , Conn.waitWrite = writeLock
+                            --         , Conn.p2pMessageTChan = p2pMsgTChan
+                            --         , Conn.egressSeqNum = egressNonce
+                            --         , Conn.ingressSeqNum = ingressNonce
+                            --         , Conn.aeadNonceCounter = aeadNonce
+                            --         , Conn.handshakeComplete = hsCompleteTVar
+                            --         }
+                         -> do
+                            traceShow "before Handshake" (return ())
                             liftIO $
                                 atomically $
-                                modifyTVar tv (HM.insert cId updatedConn)
-                      -- async (readSock updatedConn HM.empty)
-                      -- async (readSock' updatedConn)
-                            return $ Right cId
+                                modifyTVar
+                                    tv
+                                    (HM.insert cId mInboundDatagramTChan)
+                            async $ readFromUDPSocketForever socket
+                            res <-
+                                CEL.try $
+                                doEncryptedHandshakeForUDP connection pType
+                            traceShow "after Handshake" (return ())
+                            case res of
+                                Left e -> return $ Left e
+                                Right updatedConn -> do
+                                    liftIO $
+                                        atomically $
+                                        modifyTVar
+                                            tv
+                                            (HM.insert cId mInboundDatagramTChan)
+                                    return $ Right cId
 
 sendMessage ::
        (HasAriviNetworkInstance m, HasLogging m)
