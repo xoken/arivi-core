@@ -1,47 +1,44 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-
 module Arivi.Network.Types
-(
-    Event          (..),
-    Header         (..),
-    Payload        (..),
-    Parcel         (..),
-    PersonalityType(..),
-    SessionId,
-    MessageId,
-    EncryptionType (..),
-    TransportType  (..),
-    EncodingType   (..),
-    AeadNonce,
-    ContextID,
-    Version        (..),
-    Socket,
-    SockAddr,
-    PortNumber,
-    HostName,
-    SerialisedMsg,
-    PlainText,
-    CipherText,
-    NodeId,
-    OutboundFragment,
-    ServiceId,
-    ConnectionId,
-    Opcode(..),
-    SequenceNum,
-    FragmentNumber,
+    ( Event(..)
+    , Header(..)
+    , Payload(..)
+    , Parcel(..)
+    , PersonalityType(..)
+    , SessionId
+    , MessageId
+    , EncryptionType(..)
+    , TransportType(..)
+    , EncodingType(..)
+    , AeadNonce
+    , ContextID
+    , Version(..)
+    , Socket
+    , SockAddr
+    , PortNumber
+    , HostName
+    , SerialisedMsg
+    , PlainText
+    , CipherText
+    , NodeId
+    , OutboundFragment
+    , ServiceId
+    , ConnectionId
+    , Opcode(..)
+    , SequenceNum
+    , FragmentNumber
     -- FragmentCount,
-    HandshakeInitMasked(..),
-    HandshakeRespMasked(..),
-    DeserialiseFailure(..),
-    deserialiseOrFail,
-    makeDataParcel,
-    deserialise,
-    serialise
-) where
+    , HandshakeInitMasked(..)
+    , HandshakeRespMasked(..)
+    , DeserialiseFailure(..)
+    , deserialiseOrFail
+    , makeDataParcel
+    , deserialise
+    , serialise
+    ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Codec.Serialise
@@ -61,124 +58,133 @@ import           Data.Monoid
 import           GHC.Generics
 import           Network.Socket                     as Network
 
-type ConnectionId   = ByteString
-type SessionId      = Int32
+type ConnectionId = ByteString
+
+type SessionId = Int32
+
 -- need to be changed to Int24
 -- type PayloadLength  = Int16
 type FragmentNumber = Int64
+
 -- type FragmentCount  = Int16
-type MessageId      = ByteString
-type ServiceId      = Int8
-type Descriptor     = ByteString
-type ContextID      = Int
+type MessageId = ByteString
+
+type ServiceId = Int8
+
+type Descriptor = ByteString
+
+type ContextID = Int
+
 -- type ServiceContext = Int32
 type SerialisedMsg = BSL.ByteString
 
 type SequenceNum = Int64 -- ^ TODO Control.Concurrent.STM.Counter
+
 -- | Following are the ranges for the aead nonces
 type AeadNonce = Int64
+
 -- | This is the nonce for preventing replays. Don't need ranges for sender and receiver
 type Nonce = Int64
+
 type NodeId = ByteString
+
 type PlainText = ByteString
+
 type CipherText = ByteString
+
 -- The different messages we can get from the network
-data Opcode = KEY_EXCHANGE_INIT
-            | KEY_EXCHANGE_RESP
-            | DATA
-            | PING
-            | PONG
-            deriving (Show,Eq, Generic)
+data Opcode
+    = KEY_EXCHANGE_INIT
+    | KEY_EXCHANGE_RESP
+    | DATA
+    | PING
+    | PONG
+    deriving (Show, Eq, Generic)
 
 -- | The different events in layer 1 that cause state change
-data Event =  InitHandshakeEvent
-                {secretKey:: Ed25519.SecretKey}
-             | TerminateConnectionEvent {payload::Payload}
-             | SendDataEvent {payload::Payload}
-             | KeyExchangeInitEvent {parcel::Parcel, secretKey:: Ed25519.SecretKey}
-             | KeyExchangeRespEvent {parcel::Parcel}
-             | ReceiveDataEvent {parcel::Parcel}
-             | PINGDataEvent
-             | PONGDataEvent
-             | CleanUpEvent
-             | HandshakeTimeOutEvent
-             | DataTimeOutEvent
-             | PingTimeOutEvent
-             deriving (Eq)
+data Event
+    = InitHandshakeEvent { secretKey :: Ed25519.SecretKey }
+    | TerminateConnectionEvent { payload :: Payload }
+    | SendDataEvent { payload :: Payload }
+    | KeyExchangeInitEvent { parcel    :: Parcel
+                           , secretKey :: Ed25519.SecretKey }
+    | KeyExchangeRespEvent { parcel :: Parcel }
+    | ReceiveDataEvent { parcel :: Parcel }
+    | PINGDataEvent
+    | PONGDataEvent
+    | CleanUpEvent
+    | HandshakeTimeOutEvent
+    | DataTimeOutEvent
+    | PingTimeOutEvent
+    deriving (Eq)
 
 -- | This message is encrypted and sent in the handshake message
-data HandshakeInitMasked = HandshakeInitMessage {
-      versionList   :: [Version]
+data HandshakeInitMasked = HandshakeInitMessage
+    { versionList   :: [Version]
     , connectionId  :: ConnectionId
     , nonce         :: Nonce
     , nodePublicKey :: NodeId
     , signature     :: Signature
-} deriving (Show, Eq, Generic)
+    } deriving (Show, Eq, Generic)
 
-data HandshakeRespMasked = HandshakeRespMsg {
-      versionList  :: [Version]
+data HandshakeRespMasked = HandshakeRespMsg
+    { versionList  :: [Version]
     , nonce        :: Nonce
     , connectionId :: ConnectionId
-} deriving (Show, Eq, Generic)
-
+    } deriving (Show, Eq, Generic)
 
 -- | These are the different types of Headers for different types of Parcels
-data Header = HandshakeInitHeader {
-                    ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
+data Header
+    = HandshakeInitHeader { ephemeralPublicKey :: PublicKey -- ^ `PublicKey` for
                                                       --    generating ssk
-                ,   aeadNonce          :: AeadNonce   --  ^ 8 Byte Nonce in
+                          , aeadNonce          :: AeadNonce --  ^ 8 Byte Nonce in
                                                       --    Int64 format
-            }
-            | HandshakeRespHeader {
-                      ephemeralPublicKey :: PublicKey   -- ^ `PublicKey` for
+                           }
+    | HandshakeRespHeader { ephemeralPublicKey :: PublicKey -- ^ `PublicKey` for
                                                         --    generating ssk
-                  ,   aeadNonce          :: AeadNonce  -- ^ 8 Byte Nonce used
+                          , aeadNonce          :: AeadNonce -- ^ 8 Byte Nonce used
                                                        --   for encryption
-              }
-            | PingHeader
-            | PongHeader
-            | DataHeader {
-                  messageId          :: MessageId        -- ^ Unique Message
+                           }
+    | PingHeader
+    | PongHeader
+    | DataHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
-                , fragmentNumber     :: FragmentNumber   -- ^ Number of fragment
-                , totalFragements    :: FragmentNumber   -- ^ Total fragments in
+                 , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                 , totalFragements    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
+                 , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                , nonce              :: Nonce            -- ^ Nonce which
+                 , nonce              :: Nonce -- ^ Nonce which
                                                       --   increments by one
                                                       --   after each message
                                                       --   is sent. Useful for
                                                       --   preventing Replay
                                                       --   Attacks
-                , aeadNonce          :: AeadNonce       -- ^ 8 Byte Nonce used
+                 , aeadNonce          :: AeadNonce -- ^ 8 Byte Nonce used
                                                        --   for encryption
-            }
-            | ErrorHeader {
-                  messageId          :: MessageId      -- ^ Unique Message
+                  }
+    | ErrorHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
-                , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                , totalFragements    :: FragmentNumber -- ^ Total fragments in
+                  , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                  , totalFragements    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                , descriptor         :: Descriptor     -- ^ Shows type of error
+                  , descriptor         :: Descriptor -- ^ Shows type of error
                                                     --   and other fields
-                , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
+                  , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-            }
-            | ByeHeader {
-                  fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                   }
+    | ByeHeader { fragmentNumber     :: FragmentNumber -- ^ Number of fragment
                 , totalFragements    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                , parcelConnectionId:: ConnectionId   -- ^ Connection Identifier
+                , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                , messageId          :: MessageId      -- ^ Unique Message
+                , messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
-            }
-
-             deriving (Show,Eq,Generic)
+                 }
+    deriving (Show, Eq, Generic)
 
 -- | This is pseudo frame which contains `Header` and `CipherText`.These fields
 --   will be encoded using CBOR format. `CipherText` is encrypted `P2PMessage`
@@ -186,59 +192,67 @@ data Header = HandshakeInitHeader {
 --   so it will be useful at the receiving side to know which type of Parcel is
 --   this. After encoding these fields length of the parcel in Plain Text is
 --   appended before sending on the Network.
-
-data Parcel = Parcel {
-                header           :: Header      -- ^ Header of the Parcel
-              , encryptedPayload :: Payload     -- ^ Encrypted `P2PMessage
-              }
-            deriving (Show,Eq,Generic)
-
+data Parcel = Parcel
+    { header           :: Header -- ^ Header of the Parcel
+    , encryptedPayload :: Payload -- ^ Encrypted `P2PMessage
+    } deriving (Show, Eq, Generic)
 
 makeDataParcel :: Header -> Payload -> Parcel
 makeDataParcel = Parcel
 
 type OutboundFragment = (MessageId, FragmentNumber, FragmentNumber, Payload)
 
-data PersonalityType = INITIATOR | RECIPIENT
-                deriving (Eq)
+data PersonalityType
+    = INITIATOR
+    | RECIPIENT
+    deriving (Show, Eq)
 
 data Version
     = V0
     | V1
-    deriving (Eq, Ord, Show,Generic)
+    deriving (Eq, Ord, Show, Generic)
 
+data EncryptionType
+    = NONE
+    | AES256_CTR
+    | CHACHA_POLY
+    deriving (Eq, Show, Generic)
 
-data EncryptionType = NONE
-                      | AES256_CTR
-                      | CHACHA_POLY
-                      deriving (Eq,Show,Generic)
+data EncodingType
+    = UTF_8
+    | ASCII
+    | CBOR
+    | JSON
+    | PROTO_BUFF
+    deriving (Eq, Show, Generic)
 
-data EncodingType =
-                UTF_8
-                | ASCII
-                | CBOR
-                | JSON
-                | PROTO_BUFF
-                deriving (Eq,Show,Generic)
+data TransportType
+    = UDP
+    | TCP
+    deriving (Eq, Show, Generic, Read)
 
-data TransportType =
-                   UDP
-                 | TCP
-                 deriving (Eq,Show,Generic, Read)
-
-newtype Payload = Payload {getPayload :: BSL.ByteString}
-               deriving (Show,Eq,Generic)
-
+newtype Payload = Payload
+    { getPayload :: BSL.ByteString
+    } deriving (Show, Eq, Generic)
 
 instance Serialise Version
+
 instance Serialise Opcode
+
 instance Serialise EncodingType
+
 instance Serialise TransportType
+
 instance Serialise EncryptionType
+
 instance Serialise Payload
+
 instance Serialise Header
+
 instance Serialise Parcel
+
 instance Serialise HandshakeInitMasked
+
 instance Serialise HandshakeRespMasked
 
 -- Serialise intance for PublicKey
@@ -255,11 +269,11 @@ decodePublicKey :: Decoder s PublicKey
 decodePublicKey = do
     len <- decodeListLen
     tag <- decodeWord
-    case (len,tag) of
-        (2,0)  -> throwCryptoError . publicKey <$>
-                    (decode :: Decoder s Data.ByteString.ByteString)
-        _      -> fail "invalid PublicKey encoding"
-
+    case (len, tag) of
+        (2, 0) ->
+            throwCryptoError . publicKey <$>
+            (decode :: Decoder s Data.ByteString.ByteString)
+        _ -> fail "invalid PublicKey encoding"
 
 -- Serilaise instance for Signature
 instance Serialise Signature where
@@ -275,7 +289,8 @@ decodeSignature :: Decoder s Signature
 decodeSignature = do
     len <- decodeListLen
     tag <- decodeWord
-    case (len,tag) of
-        (2,0) ->  throwCryptoError . Ed25519.signature <$>
-                    (decode :: Decoder s ByteString)
-        _      -> fail "invalid Signature encoding"
+    case (len, tag) of
+        (2, 0) ->
+            throwCryptoError . Ed25519.signature <$>
+            (decode :: Decoder s ByteString)
+        _ -> fail "invalid Signature encoding"
