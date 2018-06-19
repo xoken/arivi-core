@@ -15,8 +15,7 @@
 -- This module provides useful functions for managing dispatch of frames in
 -- Arivi communication
 module Arivi.Network.ConnectionHandler
-    ( acceptIncomingSocket
-    , getIPAddress
+    ( getIPAddress
     , getPortNumber
     , getTransportType
     , handleInboundConnection
@@ -41,7 +40,6 @@ import           Control.Concurrent.STM          (TChan, atomically, newTChan,
 import           Control.Concurrent.STM.TVar
 import           Control.Exception               (try, mapException)
 import           Control.Exception.Base
-import           Control.Monad                   (forever, void)
 import           Control.Monad.IO.Class
 import           Crypto.PubKey.Ed25519           (SecretKey)
 import           Data.Binary
@@ -121,20 +119,6 @@ handleInboundConnection mSocket =
 getTransportType :: Socket -> TransportType
 getTransportType (MkSocket _ _ Stream _ _) = TCP
 getTransportType _                         = UDP
-
--- | Server Thread that spawns new thread to
--- | listen to client and put it to inboundTChan
-acceptIncomingSocket ::
-       (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
-    => Socket
-    -> m a
-acceptIncomingSocket sock = do
-    sk <- getSecretKey
-    forever $ do
-        (mSocket, peer) <- liftIO $ accept sock
-        liftIO $ putStrLn $ "Connection from " ++ show peer
-        eventTChan <- liftIO $ atomically newTChan
-        LA.async (handleInboundConnection mSocket) --or use forkIO
 
 -- | Converts length in byteString to Num
 getFrameLength :: BSL.ByteString -> Int64
@@ -294,8 +278,3 @@ recvAll sock len = do
                  then return msg
                  else BSL.append msg <$> recvAll sock (len - BSL.length msg)
 
-mapIOException f ioa = do
-    aOrFail <- try ioa
-    case aOrFail of
-        Left (e :: SomeException) -> throw (f e)
-        Right r -> return r
