@@ -62,6 +62,6 @@ getXorDistance firstNodeId secondNodeId = if rawXor == 0
 
 getKbIndex :: T.NodeId -> T.NodeId -> Int
 getKbIndex node1 node2 = kbi
-    where node1Str  = C.unpack $ Data.ByteString.Base16.encode node1
-          node2Str  = C.unpack $ Data.ByteString.Base16.encode node2
+    where node1Str  = C.unpack $ Data.ByteString.Base16.encode $ toByteString node1
+          node2Str  = C.unpack $ Data.ByteString.Base16.encode $ toByteString node2
           kbi       = round $ getXorDistance node1Str node2Str
