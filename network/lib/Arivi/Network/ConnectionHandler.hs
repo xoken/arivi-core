@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -22,7 +22,6 @@ module Arivi.Network.ConnectionHandler
     , handleInboundConnection
     , readHandshakeRespSock
     , readSock
-    , readSock'
     ) where
 
 import           Arivi.Env
@@ -34,14 +33,13 @@ import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils             (getIPAddress, getPortNumber)
 import           Arivi.Utils.Exception
-import           Control.Concurrent              (MVar, newMVar, threadDelay)
+import           Control.Concurrent              (threadDelay, MVar, newMVar)
 import qualified Control.Concurrent.Async        as Async (async, race)
-import qualified Control.Concurrent.Async.Lifted as LA (async, concurrently)
+import qualified Control.Concurrent.Async.Lifted as LA (async)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan,
-                                                  newTChanIO, readTChan,
-                                                  writeTChan)
+                                                  readTChan)
 import           Control.Concurrent.STM.TVar
-import           Control.Exception               (mapException, try)
+import           Control.Exception               (try, mapException)
 import           Control.Exception.Base
 import           Control.Monad                   (forever, void)
 import           Control.Monad.IO.Class
@@ -116,7 +114,7 @@ handleInboundConnection mSocket =
                     (createFrame serialisedParcel)
                 atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
                 return updatedConn
-        LA.async (readSock' conn)
+        LA.async $ readSock conn HM.empty
         return ()
 
 -- | Given `Socket` retrieves `TransportType`
@@ -186,18 +184,15 @@ sendPong writeLock sock =
 
 readSock ::
        (HasAriviNetworkInstance m, HasLogging m)
-    => TChan Parcel
-    -> Conn.CompleteConnection
+    => Conn.CompleteConnection
+    -> HM.HashMap MessageId BSL.ByteString
     -> m ()
-readSock parcelTChan connection =
-    $(withLoggingTH) (LogNetworkStatement "readSock: ") LevelDebug $
-    forever $ do
+readSock connection fragmentsHM =
+    $(withLoggingTH) (LogNetworkStatement "readSock: ") LevelDebug $ do
         let sock = Conn.socket connection
             writeLock = Conn.waitWrite connection
         parcelOrFail <- liftIO $ getParcelWithTimeout sock 30000000
-        case parcelOrFail
-    -- Possibly throw before shutting down
-              of
+        case parcelOrFail of
             Left (AriviDeserialiseException e) ->
                 deleteConnectionFromHashMap (Conn.connectionId connection)
             Left AriviTimeoutException -> do
@@ -210,63 +205,45 @@ readSock parcelTChan connection =
                         deleteConnectionFromHashMap
                             (Conn.connectionId connection)
                     Right parcel ->
-                        liftIO $ atomically (writeTChan parcelTChan parcel)
-          -- processParcel parcel connection fragmentsHM >>=
-                        -- readSock connection
+                        processParcel parcel connection fragmentsHM >>=
+                        readSock connection
             Left AriviSocketException ->
                 deleteConnectionFromHashMap (Conn.connectionId connection)
-            Right parcel -> liftIO $ atomically (writeTChan parcelTChan parcel)
-                    -- processParcel parcel connection fragmentsHM >>=
-                    -- readSock connection
+            Right parcel ->
+                processParcel parcel connection fragmentsHM >>=
+                readSock connection
 
-readSock' ::
-       (HasAriviNetworkInstance m, HasLogging m)
-    => Conn.CompleteConnection
-    -> m ()
-readSock' conn = do
-    parcelTChan <- liftIO newTChanIO
-    something <-
-        LA.concurrently
-            (readSock parcelTChan conn)
-            (processParcel parcelTChan conn HM.empty)
-    return ()
 
 processParcel ::
        (HasAriviNetworkInstance m, HasLogging m)
-    => TChan Parcel
+    => Parcel
     -> Conn.CompleteConnection
     -> HM.HashMap MessageId BSL.ByteString
-    -> m ()
-processParcel parcelTChan connection fragmentsHM =
-    forever $ do
-        parcel <- liftIO $ atomically (readTChan parcelTChan)
-        case parcel of
-            dataParcel@(Parcel DataHeader {} _) -> do
-                res <-
-                    liftIO
-                        (try $
-                         atomically $
-                         reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
-      -- liftIO $ reassembleFrames' (header dataParcel)
-      -- res <-  liftIO (return (Right fragmentsHM) :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
-                case res
+    -> m (HM.HashMap MessageId BSL.ByteString)
+processParcel parcel connection fragmentsHM =
+    case parcel of
+        dataParcel@(Parcel DataHeader {} _) -> do
+            res <-
+                liftIO
+                    (try $
+                     atomically $
+                     reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
+            case res
         -- possibly throw again
-                      of
-                    Left e ->
-                        deleteConnectionFromHashMap
-                            (Conn.connectionId connection) >>
-                        throw e
-                    Right updatedHM -> return ()
-            pingParcel@(Parcel PingHeader {} _) -> do
-                liftIO $
-                    sendPong
-                        (Conn.waitWrite connection)
-                        (Conn.socket connection)
-                return ()
-            pongParcel@(Parcel PongHeader {} _) -> return ()
-            _ ->
-                deleteConnectionFromHashMap (Conn.connectionId connection) >>
-                throw AriviWrongParcelException
+                  of
+                Left e ->
+                    deleteConnectionFromHashMap (Conn.connectionId connection) >>
+                    throw e
+                Right updatedHM -> return updatedHM
+        pingParcel@(Parcel PingHeader {} _) -> do
+            liftIO $
+                sendPong (Conn.waitWrite connection) (Conn.socket connection)
+            return fragmentsHM
+        pongParcel@(Parcel PongHeader {} _) -> return fragmentsHM
+        _ ->
+            deleteConnectionFromHashMap (Conn.connectionId connection) >>
+            throw AriviWrongParcelException
+
 
 -- reassembleFrames' currentFragment = if totalFragements currentFragment == fragmentNumber currentFragment
 --                                        then print "appendedMessage"
@@ -321,4 +298,4 @@ mapIOException f ioa = do
     aOrFail <- try ioa
     case aOrFail of
         Left (e :: SomeException) -> throw (f e)
-        Right r                   -> return r
+        Right r -> return r
