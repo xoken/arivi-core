@@ -10,7 +10,8 @@ import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Logging
-import           Arivi.Network.Connection           (CompleteConnection, ConnectionId)
+import           Arivi.Network.Connection           (CompleteConnection,
+                                                     ConnectionId)
 import           Arivi.Network.Instance
 import           Arivi.Network.StreamServer
 import qualified Arivi.Network.Types                as ANT (PersonalityType (INITIATOR),
@@ -22,11 +23,11 @@ import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.HashTable.IO                  as MutableHashMap (new)
 -- import           Arivi.Network.Datagram             (createUDPSocket)
-import           Data.ByteString.Lazy           as BSL    (ByteString)
-import           Data.ByteString.Lazy.Char8     as BSLC   (pack)
+import           Control.Exception
+import           Data.ByteString.Lazy               as BSL (ByteString)
+import           Data.ByteString.Lazy.Char8         as BSLC (pack)
 import           Data.Time
-import Control.Exception
-import System.Environment (getArgs)
+import           System.Environment                 (getArgs)
 
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
@@ -69,10 +70,10 @@ sender sk rk n size = do
                                        case cidOrFail of
                                           Left e -> throw e
                                           Right cid -> do
-                                            time <- liftIO $ getCurrentTime
+                                            time <- liftIO  getCurrentTime
                                             liftIO $ print time
-                                            mapM_ (\_ -> (sendMessage cid (a size))) [1..n]
-                                            time2 <- liftIO $ getCurrentTime
+                                            mapM_ (\_ -> sendMessage cid (a size)) [1..n]
+                                            time2 <- liftIO getCurrentTime
                                             liftIO $ print time2
                                        liftIO $ print "done"
                                    )
@@ -97,7 +98,7 @@ main = do
   [size, n] <- getArgs
   (sender_sk, _) <- generateKeyPair
   (recv_sk, _) <- generateKeyPair
-  _ <- (receiver recv_sk) `concurrently` (threadDelay 1000000 >> sender sender_sk recv_sk (read n) (read size))
+  _ <- receiver recv_sk `concurrently` (threadDelay 1000000 >> sender sender_sk recv_sk (read n) (read size))
   threadDelay 1000000000000
   return ()
 
