@@ -8,7 +8,8 @@ module Arivi.P2P.RPC.Types
     , MessageTypeRPC(..)
     , NodeId
     , P2PUUID
-    , ReadResourceWrapper(..)
+    , ServicePayload(..)
+    , P2Pinfo(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
@@ -33,7 +34,8 @@ type ServiceId = String
 
 type ResourceList = [ResourceId]
 
-type ResourceToPeerMap = HM.HashMap ResourceId (ServiceId, TQueue Peer)
+type ResourceToPeerMap
+     = HM.HashMap ResourceId (ServiceId, TQueue Peer, TQueue ServicePayload)
 
 data MessageTypeRPC
     = Options { to   :: NodeId
@@ -68,9 +70,13 @@ data MessageRC = RequestRC{
 type P2PUUID = String
 
 -- assort the extra things in a tuple
-data ReadResourceWrapper = ReadResourceWrapper
-    { uuid    :: P2PUUID
-    , resid   :: ResourceId
+data P2Pinfo = P2Pinfo
+    { uuid :: P2PUUID
+    , node :: NodeId
+    } deriving (Eq, Show)
+
+data ServicePayload = ServicePayload
+    { resid   :: ResourceId
     , message :: ByteString
-    , node    :: NodeId
+    , extra   :: Maybe P2Pinfo
     } deriving (Eq, Show)
