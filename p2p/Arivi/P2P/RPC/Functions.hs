@@ -3,7 +3,11 @@
 
 module Arivi.P2P.RPC.Functions where
 
-import           Arivi.Network.Types                   (ConnectionId)
+import           Arivi.Network.Types                   (ConnectionId,
+                                                        TransportType (..))
+import           Arivi.P2P.Kademlia.Utils              (extractFirst,
+                                                        extractSecond,
+                                                        extractThird)
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageCode (..),
                                                         P2PPayload, Peer (..),
@@ -33,14 +37,19 @@ import           Data.Maybe
 registerResource :: ServiceId -> ResourceList -> TVar ResourceToPeerMap -> IO ()
 registerResource _ [] _ = return () -- recursion corner case
 registerResource serviceId (resource:resourceList) resourceToPeerMap = do
-    peers <- newTQueueIO -- create a new empty Tqueue
+    peers <- newTQueueIO -- create a new empty Tqueue for Peers
+    messagesRecieved <- newTQueueIO
     atomically -- read Tvar , update HashMap, write it back
         (do resourceToPeerMapTvar <- readTVar resourceToPeerMap --
             let temp =
-                    HM.insert resource (serviceId, peers) resourceToPeerMapTvar --
+                    HM.insert
+                        resource
+                        (serviceId, peers, messagesRecieved)
+                        resourceToPeerMapTvar --
             writeTVar resourceToPeerMap temp)
     registerResource serviceId (resource : resourceList) resourceToPeerMap
 
+-------------------- Functions for periodic updation of the hashmap ---------------------
 -- creates a worker thread
 -- thread should read the hashMap and should check if the number of peers for a resource is less than some number
 -- if it is less should ask Kademlia for more nodes
@@ -52,6 +61,7 @@ checkPeerInResourceMap resourceToPeerMapTvar = do
     forkIO (checkPeerInResourceMapHelper resourceToPeerMapTvar minimumPeers)
     return ()
 
+-- need to integrate kademlia and SendOptions functions (in RPC/SendOptions.hs)
 checkPeerInResourceMapHelper :: TVar ResourceToPeerMap -> Int -> IO ()
 checkPeerInResourceMapHelper resourceToPeerMapTvar minimumPeers =
     forever $ do
@@ -68,10 +78,12 @@ checkPeerInResourceMapHelper resourceToPeerMapTvar minimumPeers =
 
 -- function to find the TQueue with minimum length
 -- used by the worker thread
-extractListOfLengths :: [(ResourceId, (ServiceId, TQueue Peer))] -> IO [Int]
+extractListOfLengths ::
+       [(ResourceId, (ServiceId, TQueue Peer, TQueue ServicePayload))]
+    -> IO [Int]
 extractListOfLengths [] = return [0]
 extractListOfLengths (x:xs) = do
-    let temp = snd (snd x)
+    let temp = extractSecond (snd x) -- get the TQueue of Peers
     len <-
         atomically
             (do listofTQ <- flushTQueue temp
@@ -92,20 +104,7 @@ writeBackToTQueue currTQ (currentElem:listOfTQ) = do
 askKademliaForPeers :: Int -> Peer -> [Peer]
 askKademliaForPeers numberOfPeers peer = [peer]
 
-{-
-acceptRequest (ResourceID)
---read from ResourceID TChan
-return (serviceMessage,
--}
-{-
---getResource(resourceID serviceMessage)
--- form messageType
---getPeer from ResourcetoPeerList
---ret = sendRequest peer messageType Tcp
--- check ret format with try catch
---if not good then return getResource(resourceID serviceMessage)
--- else return (serviceMessage ret)
--}
+------------- Functions for reading requests and responding to them -------------------
 getResource ::
        (HasP2PEnv m) => NodeId -> ResourceId -> ByteString -> m ByteString
 getResource mynodeid resourceID servicemessage = do
@@ -113,7 +112,7 @@ getResource mynodeid resourceID servicemessage = do
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let temp = HM.lookup resourceID resourceToPeerMap
-    let peerTQ = snd (fromJust temp)
+    let peerTQ = extractSecond (fromJust temp)
     getPeer peerTQ resourceID mynodeid servicemessage
 
 getPeer ::
@@ -161,3 +160,45 @@ sendRequest1 peer mCode message transportType = do
                 , serviceMessage = serviceMessage inmessage
                 }
     Lazy.toStrict $ serialise message1
+
+resourceRequestThread :: (HasP2PEnv m) => m ()
+resourceRequestThread = do
+    resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
+    resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+    fork (resourceRequestHelper resourceToPeerMap)
+    return ()
+
+resourceRequestHelper :: (HasP2PEnv m) => ResourceToPeerMap -> m ()
+resourceRequestHelper resourceToPeerMap = do
+    messageInfoRPC <- readRPCRequest
+    let uuid = fst messageInfoRPC
+    let rpcRequest =
+            deserialise (Lazy.fromStrict $ snd messageInfoRPC) :: MessageTypeRPC
+    -- check the to
+    let fromPeer = from rpcRequest
+    let resourceId = rid rpcRequest
+    let message = serviceMessage rpcRequest
+    let temp = HM.lookup resourceId resourceToPeerMap
+    if isNothing temp
+        then return ()
+        else do
+            let sid = extractFirst (fromJust temp) -- currently not needed Might use later
+            let currTQ = extractThird (fromJust temp)
+            -- need to put it in TQueue of Service
+            let newEntry =
+                    ServicePayload
+                        resourceId
+                        message
+                        (Just (P2Pinfo uuid fromPeer))
+            putIntoTQueue sid currTQ newEntry
+            resourceRequestHelper resourceToPeerMap
+
+-- currently passing the TQ later need to find correct TQ using ServiceId
+putIntoTQueue ::
+       (HasP2PEnv m)
+    => ServiceId
+    -> TQueue ServicePayload
+    -> ServicePayload
+    -> m ()
+putIntoTQueue sid tqueue newEntry =
+    liftIO $ atomically (writeTQueue tqueue newEntry)
