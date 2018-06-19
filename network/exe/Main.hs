@@ -72,7 +72,7 @@ sender sk rk n size = do
                                           Right cid -> do
                                             time <- liftIO  getCurrentTime
                                             liftIO $ print time
-                                            mapM_  const (sendMessage cid (a size)) [1..n]
+                                            mapM_ (\_ -> sendMessage cid (a size)) [1..n]
                                             time2 <- liftIO getCurrentTime
                                             liftIO $ print time2
                                        liftIO $ print "done"
