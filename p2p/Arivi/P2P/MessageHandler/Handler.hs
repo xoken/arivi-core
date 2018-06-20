@@ -6,7 +6,7 @@ module Arivi.P2P.MessageHandler.Handler
     , readKademliaRequest
     , readRPCRequest
     , readPubSubRequest
-    , newIncomingConnection
+    -- , newIncomingConnection
     ) where
 
 import           Data.ByteString.Char8                 as Char8 (ByteString,
@@ -20,9 +20,9 @@ import           Data.Maybe
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
 
-import           Control.Concurrent                    (threadDelay)
+import           Control.Concurrent                    (forkIO)
 import qualified Control.Concurrent.Async              as Async (async, race)
-import           Control.Concurrent.Lifted             (fork)
+import           Control.Concurrent.Lifted             (fork, threadDelay)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue         ()
@@ -44,74 +44,31 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
 
-{-exposed functions-}
-{-
-sendRequest(Peer, MessageType, TransportType)
--- blocking function
--- generate P2PMessage from Peer and MessageType
---generate uuid and MVar
--- enter uuid->MVar in PeerToUUIDMap
--- open conn
--- sendmessagei
---async race between takeMVar (blocking) and Timer
---left -> return MessageType from MVar
---right -> return blank messageType
--- delete uuid from PeerToUUIDMap
---
--}
 sendRequest ::
-       (HasP2PEnv m)
-    => Peer
-    -> MessageCode
-    -> P2PPayload
-    -> TransportType
-    -> m ByteString
-sendRequest peer mCode message transportType = do
-    peerUUIDMapTVar <- getpeerUUIDMapTVarP2PEnv
+       (HasP2PEnv m) => NodeId -> MessageType -> P2PPayload -> m P2PPayload
+sendRequest node mType p2pPayload = do
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     newuuid <- liftIO getUUID
     mvar <- liftIO newEmptyMVar
-        --need to do something about fromJust error
+    connHandle <- liftIO $ getConnHandleFromNodeID node nodeIdMapTVar mType
+    nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    let peerDetailsTVar = fromJust (HM.lookup node nodeIdMap)
+    peerDetails <- liftIO $ readTVarIO peerDetailsTVar
+    let uuidMapTVar = tvarUUIDMap peerDetails
     liftIO $
         atomically
-            (do peerUUIDMap <- readTVar peerUUIDMapTVar
-                let tempTVar = HM.lookup (nodeId peer) peerUUIDMap
-                when (isNothing tempTVar) $ do
-                    newuuidMapTVar <- newTVar HM.empty
-                    let newpeerUUIDMap =
-                            HM.insert (nodeId peer) newuuidMapTVar peerUUIDMap
-                    writeTVar peerUUIDMapTVar newpeerUUIDMap)
-    finalpeerUUIDMap <- liftIO $ readTVarIO peerUUIDMapTVar
-    let uuidMapTVar = fromJust (HM.lookup (nodeId peer) finalpeerUUIDMap)
-    liftIO $
-        atomically
-            (do a <- readTVar uuidMapTVar
-                let b = HM.insert newuuid mvar a
-                writeTVar uuidMapTVar b)
-    let p2pMessage = generateP2PMessage mCode message newuuid
-        conInfo = getConnectionInfo peer transportType
-        connId =
-            makeConnectionId
-                (nodeId peer)
-                (peerIp conInfo)
-                (port conInfo)
-                transportType
-    tmp <- checkConnection conInfo
-    unless tmp $ do
-        res1 <-
-            liftIO $
-            Exception.try $
-            openConnection (nodeId peer) (ip peer) (port conInfo) transportType
-        case res1 of
-            Left (e :: Exception.SomeException) -> throw e
-            Right netConnId -> do
-                unless (netConnId == connId) $ throw HandlerOpenConnectionError
-                addConnection conInfo
+            (do uuidMap <- readTVar uuidMapTVar
+                let newUUIDMAP = HM.insert newuuid mvar uuidMap
+                writeTVar uuidMapTVar newUUIDMAP)
+    let p2pMessage = generateP2PMessage mType p2pPayload newuuid
     res <-
         liftIO $
         Exception.try $
-        sendMessage connId (Lazy.toStrict $ serialise p2pMessage)
+        sendMessage connHandle (Lazy.toStrict $ serialise p2pMessage)
     case res of
-        Left (_ :: Exception.SomeException) -> throw HandlerSendMessageTimeout
+        Left (e :: Exception.SomeException) -> do
+            liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
+            throw e
         Right _ -> do
             winner <-
                 liftIO $
@@ -119,46 +76,27 @@ sendRequest peer mCode message transportType = do
                     (threadDelay 30000000)
                     (takeMVar mvar :: IO P2PMessage)
             case winner of
-                Left _ -> return $ throw HandlerSendMessageTimeout
-                Right p2pReturnMessage -> do
-                    liftIO $
-                        atomically
-                            (do a <- readTVar uuidMapTVar
-                                let b = HM.delete newuuid a
-                                writeTVar uuidMapTVar b)
-                    let returnMessage = typeMessage p2pReturnMessage
-                    return returnMessage
-        -- return $ pack "000000"
-
-sendResponse ::
-       (HasP2PEnv m)
-    => MessageInfo
-    -> Peer
-    -> TransportType
-    -> MessageCode
-    -> m ()
-sendResponse messageInfo peer transportType mCode = do
-    let p2pMessage =
-            generateP2PMessage mCode (snd messageInfo) (fst messageInfo)
-        conInfo = getConnectionInfo peer transportType
-        connId =
-            makeConnectionId
-                (nodeId peer)
-                (peerIp conInfo)
-                (port conInfo)
-                transportType
-    tmp <- checkConnection conInfo
-    if tmp
-        then do
-            res <-
-                liftIO $
-                Exception.try $
-                sendMessage connId (Lazy.toStrict $ serialise p2pMessage)
-            case res of
-                Left (_ :: Exception.SomeException) ->
+                Left _ -> do
+                    liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
                     throw HandlerSendMessageTimeout
-                Right _ -> return ()
-        else throw HandlerConnectionBroken
+                Right (p2pReturnMessage :: P2PMessage) -> do
+                    liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
+                    let returnMessage = payload p2pReturnMessage
+                    return returnMessage
+
+sendResponse :: (HasP2PEnv m) => NodeId -> MessageInfo -> MessageType -> m ()
+sendResponse node messageInfo mType = do
+    let p2pMessage =
+            generateP2PMessage mType (snd messageInfo) (fst messageInfo)
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    connHandle <- liftIO $ getConnHandleFromNodeID node nodeIdMapTVar mType
+    res <-
+        liftIO $
+        Exception.try $
+        sendMessage connHandle (Lazy.toStrict $ serialise p2pMessage)
+    case res of
+        Left (e :: Exception.SomeException) -> throw e
+        Right _                             -> return ()
 
 readKademliaRequest :: (HasP2PEnv m) => m MessageInfo
 readKademliaRequest = do
@@ -175,163 +113,172 @@ readPubSubRequest = do
     pubsubTQueue <- getpubsubTQueueP2PEnv
     liftIO $ atomically $ readTQueue pubsubTQueue
 
-{-
-readRequest (connid)
--- fork
---do forever
-try
---p2pMEssage = readmessage (connid) {ANP, blocking}
-catch exceptions thrown by ANP
-if conn terminated endmCode
-        forkIO (readRequest connectionInfo)
-else
-        forkIO (readRequest connectionInfo)
---make use of exceptions for checking the format of p2pmessage if left
-        forkIO (readRequest connectionInfo)
---catch them in this function and {update in peer rep table} restart loop
-        forkIO (readRequest connectionInfo)
---check uuid p2pMessage is in PeerToUUIDMap
-        forkIO (readRequest connectionInfo)
--- if yes then put in its MVar the messagetype p2pmessage
-        forkIO (readRequest connectionInfo)
---else check messagetype
-        forkIO (readRequest connectionInfo)
-        case kadem -> put it in kademTChan
-        forkIO (readRequest connectionInfo)
-        case RPC -> put it in RPCTChan
-        case PubSub -> put it in PubSubTChan
--}
-readRequest :: (HasP2PEnv m) => ConnectionInfo -> m ()
-readRequest conInfo = do
-    peerUUIDMapTVar <- getpeerUUIDMapTVarP2PEnv
+readRequest :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
+readRequest node transportType = do
     kademTQueue <- getkademTQueueP2PEnv
     rpcTQueue <- getrpcTQueueP2PEnv
     pubsubTQueue <- getpubsubTQueueP2PEnv
-    tvarConnectionInfoMap <- getConnectionInfoMapTVarP2PEnv
-    peerUUIDMap <- liftIO $ readTVarIO peerUUIDMapTVar
-    let pNodeId = peerNodeId conInfo
-        uuidMapTVar = fromJust (HM.lookup pNodeId peerUUIDMap)
-        pport = port conInfo
-        connId =
-            makeConnectionId
-                pNodeId
-                (peerIp conInfo)
-                pport
-                (transportType conInfo)
-    tmp <- checkConnection conInfo
-    when tmp $ do
-        eitherByteMessage <- liftIO $ Exception.try $ readMessage connId
-        case eitherByteMessage of
-            Left (_ :: Exception.SomeException) -> return ()
-            Right byteMessage -> do
-                let networkMessage =
-                        deserialise (Lazy.fromStrict byteMessage) :: P2PMessage
-                uuidMap <- liftIO $ atomically (readTVar uuidMapTVar)
-                let temp = HM.lookup (uuid networkMessage) uuidMap
-                if isNothing temp
-                    then do
-                        let newRequest =
-                                ( uuid networkMessage
-                                , typeMessage networkMessage)
-                        case messageCode networkMessage of
-                            Kademlia ->
-                                liftIO $
-                                atomically (writeTQueue kademTQueue newRequest)
-                            RPC ->
-                                liftIO $
-                                atomically (writeTQueue rpcTQueue newRequest)
-                            PubSub ->
-                                liftIO $
-                                atomically (writeTQueue pubsubTQueue newRequest)
-                    else do
-                        let mVar = fromJust temp
-                        liftIO $ putMVar mVar networkMessage
-        readRequest conInfo
+    nodeIdPeerMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    nodeIdPeerMap <- liftIO $ readTVarIO nodeIdPeerMapTVar
+    let peerDetailsTVar = fromJust (HM.lookup node nodeIdPeerMap) -- not possible that node isnt here but need to try
+    connHandle <- liftIO $ getConnectionHandle peerDetailsTVar transportType
+    peerDetails <- liftIO $ readTVarIO peerDetailsTVar
+    let uuidMapTVar = tvarUUIDMap peerDetails
+    tmp <-
+        liftIO $
+        forkIO $
+        readRequestThread
+            connHandle
+            uuidMapTVar
+            kademTQueue
+            rpcTQueue
+            pubsubTQueue
+    return ()
 
-newIncomingConnection :: (HasP2PEnv m) => m ()
-newIncomingConnection = do
-    connectionId <- liftIO getNewConnection
-    let conInfo = getPeerInfo connectionId
-    addConnection conInfo
-    fork (readRequest conInfo)
-    newIncomingConnection
-    --forever $ do
-        {--}
+readRequestThread ::
+       ConnectionId
+    -> TVar UUIDMap
+    -> TQueue MessageInfo
+    -> TQueue MessageInfo
+    -> TQueue MessageInfo
+    -> IO ()
+readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue = do
+    eitherByteMessage <- Exception.try $ readMessage connHandle
+    case eitherByteMessage of
+        Left (_ :: Exception.SomeException) -> return ()
+        Right byteMessage -> do
+            let networkMessage =
+                    deserialise (Lazy.fromStrict byteMessage) :: P2PMessage
+            uuidMap <- atomically (readTVar uuidMapTVar)
+            let temp = HM.lookup (uuid networkMessage) uuidMap
+            if isNothing temp
+                then do
+                    let newRequest =
+                            (uuid networkMessage, payload networkMessage)
+                    case messageType networkMessage of
+                        Kademlia ->
+                            atomically (writeTQueue kademTQueue newRequest)
+                        RPC -> atomically (writeTQueue rpcTQueue newRequest)
+                        PubSub ->
+                            atomically (writeTQueue pubsubTQueue newRequest)
+                else do
+                    let mVar = fromJust temp
+                    putMVar mVar networkMessage
+            readRequestThread
+                connHandle
+                uuidMapTVar
+                kademTQueue
+                rpcTQueue
+                pubsubTQueue
 
---newIncomingConnection :: (HasP2PEnv m ) => m()
---newIncomingConnection =
-{-
-call getnewconnection from ANP,  this return connId
-when it returns add it to PeerConnectionMapTVar with a value true
-fork a readRequest on the particular connId you get from ANP
-repeat
--}
+-- newIncomingConnection :: (HasP2PEnv m) => m ()
+-- newIncomingConnection = do
+--     (nodeId, connHandle, transportType) <- liftIO getNewConnection
+--     addPeerfromConnection nodeId connHandle transportType
+--     fork (readRequest conInfo)
+--     newIncomingConnection
 {-Support Functions===========================================================-}
-generateP2PMessage :: MessageCode -> P2PPayload -> P2PUUID -> P2PMessage
-generateP2PMessage mCode message1 uuid1 =
-    P2PMessage {uuid = uuid1, messageCode = mCode, typeMessage = message1}
+-- | atomically checks for existing handle which is returned if it exists or else a new connection is established and it is stored as well as returned.
+-- atomically is used as no other thread should check for the connection handle while open connection is being executed and call another open connection on the same details.
+getConnectionHandle :: TVar PeerDetails -> TransportType -> IO ConnectionId
+getConnectionHandle peerDetailsTVar transportType = do
+    peerDetails <- readTVarIO peerDetailsTVar
+    let connMaybe =
+            if transportType == TCP
+                then streamHandle peerDetails
+                else datagramHandle peerDetails
+    case connMaybe of
+        NotConnected -> do
+            check <-
+                atomically
+                    (changeConnectionStatus peerDetailsTVar transportType)
+            if check
+                then do
+                    res <-
+                        Exception.try $
+                        openConnection
+                            (nodeId peerDetails)
+                            (fromJust (ip peerDetails))
+                            (if transportType == TCP
+                                 then fromJust (tcpPort peerDetails)
+                                 else fromJust (udpPort peerDetails))
+                            transportType
+                    case res of
+                        Left (e :: Exception.SomeException) -> throw e
+                        Right connHandle -> do
+                            atomically
+                                (do oldPeerDetails <- readTVar peerDetailsTVar
+                                    let newPeerDetails =
+                                            if transportType == TCP
+                                                then oldPeerDetails
+                                                         { streamHandle =
+                                                               Connected
+                                                                   { connId =
+                                                                         connHandle
+                                                                   }
+                                                         }
+                                                else oldPeerDetails
+                                                         { datagramHandle =
+                                                               Connected
+                                                                   { connId =
+                                                                         connHandle
+                                                                   }
+                                                         }
+                                    writeTVar peerDetailsTVar newPeerDetails)
+                            return connHandle
+                else getConnectionHandle peerDetailsTVar transportType
+        Pending -> do
+            threadDelay 3000 --should depend on avg time to open connection
+            getConnectionHandle peerDetailsTVar transportType
+        Connected connHandle -> return connHandle
+
+changeConnectionStatus :: TVar PeerDetails -> TransportType -> STM Bool
+changeConnectionStatus peerDetailsTVar transportType = do
+    peerDetails <- readTVar peerDetailsTVar
+    let connCheck =
+            if transportType == TCP
+                then streamHandle peerDetails
+                else datagramHandle peerDetails
+    if connCheck == NotConnected
+        then do
+            let newPeerDetails =
+                    if transportType == TCP
+                        then peerDetails {streamHandle = Pending}
+                        else peerDetails {datagramHandle = Pending}
+            writeTVar peerDetailsTVar newPeerDetails
+            return True
+        else return False
+
+deleteUUID :: P2PUUID -> TVar UUIDMap -> STM ()
+deleteUUID uuid uuidMapTVar = do
+    a <- readTVar uuidMapTVar
+    let b = HM.delete uuid a
+    writeTVar uuidMapTVar b
+
+getConnHandleFromNodeID ::
+       NodeId -> TVar NodeIdPeerMap -> MessageType -> IO ConnectionId
+getConnHandleFromNodeID node nodeIdMapTVar mType = do
+    nodeIdMap <- readTVarIO nodeIdMapTVar
+    let peerDetailsTVar = fromJust (HM.lookup node nodeIdMap)
+    getConnectionHandle
+        peerDetailsTVar
+        (if mType == RPC
+             then TCP
+             else UDP)
+
+-- | wraps the payload with message type { Kademlia | RPC | PubSub} and UUID
+generateP2PMessage :: MessageType -> P2PPayload -> P2PUUID -> P2PMessage
+generateP2PMessage mType message uuid1 =
+    P2PMessage {uuid = uuid1, messageType = mType, payload = message}
 
 getUUID :: IO P2PUUID
 getUUID = UUID.toString <$> nextRandom
 
-makeConnectionId :: NodeId -> IP -> Port -> TransportType -> ConnectionId
-makeConnectionId nodeId mIpAddress mPort mTransportType =
-    pack $
-    nodeId ++
-    "|" ++ mIpAddress ++ "|" ++ show mPort ++ "|" ++ show mTransportType
-
-getConnectionInfo :: Peer -> TransportType -> ConnectionInfo
-getConnectionInfo peer transportType1 =
-    ConnectionInfo
-        { peerNodeId = nodeId peer
-        , peerIp = ip peer
-        , port = pport
-        , transportType = transportType1
-        }
-  where
-    pport =
-        if transportType1 == UDP
-            then udpPort peer
-            else tcpPort peer
-
-getPeerInfo :: ConnectionId -> ConnectionInfo
-getPeerInfo connId =
-    ConnectionInfo
-        { peerNodeId = read (head infolist) :: NodeId
-        , peerIp = read (infolist !! 1) :: IP
-        , port = read (infolist !! 2) :: Port
-        , transportType = read (infolist !! 3) :: TransportType
-        }
-  where
-    str = unpack connId
-    infolist = splitOn "|" str
-
-checkConnection :: (HasP2PEnv m) => ConnectionInfo -> m Bool
-checkConnection conInfo = do
-    connectionInfoMapTVar <- getConnectionInfoMapTVarP2PEnv
-    connectionInfoMap <- liftIO $ readTVarIO connectionInfoMapTVar
-    if isNothing (HM.lookup conInfo connectionInfoMap)
-        then return False
-        else return True
-
-addConnection :: (HasP2PEnv m) => ConnectionInfo -> m ()
-addConnection conInfo = do
-    connectionInfoMapTVar <- getConnectionInfoMapTVarP2PEnv
-    liftIO $
-        atomically
-            (do connectionInfoMap <- readTVar connectionInfoMapTVar
-                let newConnectionInfoMap =
-                        HM.insert conInfo True connectionInfoMap
-                writeTVar connectionInfoMapTVar newConnectionInfoMap)
-    return ()
-
 {-Dummy Functions========================================================-}
 -- selfNodeId :: NodeId
 -- selfNodeId = pack "12334556"
-getNewConnection :: IO ConnectionId
-getNewConnection = do
-    let connId = makeConnectionId "dvz" "jbf" 6587 UDP
-    return connId
+getNewConnection :: IO (NodeId, ConnectionId, TransportType)
+getNewConnection = return ("DSGNO", pack "892sadasd346384", UDP)
 
 openConnection :: NodeId -> IP -> Port -> TransportType -> IO ConnectionId
 openConnection nodeId ip port transportType = return (pack "892sadasd346384")

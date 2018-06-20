@@ -21,11 +21,10 @@ import           Data.HashMap.Strict                   as HM
 
 data P2PEnv = P2PEnv
     { tvarAriviP2PInstance  :: TVar AriviP2PInstance
-    , tvarPeerUUIDMap       :: TVar PeerUUIDMap
+    , tvarNodeIdPeerMap     :: TVar NodeIdPeerMap
     , tqueueKadem           :: TQueue MessageInfo
     , tqueueRPC             :: TQueue MessageInfo
     , tqueuePubSub          :: TQueue MessageInfo
-    , tvarConnectionInfoMap :: TVar ConnectionInfoMap
     , tvarResourceToPeerMap :: TVar ResourceToPeerMap
     }
 
@@ -36,21 +35,19 @@ class (MonadIO m, MonadBaseControl IO m) =>
     where
     getP2PEnv :: m P2PEnv
     getAriviTVarP2PEnv :: m (TVar AriviP2PInstance)
-    getpeerUUIDMapTVarP2PEnv :: m (TVar PeerUUIDMap)
+    getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getkademTQueueP2PEnv :: m (TQueue MessageInfo)
     getrpcTQueueP2PEnv :: m (TQueue MessageInfo)
     getpubsubTQueueP2PEnv :: m (TQueue MessageInfo)
-    getConnectionInfoMapTVarP2PEnv :: m (TVar ConnectionInfoMap)
     getResourceToPeerMapP2PEnv :: m (TVar ResourceToPeerMap)
 
 instance HasP2PEnv P2Papp where
     getP2PEnv = ask
     getAriviTVarP2PEnv = tvarAriviP2PInstance <$> getP2PEnv
-    getpeerUUIDMapTVarP2PEnv = tvarPeerUUIDMap <$> getP2PEnv
+    getNodeIdPeerMapTVarP2PEnv = tvarNodeIdPeerMap <$> getP2PEnv
     getkademTQueueP2PEnv = tqueueKadem <$> getP2PEnv
     getrpcTQueueP2PEnv = tqueueRPC <$> getP2PEnv
     getpubsubTQueueP2PEnv = tqueuePubSub <$> getP2PEnv
-    getConnectionInfoMapTVarP2PEnv = tvarConnectionInfoMap <$> getP2PEnv
     getResourceToPeerMapP2PEnv = tvarResourceToPeerMap <$> getP2PEnv
 
 runP2Papp :: P2PEnv -> P2Papp a -> IO a
@@ -58,18 +55,16 @@ runP2Papp = flip runReaderT
 
 makeP2PEnvironment :: IO P2PEnv
 makeP2PEnvironment = do
-    pmap <- newTVarIO HM.empty
+    nmap <- newTVarIO HM.empty
     kqueue <- newTQueueIO
     rqueue <- newTQueueIO
     pqueue <- newTQueueIO
-    cmap <- newTVarIO HM.empty
     r2pmap <- newTVarIO HM.empty
     return
         P2PEnv
-            { tvarPeerUUIDMap = pmap
+            { tvarNodeIdPeerMap = nmap
             , tqueueKadem = kqueue
             , tqueueRPC = rqueue
             , tqueuePubSub = pqueue
-            , tvarConnectionInfoMap = cmap
             , tvarResourceToPeerMap = r2pmap
             }

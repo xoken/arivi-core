@@ -1,21 +1,20 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Arivi.P2P.MessageHandler.HandlerTypes
-    ( MessageCode(..)
+    ( MessageType(..)
     , P2PMessage(..)
-    , Peer(..)
+    , PeerDetails(..)
     , IP
     , Port
     , P2PUUID
     , P2PPayload
     , UUIDMap
-    , PeerUUIDMap
     , MessageInfo
     , NodeId
     , ConnectionId
-    , ConnectionInfo(..)
     , TransportType(..)
-    , ConnectionInfoMap
+    , NodeIdPeerMap
+    , Handle(..)
     ) where
 
 import           Control.Concurrent.MVar
@@ -52,34 +51,26 @@ type ConnectionId = ByteString
 
 data P2PMessage = P2PMessage
     { uuid        :: P2PUUID
-    , messageCode :: MessageCode
-    , typeMessage :: P2PPayload
+    , messageType :: MessageType
+    , payload     :: P2PPayload
     } deriving (Eq, Ord, Show, Generic)
 
 instance Serialise P2PMessage
 
-data MessageCode
+data MessageType
     = Kademlia
     | RPC
     | PubSub
     deriving (Eq, Ord, Show, Generic)
 
-instance Serialise MessageCode
+instance Serialise MessageType
 
-data ConnectionInfo = ConnectionInfo
-    { peerNodeId    :: NodeId
-    , peerIp        :: IP
-    , port          :: Port
-    , transportType :: TransportType
-    } deriving (Eq, Show, Generic)
-
-data Peer = Peer
-    { nodeId  :: NodeId
-    , ip      :: IP
-    , udpPort :: Port
-    , tcpPort :: Port
-    } deriving (Eq, Show, Generic)
-
+-- data Peer = Peer
+--     { nodeId  :: NodeId
+--     , ip      :: IP
+--     , udpPort :: Port
+--     , tcpPort :: Port
+--     } deriving (Eq, Show, Generic)
 data TransportType
     = UDP
     | TCP
@@ -87,17 +78,6 @@ data TransportType
 
 instance Hashable TransportType
 
-instance Hashable Peer
-
-instance Hashable ConnectionInfo
-
-type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
-
-type PeerUUIDMap = HM.HashMap NodeId (TVar UUIDMap)
-
-type MessageInfo = (P2PUUID, P2PPayload)
-
-type ConnectionInfoMap = HM.HashMap ConnectionInfo Bool
 {-
 PeerToUUIDMap =
 TVar( HashMap[ NodeId->TVar( HashMap[ UUID->MVar] ) ] )
@@ -118,3 +98,26 @@ P2PMessage = {
 --RPCTchan
 --PubSubTchan
 -}
+type MessageInfo = (P2PUUID, P2PPayload)
+
+data Handle
+    = NotConnected
+    | Pending
+    | Connected { connId :: ConnectionId }
+    deriving (Eq, Ord, Show, Generic)
+
+data PeerDetails = PeerDetails
+    { nodeId         :: NodeId
+    , rep            :: Maybe Int
+    , ip             :: Maybe IP
+    , udpPort        :: Maybe Port
+    , tcpPort        :: Maybe Port
+    , streamHandle   :: Handle
+    , datagramHandle :: Handle
+    , tvarUUIDMap    :: TVar UUIDMap
+    }
+
+type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
+
+type NodeIdPeerMap = HM.HashMap NodeId (TVar PeerDetails)
+-- type ResourceDetails = (P2PUUID, NodeId)
