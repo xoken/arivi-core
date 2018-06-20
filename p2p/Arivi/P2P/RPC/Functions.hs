@@ -139,12 +139,11 @@ getPeer peerTQ resourceID mynodeid servicemessage = do
         Right returnMessage -> do
             let inmessage =
                     deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
-            let a = to inmessage
-            let b = from inmessage
-            let c = serviceMessage inmessage
-            let d = rid inmessage
-            if (mynodeid == a && tonodeid == b) && resourceID == d
-                then liftIO $ atomically (writeTQueue peerTQ peer) >> return c
+            if (mynodeid == to inmessage && tonodeid == from inmessage) &&
+               resourceID == rid inmessage
+                then liftIO $
+                     atomically (writeTQueue peerTQ peer) >>
+                     return (serviceMessage inmessage)
                 else getPeer peerTQ resourceID mynodeid servicemessage
 
 resourceRequestThread :: (HasP2PEnv m) => m ()
@@ -179,10 +178,10 @@ resourceRequestHelper resourceToPeerMap = do
             putIntoTQueue sid currTQ newEntry
             resourceRequestHelper resourceToPeerMap
 
+--we wont be passing fromNdeId
+--to get the nodeId we use the environment variable
 sendResource :: (HasP2PEnv m) => ServicePayload -> NodeId -> m ()
-sendResource servicemessage fromNodeId --we wont be passing from node id
-                                            --to get the nodeid we use the environment variable
- = do
+sendResource servicemessage fromNodeId = do
     let resourceId = resid servicemessage
     let extractedmessage = message servicemessage
     let extra_info = extra servicemessage
