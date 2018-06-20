@@ -139,11 +139,11 @@ getPeer peerTQ resourceID mynodeid servicemessage = do
         Right returnMessage -> do
             let inmessage =
                     deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
-            let d = to inmessage
+            let a = to inmessage
             let b = from inmessage
             let c = serviceMessage inmessage
-            let e = rid inmessage
-            if (mynodeid == d && tonodeid == b) && resourceID == e
+            let d = rid inmessage
+            if (mynodeid == a && tonodeid == b) && resourceID == d
                 then liftIO $ atomically (writeTQueue peerTQ peer) >> return c
                 else getPeer peerTQ resourceID mynodeid servicemessage
 
@@ -181,22 +181,22 @@ resourceRequestHelper resourceToPeerMap = do
 
 sendResource :: (HasP2PEnv m) => ServicePayload -> NodeId -> m ()
 sendResource servicemessage fromNodeId --we wont be passing from node id
-                                            --we get the nodeid we use the environment variable
+                                            --to get the nodeid we use the environment variable
  = do
     let resourceId = resid servicemessage
-    let message1 = message servicemessage
-    let extrainfo = extra servicemessage
-    let info = fromJust extrainfo
-    let uuid1 = uuid info
-    let node1 = node info
-    let servicemessage1 =
+    let extractedmessage = message servicemessage
+    let extra_info = extra servicemessage
+    let nodeInfo = fromJust extra_info
+    let uuid1 = uuid nodeInfo
+    let toNode = node nodeInfo
+    let p2p_payload =
             ReplyRC
-                { to = node1
+                { to = toNode
                 , from = fromNodeId
                 , rid = resourceId
-                , serviceMessage = message1
+                , serviceMessage = extractedmessage
                 }
-    let servicemessage2 = Lazy.toStrict $ serialise message1
+    let payload = Lazy.toStrict $ serialise p2p_payload
     {-
     sendResponse ::
        (HasP2PEnv m)
@@ -206,7 +206,7 @@ sendResource servicemessage fromNodeId --we wont be passing from node id
     -> MessageCode
     -> m ()
     -}
-    let messageinfo = (uuid1, servicemessage2)
+    let messageinfo = (uuid1, payload)
     --sendResponse messageinfo TCP RPC
     return ()
 
