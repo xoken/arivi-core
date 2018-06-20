@@ -13,14 +13,14 @@ module Arivi.P2P.RPC.Types
     , ServiceMessage
     ) where
 
-import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
-import           Codec.Serialise                       (Serialise)
+-- import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
+import           Codec.Serialise               (Serialise)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString
-import           Data.ByteString.Char8                 as Char8 (ByteString)
-import           Data.HashMap.Strict                   as HM
-import           GHC.Generics                          (Generic)
+import           Data.ByteString.Char8         as Char8 (ByteString)
+import           Data.HashMap.Strict           as HM
+import           GHC.Generics                  (Generic)
 
 --import              Data.Hashable
 type IP = String
@@ -38,7 +38,7 @@ type ServiceMessage = ByteString
 type ResourceList = [ResourceId]
 
 type ResourceToPeerMap
-     = HM.HashMap ResourceId (ServiceId, TQueue Peer, TQueue ServicePayload)
+     = HM.HashMap ResourceId (ServiceId, TQueue NodeId, TQueue ServicePayload) --peer changed to nodeID
 
 data MessageTypeRPC
     = Options { to   :: NodeId
