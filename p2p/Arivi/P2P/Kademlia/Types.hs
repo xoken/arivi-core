@@ -24,19 +24,17 @@ module Arivi.P2P.Kademlia.Types
     , deserialise
     ) where
 
-import           Arivi.P2P.Kademlia.Utils (sockAddrToHostAddr,
-                                           sockAddrToPortNumber)
 import           Codec.Serialise          (deserialise, serialise)
 import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519    (PublicKey, SecretKey, Signature,
-                                           publicKey, sign, signature)
+import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
+                                           signature)
 import           Data.ByteArray           (convert)
 import           Data.ByteString
 import qualified Data.ByteString.Char8    as C
-import qualified Data.ByteString.Lazy     as Lazy (toStrict)
+import           Data.ByteString.Lazy     ()
 import           Data.Monoid
 import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime)
 import           Data.Word
@@ -102,17 +100,17 @@ packPing nId hostName udpPort tcpPort = PayLoad msg
     msg = Message MSG01 msgBody
 
 packPong :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packPong nId hostName udpPort tcpPort = PayLoad msg
+packPong nId hostName udpPort' tcpPort' = PayLoad msg
   where
-    fromep = NodeEndPoint hostName udpPort tcpPort
+    fromep = NodeEndPoint hostName udpPort' tcpPort'
     msgBody = PONG nId fromep
     msg = Message MSG02 msgBody
 
 packFindMsg ::
        NodeId -> NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packFindMsg nId targetNode hostName udpPort tcpPort = PayLoad msg
+packFindMsg nId targetNode hostName' udpPort'' tcpPort'' = PayLoad msg
   where
-    fromep = NodeEndPoint hostName udpPort tcpPort
+    fromep = NodeEndPoint hostName' udpPort'' tcpPort''
     msgBody = FIND_NODE nId targetNode fromep
     msg = Message MSG03 msgBody
 
@@ -123,9 +121,9 @@ packFnR ::
     -> PortNumber
     -> PortNumber
     -> PayLoad
-packFnR nId mPeerList hostName udpPort tcpPort = PayLoad msg
+packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
   where
-    fromep = NodeEndPoint hostName udpPort tcpPort
+    fromep = NodeEndPoint hostNamea udpPorta tcpPorta
     msgBody = FN_RESP nId mPeerList fromep
     msg = Message MSG04 msgBody
 
