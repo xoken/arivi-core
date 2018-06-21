@@ -40,7 +40,6 @@ import           Control.Monad                  ()
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader           ()
 import           Control.Monad.STM
-import           Control.Monad.Trans.Control
 import qualified Data.List                      as L
 import           Data.Maybe
 import           ListT
@@ -60,8 +59,8 @@ createKbucket localPeer = do
 --   hash table based on XorDistance
 getDefaultNodeId :: (HasKbucket m) => m (Either AriviException T.NodeId)
 getDefaultNodeId = do
-    kbucket <- getKb
-    let kb = getKbucket kbucket
+    kbucket' <- getKb
+    let kb = getKbucket kbucket'
     lp <- liftIO $ atomically $ H.lookup 0 kb
     let localPeer = fromMaybe [] lp
     if Prelude.null localPeer
@@ -73,13 +72,14 @@ getDefaultNodeId = do
 --   the kbucket is created. If peer doesn't exist it returns an empty list
 getPeerList :: (HasKbucket m) => Peer -> m (Either AriviException [Peer])
 getPeerList peerR = do
-    kbucket <- getKb
+    kbucket'' <- getKb
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
             let peer = fst $ getPeer peerR
                 kbDistance = getKbIndex localPeer peer
-            pl <- liftIO $ atomically $ H.lookup kbDistance (getKbucket kbucket)
+            pl <-
+                liftIO $ atomically $ H.lookup kbDistance (getKbucket kbucket'')
             let peerList = fromMaybe [] pl
             return $ Right peerList
         Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
@@ -87,8 +87,8 @@ getPeerList peerR = do
 -- |Gets Peer by Kbucket-Index (kb-index) Index
 getPeerListByKIndex :: (HasKbucket m) => Int -> m (Either AriviException [Peer])
 getPeerListByKIndex kbi = do
-    kbucket <- getKb
-    peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kbucket)
+    kb' <- getKb
+    peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kb')
     let pl = fromMaybe [] peerl
     case pl of
         [] -> return $ Left KademliaKbIndexDoesNotExist
@@ -109,14 +109,14 @@ ifPeerExist peer = do
 --  kbindex based on the XOR Distance.
 addToKBucket :: (HasKbucket m) => Peer -> m ()
 addToKBucket peerR = do
-    kbucket <- getKb
+    kb'' <- getKb
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
             peerList <- getPeerList peerR
             case peerList of
                 Right pl -> do
-                    let kb = getKbucket kbucket
+                    let kb = getKbucket kb''
                     let peer = fst $ getPeer peerR
                         kbDistance = getKbIndex localPeer peer
                     if peerR `elem` pl
@@ -133,14 +133,14 @@ addToKBucket peerR = do
 -- | Removes a given peer from kbucket
 removePeer :: (HasKbucket m) => Peer -> m ()
 removePeer peerR = do
-    kbucket <- getKb
+    kbb' <- getKb
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
             peerList <- getPeerList peerR
             case peerList of
                 Right pl -> do
-                    let kb = getKbucket kbucket
+                    let kb = getKbucket kbb'
                         peer = fst $ getPeer peerR
                         kbDistance = getKbIndex localPeer peer
                     if peerR `elem` pl
@@ -157,8 +157,8 @@ getPeerListFromKeyList :: (HasKbucket m) => Int -> [Int] -> m [Peer]
 getPeerListFromKeyList _ [] = return []
 getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
-    kbucket <- getKb
-    pl <- liftIO $ atomically $ H.lookup x (getKbucket kbucket)
+    kbb'' <- getKb
+    pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
     let peerList = fromMaybe [] pl
         ple = fst $ L.splitAt k peerList
     if L.length peerList >= k
@@ -175,8 +175,8 @@ getKClosestPeers peerR k = do
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
-            kbucket <- getKb
-            let kbtemp = H.stream (getKbucket kbucket)
+            kbbb' <- getKb
+            let kbtemp = H.stream (getKbucket kbbb')
             kvList <- liftIO $ atomically $ toList kbtemp
             let peer = fst $ getPeer peerR
                 kbi = getKbIndex localPeer peer
