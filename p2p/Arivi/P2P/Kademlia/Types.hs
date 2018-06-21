@@ -93,9 +93,9 @@ data PayLoad = PayLoad
 
 -- Helper functions to create messages
 packPing :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packPing nId hostName udpPort tcpPort = PayLoad msg
+packPing nId hostName udpPortb tcpPortb = PayLoad msg
   where
-    fromep = NodeEndPoint hostName udpPort tcpPort
+    fromep = NodeEndPoint hostName udpPortb tcpPortb
     msgBody = PING nId fromep
     msg = Message MSG01 msgBody
 
