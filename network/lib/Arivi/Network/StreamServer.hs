@@ -6,23 +6,21 @@
 {-# LANGUAGE TypeFamilies          #-}
 
 module Arivi.Network.StreamServer
-(
-    -- readSock,
-  runTCPServer
-) where
+    ( runTCPServer
+    ) where
 
 import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.ConnectionHandler (handleInboundConnection)
-import           Control.Concurrent.Lifted       (forkFinally)
 import           Control.Concurrent.Async.Lifted (async)
+import           Control.Concurrent.Lifted       (forkFinally)
 import           Control.Exception.Lifted        (finally)
 import           Control.Monad                   (forever, void)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Network.Socket
--- Functions for Server
 
+-- Functions for Server
 -- | Lifts the `withSocketDo` to a `MonadBaseControl IO m`
 liftWithSocketsDo :: (MonadBaseControl IO m) => m a -> m a
 liftWithSocketsDo f = control $ \runInIO -> withSocketsDo (runInIO f)
@@ -48,7 +46,6 @@ runTCPServer port =
         liftIO $ listen sock 5
         finally (acceptIncomingSocket sock) (liftIO $ close sock)
         return ()
-
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan

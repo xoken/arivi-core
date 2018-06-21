@@ -158,40 +158,7 @@ openConnection addr port tt rnid pType = do
                     hm <- liftIO $ readTVarIO tv
                     case HM.lookup cId hm of
                         Just conn -> return $ Right cId
-                        Nothing
-                            -- sk <- getSecretKey
-                            -- socket <-
-                            --     liftIO $ createSocket addr (read (show port)) tt
-                            -- p2pMsgTChan <-
-                            --     liftIO (newTChanIO :: IO (TChan ByteString))
-                            -- egressNonce <- liftIO (newTVarIO (2 :: SequenceNum))
-                            -- ingressNonce <-
-                            --     liftIO (newTVarIO (2 :: SequenceNum))
-                            -- aeadNonce <- liftIO (newTVarIO (2 :: AeadNonce))
-                            -- writeLock <- liftIO $ newMVar 0
-                            -- hsCompleteTVar <-
-                            --     liftIO $ newTVarIO Conn.HandshakeNotStarted
-                            -- mInboundDatagramTChan <-
-                            --     liftIO $ atomically newTChan
-                            -- let connection =
-                            --         mkIncompleteConnection'
-                            --         { Conn.connectionId = cId
-                            --         , Conn.remoteNodeId = rnid
-                            --         , Conn.ipAddress = addr
-                            --         , Conn.port = port
-                            --         , Conn.transportType = tt
-                            --         , Conn.personalityType = pType
-                            --         , Conn.socket = socket
-                            --         , Conn.inboundDatagramTChan =
-                            --               mInboundDatagramTChan
-                            --         , Conn.waitWrite = writeLock
-                            --         , Conn.p2pMessageTChan = p2pMsgTChan
-                            --         , Conn.egressSeqNum = egressNonce
-                            --         , Conn.ingressSeqNum = ingressNonce
-                            --         , Conn.aeadNonceCounter = aeadNonce
-                            --         , Conn.handshakeComplete = hsCompleteTVar
-                            --         }
-                         -> do
+                        Nothing -> do
                             traceShow "before Handshake" (return ())
                             liftIO $
                                 atomically $

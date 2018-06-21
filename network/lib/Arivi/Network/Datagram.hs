@@ -76,26 +76,6 @@ import           Control.Monad.Catch                  (displayException)
 
 import           Control.Concurrent.Async.Lifted.Safe (Forall, Pure)
 
--- runUDPServerForever :: Socket
---                     -> SockAddr
---                     -> IO ()
--- runUDPServerForever sock sockAddr  = do
---     bind sock sockAddr
---     print ("UDP Server now listening for requests at : " ++ show sockAddr)
---     forever $
---                 do
---             (mesg, socaddr2) <- Network.recvFrom sock 4096
---             print ""
--- createUDPSocket :: Show portNumber => HostName -> portNumber -> IO Socket
--- createUDPSocket ipAddress portNumber = do
---     let hint = defaultHints {addrFlags = [AI_PASSIVE],
---                              addrSocketType = Datagram}
---     selfAddr:_  <- getAddrInfo (Just hint) (Just ipAddress)
---                                             (Just (show portNumber))
---     mSocket <- socket (addrFamily selfAddr) (addrSocketType selfAddr)
---                                         (addrProtocol selfAddr)
---     bind mSocket (addrAddress selfAddr)
---     return mSocket
 makeSocket :: HostName -> PortNumber -> SocketType -> IO Socket
 makeSocket ipAddress portNumber socketType = do
     let hint =
