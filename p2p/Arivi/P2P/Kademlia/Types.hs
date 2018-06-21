@@ -48,7 +48,7 @@ getTimeStamp :: IO TimeStamp
 getTimeStamp = TimeStamp <$> getPOSIXTime
 
 data NodeEndPoint = NodeEndPoint
-    { nodeIp  :: HostAddress
+    { nodeIp  :: HostName
     , udpPort :: PortNumber
     , tcpPort :: PortNumber
     } deriving (Eq, Show, Generic)
@@ -87,7 +87,6 @@ data MessageBody
 data Message = Message
     { messageType :: MessageType
     , messageBody :: MessageBody
-    , sequence    :: Sequence
     } deriving (Generic, Show)
 
 data PayLoad = PayLoad
@@ -95,49 +94,40 @@ data PayLoad = PayLoad
     } deriving (Show, Generic)
 
 -- Helper functions to create messages
-packPing :: NodeId -> SockAddr -> Sequence -> PayLoad
-packPing nId sockAddr msgSeq = PayLoad msg
+packPing :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
+packPing nId hostName udpPort tcpPort = PayLoad msg
   where
-    fromep =
-        NodeEndPoint
-            (sockAddrToHostAddr sockAddr)
-            (sockAddrToPortNumber sockAddr)
-            (sockAddrToPortNumber sockAddr)
+    fromep = NodeEndPoint hostName udpPort tcpPort
     msgBody = PING nId fromep
-    msg = Message MSG01 msgBody msgSeq
+    msg = Message MSG01 msgBody
 
-packPong :: NodeId -> SockAddr -> Sequence -> PayLoad
-packPong nId sockAddr msgSeq = PayLoad msg
+packPong :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
+packPong nId hostName udpPort tcpPort = PayLoad msg
   where
-    fromep =
-        NodeEndPoint
-            (sockAddrToHostAddr sockAddr)
-            (sockAddrToPortNumber sockAddr)
-            (sockAddrToPortNumber sockAddr)
+    fromep = NodeEndPoint hostName udpPort tcpPort
     msgBody = PONG nId fromep
-    msg = Message MSG02 msgBody msgSeq
+    msg = Message MSG02 msgBody
 
-packFindMsg :: NodeId -> SockAddr -> NodeId -> Sequence -> PayLoad
-packFindMsg nId sockAddr targetNode msgSeq = PayLoad msg
+packFindMsg ::
+       NodeId -> NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
+packFindMsg nId targetNode hostName udpPort tcpPort = PayLoad msg
   where
-    fromep =
-        NodeEndPoint
-            (sockAddrToHostAddr sockAddr)
-            (sockAddrToPortNumber sockAddr)
-            (sockAddrToPortNumber sockAddr)
+    fromep = NodeEndPoint hostName udpPort tcpPort
     msgBody = FIND_NODE nId targetNode fromep
-    msg = Message MSG03 msgBody msgSeq
+    msg = Message MSG03 msgBody
 
-packFnR :: NodeId -> SockAddr -> [(NodeId, NodeEndPoint)] -> Sequence -> PayLoad
-packFnR nId sockAddr mPeerList msgSeq = PayLoad msg
+packFnR ::
+       NodeId
+    -> [(NodeId, NodeEndPoint)]
+    -> HostName
+    -> PortNumber
+    -> PortNumber
+    -> PayLoad
+packFnR nId mPeerList hostName udpPort tcpPort = PayLoad msg
   where
-    fromep =
-        NodeEndPoint
-            (sockAddrToHostAddr sockAddr)
-            (sockAddrToPortNumber sockAddr)
-            (sockAddrToPortNumber sockAddr)
+    fromep = NodeEndPoint hostName udpPort tcpPort
     msgBody = FN_RESP nId mPeerList fromep
-    msg = Message MSG04 msgBody msgSeq
+    msg = Message MSG04 msgBody
 
 -- Serialise instance of different custom types so that they can be encoded
 -- and decoded using serialize library which further allows these types
