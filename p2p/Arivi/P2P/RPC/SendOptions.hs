@@ -1,14 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Arivi.P2P.RPC.SendOptions where
+module Arivi.P2P.RPC.SendOptions
+    ( sendOptionsMessage
+    , sendSupportedMessage
+    ) where
 
-import           Arivi.Network.Types                   (ConnectionId, NodeId)
+import           Arivi.Network.Types                   (ConnectionId)
 import           Arivi.P2P.Kademlia.Utils              (extractFirst,
                                                         extractSecond,
                                                         extractThird)
 import           Arivi.P2P.MessageHandler.Handler
-import           Arivi.P2P.MessageHandler.HandlerTypes (MessageCode (..),
-                                                        MessageInfo, Peer (..),
+import           Arivi.P2P.MessageHandler.HandlerTypes (MessageInfo,
+                                                        MessageType (..),
+                                                        PeerDetails (..),
                                                         TransportType (..))
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
@@ -30,9 +34,9 @@ import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
---This function will send the options message to all the peers in [Peer] on separate threads
+--This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
-sendOptionsMessage :: (HasP2PEnv m) => Peer -> [Peer] -> m ()
+sendOptionsMessage :: (HasP2PEnv m) => NodeId -> [NodeId] -> m ()
 sendOptionsMessage _ [] = return ()
 sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
     fork (sendOptionsToPeer sendingPeer recievingPeer)
@@ -43,11 +47,12 @@ sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based oh the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: (HasP2PEnv m) => Peer -> Peer -> m ()
-sendOptionsToPeer sendingPeer recievingPeer = do
-    let message = Options {to = nodeId recievingPeer, from = nodeId sendingPeer}
+sendOptionsToPeer :: (HasP2PEnv m) => NodeId -> NodeId -> m ()
+sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
+    let message = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
     let byteStringMessage = Lazy.toStrict $ serialise message
-    res1 <- Exception.try $ sendRequest recievingPeer RPC byteStringMessage UDP -- not exactly RPC needs to be changed
+    res1 <-
+        Exception.try $ sendRequest recievingPeerNodeId RPC byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
         Left (e :: Exception.SomeException) -> return ()
         Right returnMessage -> do
@@ -56,51 +61,54 @@ sendOptionsToPeer sendingPeer recievingPeer = do
             case supportMessage of
                 Support _ fromPeer resourceList ->
                     Control.Monad.when (to message == fromPeer) $
-                    updateResourcePeers (recievingPeer, resourceList)
+                    updateResourcePeers (recievingPeerNodeId, resourceList)
                 _ -> return () -- should handle this better
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers :: (HasP2PEnv m) => (Peer, [ResourceId]) -> m ()
+updateResourcePeers :: (HasP2PEnv m) => (NodeId, [ResourceId]) -> m ()
 updateResourcePeers peerResourceTuple = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
-    let peer = fst peerResourceTuple
+    let node = fst peerResourceTuple
     let listOfResources = snd peerResourceTuple
-    liftIO $ updateResourcePeersHelper peer listOfResources resourceToPeerMap
+    liftIO $ updateResourcePeersHelper node listOfResources resourceToPeerMap
     return ()
 
 -- adds the peer to the TQueue of each resource
 -- lookup for the current resource in the HashMap
 -- assumes that the resourceIDs are present in the HashMap
 -- cannot add new currently because the serviceID is not available
-updateResourcePeersHelper :: Peer -> [ResourceId] -> ResourceToPeerMap -> IO Int
+updateResourcePeersHelper ::
+       NodeId -> [ResourceId] -> ResourceToPeerMap -> IO Int
 updateResourcePeersHelper _ [] _ = return 0
-updateResourcePeersHelper peer (currResource:listOfResources) resourceToPeerMap = do
-    let temp = HM.lookup currResource resourceToPeerMap
-                                                                                                                                                                -- check for lookup returning Nothing
+updateResourcePeersHelper nodeId (currResource:listOfResources) resourceToPeerMap = do
+    let temp = HM.lookup currResource resourceToPeerMap -- check for lookup returning Nothing
     if isNothing temp
-        then updateResourcePeersHelper peer listOfResources resourceToPeerMap
+        then updateResourcePeersHelper nodeId listOfResources resourceToPeerMap
         else do
             let currTQ = extractSecond (fromJust temp)
-            atomically (writeTQueue currTQ peer)
+            atomically (writeTQueue currTQ nodeId)
             tmp <-
-                updateResourcePeersHelper peer listOfResources resourceToPeerMap
+                updateResourcePeersHelper
+                    nodeId
+                    listOfResources
+                    resourceToPeerMap
             return $ 1 + tmp
 
 -- Formulate and send the Supported message as a reply to the Options message
-sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> Peer -> Peer -> m ()
-sendSupportedMessage messageInfo sendingPeer recievingPeer = do
+sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> NodeId -> NodeId -> m ()
+sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
     let resourceList = keys resourceToPeerMap
     let message =
             Support
-                { to = nodeId recievingPeer
-                , from = nodeId sendingPeer
+                { to = recievingPeerNodeId
+                , from = sendingPeerNodeId
                 , supportedResources = resourceList
                 }
     let byteStringMessage = Lazy.toStrict $ serialise message
     let uuid = fst messageInfo
     let newMessageInfo = (uuid, byteStringMessage)
                 -- need to handle exceptions
-    sendResponse newMessageInfo recievingPeer UDP RPC -- might not be RPC
+    sendResponse recievingPeerNodeId newMessageInfo RPC -- might not be RPC
