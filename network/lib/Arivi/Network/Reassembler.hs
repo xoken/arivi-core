@@ -37,15 +37,13 @@ import           Data.Maybe                         (fromMaybe)
 import           Debug.Trace
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
---   list of fragmentsHashMap
-reassembleFrames ::
-       CompleteConnection
-    -> Parcel
-    -> StrictHashMap.HashMap MessageId Lazy.ByteString
-    -> STM (StrictHashMap.HashMap MessageId Lazy.ByteString)
-reassembleFrames connection parcel fragmentsHashMap
-    -- throw AriviTimeoutException
- = do
+--   list of fragmentsHashMap. Returns the hashmap along with a Just p2pMessage in case of a complete message reassembly or Nothing otherwise
+reassembleFrames :: CompleteConnection
+                 -> Parcel
+                 -> StrictHashMap.HashMap MessageId Lazy.ByteString
+                 -> (StrictHashMap.HashMap MessageId Lazy.ByteString, Maybe Lazy.ByteString)
+
+reassembleFrames connection parcel fragmentsHashMap = do
     let messageIdNo = messageId (header parcel)
     let (cipherText, authenticationTag) =
             getCipherTextAuthPair
@@ -53,31 +51,18 @@ reassembleFrames connection parcel fragmentsHashMap
     let parcelHeader = Lazy.toStrict $ serialise (header parcel)
     let fragmentAead = aeadNonce (header parcel)
     let ssk = sharedSecret connection
-    -- traceShow parcel (return())
-    let !payloadMessage =
-            Lazy.fromStrict $
-            decryptMsg
-                fragmentAead
-                ssk
-                parcelHeader
-                authenticationTag
-                cipherText
-    -- traceShow payloadMessage (return())
-    let messages =
-            fromMaybe "" (StrictHashMap.lookup messageIdNo fragmentsHashMap)
+    let !payloadMessage =  Lazy.fromStrict $ decryptMsg fragmentAead
+                                                    ssk parcelHeader
+                                                    authenticationTag
+                                                    cipherText
+    let messages = fromMaybe  "" (StrictHashMap.lookup messageIdNo
+                                                           fragmentsHashMap)
+
     let appendedMessage = Lazy.concat [messages, payloadMessage]
     let currentFragmentNo = fragmentNumber (header parcel)
-    if currentFragmentNo == totalFragements (header parcel)
-        then do
-            traceShow "appendedMessage" (return ())
-            writeTChan (p2pMessageTChan connection) appendedMessage
-            let updatedFragmentsHashMap =
-                    StrictHashMap.delete messageIdNo fragmentsHashMap
-            return updatedFragmentsHashMap
-        else do
-            let updatedFragmentsHashMap =
-                    StrictHashMap.insert
-                        messageIdNo
-                        appendedMessage
-                        fragmentsHashMap
-            return updatedFragmentsHashMap
+
+    if currentFragmentNo ==  totalFragements (header parcel)
+      then
+        (StrictHashMap.delete messageIdNo fragmentsHashMap, Just appendedMessage)
+      else
+        (StrictHashMap.insert messageIdNo appendedMessage fragmentsHashMap, Nothing)

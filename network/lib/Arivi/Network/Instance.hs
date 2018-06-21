@@ -151,7 +151,6 @@ openConnection addr port tt rnid pType = do
                             liftIO $
                                 atomically $
                                 modifyTVar tv (HM.insert cId updatedConn)
-                            async (readSock updatedConn HM.empty)
                             return $ Right cId
                 else do
                     let tv = ariviNetworkDatagramMap ariviInstance

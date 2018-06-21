@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -32,13 +32,13 @@ import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils             (getIPAddress, getPortNumber)
 import           Arivi.Utils.Exception
-import           Control.Concurrent              (threadDelay, MVar, newMVar)
+import           Control.Concurrent              (MVar, newMVar, threadDelay)
 import qualified Control.Concurrent.Async        as Async (async, race)
 import qualified Control.Concurrent.Async.Lifted as LA (async)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan,
                                                   readTChan)
 import           Control.Concurrent.STM.TVar
-import           Control.Exception               (try, mapException)
+import           Control.Exception               (mapException, try)
 import           Control.Exception.Base
 import           Control.Monad.IO.Class
 import           Crypto.PubKey.Ed25519           (SecretKey)
@@ -48,6 +48,7 @@ import qualified Data.ByteString.Lazy            as BSL
 import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.HashMap.Strict             as HM
 import           Data.Int
+import           Data.IORef
 import           Debug.Trace
 import           Network.Socket
 import qualified Network.Socket.ByteString.Lazy  as N (recv)
@@ -112,7 +113,6 @@ handleInboundConnection mSocket =
                     (createFrame serialisedParcel)
                 atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
                 return updatedConn
-        LA.async $ readSock conn HM.empty
         return ()
 
 -- | Given `Socket` retrieves `TransportType`
@@ -169,8 +169,8 @@ sendPong writeLock sock =
 readSock ::
        (HasAriviNetworkInstance m, HasLogging m)
     => Conn.CompleteConnection
-    -> HM.HashMap MessageId BSL.ByteString
-    -> m ()
+    -> IORef (HM.HashMap MessageId BSL.ByteString)
+    -> m BSL.ByteString
 readSock connection fragmentsHM =
     $(withLoggingTH) (LogNetworkStatement "readSock: ") LevelDebug $ do
         let sock = Conn.socket connection
@@ -178,60 +178,45 @@ readSock connection fragmentsHM =
         parcelOrFail <- liftIO $ getParcelWithTimeout sock 30000000
         case parcelOrFail of
             Left (AriviDeserialiseException e) ->
-                deleteConnectionFromHashMap (Conn.connectionId connection)
+                throw $ AriviDeserialiseException e
             Left AriviTimeoutException -> do
                 liftIO $ sendPing writeLock sock
-      -- Possibly throw before shutting down
                 parcelOrFailAfterPing <-
                     liftIO $ getParcelWithTimeout sock 60000000
                 case parcelOrFailAfterPing of
-                    Left _ ->
-                        deleteConnectionFromHashMap
-                            (Conn.connectionId connection)
+                    Left e -> throw e
                     Right parcel ->
                         processParcel parcel connection fragmentsHM >>=
-                        readSock connection
-            Left AriviSocketException ->
-                deleteConnectionFromHashMap (Conn.connectionId connection)
+                          \case
+                          Nothing -> readSock connection fragmentsHM
+                          Just p2pMsg -> return p2pMsg
+            Left e -> throw e
             Right parcel ->
                 processParcel parcel connection fragmentsHM >>=
-                readSock connection
+                \case
+                Nothing -> readSock connection fragmentsHM
+                Just p2pMsg -> return p2pMsg
 
 
 processParcel ::
        (HasAriviNetworkInstance m, HasLogging m)
     => Parcel
     -> Conn.CompleteConnection
-    -> HM.HashMap MessageId BSL.ByteString
-    -> m (HM.HashMap MessageId BSL.ByteString)
+    -> IORef (HM.HashMap MessageId BSL.ByteString)
+    -> m (Maybe BSL.ByteString)
 processParcel parcel connection fragmentsHM =
     case parcel of
         dataParcel@(Parcel DataHeader {} _) -> do
-            res <-
-                liftIO
-                    (try $
-                     atomically $
-                     reassembleFrames connection dataParcel fragmentsHM :: IO (Either AriviException (HM.HashMap MessageId BSL.ByteString)))
-            case res
-        -- possibly throw again
-                  of
-                Left e ->
-                    deleteConnectionFromHashMap (Conn.connectionId connection) >>
-                    throw e
-                Right updatedHM -> return updatedHM
+            hm <- liftIO $ readIORef fragmentsHM
+            let (hmUpdated, p2pMsg) = reassembleFrames connection dataParcel hm
+            liftIO $ writeIORef fragmentsHM hmUpdated
+            return p2pMsg
         pingParcel@(Parcel PingHeader {} _) -> do
-            liftIO $
-                sendPong (Conn.waitWrite connection) (Conn.socket connection)
-            return fragmentsHM
-        pongParcel@(Parcel PongHeader {} _) -> return fragmentsHM
-        _ ->
-            deleteConnectionFromHashMap (Conn.connectionId connection) >>
-            throw AriviWrongParcelException
+            liftIO $ sendPong (Conn.waitWrite connection) (Conn.socket connection)
+            return Nothing
+        pongParcel@(Parcel PongHeader {} _) -> return Nothing
+        _ -> throw AriviWrongParcelException
 
-
--- reassembleFrames' currentFragment = if totalFragements currentFragment == fragmentNumber currentFragment
---                                        then print "appendedMessage"
---                                        else return ()
 -- | Read on the socket for handshakeInit parcel and return it or throw AriviException
 readHandshakeInitSock :: Socket -> IO Parcel
 readHandshakeInitSock sock = do
