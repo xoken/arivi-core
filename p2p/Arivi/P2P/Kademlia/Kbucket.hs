@@ -34,6 +34,7 @@ module Arivi.P2P.Kademlia.Kbucket
 import qualified Arivi.P2P.Kademlia.Types       as T
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
+import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
 import           Control.Monad                  ()
 import           Control.Monad.IO.Class
@@ -44,24 +45,6 @@ import qualified Data.List                      as L
 import           Data.Maybe
 import           ListT
 import qualified STMContainers.Map              as H
-
--- | Peer information encapsulated in a single structure
-newtype Peer = Peer
-    { getPeer :: (T.NodeId, T.NodeEndPoint)
-    } deriving (Show)
-
-instance Eq Peer where
-    Peer (x, _) == Peer (a, _) = a == x
-
--- | K-bucket to store peers
-newtype Kbucket k v = Kbucket
-    { getKbucket :: H.Map k v
-    }
-
-class (MonadIO m, MonadBaseControl IO m) =>
-      HasKbucket m
-    where
-    getKb :: m (Kbucket Int [Peer])
 
 -- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
