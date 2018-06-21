@@ -13,23 +13,27 @@ module Arivi.P2P.RPC.Types
     , ServiceMessage
     ) where
 
+import           Arivi.P2P.MessageHandler.HandlerTypes (ConnectionId, IP,
+                                                        NodeId, P2PMessage,
+                                                        Port)
+
 -- import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
-import           Codec.Serialise               (Serialise)
+import           Codec.Serialise                       (Serialise)
+import           Control.Concurrent.MVar
 import           Control.Concurrent.STM.TQueue
+
 import           Control.Concurrent.STM.TVar
+
 import           Data.ByteString
-import           Data.ByteString.Char8         as Char8 (ByteString)
-import           Data.HashMap.Strict           as HM
-import           GHC.Generics                  (Generic)
+
+import           Data.ByteString.Char8                 as Char8 (ByteString)
+
+import           Data.HashMap.Strict                   as HM
+
+import           GHC.Generics                          (Generic)
 
 --import              Data.Hashable
-type IP = String
-
-type Port = Int
-
 type ResourceId = String
-
-type NodeId = String
 
 type ServiceId = String
 
@@ -46,14 +50,14 @@ data MessageTypeRPC
     | Support { to                 :: NodeId
               , from               :: NodeId
               , supportedResources :: [ResourceId] }
-    | RequestRC { to             :: NodeId
-                , from           :: NodeId
-                , rid            :: ResourceId
-                , serviceMessage :: ServiceMessage }
-    | ReplyRC { to             :: NodeId
-              , from           :: NodeId
-              , rid            :: ResourceId
-              , serviceMessage :: ServiceMessage }
+    | RequestResource { to             :: NodeId
+                      , from           :: NodeId
+                      , rid            :: ResourceId
+                      , serviceMessage :: ServiceMessage }
+    | ReplyResource { to             :: NodeId
+                    , from           :: NodeId
+                    , rid            :: ResourceId
+                    , serviceMessage :: ServiceMessage }
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypeRPC

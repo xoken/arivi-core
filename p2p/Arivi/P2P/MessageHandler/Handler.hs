@@ -44,6 +44,7 @@ import           Arivi.Network.Connection              ()
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
+import           Network.Socket                        (PortNumber)
 
 -- | used by RPC and PubSub to send outgoing requests. This is a blocing call which returns the reply
 sendRequest ::
@@ -91,7 +92,7 @@ sendRequestforKademlia ::
     => NodeId
     -> MessageType
     -> P2PPayload
-    -> Port
+    -> PortNumber
     -> IP
     -> m P2PPayload
 sendRequestforKademlia node mType p2pPayload port ip = do
@@ -350,9 +351,9 @@ addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
 -- selfNodeId :: NodeId
 -- selfNodeId = pack "12334556"
 getNewConnection :: IO (NodeId, ConnectionId, TransportType)
-getNewConnection = return ("DSGNO", pack "892sadasd346384", UDP)
+getNewConnection = return (pack "DSGNO", pack "892sadasd346384", UDP)
 
-openConnection :: NodeId -> IP -> Port -> TransportType -> IO ConnectionId
+openConnection :: NodeId -> IP -> PortNumber -> TransportType -> IO ConnectionId
 openConnection nodeId ip port transportType = return (pack "892sadasd346384")
 
 sendMessage :: ConnectionId -> Char8.ByteString -> IO ()

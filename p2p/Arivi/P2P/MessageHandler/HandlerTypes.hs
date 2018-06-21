@@ -34,6 +34,7 @@ import           Data.ByteString.Char8       as Char8 (ByteString)
 
 import           Data.Hashable
 import           Data.HashMap.Strict         as HM
+import           Network.Socket              (PortNumber)
 
 --import           Arivi.Network.Types            (TransportType(..))
 --import Arivi.P2P.Types
@@ -41,7 +42,7 @@ type IP = String
 
 type Port = Int
 
-type NodeId = String
+type NodeId = ByteString
 
 type P2PUUID = String
 
@@ -110,8 +111,8 @@ data PeerDetails = PeerDetails
     { nodeId         :: NodeId
     , rep            :: Maybe Int
     , ip             :: Maybe IP
-    , udpPort        :: Maybe Port
-    , tcpPort        :: Maybe Port
+    , udpPort        :: Maybe PortNumber
+    , tcpPort        :: Maybe PortNumber
     , streamHandle   :: Handle
     , datagramHandle :: Handle
     , tvarUUIDMap    :: TVar UUIDMap
