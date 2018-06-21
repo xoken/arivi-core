@@ -6,6 +6,7 @@ module Arivi.P2P.MessageHandler.Handler
     , readKademliaRequest
     , readRPCRequest
     , readPubSubRequest
+    , sendRequestforKademlia
     -- , newIncomingConnection
     ) where
 
@@ -44,6 +45,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
 
+-- | used by RPC and PubSub to send outgoing requests. This is a blocing call which returns the reply
 sendRequest ::
        (HasP2PEnv m) => NodeId -> MessageType -> P2PPayload -> m P2PPayload
 sendRequest node mType p2pPayload = do
@@ -84,6 +86,30 @@ sendRequest node mType p2pPayload = do
                     let returnMessage = payload p2pReturnMessage
                     return returnMessage
 
+sendRequestforKademlia ::
+       (HasP2PEnv m)
+    => NodeId
+    -> MessageType
+    -> P2PPayload
+    -> Port
+    -> IP
+    -> m P2PPayload
+sendRequestforKademlia node mType p2pPayload port ip = do
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    let maybePeer = HM.lookup node nodeIdMap
+    if isNothing maybePeer -- concurrency issues might arise here need to check
+        then do
+            res <- liftIO $ Exception.try $ openConnection node ip port UDP
+            case res of
+                Left (e :: Exception.SomeException) -> throw e
+                Right connHandle -> do
+                    liftIO $
+                        addPeerFromConnection node UDP connHandle nodeIdMapTVar
+                    sendRequest node mType p2pPayload
+        else sendRequest node mType p2pPayload
+
+-- | This is used by Kademlia, RPC and PubSub to send back resonses to incoming requests
 sendResponse :: (HasP2PEnv m) => NodeId -> MessageInfo -> MessageType -> m ()
 sendResponse node messageInfo mType = do
     let p2pMessage =
@@ -98,21 +124,25 @@ sendResponse node messageInfo mType = do
         Left (e :: Exception.SomeException) -> throw e
         Right _                             -> return ()
 
+-- | This is used by Kademlia to read incoming requests
 readKademliaRequest :: (HasP2PEnv m) => m MessageInfo
 readKademliaRequest = do
     kademTQueue <- getkademTQueueP2PEnv
     liftIO $ atomically $ readTQueue kademTQueue
 
+-- | This is used by RPC to read incoming requests
 readRPCRequest :: (HasP2PEnv m) => m MessageInfo
 readRPCRequest = do
     rpcTQueue <- getrpcTQueueP2PEnv
     liftIO $ atomically $ readTQueue rpcTQueue
 
+-- | This is used by PubSub to read incoming requests
 readPubSubRequest :: (HasP2PEnv m) => m MessageInfo
 readPubSubRequest = do
     pubsubTQueue <- getpubsubTQueueP2PEnv
     liftIO $ atomically $ readTQueue pubsubTQueue
 
+-- | This spawns off a thread for the connection handle specified by nodeid and transporttype and manages the incoming messages by either matching them to the uuid or depositing it in respective mvar
 readRequest :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
 readRequest node transportType = do
     kademTQueue <- getkademTQueueP2PEnv
@@ -178,8 +208,8 @@ readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue = do
 --     fork (readRequest conInfo)
 --     newIncomingConnection
 {-Support Functions===========================================================-}
--- | atomically checks for existing handle which is returned if it exists or else a new connection is established and it is stored as well as returned.
--- atomically is used as no other thread should check for the connection handle while open connection is being executed and call another open connection on the same details.
+-- | atomically checks for existing handle which is returned if it exists or else its status is changed to pending. then a new connection is established and it is stored as well as returned.
+--
 getConnectionHandle :: TVar PeerDetails -> TransportType -> IO ConnectionId
 getConnectionHandle peerDetailsTVar transportType = do
     peerDetails <- readTVarIO peerDetailsTVar
@@ -232,6 +262,7 @@ getConnectionHandle peerDetailsTVar transportType = do
             getConnectionHandle peerDetailsTVar transportType
         Connected connHandle -> return connHandle
 
+-- | if connhandle is NotConnected then change it to Pending. Should be done atomically
 changeConnectionStatus :: TVar PeerDetails -> TransportType -> STM Bool
 changeConnectionStatus peerDetailsTVar transportType = do
     peerDetails <- readTVar peerDetailsTVar
@@ -249,12 +280,14 @@ changeConnectionStatus peerDetailsTVar transportType = do
             return True
         else return False
 
+-- | delete an uuid entry from the map
 deleteUUID :: P2PUUID -> TVar UUIDMap -> STM ()
 deleteUUID uuid uuidMapTVar = do
     a <- readTVar uuidMapTVar
     let b = HM.delete uuid a
     writeTVar uuidMapTVar b
 
+-- | get connection handle for the specific nodeID and mesaage type from the hashmap
 getConnHandleFromNodeID ::
        NodeId -> TVar NodeIdPeerMap -> MessageType -> IO ConnectionId
 getConnHandleFromNodeID node nodeIdMapTVar mType = do
@@ -273,6 +306,45 @@ generateP2PMessage mType message uuid1 =
 
 getUUID :: IO P2PUUID
 getUUID = UUID.toString <$> nextRandom
+
+-- | function for adding peer from a particular connectionhandle
+addPeerFromConnection ::
+       NodeId -> TransportType -> ConnectionId -> TVar NodeIdPeerMap -> IO ()
+addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
+    uuidMapTVar <- newTVarIO HM.empty
+    atomically
+        (do nodeIdPeerMap <- readTVar nodeIdPeerMapTVar
+            let mapEntry = HM.lookup node nodeIdPeerMap
+            peerDetails <-
+                maybe
+                    (do let newDetails =
+                                PeerDetails
+                                    { nodeId = node
+                                    , rep = Nothing
+                                    , ip = Nothing
+                                    , udpPort = Nothing
+                                    , tcpPort = Nothing
+                                    , streamHandle = NotConnected
+                                    , datagramHandle = NotConnected
+                                    , tvarUUIDMap = uuidMapTVar
+                                    }
+                        peerTVar <- newTVar newDetails
+                        readTVar peerTVar)
+                    readTVar
+                    mapEntry
+            let newPeerDetails =
+                    if transportType == TCP
+                        then peerDetails
+                                 { streamHandle =
+                                       Connected {connId = connHandle}
+                                 }
+                        else peerDetails
+                                 { datagramHandle =
+                                       Connected {connId = connHandle}
+                                 }
+            newPeerTvar <- newTVar newPeerDetails
+            let newHashMap = HM.insert node newPeerTvar nodeIdPeerMap
+            writeTVar nodeIdPeerMapTVar newHashMap)
 
 {-Dummy Functions========================================================-}
 -- selfNodeId :: NodeId
