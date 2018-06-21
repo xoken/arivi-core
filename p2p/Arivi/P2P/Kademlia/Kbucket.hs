@@ -27,7 +27,8 @@ module Arivi.P2P.Kademlia.Kbucket
     , ifPeerExist
     , addToKBucket
     , removePeer
-    , getKClosestPeers
+    , getKClosestPeersByPeer
+    , getKClosestPeersByNodeid
     , getKRandomPeers
     ) where
 
@@ -169,9 +170,9 @@ getPeerListFromKeyList k (x:xs) = do
 
 -- | Gets k-closest peers to a given peeer if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
-getKClosestPeers ::
+getKClosestPeersByPeer ::
        (HasKbucket m) => Peer -> Int -> m (Either AriviException [Peer])
-getKClosestPeers peerR k = do
+getKClosestPeersByPeer peerR k = do
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
@@ -180,6 +181,24 @@ getKClosestPeers peerR k = do
             kvList <- liftIO $ atomically $ toList kbtemp
             let peer = fst $ getPeer peerR
                 kbi = getKbIndex localPeer peer
+                tkeys = L.sort $ fmap fst kvList
+                keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
+            peerl <- getPeerListFromKeyList k keys
+            return (Right peerl)
+        Left x -> return (Left x)
+
+-- | Gets k-closest peers to a given nodeid if k-peer exist in kbukcet being
+--   queried else returns all availaible peers.
+getKClosestPeersByNodeid ::
+       (HasKbucket m) => T.NodeId -> Int -> m (Either AriviException [Peer])
+getKClosestPeersByNodeid nid k = do
+    lp <- getDefaultNodeId
+    case lp of
+        Right localPeer -> do
+            kbbb'' <- getKb
+            let kbtemp = H.stream (getKbucket kbbb'')
+            kvList <- liftIO $ atomically $ toList kbtemp
+            let kbi = getKbIndex localPeer nid
                 tkeys = L.sort $ fmap fst kvList
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
             peerl <- getPeerListFromKeyList k keys
