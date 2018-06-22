@@ -12,6 +12,7 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 
 import qualified Arivi.P2P.Kademlia.Types              as T
+import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.IO.Class                (MonadIO)
@@ -48,11 +49,12 @@ data P2PEnv = P2PEnv
     , tqueueOption          :: TQueue MessageInfo
     , tvarResourceToPeerMap :: TVar ResourceToPeerMap
     , kbucket               :: Kbucket Int [Peer]
+    , statsdClient          :: StatsdClient
     }
 
 type P2Papp = ReaderT P2PEnv IO
 
-class (MonadIO m, MonadBaseControl IO m, HasKbucket m) =>
+class (MonadIO m, MonadBaseControl IO m, HasKbucket m, HasStatsdClient m) =>
       HasP2PEnv m
     where
     getP2PEnv :: m P2PEnv
@@ -66,6 +68,9 @@ class (MonadIO m, MonadBaseControl IO m, HasKbucket m) =>
 
 instance HasKbucket P2Papp where
     getKb = asks kbucket
+
+instance HasStatsdClient P2Papp where
+    getStatsdClient = asks statsdClient
 
 instance HasP2PEnv P2Papp where
     getP2PEnv = ask
