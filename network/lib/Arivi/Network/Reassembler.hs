@@ -17,7 +17,8 @@ module Arivi.Network.Reassembler
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
 import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg)
-import           Arivi.Network.Connection           (CompleteConnection, sharedSecret)
+import           Arivi.Network.Connection           (CompleteConnection,
+                                                     sharedSecret)
 
 
 import           Arivi.Network.Types                (Header (..), MessageId,

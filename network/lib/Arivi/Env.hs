@@ -6,20 +6,20 @@ module Arivi.Env
 
 import           Arivi.Logging
 import           Arivi.Network.Connection
-import           Arivi.Network.Types         (Parcel (..))
+import           Arivi.Network.Types      (Parcel (..))
 import           Control.Concurrent.STM
-import qualified Crypto.PubKey.Ed25519       as Ed25519
-import           Data.HashMap.Strict         as HM
-import qualified Data.HashTable.IO           as Mutable (CuckooHashTable)
-import           Network.Socket              as Network
+import qualified Crypto.PubKey.Ed25519    as Ed25519
+import           Data.HashMap.Strict      as HM
+import qualified Data.HashTable.IO        as Mutable (CuckooHashTable)
+import           Network.Socket           as Network
 
 type HashTable k v = Mutable.CuckooHashTable k v
 
 data AriviEnv = AriviEnv
-    { ariviEnvNetworkInstance :: AriviNetworkInstance
-    , ariviEnvCryptoEnv       :: CryptoEnv
+    { ariviEnvNetworkInstance      :: AriviNetworkInstance
+    , ariviEnvCryptoEnv            :: CryptoEnv
     , ariviEnvLoggerChan           :: LogChan
-    , ariviEnvPort              :: Int -- ^ TCP an UDP bind
+    , ariviEnvPort                 :: Int -- ^ TCP an UDP bind
                                                          --   port for new
                                                          --   connections
     , ariviEnvUdpSocket            :: Network.Socket -- ^ UDP server and

@@ -44,15 +44,15 @@ import           Control.Concurrent.STM.TVar
 import           Control.Exception              (try)
 import           Control.Exception.Base
 import           Control.Monad.IO.Class
-import           Data.Binary
-import qualified Data.ByteString.Lazy            as BSL
-import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.Bifunctor
-import           Data.HashMap.Strict             as HM
+import           Data.Binary
+import qualified Data.ByteString.Lazy           as BSL
+import qualified Data.ByteString.Lazy.Char8     as BSLC
+import           Data.HashMap.Strict            as HM
 import           Data.Int
 import           Data.IORef
-import           Network.Socket                  hiding (send)
-import qualified Network.Socket.ByteString.Lazy  as N (recv)
+import           Network.Socket                 hiding (send)
+import qualified Network.Socket.ByteString.Lazy as N (recv)
 import           System.Timeout
 
 

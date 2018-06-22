@@ -89,8 +89,12 @@ receiver sk = do
                  -- , udpSocket = sock
                  , udpConnectionHashMap = mutableConnectionHashMap1
                  }
-  runStdoutLoggingT $ runAppM env (
+  runStdoutLoggingT $ runAppM env (do
                                        runTCPServer (show (envPort env))
+                                       (newConn, _) <- getNewConnection
+                                       liftIO $ print newConn
+                                       msg <- readMessage newConn
+                                       liftIO $ print msg
                                   )
 
 main :: IO ()
