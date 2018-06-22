@@ -143,12 +143,18 @@ readPubSubRequest = do
     pubsubTQueue <- getpubsubTQueueP2PEnv
     liftIO $ atomically $ readTQueue pubsubTQueue
 
+readOptionRequest :: (HasP2PEnv m) => m MessageInfo
+readOptionRequest = do
+    optionTQueue <- getoptionTQueueP2PEnv
+    liftIO $ atomically $ readTQueue optionTQueue
+
 -- | This spawns off a thread for the connection handle specified by nodeid and transporttype and manages the incoming messages by either matching them to the uuid or depositing it in respective mvar
 readRequest :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
 readRequest node transportType = do
     kademTQueue <- getkademTQueueP2PEnv
     rpcTQueue <- getrpcTQueueP2PEnv
     pubsubTQueue <- getpubsubTQueueP2PEnv
+    optionTQueue <- getoptionTQueueP2PEnv
     nodeIdPeerMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdPeerMap <- liftIO $ readTVarIO nodeIdPeerMapTVar
     let peerDetailsTVar = fromJust (HM.lookup node nodeIdPeerMap) -- not possible that node isnt here but need to try
@@ -164,6 +170,7 @@ readRequest node transportType = do
             kademTQueue
             rpcTQueue
             pubsubTQueue
+            optionTQueue
     return ()
 
 readRequestThread ::
@@ -172,8 +179,9 @@ readRequestThread ::
     -> TQueue MessageInfo
     -> TQueue MessageInfo
     -> TQueue MessageInfo
+    -> TQueue MessageInfo
     -> IO ()
-readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue = do
+readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue optionTQueue = do
     eitherByteMessage <- Exception.try $ readMessage connHandle
     case eitherByteMessage of
         Left (_ :: Exception.SomeException) -> return ()
@@ -190,6 +198,8 @@ readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue = do
                         Kademlia ->
                             atomically (writeTQueue kademTQueue newRequest)
                         RPC -> atomically (writeTQueue rpcTQueue newRequest)
+                        Option ->
+                            atomically (writeTQueue optionTQueue newRequest)
                         PubSub ->
                             atomically (writeTQueue pubsubTQueue newRequest)
                 else do
@@ -201,6 +211,7 @@ readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue = do
                 kademTQueue
                 rpcTQueue
                 pubsubTQueue
+                optionTQueue
 
 -- newIncomingConnection :: (HasP2PEnv m) => m ()
 -- newIncomingConnection = do
