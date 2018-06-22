@@ -15,7 +15,7 @@ import qualified Arivi.P2P.Kademlia.Types              as T
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.IO.Class                (MonadIO)
-import           Control.Monad.Reader                  (ReaderT, ask,
+import           Control.Monad.Reader                  (ReaderT, ask, asks,
                                                         runReaderT)
 import           Control.Monad.Trans.Control           (MonadBaseControl)
 import           Data.HashMap.Strict                   as HM
@@ -45,6 +45,7 @@ data P2PEnv = P2PEnv
     , tqueueKadem           :: TQueue MessageInfo
     , tqueueRPC             :: TQueue MessageInfo
     , tqueuePubSub          :: TQueue MessageInfo
+    , tqueueOption          :: TQueue MessageInfo
     , tvarResourceToPeerMap :: TVar ResourceToPeerMap
     , kbucket               :: Kbucket Int [Peer]
     }
@@ -60,10 +61,11 @@ class (MonadIO m, MonadBaseControl IO m, HasKbucket m) =>
     getkademTQueueP2PEnv :: m (TQueue MessageInfo)
     getrpcTQueueP2PEnv :: m (TQueue MessageInfo)
     getpubsubTQueueP2PEnv :: m (TQueue MessageInfo)
+    getoptionTQueueP2PEnv :: m (TQueue MessageInfo)
     getResourceToPeerMapP2PEnv :: m (TVar ResourceToPeerMap)
 
 instance HasKbucket P2Papp where
-    getKb = kbucket <$> ask
+    getKb = asks kbucket
 
 instance HasP2PEnv P2Papp where
     getP2PEnv = ask
@@ -72,6 +74,7 @@ instance HasP2PEnv P2Papp where
     getkademTQueueP2PEnv = tqueueKadem <$> getP2PEnv
     getrpcTQueueP2PEnv = tqueueRPC <$> getP2PEnv
     getpubsubTQueueP2PEnv = tqueuePubSub <$> getP2PEnv
+    getoptionTQueueP2PEnv = tqueueOption <$> getP2PEnv
     getResourceToPeerMapP2PEnv = tvarResourceToPeerMap <$> getP2PEnv
 
 runP2Papp :: P2PEnv -> P2Papp a -> IO a
@@ -83,6 +86,7 @@ makeP2PEnvironment = do
     kqueue <- newTQueueIO
     rqueue <- newTQueueIO
     pqueue <- newTQueueIO
+    oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
     return
         P2PEnv
@@ -90,5 +94,6 @@ makeP2PEnvironment = do
             , tqueueKadem = kqueue
             , tqueueRPC = rqueue
             , tqueuePubSub = pqueue
+            , tqueueOption = oqueue
             , tvarResourceToPeerMap = r2pmap
             }

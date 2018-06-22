@@ -62,6 +62,7 @@ data MessageType
     = Kademlia
     | RPC
     | PubSub
+    | Option
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageType
