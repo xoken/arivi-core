@@ -14,7 +14,7 @@ publishTopic :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
 notifyTopic :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
 -- | spawns a thread with the parameter TVar TopicMap and checks expired subscribers and deletes entry
 maintainSubscribers :: (HasP2PEnv m) => m ()
--- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep
+-- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep. also checks if min number if satisfied and add more peers accordingly by calling send options which takes peer from kad
 maintainNotifiers :: (HasP2PEnv m) => m ()
 -- | called in case of a unvalid block and used for peer rep based on MessageHashMap
 flagMessage :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
