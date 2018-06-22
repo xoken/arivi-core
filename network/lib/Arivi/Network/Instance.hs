@@ -16,6 +16,8 @@ module Arivi.Network.Instance
   , mkAriviNetworkInstance
   , openConnection
   , sendMessage
+  , readMessage
+  , getNewConnection
 ) where
 
 import           Arivi.Crypto.Utils.PublicKey.Utils   (encryptMsg)
@@ -159,6 +161,23 @@ sendMessage cId msg = $(withLoggingTH) (LogNetworkStatement "Sending Message: ")
                      Right _ -> return ()
                      ) fragments
 
+readMessage :: (HasAriviNetworkInstance m, HasLogging m)
+            => ANT.ConnectionId
+            -> m ByteString
+readMessage cId = $(withLoggingTH) (LogNetworkStatement "Receiving Message: ") LevelInfo $ do
+    connectionOrFail <- lookupCId cId
+    case connectionOrFail of
+        Nothing -> throw AriviInvalidConnectionIdException
+        Just conn -> do
+            let p2pMsgTChan = Conn.p2pMessageTChan conn
+            liftIO $ atomically (readTChan p2pMsgTChan)
+
+getNewConnection :: (HasAriviNetworkInstance m, HasLogging m)
+                 => m (ConnectionId, String)
+getNewConnection = do
+    ariviInstance <- getAriviNetworkInstance
+    let updatesChan = ariviConnectionUpdatesTChan ariviInstance
+    liftIO $ atomically $ readTChan updatesChan
 
 closeConnection :: (HasAriviNetworkInstance m)
                 => ANT.ConnectionId
@@ -177,4 +196,5 @@ lookupCId cId = do
   let tv = connectionMap ariviInstance
   hmap <- liftIO $ readTVarIO tv
   return $ HM.lookup cId hmap
+
 

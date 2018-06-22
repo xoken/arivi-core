@@ -20,7 +20,9 @@ module Arivi.Network.Reassembler
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
 import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg)
-import           Arivi.Network.Connection           (p2pMessageTChan, sharedSecret, CompleteConnection)
+import           Arivi.Network.Connection           (CompleteConnection,
+                                                     p2pMessageTChan,
+                                                     sharedSecret)
 import           Arivi.Network.Types                (Header (..), MessageId,
                                                      Parcel (..), Payload (..),
                                                      serialise)
@@ -69,7 +71,7 @@ reassembleFrames connection parcel fragmentsHashMap = do
     if currentFragmentNo ==  totalFragements (header parcel)
       then
         do
-           traceShow "appendedMessage" (return ())
+          --  traceShow "appendedMessage" (return ())
            writeTChan (p2pMessageTChan connection) appendedMessage
            let updatedFragmentsHashMap = StrictHashMap.delete messageIdNo
                                                               fragmentsHashMap
