@@ -31,7 +31,7 @@ data MessageTypePubSub
 
 data NodeTimer = NodeTimer
     { nodeId :: NodeId
-    , timer  :: NominalDiffTime
+    , timer  :: NominalDiffTime -- time needs to be checked specifically which type to use
     }
 
 instance Ord NodeTimer where
@@ -45,9 +45,8 @@ instance Eq NodeTimer where
 
 type TopicMap
      = HM.Hashmap TopicId ( ServiceId
-                          , TVar [NodeTimer]
-                          , TVar [NodeTimer]
-                          , TQueue TopicMessage -- need to use sorted list on nodeTimer
-                           )
+                          , TVar [NodeTimer] -- need to use sorted list
+                          , TVar [NodeTimer] -- need to use sorted list
+                          , TQueue TopicMessage) -- will contain min peer count for the topic if different for each topic
 
-type MessageHashMap = HM.HashMap Hash32 TVar (Bool, [NodeId])
+type MessageHashMap = HM.HashMap Hash32 TVar (Bool, [NodeId]) -- murmur hash of the TOpicMessage
