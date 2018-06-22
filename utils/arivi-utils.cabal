@@ -35,6 +35,7 @@ library
                     ,  monad-control
                     ,  mtl >= 2.2.2
                     ,  statsd-client >= 0.3.0.0
+                    ,  time-units >= 1.0.0
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:              
                        Arivi.Utils.Exception
