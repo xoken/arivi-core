@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
 -- Copyright   :
@@ -36,11 +36,11 @@ import           Debug.Trace
 --                                                   deserialiseOrFail)
 import           Arivi.Network.Reassembler
 import           Arivi.Utils.Exception
-import           Control.Concurrent              (threadDelay, MVar, newMVar)
+import           Control.Concurrent              (MVar, newMVar, threadDelay)
 import qualified Control.Concurrent.Async        as Async (async, race)
 import qualified Control.Concurrent.Async.Lifted as LA (async)
 import           Control.Concurrent.STM          (TChan, atomically, newTChan,
-                                                  readTChan)
+                                                  readTChan, writeTChan)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception               (try)
 import           Control.Exception.Base
@@ -102,6 +102,7 @@ handleInboundConnection mSocket = $(withLoggingTH) (LogNetworkStatement "handleI
           (serialisedParcel, updatedConn) <- recipientHandshake sk connection parcel
           sendFrame (Conn.waitWrite updatedConn) (Conn.socket updatedConn) (createFrame serialisedParcel)
           atomically $ modifyTVar tv (HM.insert mConnectionId updatedConn)
+          atomically $ writeTChan (ariviConnectionUpdatesTChan ariviInstance) (mConnectionId, "New")
           return updatedConn
         LA.async $ readSock conn HM.empty
         return ()

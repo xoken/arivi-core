@@ -44,6 +44,7 @@ import           Control.Monad.STM
 import           Data.ByteString.Char8                 as Char8 (ByteString)
 import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
                                                                 toStrict)
+import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
@@ -100,8 +101,16 @@ updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId =
         let numberOfPeers = minimumNodes - minimum listOfLengths
         if numberOfPeers > 0
             then do
-                peers <- Kademlia.getKRandomPeers 2
-                peersClosest <- Kademlia.getKClosestPeersByNodeid currNodeId 3
+                peerRandom <- Kademlia.getKRandomPeers 2
+                res1 <-
+                    Exception.try $
+                    Kademlia.getKClosestPeersByNodeid currNodeId 3
+                peersClose <-
+                    case res1 of
+                        Left (e :: Exception.SomeException) ->
+                            Kademlia.getKRandomPeers 3
+                        Right peers -> return (fromRight peers)
+                let peers = peerRandom ++ peersClose
                 nodeIds <- addPeerFromKademlia peers
                 sendOptionsMessage currNodeId nodeIds
                 liftIO $ threadDelay (40 * 1000000)

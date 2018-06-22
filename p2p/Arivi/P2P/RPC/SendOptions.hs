@@ -52,7 +52,7 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     let message = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
     let byteStringMessage = Lazy.toStrict $ serialise message
     res1 <-
-        Exception.try $ sendRequest recievingPeerNodeId RPC byteStringMessage -- not exactly RPC, needs to be changed
+        Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
         Left (e :: Exception.SomeException) -> return ()
         Right returnMessage -> do
@@ -111,4 +111,4 @@ sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do
     let uuid = fst messageInfo
     let newMessageInfo = (uuid, byteStringMessage)
                 -- need to handle exceptions
-    sendResponse recievingPeerNodeId newMessageInfo RPC -- might not be RPC
+    sendResponse recievingPeerNodeId newMessageInfo Option -- might not be RPC
