@@ -34,7 +34,7 @@ initiatorHandshake sk conn
             generateInitParcel hsInitMsg (snd ephemeralKeyPair) updatedConn
     return (ephemeralKeyPair, serialise hsParcel)
 
--- | Takes receiver static secret key, connection object and the received msg and returns a Lazy Bytestring along with the updated connection object
+-- | Takes receiver static secret key, connection object and the received msg and returns a serialised handshake response along with the updated connection object
 recipientHandshake ::
        Ed25519.SecretKey
     -> Conn.IncompleteConnection

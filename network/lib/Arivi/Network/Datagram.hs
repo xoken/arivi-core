@@ -57,7 +57,8 @@ import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
                                                        newTVarIO, readTVarIO,
                                                        writeTVar)
 import           Control.Exception                    (throw)
-import           Control.Monad.IO.Class               (liftIO)
+import           Control.Monad.IO.Class               (MonadIO, liftIO)
+import           Control.Monad.Trans.Control
 import           Crypto.PubKey.Ed25519                (SecretKey)
 import qualified Data.ByteString.Char8                as Char8 (ByteString,
                                                                 pack)
@@ -95,7 +96,9 @@ makeSocket ipAddress portNumber socketType = do
 --     (receivedMessage,peerSockAddr) <- Network.recvFrom sock 4096
 --     let cid = sockAddrToConnectionId
 runUDPServerForever ::
-       ( HasAriviNetworkInstance m
+       ( MonadIO m
+       , MonadBaseControl IO m
+       , HasAriviNetworkInstance m
        , HasSecretKey m
        , HasLogging m
        , Forall (Pure m)
@@ -136,7 +139,9 @@ runUDPServerForever mSocket = do
                     runUDPServerForever mSocket
 
 processNewConnection ::
-       ( HasAriviNetworkInstance m
+       ( MonadIO m
+       , MonadBaseControl IO m
+       , HasAriviNetworkInstance m
        , HasSecretKey m
        , HasLogging m
        , Forall (Pure m)
@@ -187,7 +192,9 @@ processNewConnection cid hashMapTVar peerSockAddr mSocket parcel pType = do
 
 -- handleInboundDatagrams newConnection = undefined
 handleInboundDatagrams ::
-       ( HasAriviNetworkInstance m
+       ( MonadIO m
+       , MonadBaseControl IO m
+       , HasAriviNetworkInstance m
        , HasSecretKey m
        , HasLogging m
        , Forall (Pure m)
@@ -256,7 +263,7 @@ handleInboundDatagrams connection = do
     --         hsBufferTChan = getConnection nobejet using peerSockAddr
     --         insert into hsBufferTChan
 
-readFromUDPSocketForever :: HasAriviNetworkInstance m => Socket -> m ()
+readFromUDPSocketForever :: (MonadIO m, MonadBaseControl IO m, HasAriviNetworkInstance m) => Socket -> m ()
 readFromUDPSocketForever mSocket = do
     traceShow "inside readFromUDPSocketForever" (return ())
     (receivedMessage, peerSockAddr) <- liftIO $ Network.recvFrom mSocket 4096
@@ -320,7 +327,7 @@ createUDPFrame :: Lazy.ByteString -> Lazy.ByteString
 createUDPFrame parcelSerialised = Lazy.concat [parcelSerialised]
 
 doEncryptedHandshakeForUDP ::
-       (HasSecretKey m, HasAriviNetworkInstance m, Forall (Pure m))
+       (MonadIO m, MonadBaseControl IO m, HasSecretKey m, HasAriviNetworkInstance m, Forall (Pure m))
     => Conn.IncompleteConnection
     -> PersonalityType
     -> m Conn.CompleteConnection

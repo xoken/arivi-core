@@ -17,15 +17,12 @@ module Arivi.Network.Reassembler
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
 import           Arivi.Crypto.Utils.PublicKey.Utils (decryptMsg)
-import           Arivi.Network.Connection           (CompleteConnection,
-                                                     p2pMessageTChan,
-                                                     sharedSecret)
+import           Arivi.Network.Connection           (CompleteConnection, sharedSecret)
+
+
 import           Arivi.Network.Types                (Header (..), MessageId,
                                                      Parcel (..), Payload (..),
                                                      serialise)
-import           Arivi.Utils.Exception
-import           Control.Concurrent.STM             (STM, writeTChan)
-import           Control.Exception                  (throw)
 import qualified Data.ByteString.Lazy               as Lazy (ByteString, concat,
                                                              fromStrict,
                                                              toStrict)
@@ -34,7 +31,6 @@ import qualified Data.HashMap.Strict                as StrictHashMap (HashMap,
                                                                       insert,
                                                                       lookup)
 import           Data.Maybe                         (fromMaybe)
-import           Debug.Trace
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
 --   list of fragmentsHashMap. Returns the hashmap along with a Just p2pMessage in case of a complete message reassembly or Nothing otherwise

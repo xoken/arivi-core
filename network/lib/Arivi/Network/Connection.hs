@@ -48,7 +48,6 @@ import           Arivi.Network.Types                (AeadNonce, ConnectionId,
                                                      PortNumber, SequenceNum,
                                                      TransportType)
 import           Control.Concurrent.MVar            (MVar, newMVar)
-import           Control.Concurrent.STM             (atomically)
 import           Control.Concurrent.STM.TChan
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString.Base16             (encode)

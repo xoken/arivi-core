@@ -1,21 +1,19 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
 
 module Arivi.Network.StreamServer
-    ( runTCPServer
-    ) where
+(
+  runTCPServer
+) where
 
 import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network.ConnectionHandler (handleInboundConnection)
+import           Arivi.Network.Types             (ConnectionHandle)
 import           Control.Concurrent.Async.Lifted (async)
-import           Control.Concurrent.Lifted       (forkFinally)
 import           Control.Exception.Lifted        (finally)
-import           Control.Monad                   (forever, void)
+import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Control
 import           Network.Socket
@@ -26,12 +24,12 @@ liftWithSocketsDo :: (MonadBaseControl IO m) => m a -> m a
 liftWithSocketsDo f = control $ \runInIO -> withSocketsDo (runInIO f)
 
 -- | Creates server Thread that spawns new thread for listening.
---runTCPserver :: String -> TChan Socket -> IO ()
 runTCPServer ::
-       (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
+       (HasSecretKey m, HasLogging m)
     => ServiceName
+    -> (ConnectionHandle -> m ())
     -> m ()
-runTCPServer port =
+runTCPServer port handler =
     $(withLoggingTH) (LogNetworkStatement "Server started...") LevelInfo $
     liftWithSocketsDo $ do
         let hints =
@@ -44,18 +42,17 @@ runTCPServer port =
         liftIO $ setSocketOption sock ReuseAddr 1
         liftIO $ bind sock (addrAddress addr)
         liftIO $ listen sock 5
-        finally (acceptIncomingSocket sock) (liftIO $ close sock)
-        return ()
+        finally (acceptIncomingSocket sock handler) (liftIO $ close sock)
 
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
 acceptIncomingSocket ::
-       (HasAriviNetworkInstance m, HasSecretKey m, HasLogging m)
+       (HasSecretKey m, HasLogging m)
     => Socket
-    -> m void
-acceptIncomingSocket sock = do
-    sk <- getSecretKey
+    -> (ConnectionHandle -> m ())
+    -> m ()
+acceptIncomingSocket sock handler =
     forever $ do
         (mSocket, peer) <- liftIO $ accept sock
         liftIO $ putStrLn $ "Connection from " ++ show peer
-        async (handleInboundConnection mSocket) --or use forkIO
+        async (handleInboundConnection mSocket handler) --or use forkIO
