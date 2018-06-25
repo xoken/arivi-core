@@ -11,11 +11,15 @@ import           Data.Digest.Murmur32
 import           Data.HashMap.Strict                   as HM
 import           Data.Time.Clock
 
-type TopicId = String
+type Topic = String
 
-type ServiceId = String
+type Notifier = NodeTimer
+
+type Watcher = NodeTimer
 
 type TopicMessage = ByteString
+
+type TopicHandler a = (a -> TopicMessage)
 
 type ResponseCode = Int
 
@@ -31,7 +35,7 @@ data MessageTypePubSub
 
 data NodeTimer = NodeTimer
     { nodeId :: NodeId
-    , timer  :: NominalDiffTime -- time needs to be checked specifically which type to use
+    , timer  :: UTCTime -- time here is current time added with the nominaldifftime in the message
     }
 
 instance Ord NodeTimer where
@@ -43,10 +47,12 @@ instance Ord NodeTimer where
 instance Eq NodeTimer where
     x == y = nodeId x == nodeId y
 
-type TopicMap
-     = HM.Hashmap TopicId ( ServiceId
-                          , TVar [NodeTimer] -- need to use sorted list
-                          , TVar [NodeTimer] -- need to use sorted list
-                          , TQueue TopicMessage) -- will contain min peer count for the topic if different for each topic
+type WatchersTable = HM.Hashmap Topic TVar [Watchers] -- need to use sorted list
+
+type NotifiersTable
+     = HM.Hashmap Topic (TVar [Notifiers], Int) -- need to use sorted list, might contain min no of peers and handler function here so dont use fst and snd in functions
+
+type TopicHandlerMap --maps topic to the respective TopicHandler
+     = HM.Hashmap Topic TopicHandler
 
 type MessageHashMap = HM.HashMap Hash32 TVar (Bool, [NodeId]) -- murmur hash of the TOpicMessage
