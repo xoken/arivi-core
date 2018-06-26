@@ -15,6 +15,8 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , TransportType(..)
     , NodeIdPeerMap
     , Handle(..)
+    , MessageTypeMap
+    , MessageTypeHandler
     ) where
 
 import           Control.Concurrent.MVar
@@ -66,6 +68,8 @@ data MessageType
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageType
+
+instance Hashable MessageType
 
 -- data Peer = Peer
 --     { nodeId  :: NodeId
@@ -122,4 +126,8 @@ data PeerDetails = PeerDetails
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 
 type NodeIdPeerMap = HM.HashMap NodeId (TVar PeerDetails)
+
 -- type ResourceDetails = (P2PUUID, NodeId)
+type MessageTypeHandler = (P2PPayload -> P2PPayload)
+
+type MessageTypeMap = HM.HashMap MessageType MessageTypeHandler

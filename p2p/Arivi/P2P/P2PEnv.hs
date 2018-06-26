@@ -50,6 +50,7 @@ data P2PEnv = P2PEnv
     , tvarResourceToPeerMap :: TVar ResourceToPeerMap
     , kbucket               :: Kbucket Int [Peer]
     , statsdClient          :: StatsdClient
+    , tvarMessageTypeMap    :: TVar MessageTypeMap
     }
 
 type P2Papp = ReaderT P2PEnv IO
@@ -65,6 +66,7 @@ class (MonadIO m, MonadBaseControl IO m, HasKbucket m, HasStatsdClient m) =>
     getpubsubTQueueP2PEnv :: m (TQueue MessageInfo)
     getoptionTQueueP2PEnv :: m (TQueue MessageInfo)
     getResourceToPeerMapP2PEnv :: m (TVar ResourceToPeerMap)
+    getMessageTypeMapP2PEnv :: m (TVar MessageTypeMap)
 
 instance HasKbucket P2Papp where
     getKb = asks kbucket
@@ -81,6 +83,7 @@ instance HasP2PEnv P2Papp where
     getpubsubTQueueP2PEnv = tqueuePubSub <$> getP2PEnv
     getoptionTQueueP2PEnv = tqueueOption <$> getP2PEnv
     getResourceToPeerMapP2PEnv = tvarResourceToPeerMap <$> getP2PEnv
+    getMessageTypeMapP2PEnv = tvarMessageTypeMap <$> getP2PEnv
 
 runP2Papp :: P2PEnv -> P2Papp a -> IO a
 runP2Papp = flip runReaderT
@@ -93,6 +96,7 @@ makeP2PEnvironment = do
     pqueue <- newTQueueIO
     oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
+    mtypemap <- newTVarIO HM.empty
     return
         P2PEnv
             { tvarNodeIdPeerMap = nmap
@@ -101,4 +105,5 @@ makeP2PEnvironment = do
             , tqueuePubSub = pqueue
             , tqueueOption = oqueue
             , tvarResourceToPeerMap = r2pmap
+            , tvarMessageTypeMap = mtypemap
             }
