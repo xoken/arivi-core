@@ -2,7 +2,6 @@
 
 module Arivi.P2P.RPC.SendOptions
     ( sendOptionsMessage
-    , sendSupportedMessage
     ) where
 
 import           Arivi.Network.Types                   (ConnectionId)
@@ -12,6 +11,7 @@ import           Arivi.P2P.Kademlia.Utils              (extractFirst,
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageInfo,
                                                         MessageType (..),
+                                                        P2PPayload,
                                                         PeerDetails (..),
                                                         TransportType (..))
 import           Arivi.P2P.P2PEnv
@@ -95,20 +95,39 @@ updateResourcePeersHelper nodeId (currResource:listOfResources) resourceToPeerMa
                     resourceToPeerMap
             return $ 1 + tmp
 
--- Formulate and send the Supported message as a reply to the Options message
-sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> NodeId -> NodeId -> m ()
-sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do
-    resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-    resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
-    let resourceList = keys resourceToPeerMap
-    let message =
-            Support
-                { to = recievingPeerNodeId
-                , from = sendingPeerNodeId
-                , supportedResources = resourceList
-                }
-    let byteStringMessage = Lazy.toStrict $ serialise message
-    let uuid = fst messageInfo
-    let newMessageInfo = (uuid, byteStringMessage)
-                -- need to handle exceptions
-    sendResponse recievingPeerNodeId newMessageInfo Option -- might not be RPC
+-- | takes an options message and returns a supported message
+optionsHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
+optionsHandler payload = do
+    let optionsMessage = deserialise (Lazy.fromStrict payload) :: MessageTypeRPC
+    case optionsMessage of
+        Options myNodeId fromNodeId -> do
+            resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
+            resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+            let resourceList = keys resourceToPeerMap
+            let message =
+                    Support
+                        { to = fromNodeId
+                        , from = myNodeId
+                        , supportedResources = resourceList
+                        }
+            let byteStringSupportMessage = Lazy.toStrict $ serialise message
+            return byteStringSupportMessage
+            -- need to have proper error/exception messages and handling
+        _ -> return $ pack " "
+-- -- Formulate and send the Supported message as a reply to the Options message
+-- sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> NodeId -> NodeId -> m ()
+-- sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do
+--     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
+--     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+--     let resourceList = keys resourceToPeerMap
+--     let message =
+--             Support
+--                 { to = recievingPeerNodeId
+--                 , from = sendingPeerNodeId
+--                 , supportedResources = resourceList
+--                 }
+--     let byteStringMessage = Lazy.toStrict $ serialise message
+--     let uuid = fst messageInfo
+--     let newMessageInfo = (uuid, byteStringMessage)
+--                 -- need to handle exceptions
+--     sendResponse recievingPeerNodeId newMessageInfo Option -- might not be RPC

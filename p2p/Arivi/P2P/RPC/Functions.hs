@@ -95,7 +95,7 @@ updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId =
                 peersClose <-
                     case res1 of
                         Left (e :: Exception.SomeException) ->
-                            Kademlia.getKRandomPeers 3
+                            Kademlia.getKRandomPeers 3 -- decide properly
                         Right peers -> return (fromRight peers)
                 let peers = peerRandom ++ peersClose
                 nodeIds <- addPeerFromKademlia peers
@@ -129,7 +129,11 @@ writeBackToTQueue currTQ (currentElem:listOfTQ) = do
 -----------------------
 -- get NodeId from environment
 getResource ::
-       (HasP2PEnv m) => NodeId -> ResourceId -> ServiceMessage -> m ByteString
+       (HasP2PEnv m)
+    => NodeId
+    -> ResourceId
+    -> ServiceMessage
+    -> m ServiceMessage
 getResource mynodeid resourceID servicemessage = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
@@ -144,7 +148,7 @@ sendResourceRequestToPeer ::
     -> ResourceId
     -> NodeId
     -> ServiceMessage
-    -> m ByteString
+    -> m ServiceMessage
 sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
     nodeId <- liftIO $ atomically (readTQueue nodeTQ)
     let requestMessage =
@@ -172,13 +176,12 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
                          resourceID
                          mynodeid
                          servicemessage
+ -- should check to and from
 
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
-rpcHandler incomingRequest
-        -- should check to and from
- = do
+rpcHandler incomingRequest = do
     let request =
             deserialise (Lazy.fromStrict incomingRequest) :: MessageTypeRPC
     case request of
