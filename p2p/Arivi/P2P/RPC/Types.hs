@@ -2,7 +2,7 @@
 
 module Arivi.P2P.RPC.Types
     ( ServiceId
-    , ResourceList
+    , ResourceHandlerList
     , ResourceToPeerMap
     , ResourceId
     , MessageTypeRPC(..)
@@ -11,6 +11,7 @@ module Arivi.P2P.RPC.Types
     , ServicePayload(..)
     , P2Pinfo(..)
     , ServiceMessage
+    , ResourceHandler
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (ConnectionId, IP,
@@ -39,10 +40,11 @@ type ServiceId = String
 
 type ServiceMessage = ByteString
 
-type ResourceList = [ResourceId]
+type ResourceHandlerList = [(ResourceId, ResourceHandler)]
 
-type ResourceToPeerMap
-     = HM.HashMap ResourceId (ServiceId, TQueue NodeId, TQueue ServicePayload) --peer changed to nodeID
+type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TQueue NodeId)
+
+type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
 data MessageTypeRPC
     = Options { to   :: NodeId

@@ -86,7 +86,7 @@ updateResourcePeersHelper nodeId (currResource:listOfResources) resourceToPeerMa
     if isNothing temp
         then updateResourcePeersHelper nodeId listOfResources resourceToPeerMap
         else do
-            let currTQ = extractSecond (fromJust temp)
+            let currTQ = snd (fromJust temp)
             atomically (writeTQueue currTQ nodeId)
             tmp <-
                 updateResourcePeersHelper
