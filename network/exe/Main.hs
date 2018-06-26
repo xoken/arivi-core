@@ -4,26 +4,23 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Main where
+module Main
+    ( module Main
+    ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Logging
-import           Arivi.Network.Connection               (CompleteConnection,
-                                                         ConnectionId)
-import           Arivi.Network.Instance
-import           Arivi.Network.StreamServer
-import qualified Arivi.Network.Types                    as ANT (PersonalityType (INITIATOR),
-                                                                TransportType (TCP))
+import           Arivi.Network
+import           Arivi.Network.Types (TransportType (TCP))
+
 import           Control.Concurrent                     (threadDelay)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TQueue
 import           Control.Monad.Logger
 import           Control.Monad.Reader
-import           Data.HashTable.IO                      as MutableHashMap (new)
--- import           Arivi.Network.Datagram             (createUDPSocket)
 import           Control.Exception
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
@@ -33,48 +30,46 @@ import           System.Environment                     (getArgs)
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
 instance HasEnv AppM where
-  getEnv = ask
+    getEnv = ask
 
 instance HasAriviNetworkInstance AppM where
-  getAriviNetworkInstance = ariviNetworkInstance <$> getEnv
+    getAriviNetworkInstance = ariviEnvNetworkInstance <$> getEnv
 
 instance HasSecretKey AppM where
-  getSecretKey = cryptoEnvSercretKey . ariviCryptoEnv <$> getEnv
+    getSecretKey = cryptoEnvSecretKey . ariviEnvCryptoEnv <$> getEnv
 
 instance HasLogging AppM where
-  getLoggerChan = loggerChan <$> getEnv
+    getLoggerChan = ariviEnvLoggerChan <$> getEnv
 
-instance HasUDPSocket AppM where
-  getUDPSocket = udpSocket <$> getEnv
+-- instance HasUDPSocket AppM where
+--  getUDPSocket = ariviEnvdpSocket <$> getEnv
 
 runAppM :: AriviEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
-
-
 
 sender :: SecretKey -> SecretKey -> Int -> Int -> IO ()
 sender sk rk n size = do
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
-  mutableConnectionHashMap <- MutableHashMap.new
-                                    :: IO (HashTable ConnectionId CompleteConnection)
+  -- mutableConnectionHashMap <- MutableHashMap.new
+  --                                  :: IO (HashTable ConnectionId CompleteConnection)
   env' <- mkAriviEnv
-  let env = env' { ariviCryptoEnv = CryptoEnv sk
-                 , loggerChan = tq
+  let env = env' { ariviEnvCryptoEnv = CryptoEnv sk
+                 , ariviEnvLoggerChan = tq
                  -- , udpSocket = sock
-                 , udpConnectionHashMap = mutableConnectionHashMap
+                 --, ariviEnvUdpConnectionHashMap = mutableConnectionHashMap
                  }
   runStdoutLoggingT $ runAppM env (do
 
                                        let ha = "127.0.0.1"
-                                       cidOrFail <- openConnection ha 8083 ANT.TCP (generateNodeId rk) ANT.INITIATOR
-                                       case cidOrFail of
+                                       handleOrFail <- openConnection ha 8083 TCP (generateNodeId rk)
+                                       case handleOrFail of
                                           Left e -> throw e
-                                          Right cid -> do
-                                            time <- liftIO  getCurrentTime
+                                          Right cHandle -> do
+                                            time <- liftIO getCurrentTime
                                             liftIO $ print time
-                                            mapM_ (const (sendMessage cid (a size))) [1..n]
-                                            time2 <- liftIO  getCurrentTime
+                                            mapM_ (const (send cHandle (a size) >> recv cHandle)) [1..n]
+                                            time2 <- liftIO getCurrentTime
                                             liftIO $ print time2
                                        liftIO $ print "done"
                                    )
@@ -82,16 +77,16 @@ receiver :: SecretKey -> IO ()
 receiver sk = do
   tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
-  mutableConnectionHashMap1 <- MutableHashMap.new
-                                    :: IO (HashTable ConnectionId CompleteConnection)
+  -- mutableConnectionHashMap1 <- MutableHashMap.new
+                                    -- :: IO (HashTable ConnectionId CompleteConnection)
   env' <- mkAriviEnv
-  let env = env' { ariviCryptoEnv = CryptoEnv sk
-                 , loggerChan = tq
+  let env = env' { ariviEnvCryptoEnv = CryptoEnv sk
+                 , ariviEnvLoggerChan = tq
                  -- , udpSocket = sock
-                 , udpConnectionHashMap = mutableConnectionHashMap1
+                 --, ariviEnvUdpConnectionHashMap = mutableConnectionHashMap1
                  }
   runStdoutLoggingT $ runAppM env (
-                                       runTCPServer (show (envPort env))
+                                       runServer (show (ariviEnvPort env), "5000") myAmazingHandler
                                   )
 
 initiator :: IO ()
@@ -116,3 +111,6 @@ main = do
 
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (replicate n 'a')
+
+myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler h = forever $ recv h >>= send h

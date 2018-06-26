@@ -1,9 +1,11 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Arivi.Network.Types
-    ( Event(..)
+    ( ConnectionHandle (..)
+    , Event(..)
     , Header(..)
     , Payload(..)
     , Parcel(..)
@@ -20,6 +22,7 @@ module Arivi.Network.Types
     , SockAddr
     , PortNumber
     , HostName
+    , Ed25519.SecretKey
     , SerialisedMsg
     , PlainText
     , CipherText
@@ -41,6 +44,7 @@ module Arivi.Network.Types
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
+import           Arivi.Logging (HasLogging)
 import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
@@ -53,7 +57,7 @@ import           Crypto.PubKey.Ed25519              as Ed25519 (SecretKey,
 import           Data.ByteArray
 import           Data.ByteString
 import qualified Data.ByteString.Lazy               as BSL
-import           Data.Int                           (Int16, Int32, Int64, Int8)
+import           Data.Int                           (Int32, Int64, Int8)
 import           Data.Monoid
 import           GHC.Generics
 import           Network.Socket                     as Network
@@ -294,3 +298,10 @@ decodeSignature = do
             throwCryptoError . Ed25519.signature <$>
             (decode :: Decoder s ByteString)
         _ -> fail "invalid Signature encoding"
+
+
+data ConnectionHandle = ConnectionHandle
+    { send :: forall m. (HasLogging m) => BSL.ByteString -> m ()
+    , recv :: forall m. (HasLogging m) => m BSL.ByteString
+    , close :: forall m. (HasLogging m) => m ()
+    }
