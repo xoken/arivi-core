@@ -1,13 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Arivi.P2P.MessageHandler.Handler
-    ( sendRequest
-    , sendResponse
-    , readKademliaRequest
-    , readRPCRequest
-    , readPubSubRequest
+    ( registerMessageType
+    , sendRequest
+    , sendResponse --to be removed in next commit
+    , readKademliaRequest --to be removed in next commit
+    , readRPCRequest --to be removed in next commit
+    , readPubSubRequest --to be removed in next commit
     , sendRequestforKademlia
-    -- , newIncomingConnection
+    , newIncomingConnection
     ) where
 
 import           Data.ByteString.Char8                 as Char8 (ByteString,
@@ -46,6 +47,17 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
 import           Network.Socket                        (PortNumber)
 
+registerMessageType ::
+       (HasP2PEnv m) => MessageType -> MessageTypeHandler -> m ()
+registerMessageType mType mHandler = do
+    messageTypeMapTVar <- getMessageTypeMapP2PEnv
+    liftIO $
+        atomically
+            (do messageTypeMap <- readTVar messageTypeMapTVar
+                let newMessageTypeMap = HM.insert mType mHandler messageTypeMap
+                writeTVar messageTypeMapTVar newMessageTypeMap)
+    return ()
+
 -- | used by RPC and PubSub to send outgoing requests. This is a blocing call which returns the reply
 sendRequest ::
        (HasP2PEnv m) => NodeId -> MessageType -> P2PPayload -> m P2PPayload
@@ -76,7 +88,7 @@ sendRequest node mType p2pPayload = do
             winner <-
                 liftIO $
                 Async.race
-                    (threadDelay 30000000)
+                    (threadDelay 30000000) -- system.timeout
                     (takeMVar mvar :: IO P2PMessage)
             case winner of
                 Left _ -> do
@@ -110,115 +122,57 @@ sendRequestforKademlia node mType p2pPayload port ip = do
                     sendRequest node mType p2pPayload
         else sendRequest node mType p2pPayload
 
--- | This is used by Kademlia, RPC and PubSub to send back resonses to incoming requests
-sendResponse :: (HasP2PEnv m) => NodeId -> MessageInfo -> MessageType -> m ()
-sendResponse node messageInfo mType = do
-    let p2pMessage =
-            generateP2PMessage mType (snd messageInfo) (fst messageInfo)
-    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    connHandle <- liftIO $ getConnHandleFromNodeID node nodeIdMapTVar mType
-    res <-
-        liftIO $
-        Exception.try $
-        sendMessage connHandle (Lazy.toStrict $ serialise p2pMessage)
-    case res of
-        Left (e :: Exception.SomeException) -> throw e
-        Right _                             -> return ()
-
--- | This is used by Kademlia to read incoming requests
-readKademliaRequest :: (HasP2PEnv m) => m MessageInfo
-readKademliaRequest = do
-    kademTQueue <- getkademTQueueP2PEnv
-    liftIO $ atomically $ readTQueue kademTQueue
-
--- | This is used by RPC to read incoming requests
-readRPCRequest :: (HasP2PEnv m) => m MessageInfo
-readRPCRequest = do
-    rpcTQueue <- getrpcTQueueP2PEnv
-    liftIO $ atomically $ readTQueue rpcTQueue
-
--- | This is used by PubSub to read incoming requests
-readPubSubRequest :: (HasP2PEnv m) => m MessageInfo
-readPubSubRequest = do
-    pubsubTQueue <- getpubsubTQueueP2PEnv
-    liftIO $ atomically $ readTQueue pubsubTQueue
-
-readOptionRequest :: (HasP2PEnv m) => m MessageInfo
-readOptionRequest = do
-    optionTQueue <- getoptionTQueueP2PEnv
-    liftIO $ atomically $ readTQueue optionTQueue
-
--- | This spawns off a thread for the connection handle specified by nodeid and transporttype and manages the incoming messages by either matching them to the uuid or depositing it in respective mvar
-readRequest :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
-readRequest node transportType = do
-    kademTQueue <- getkademTQueueP2PEnv
-    rpcTQueue <- getrpcTQueueP2PEnv
-    pubsubTQueue <- getpubsubTQueueP2PEnv
-    optionTQueue <- getoptionTQueueP2PEnv
-    nodeIdPeerMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    nodeIdPeerMap <- liftIO $ readTVarIO nodeIdPeerMapTVar
-    let peerDetailsTVar = fromJust (HM.lookup node nodeIdPeerMap) -- not possible that node isnt here but need to try
-    connHandle <- liftIO $ getConnectionHandle peerDetailsTVar transportType
-    peerDetails <- liftIO $ readTVarIO peerDetailsTVar
-    let uuidMapTVar = tvarUUIDMap peerDetails
-    tmp <-
-        liftIO $
-        forkIO $
-        readRequestThread
-            connHandle
-            uuidMapTVar
-            kademTQueue
-            rpcTQueue
-            pubsubTQueue
-            optionTQueue
-    return ()
-
-readRequestThread ::
-       ConnectionId
-    -> TVar UUIDMap
-    -> TQueue MessageInfo
-    -> TQueue MessageInfo
-    -> TQueue MessageInfo
-    -> TQueue MessageInfo
-    -> IO ()
-readRequestThread connHandle uuidMapTVar kademTQueue rpcTQueue pubsubTQueue optionTQueue = do
+readRequestThread :: ConnectionId -> TVar UUIDMap -> MessageTypeMap -> IO ()
+readRequestThread connHandle uuidMapTVar messageTypeMap = do
     eitherByteMessage <- Exception.try $ readMessage connHandle
     case eitherByteMessage of
         Left (_ :: Exception.SomeException) -> return ()
         Right byteMessage -> do
+            Async.async
+                (readRequestThread connHandle uuidMapTVar messageTypeMap)
             let networkMessage =
                     deserialise (Lazy.fromStrict byteMessage) :: P2PMessage
             uuidMap <- atomically (readTVar uuidMapTVar)
             let temp = HM.lookup (uuid networkMessage) uuidMap
             if isNothing temp
                 then do
-                    let newRequest =
-                            (uuid networkMessage, payload networkMessage)
-                    case messageType networkMessage of
-                        Kademlia ->
-                            atomically (writeTQueue kademTQueue newRequest)
-                        RPC -> atomically (writeTQueue rpcTQueue newRequest)
-                        Option ->
-                            atomically (writeTQueue optionTQueue newRequest)
-                        PubSub ->
-                            atomically (writeTQueue pubsubTQueue newRequest)
+                    let p2pResponse =
+                            generateP2PMessage
+                                (messageType networkMessage)
+                                (fromJust
+                                     (HM.lookup
+                                          (messageType networkMessage)
+                                          messageTypeMap)
+                                     (payload networkMessage))
+                                (uuid networkMessage)
+                    res <-
+                        Exception.try $
+                        sendMessage
+                            connHandle
+                            (Lazy.toStrict $ serialise p2pResponse)
+                    case res of
+                        Left (e :: Exception.SomeException) -> return ()
+                        Right _                             -> return ()
                 else do
                     let mVar = fromJust temp
                     putMVar mVar networkMessage
-            readRequestThread
-                connHandle
-                uuidMapTVar
-                kademTQueue
-                rpcTQueue
-                pubsubTQueue
-                optionTQueue
+                    return ()
 
--- newIncomingConnection :: (HasP2PEnv m) => m ()
--- newIncomingConnection = do
---     (nodeId, connHandle, transportType) <- liftIO getNewConnection
---     addPeerfromConnection nodeId connHandle transportType
---     fork (readRequest conInfo)
---     newIncomingConnection
+-- newConnectionHandler :: NodeId -> ConnectionId -> TransportType ->
+newIncomingConnection ::
+       (HasP2PEnv m) => NodeId -> ConnectionId -> TransportType -> m ()
+newIncomingConnection nodeId connHandle transportType = do
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    messageTypeMapTVar <- getMessageTypeMapP2PEnv
+    messageTypeMap <- liftIO $ readTVarIO messageTypeMapTVar
+    liftIO $ addPeerFromConnection nodeId transportType connHandle nodeIdMapTVar
+    nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    peerDetails <- liftIO $ readTVarIO (fromJust (HM.lookup nodeId nodeIdMap))
+    let uuidMapTVar = tvarUUIDMap peerDetails
+    liftIO $
+        Async.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
+    return ()
+
 {-Support Functions===========================================================-}
 -- | atomically checks for existing handle which is returned if it exists or else its status is changed to pending. then a new connection is established and it is stored as well as returned.
 --
@@ -375,3 +329,66 @@ readMessage connId =
     Lazy.toStrict .
     serialise . generateP2PMessage Kademlia (pack "892sadasd346384") <$>
     getUUID
+
+{-old functions ==============================================================-}
+-- | This is used by Kademlia, RPC and PubSub to send back resonses to incoming requests
+sendResponse :: (HasP2PEnv m) => NodeId -> MessageInfo -> MessageType -> m ()
+sendResponse node messageInfo mType = do
+    let p2pMessage =
+            generateP2PMessage mType (snd messageInfo) (fst messageInfo)
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    connHandle <- liftIO $ getConnHandleFromNodeID node nodeIdMapTVar mType
+    res <-
+        liftIO $
+        Exception.try $
+        sendMessage connHandle (Lazy.toStrict $ serialise p2pMessage)
+    case res of
+        Left (e :: Exception.SomeException) -> throw e
+        Right _                             -> return ()
+
+-- | This is used by Kademlia to read incoming requests
+readKademliaRequest :: (HasP2PEnv m) => m MessageInfo
+readKademliaRequest = do
+    kademTQueue <- getkademTQueueP2PEnv
+    liftIO $ atomically $ readTQueue kademTQueue
+
+-- | This is used by RPC to read incoming requests
+readRPCRequest :: (HasP2PEnv m) => m MessageInfo
+readRPCRequest = do
+    rpcTQueue <- getrpcTQueueP2PEnv
+    liftIO $ atomically $ readTQueue rpcTQueue
+
+-- | This is used by PubSub to read incoming requests
+readPubSubRequest :: (HasP2PEnv m) => m MessageInfo
+readPubSubRequest = do
+    pubsubTQueue <- getpubsubTQueueP2PEnv
+    liftIO $ atomically $ readTQueue pubsubTQueue
+
+readOptionRequest :: (HasP2PEnv m) => m MessageInfo
+readOptionRequest = do
+    optionTQueue <- getoptionTQueueP2PEnv
+    liftIO $ atomically $ readTQueue optionTQueue
+-- | This spawns off a thread for the connection handle specified by nodeid and transporttype and manages the incoming messages by either matching them to the uuid or depositing it in respective mvar
+-- readRequest :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
+-- readRequest node transportType = do
+--     kademTQueue <- getkademTQueueP2PEnv
+--     rpcTQueue <- getrpcTQueueP2PEnv
+--     pubsubTQueue <- getpubsubTQueueP2PEnv
+--     optionTQueue <- getoptionTQueueP2PEnv
+--     nodeIdPeerMapTVar <- getNodeIdPeerMapTVarP2PEnv
+--     nodeIdPeerMap <- liftIO $ readTVarIO nodeIdPeerMapTVar
+--     let peerDetailsTVar = fromJust (HM.lookup node nodeIdPeerMap) -- not possible that node isnt here but need to try
+--     connHandle <- liftIO $ getConnectionHandle peerDetailsTVar transportType
+--     peerDetails <- liftIO $ readTVarIO peerDetailsTVar
+--     let uuidMapTVar = tvarUUIDMap peerDetails
+--     tmp <-
+--         liftIO $
+--         forkIO $
+--         readRequestThread
+--             connHandle
+--             uuidMapTVar
+--             kademTQueue
+--             rpcTQueue
+--             pubsubTQueue
+--             optionTQueue
+--     return ()
