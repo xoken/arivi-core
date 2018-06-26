@@ -8,6 +8,7 @@ module Arivi.P2P.P2PEnv
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 
@@ -51,6 +52,10 @@ data P2PEnv = P2PEnv
     , kbucket               :: Kbucket Int [Peer]
     , statsdClient          :: StatsdClient
     , tvarMessageTypeMap    :: TVar MessageTypeMap
+    , tvarWatchersTable     :: TVar WatchersTable
+    , tvarNotifiersTable    :: TVar NotifiersTable
+    , tvarTopicHandlerMap   :: TVar TopicHandlerMap
+    , tvarMessageHashMap    :: TVar MessageHashMap
     }
 
 type P2Papp = ReaderT P2PEnv IO
@@ -67,6 +72,10 @@ class (MonadIO m, MonadBaseControl IO m, HasKbucket m, HasStatsdClient m) =>
     getoptionTQueueP2PEnv :: m (TQueue MessageInfo)
     getResourceToPeerMapP2PEnv :: m (TVar ResourceToPeerMap)
     getMessageTypeMapP2PEnv :: m (TVar MessageTypeMap)
+    getWatcherTableP2PEnv :: m (TVar WatchersTable)
+    getNotifiersTableP2PEnv :: m (TVar NotifiersTable)
+    getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
+    getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
 
 instance HasKbucket P2Papp where
     getKb = asks kbucket
@@ -84,6 +93,10 @@ instance HasP2PEnv P2Papp where
     getoptionTQueueP2PEnv = tqueueOption <$> getP2PEnv
     getResourceToPeerMapP2PEnv = tvarResourceToPeerMap <$> getP2PEnv
     getMessageTypeMapP2PEnv = tvarMessageTypeMap <$> getP2PEnv
+    getWatcherTableP2PEnv = tvarWatchersTable <$> getP2PEnv
+    getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
+    getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
+    getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
 
 runP2Papp :: P2PEnv -> P2Papp a -> IO a
 runP2Papp = flip runReaderT
@@ -97,6 +110,10 @@ makeP2PEnvironment = do
     oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
     mtypemap <- newTVarIO HM.empty
+    watcherMap <- newTVarIO HM.empty
+    notifierMap <- newTVarIO HM.empty
+    topicHandleMap <- newTVarIO HM.empty
+    messageMap <- newTVarIO HM.empty
     return
         P2PEnv
             { tvarNodeIdPeerMap = nmap
@@ -106,4 +123,8 @@ makeP2PEnvironment = do
             , tqueueOption = oqueue
             , tvarResourceToPeerMap = r2pmap
             , tvarMessageTypeMap = mtypemap
+            , tvarWatchersTable = watcherMap
+            , tvarNotifiersTable = notifierMap
+            , tvarTopicHandlerMap = topicHandleMap
+            , tvarMessageHashMap = messageMap
             }
