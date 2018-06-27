@@ -21,6 +21,7 @@ import           Control.Concurrent.STM.TVar
 import           Data.ByteString.Char8                 as Char8 (ByteString)
 import           Data.HashMap.Strict                   as HM
 import qualified Data.Map.Strict                       as Map
+import           Data.SortedList
 import           Data.Time.Clock
 
 type Topic = String
@@ -59,10 +60,10 @@ instance Ord NodeTimer where
 instance Eq NodeTimer where
     x == y = timerNodeId x == timerNodeId y
 
-type WatchersTable = HM.HashMap Topic (TVar [Watcher]) -- need to use sorted list
+type WatchersTable = HM.HashMap Topic (TVar (SortedList Watcher)) -- need to use sorted list
 
 type NotifiersTable
-     = HM.HashMap Topic (TVar [Notifier], Int) -- need to use sorted list, might contain min no of peers
+     = HM.HashMap Topic (TVar (SortedList Notifier), Int) -- need to use sorted list, might contain min no of peers
                                                 -- and handler function here so dont use fst and snd in functions
 
 type TopicHandlerMap --maps topic to the respective TopicHandler
