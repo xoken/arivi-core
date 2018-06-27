@@ -66,6 +66,7 @@ library
                     ,  stm-containers >= 0.2.16
                     ,  list-t >= 1.0.0.1
                     ,  either-unwrap >= 1.1
+                    ,  sorted-list >= 0.1
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                       --  Arivi.P2P.PubSub
@@ -86,4 +87,6 @@ library
                        Arivi.P2P.RPC.SendOptions
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
+                       Arivi.P2P.PubSub.Functions 
   default-language:    Haskell2010
+ 
