@@ -14,14 +14,14 @@ import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Logging
 import           Arivi.Network
-import           Arivi.Network.Types (TransportType (TCP))
+import           Arivi.Network.Types                    (TransportType (TCP))
 
 import           Control.Concurrent                     (threadDelay)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TQueue
+import           Control.Exception
 import           Control.Monad.Logger
 import           Control.Monad.Reader
-import           Control.Exception
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import           Data.Time
@@ -49,13 +49,13 @@ runAppM = flip runReaderT
 
 sender :: SecretKey -> SecretKey -> Int -> Int -> IO ()
 sender sk rk n size = do
-  tq <- newTQueueIO :: IO LogChan
+  tqSender <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   -- mutableConnectionHashMap <- MutableHashMap.new
   --                                  :: IO (HashTable ConnectionId CompleteConnection)
-  env' <- mkAriviEnv
-  let env = env' { ariviEnvCryptoEnv = CryptoEnv sk
-                 , ariviEnvLoggerChan = tq
+  envSender' <- mkAriviEnv
+  let env = envSender' { ariviEnvCryptoEnv = CryptoEnv sk
+                 , ariviEnvLoggerChan = tqSender
                  -- , udpSocket = sock
                  --, ariviEnvUdpConnectionHashMap = mutableConnectionHashMap
                  }
@@ -75,13 +75,13 @@ sender sk rk n size = do
                                    )
 receiver :: SecretKey -> IO ()
 receiver sk = do
-  tq <- newTQueueIO :: IO LogChan
+  tqReceiver <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   -- mutableConnectionHashMap1 <- MutableHashMap.new
                                     -- :: IO (HashTable ConnectionId CompleteConnection)
-  env' <- mkAriviEnv
-  let env = env' { ariviEnvCryptoEnv = CryptoEnv sk
-                 , ariviEnvLoggerChan = tq
+  envReceiver' <- mkAriviEnv
+  let env = envReceiver' { ariviEnvCryptoEnv = CryptoEnv sk
+                 , ariviEnvLoggerChan = tqReceiver
                  -- , udpSocket = sock
                  --, ariviEnvUdpConnectionHashMap = mutableConnectionHashMap1
                  }

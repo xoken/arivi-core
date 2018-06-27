@@ -28,29 +28,31 @@ module Arivi.Network.ConnectionHandler
 
 import           Arivi.Env
 import           Arivi.Logging
-import           Arivi.Network.Connection        as Conn
-import           Arivi.Network.Handshake
+import           Arivi.Network.Connection       as Conn
 import           Arivi.Network.Fragmenter
+import           Arivi.Network.Handshake
 import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
-import           Arivi.Network.Utils             (getIPAddress, getPortNumber)
+import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
 import           Arivi.Utils.Exception
-import           Control.Concurrent              (MVar, newMVar, threadDelay)
-import qualified Control.Concurrent.Async        as Async (race)
-import           Control.Concurrent.STM          (atomically, newTChan)
+import           Control.Concurrent             (MVar, newMVar, threadDelay)
+import qualified Control.Concurrent.Async       as Async (race)
+import           Control.Concurrent.STM         (atomically, newTChan)
 import           Control.Concurrent.STM.TVar
-import           Control.Exception               (try)
+import           Control.Exception              (try)
 import           Control.Exception.Base
 import           Control.Monad.IO.Class
 import           Data.Binary
-import qualified Data.ByteString.Lazy            as BSL
-import qualified Data.ByteString.Lazy.Char8      as BSLC
-import           Data.HashMap.Strict             as HM
+import qualified Data.ByteString.Lazy           as BSL
+import qualified Data.ByteString.Lazy.Char8     as BSLC
+import           Data.HashMap.Strict            as HM
 import           Data.Int
 import           Data.IORef
-import           Network.Socket                  hiding (send)
-import qualified Network.Socket.ByteString.Lazy  as N (recv)
+import           Network.Socket                 (Socket (MkSocket),
+                                                 SocketType (..), close,
+                                                 getSocketName)
+import qualified Network.Socket.ByteString.Lazy as N (recv)
 
 handleInboundConnection ::
        (HasSecretKey m, HasLogging m)
