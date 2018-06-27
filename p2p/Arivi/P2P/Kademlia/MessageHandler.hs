@@ -25,6 +25,18 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy        as L
 
+-- | Handler function to process incoming kademlia requests, requires a
+--   P2P instance to get access to local node information and kbukcet itself.
+--   It takes a bytesting as input which is deserialized to kademlia
+--   payload, based on the type of request inside payload an appropriate
+--   response is returned to the caller.
+-- | As per Kademlia protocol there are two valid requests i.e PING and
+--   FIND_NODE, in case of PING a simple PONG response is returned to let the
+--   request initiator know that remote node is still active. In case of
+--   FIND_NODE remote node asks for node closest to a given nodeId thus local
+--   kbucket is queried to extract k-closest node known by the local node and a
+--   list of k-closest peers wrapped in payload type is returned as a serialised
+--   bytestring.
 kademliaMessageHandler ::
        (HasP2PEnv m) => L.ByteString -> m (Either AriviException L.ByteString)
 kademliaMessageHandler payl = do
