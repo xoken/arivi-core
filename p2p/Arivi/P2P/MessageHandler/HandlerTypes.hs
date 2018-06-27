@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RankNTypes    #-}
 
 module Arivi.P2P.MessageHandler.HandlerTypes
     ( MessageType(..)
@@ -26,7 +27,8 @@ import           Control.Concurrent.MVar
 -}
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TVar ()
-import           Control.Monad               ()
+import           Control.Monad
+import           Control.Monad.IO.Class      (MonadIO)
 
 import           Codec.Serialise             (Serialise)
 
@@ -128,6 +130,6 @@ type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 type NodeIdPeerMap = HM.HashMap NodeId (TVar PeerDetails)
 
 -- type ResourceDetails = (P2PUUID, NodeId)
-type MessageTypeHandler = (P2PPayload -> P2PPayload)
+type MessageTypeHandler m = P2PPayload -> m P2PPayload
 
-type MessageTypeMap = HM.HashMap MessageType MessageTypeHandler
+type MessageTypeMap m = HM.HashMap MessageType (MessageTypeHandler m)

@@ -1,5 +1,5 @@
 -- |
--- Module      : Arivi.Kademlia.Instance
+-- Module      : Arivi.Kademlia.Kbucket
 -- Copyright   : (c) Xoken Labs
 -- License     : -
 --
@@ -21,7 +21,6 @@ module Arivi.P2P.Kademlia.Kbucket
     , Peer(..)
     , createKbucket
     , getDefaultNodeId
-    , HasKbucket(..)
     , getPeerList
     , getPeerListByKIndex
     , ifPeerExist
@@ -32,7 +31,7 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKRandomPeers
     ) where
 
-import qualified Arivi.P2P.Kademlia.Types       as T
+import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.P2P.P2PEnv
@@ -58,7 +57,7 @@ createKbucket localPeer = do
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
-getDefaultNodeId :: (HasKbucket m) => m (Either AriviException T.NodeId)
+getDefaultNodeId :: (HasKbucket m) => m (Either AriviException NodeId)
 getDefaultNodeId = do
     kbucket' <- getKb
     let kb = getKbucket kbucket'
@@ -71,13 +70,13 @@ getDefaultNodeId = do
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 --   given peer with respect to the default peer or local peer for which
 --   the kbucket is created. If peer doesn't exist it returns an empty list
-getPeerList :: (HasKbucket m) => Peer -> m (Either AriviException [Peer])
+getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
-            let peer = fst $ getPeer peerR
+            let peer = peerR
                 kbDistance = getKbIndex localPeer peer
             pl <-
                 liftIO $ atomically $ H.lookup kbDistance (getKbucket kbucket'')
@@ -96,14 +95,15 @@ getPeerListByKIndex kbi = do
         _  -> return $ Right pl
 
 -- |Checks if a peer already exists
-ifPeerExist :: (HasKbucket m) => Peer -> m (Either AriviException Bool)
+ifPeerExist :: (HasKbucket m) => NodeId -> m (Either AriviException Bool)
 ifPeerExist peer = do
     peerList <- getPeerList peer
     case peerList of
         Right pl ->
-            if peer `elem` pl
+            if peer `elem` pl2
                 then return (Right True)
                 else return (Right False)
+            where pl2 = fmap (fst . getPeer) pl
         Left _ -> return (Left KademliaKbIndexDoesNotExist)
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
@@ -114,7 +114,7 @@ addToKBucket peerR = do
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
-            peerList <- getPeerList peerR
+            peerList <- getPeerList nid
             case peerList of
                 Right pl -> do
                     let kb = getKbucket kb''
@@ -122,17 +122,18 @@ addToKBucket peerR = do
                         kbDistance = getKbIndex localPeer peer
                     if peerR `elem` pl
                         then do
-                            removePeer peerR
+                            removePeer nid
                             liftIO $
                                 atomically $
                                 H.insert (pl ++ [peerR]) kbDistance kb
                         else liftIO $
                              atomically $ H.insert [peerR] kbDistance kb
                 Left _ -> return ()
+            where nid = fst $ getPeer peerR
         Left _ -> return ()
 
 -- | Removes a given peer from kbucket
-removePeer :: (HasKbucket m) => Peer -> m ()
+removePeer :: (HasKbucket m) => NodeId -> m ()
 removePeer peerR = do
     kbb' <- getKb
     lp <- getDefaultNodeId
@@ -142,14 +143,22 @@ removePeer peerR = do
             case peerList of
                 Right pl -> do
                     let kb = getKbucket kbb'
-                        peer = fst $ getPeer peerR
-                        kbDistance = getKbIndex localPeer peer
-                    if peerR `elem` pl
+                        kbDistance = getKbIndex localPeer peerR
+                    if peerR `elem` pl2
                         then liftIO $
                              atomically $
-                             H.insert (L.delete peerR pl) kbDistance kb
-                        else liftIO $
-                             atomically $ H.insert [peerR] kbDistance kb
+                             H.insert
+                                 (L.deleteBy
+                                      (\p1 p2 ->
+                                           fst (getPeer p1) == fst (getPeer p2))
+                                      fp
+                                      pl)
+                                 kbDistance
+                                 kb
+                        else liftIO $ atomically $ H.insert pl kbDistance kb
+                    where pl2 = fmap (fst . getPeer) pl
+                          fnep = NodeEndPoint "127.0.0.1" 0 0
+                          fp = Peer (peerR, fnep)
                 Left _ -> return ()
         Left _ -> return ()
 
@@ -190,7 +199,7 @@ getKClosestPeersByPeer peerR k = do
 -- | Gets k-closest peers to a given nodeid if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
 getKClosestPeersByNodeid ::
-       (HasKbucket m) => T.NodeId -> Int -> m (Either AriviException [Peer])
+       (HasKbucket m) => NodeId -> Int -> m (Either AriviException [Peer])
 getKClosestPeersByNodeid nid k = do
     lp <- getDefaultNodeId
     case lp of
