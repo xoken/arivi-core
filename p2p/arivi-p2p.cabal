@@ -42,6 +42,7 @@ library
                     ,  hashtables <= 1.2.6.1
                     ,  integer-gmp
                     ,  lifted-base
+                    ,  lifted-async <= 0.10.0.2
                     ,  memory >= 0.14.11
                     ,  monad-control
                     ,  monad-logger
@@ -69,7 +70,7 @@ library
   exposed-modules:
                       --  Arivi.P2P.PubSub
                       --  Arivi.P2P.Instance
-                      --  Arivi.P2P.ServiceRegistry
+                       Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.P2PEnv
                        Arivi.P2P.MessageHandler.Handler
