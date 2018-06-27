@@ -86,5 +86,6 @@ library
                        Arivi.P2P.PubSub.Types
                        Arivi.P2P.RPC.SendOptions
                        Arivi.P2P.Kademlia.Kbucket
-                       Arivi.P2P.MessageHandler 
+                       Arivi.P2P.PubSub.Functions
+                       -- Arivi.P2P.MessageHandler
   default-language:    Haskell2010
