@@ -6,7 +6,6 @@ getAvailablePeer
  ) where
 
 import           Arivi.Env
-import           Arivi.Network.Types          as ANT
 import qualified Arivi.P2P.Kademlia.Types     as T
 import           Arivi.P2P.Kademlia.Utils
 import           Control.Concurrent.STM.TChan

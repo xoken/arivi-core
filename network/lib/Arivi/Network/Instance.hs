@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE Rank2Types            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Arivi.Network.Instance
@@ -32,12 +32,19 @@ doEncryptedHandshake connection sk = do
     sendFrame
         (Conn.waitWrite connection)
         (Conn.socket connection)
-        (createFrame serialisedParcel)
+        (frame serialisedParcel)
     hsRespParcel <-
-        readHandshakeRespSock
-            (Conn.waitWrite connection)
-            (Conn.socket connection)
+        appropos (Conn.waitWrite connection) (Conn.socket connection)
     return $ receiveHandshakeResponse connection ephemeralKeyPair hsRespParcel
+  where
+    frame msg =
+        case transportType connection of
+            TCP -> createFrame msg
+            UDP -> msg
+    appropos =
+        case transportType connection of
+            TCP -> readHandshakeRespSock
+            UDP -> readUdpHandshakeRespSock
 
 openConnection ::
        forall m. (HasLogging m, HasSecretKey m)
@@ -53,14 +60,14 @@ openConnection host portNum tt rnId = do
         liftIO $
         mkIncompleteConnection cId rnId host portNum tt INITIATOR sock 2
     case tt of
-        TCP -> openTCPConnection conn
-        UDP -> undefined
+        TCP -> openTcpConnection conn
+        UDP -> openUdpConnection conn
 
-openTCPConnection ::
+openTcpConnection ::
        forall m. (MonadIO m, HasLogging m, HasSecretKey m)
     => Conn.IncompleteConnection
     -> m (Either AriviException ConnectionHandle)
-openTCPConnection conn = do
+openTcpConnection conn = do
     sk <- getSecretKey
     res <- liftIO $ try $ doEncryptedHandshake conn sk
     fragmentsHM <- liftIO $ newIORef HM.empty
@@ -69,33 +76,27 @@ openTCPConnection conn = do
         Right updatedConn ->
             return . Right $
             ConnectionHandle
-            { ANT.send = sendMessage updatedConn
-            , ANT.recv = readSock updatedConn fragmentsHM
+            { ANT.send = sendTcpMessage updatedConn
+            , ANT.recv = readTcpSock updatedConn fragmentsHM
             , ANT.close = closeConnection (Conn.socket updatedConn)
             }
 
-
--- openUDPConnection ::
---        ( MonadIO m
---        , HasLogging m
---        , HasSecretKey m
---        )
---     => Conn.IncompleteConnection
---     -> m (Either AriviException ANT.ConnectionId)
--- openUDPConnection conn = do
---   traceShow "before Handshake" (return ())
---   res <- doEncryptedHandshakeForUDP connection pType
---   traceShow "after Handshake" (return ())
---   case res of
---       Left e -> return $ Left e
---       Right updatedConn -> return $ Right cId
-
--- lookupCId ::
---        (MonadIO m, HasAriviNetworkInstance m)
---     => ANT.ConnectionId
---     -> m (Maybe CompleteConnection)
--- lookupCId cId = do
---     ariviInstance' <- getAriviNetworkInstance
---     let tv = connectionMap ariviInstance'
---     hmap <- liftIO $ readTVarIO tv
---     return $ HM.lookup cId hmap
+openUdpConnection ::
+       ( MonadIO m
+       , HasLogging m
+       , HasSecretKey m
+       )
+    => Conn.IncompleteConnection
+    -> m (Either AriviException ConnectionHandle)
+openUdpConnection conn = do
+    sk <- getSecretKey
+    res <- liftIO $ try $ doEncryptedHandshake conn sk
+    case res of
+        Left e -> return $ Left e
+        Right updatedConn ->
+            return . Right $
+            ConnectionHandle
+            { ANT.send = sendUdpMessage updatedConn
+            , ANT.recv = readUdpSock updatedConn
+            , ANT.close = closeConnection (Conn.socket updatedConn)
+            }

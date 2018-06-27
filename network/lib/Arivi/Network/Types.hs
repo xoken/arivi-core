@@ -5,7 +5,6 @@
 
 module Arivi.Network.Types
     ( ConnectionHandle (..)
-    , Event(..)
     , Header(..)
     , Payload(..)
     , Parcel(..)
@@ -30,7 +29,6 @@ module Arivi.Network.Types
     , OutboundFragment
     , ServiceId
     , ConnectionId
-    , Opcode(..)
     , SequenceNum
     , FragmentNumber
     -- FragmentCount,
@@ -96,32 +94,6 @@ type PlainText = ByteString
 
 type CipherText = ByteString
 
--- The different messages we can get from the network
-data Opcode
-    = KEY_EXCHANGE_INIT
-    | KEY_EXCHANGE_RESP
-    | DATA
-    | PING
-    | PONG
-    deriving (Show, Eq, Generic)
-
--- | The different events in layer 1 that cause state change
-data Event
-    = InitHandshakeEvent { secretKey :: Ed25519.SecretKey }
-    | TerminateConnectionEvent { payload :: Payload }
-    | SendDataEvent { payload :: Payload }
-    | KeyExchangeInitEvent { parcel    :: Parcel
-                           , secretKey :: Ed25519.SecretKey }
-    | KeyExchangeRespEvent { parcel :: Parcel }
-    | ReceiveDataEvent { parcel :: Parcel }
-    | PINGDataEvent
-    | PONGDataEvent
-    | CleanUpEvent
-    | HandshakeTimeOutEvent
-    | DataTimeOutEvent
-    | PingTimeOutEvent
-    deriving (Eq)
-
 -- | This message is encrypted and sent in the handshake message
 data HandshakeInitMasked = HandshakeInitMessage
     { versionList   :: [Version]
@@ -154,7 +126,7 @@ data Header
     | DataHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
                  , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                 , totalFragements    :: FragmentNumber -- ^ Total fragments in
+                 , totalFragments    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                  , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
@@ -171,7 +143,7 @@ data Header
     | ErrorHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
                   , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                  , totalFragements    :: FragmentNumber -- ^ Total fragments in
+                  , totalFragments    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                   , descriptor         :: Descriptor -- ^ Shows type of error
                                                     --   and other fields
@@ -180,7 +152,7 @@ data Header
                                                       --   connection
                    }
     | ByeHeader { fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                , totalFragements    :: FragmentNumber -- ^ Total fragments in
+                , totalFragments    :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                 , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
@@ -240,8 +212,6 @@ newtype Payload = Payload
     } deriving (Show, Eq, Generic)
 
 instance Serialise Version
-
-instance Serialise Opcode
 
 instance Serialise EncodingType
 

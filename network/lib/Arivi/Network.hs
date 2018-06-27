@@ -1,23 +1,17 @@
 module Arivi.Network
   ( ConnectionHandle (..)
+  , runTcpServer
+  , runUdpServer
   , openConnection
-  , runServer
   , HasSecretKey (..)
   , HasLogging   (..)
+  , TransportType (..)
   )
 where
-
-import Network.Socket (ServiceName)
 
 import Arivi.Env
 import Arivi.Logging (HasLogging (..))
 import Arivi.Network.Instance (openConnection)
-import Arivi.Network.StreamServer (runTCPServer)
-import Arivi.Network.Types (ConnectionHandle (..))
-
-runServer ::
-       (HasSecretKey m, HasLogging m)
-    => (ServiceName, ServiceName)
-    -> (ConnectionHandle -> m ())
-    -> m ()
-runServer (tcpPort, _) = runTCPServer tcpPort
+import Arivi.Network.StreamServer (runTcpServer)
+import Arivi.Network.DatagramServer     (runUdpServer)
+import Arivi.Network.Types (ConnectionHandle (..), TransportType (..))

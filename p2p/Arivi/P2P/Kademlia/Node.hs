@@ -12,10 +12,6 @@ import           Control.Concurrent                (Chan, MVar, ThreadId,
                                                     threadDelay)
 
 import           Arivi.Crypto.Utils.Keys.Signature
-import           Arivi.Env
-import           Arivi.Network.Connection          (ipAddress, port)
-import           Arivi.Network.Instance
-import           Arivi.Network.Types               as ANT
 import qualified Arivi.P2P.Kademlia.Query          as Q
 import qualified Arivi.P2P.Kademlia.Types          as T
 import           Arivi.P2P.Kademlia.Utils
@@ -35,6 +31,7 @@ import           Data.Maybe
 import qualified Data.Text                         as DT
 import qualified Data.Time.Clock.POSIX             as Clock (POSIXTime,
                                                              getPOSIXTime)
+import           Network.Socket (SockAddr(..))
 import           GHC.Exts
 import           GHC.Integer.Logarithms
 

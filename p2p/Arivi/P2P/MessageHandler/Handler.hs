@@ -33,7 +33,6 @@ import           Control.Monad.Trans
 
 import           Codec.Serialise                       (deserialise, serialise)
 
-import           Arivi.Network.Connection              ()
 --import           Arivi.Network.Types                   (TransportType (..))
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv

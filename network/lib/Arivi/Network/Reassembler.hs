@@ -13,6 +13,7 @@
 --
 module Arivi.Network.Reassembler
     ( reassembleFrames
+    , decryptPayload
     ) where
 
 import           Arivi.Crypto.Cipher.ChaChaPoly1305 (getCipherTextAuthPair)
@@ -34,31 +35,32 @@ import           Data.Maybe                         (fromMaybe)
 
 -- | Extracts `Payload` messages from `DataParcel` and puts in the
 --   list of fragmentsHashMap. Returns the hashmap along with a Just p2pMessage in case of a complete message reassembly or Nothing otherwise
-reassembleFrames :: CompleteConnection
-                 -> Parcel
-                 -> StrictHashMap.HashMap MessageId Lazy.ByteString
-                 -> (StrictHashMap.HashMap MessageId Lazy.ByteString, Maybe Lazy.ByteString)
+reassembleFrames ::
+       CompleteConnection
+    -> Parcel
+    -> StrictHashMap.HashMap MessageId Lazy.ByteString
+    -> (StrictHashMap.HashMap MessageId Lazy.ByteString, Maybe Lazy.ByteString)
+reassembleFrames connection parcel fragmentsHashMap
+    | fragmentNumber (header parcel) == totalFragments (header parcel) =
+        ( StrictHashMap.delete messageIdNo fragmentsHashMap
+        , Just appendedMessage)
+    | otherwise =
+        ( StrictHashMap.insert messageIdNo appendedMessage fragmentsHashMap
+        , Nothing)
+  where
+    messageIdNo = messageId (header parcel)
+    payloadMessage = decryptPayload connection parcel
+    messages = fromMaybe "" (StrictHashMap.lookup messageIdNo fragmentsHashMap)
+    appendedMessage = Lazy.concat [messages, payloadMessage]
 
-reassembleFrames connection parcel fragmentsHashMap = do
-    let messageIdNo = messageId (header parcel)
-    let (cipherText, authenticationTag) =
-            getCipherTextAuthPair
-                (Lazy.toStrict (getPayload (encryptedPayload parcel)))
-    let parcelHeader = Lazy.toStrict $ serialise (header parcel)
-    let fragmentAead = aeadNonce (header parcel)
-    let ssk = sharedSecret connection
-    let !payloadMessage =  Lazy.fromStrict $ decryptMsg fragmentAead
-                                                    ssk parcelHeader
-                                                    authenticationTag
-                                                    cipherText
-    let messages = fromMaybe  "" (StrictHashMap.lookup messageIdNo
-                                                           fragmentsHashMap)
-
-    let appendedMessage = Lazy.concat [messages, payloadMessage]
-    let currentFragmentNo = fragmentNumber (header parcel)
-
-    if currentFragmentNo ==  totalFragements (header parcel)
-      then
-        (StrictHashMap.delete messageIdNo fragmentsHashMap, Just appendedMessage)
-      else
-        (StrictHashMap.insert messageIdNo appendedMessage fragmentsHashMap, Nothing)
+decryptPayload :: CompleteConnection -> Parcel -> Lazy.ByteString
+decryptPayload connection parcel =
+    Lazy.fromStrict $
+    decryptMsg fragmentAead ssk parcelHeader authenticationTag cipherText
+  where
+    (cipherText, authenticationTag) =
+        getCipherTextAuthPair
+            (Lazy.toStrict (getPayload (encryptedPayload parcel)))
+    parcelHeader = Lazy.toStrict $ serialise (header parcel)
+    fragmentAead = aeadNonce (header parcel)
+    ssk = sharedSecret connection

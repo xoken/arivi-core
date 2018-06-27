@@ -54,10 +54,14 @@ library
                     ,  arivi-utils
 
   ghc-options:         -Wall -fno-defer-type-errors -O1 -fno-defer-out-of-scope-variables
-  exposed-modules:
+  exposed-modules:     
+                       Arivi.Env
+                       Arivi.Logging
                        Arivi.Network
+                       Arivi.Network.Types
+  other-modules:
                        Arivi.Network.Connection
-                       Arivi.Network.Datagram
+                       Arivi.Network.DatagramServer
                        Arivi.Network.Fragmenter
                        Arivi.Network.ConnectionHandler
                        Arivi.Network.Handshake
@@ -67,11 +71,8 @@ library
                        Arivi.Network.Replay
                        Arivi.Network.StreamClient
                        Arivi.Network.StreamServer
-                       Arivi.Network.Types
                        Arivi.Network.Utils
-                       Arivi.Env
-                       Arivi.Logging
-
+                      
   default-language:    Haskell2010
 
 executable arivi-network-exe
@@ -79,6 +80,26 @@ executable arivi-network-exe
     main-is: Main.hs
     default-language:    Haskell2010
     ghc-options:       -threaded -O1 +RTS -N -RTS
+    build-depends:     async
+                    ,  base >=4.9 && <4.11
+                    ,  bytestring
+                    ,  hashtables <= 1.2.6.1
+                    ,  lifted-async
+                    ,  monad-logger
+                    ,  mtl
+                    ,  stm >= 2.4.4.1
+                    ,  time
+                    ,  arivi-crypto
+                    ,  arivi-utils
+                    ,  arivi-network
+                    ,  network
+
+test-suite arivi-network-test
+    type: exitcode-stdio-1.0
+    main-is: Main.hs
+    hs-source-dirs: test
+    default-language: Haskell2010
+    ghc-options:      -threaded -O1 +RTS -N -RTS
     build-depends:     async
                     ,  base >=4.9 && <4.11
                     ,  bytestring

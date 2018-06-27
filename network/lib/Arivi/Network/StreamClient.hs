@@ -5,28 +5,40 @@ module Arivi.Network.StreamClient
     ) where
 
 import           Arivi.Network.Types            (TransportType (..))
+
 import           Control.Concurrent.MVar
+import           Control.Monad                  (when)
 import           Data.Binary
 import qualified Data.ByteString.Lazy           as BSL
 import           Data.Int                       (Int16)
 import           Network.Socket
 import qualified Network.Socket.ByteString.Lazy as N (sendAll)
 
-getAddressType :: TransportType -> SocketType
-getAddressType TCP = Stream
-getAddressType UDP = Datagram
 
 -- | Eg: createSocket "127.0.0.1" 3000 TCP
 createSocket :: String -> Int -> TransportType -> IO Socket
-createSocket ipAdd port transportType =
+createSocket = createSocketWithOptions []
+
+createSocketWithOptions ::
+       [SocketOption] -> String -> Int -> TransportType -> IO Socket
+createSocketWithOptions options ip port tt =
     withSocketsDo $ do
         let portNo = Just (show port)
-        let transport_type = getAddressType transportType
+        let transport_type = getAddressType tt
         let hints = defaultHints {addrSocketType = transport_type}
-        addr:_ <- getAddrInfo (Just hints) (Just ipAdd) portNo
+        addr:_ <- getAddrInfo (Just hints) (Just ip) portNo
         sock <- socket AF_INET transport_type (addrProtocol addr)
+        mapM_
+            (\option ->
+                 when
+                     (isSupportedSocketOption option)
+                     (setSocketOption sock option 1))
+            options
         connect sock (addrAddress addr)
         return sock
+  where
+    getAddressType TCP = Stream
+    getAddressType UDP = Datagram
 
 sendFrame :: MVar Int -> Socket -> BSL.ByteString -> IO ()
 sendFrame writeLock sock msg = do
