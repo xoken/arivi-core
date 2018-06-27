@@ -5,6 +5,7 @@ module Arivi.P2P.RPC.Functions
     ( registerResource
     , getResource
     -- not for Service Layer
+    , rpcHandler
     , updatePeerInResourceMap
     ) where
 
