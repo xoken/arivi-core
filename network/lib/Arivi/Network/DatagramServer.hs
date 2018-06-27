@@ -71,11 +71,14 @@ newUdpConnection ::
     -> Socket
     -> (ConnectionHandle -> m ())
     -> m ()
-newUdpConnection hsInitMsg sock handler = do
+newUdpConnection hsInitMsg sock handler =
     $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $ do
         liftIO $ print hsInitMsg
         sk <- getSecretKey
-        conn <- liftIO $ deserialise (fromStrict hsInitMsg) & establishSecureConnection sk sock id
+        conn <-
+            liftIO $
+            deserialise (fromStrict hsInitMsg) &
+            establishSecureConnection sk sock id
         handler
             ConnectionHandle
             { send = sendUdpMessage conn

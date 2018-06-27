@@ -19,9 +19,9 @@ import           Control.Concurrent                     (threadDelay)
 import           Control.Concurrent.Async               hiding (mapConcurrently_)
 import           Control.Concurrent.Async.Lifted        (mapConcurrently_)
 import           Control.Concurrent.STM.TQueue
-import           Control.Exception
 import           Control.Monad.Logger
 import           Control.Monad.Reader
+import           Control.Exception
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import           Data.Time
@@ -49,13 +49,13 @@ runAppM = flip runReaderT
 
 sender :: SecretKey -> SecretKey -> Int -> Int -> IO ()
 sender sk rk n size = do
-  tqSender <- newTQueueIO :: IO LogChan
+  tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   -- mutableConnectionHashMap <- MutableHashMap.new
   --                                  :: IO (HashTable ConnectionId CompleteConnection)
-  envSender' <- mkAriviEnv
-  let env = envSender' { ariviEnvCryptoEnv = CryptoEnv sk
-                 , ariviEnvLoggerChan = tqSender
+  env' <- mkAriviEnv
+  let env = env' { ariviEnvCryptoEnv = CryptoEnv sk
+                 , ariviEnvLoggerChan = tq
                  -- , udpSocket = sock
                  --, ariviEnvUdpConnectionHashMap = mutableConnectionHashMap
                  }
@@ -75,13 +75,13 @@ sender sk rk n size = do
                                    )
 receiver :: SecretKey -> IO ()
 receiver sk = do
-  tqReceiver <- newTQueueIO :: IO LogChan
+  tq <- newTQueueIO :: IO LogChan
   -- sock <- createUDPSocket "127.0.0.1" (envPort mkAriviEnv)
   -- mutableConnectionHashMap1 <- MutableHashMap.new
                                     -- :: IO (HashTable ConnectionId CompleteConnection)
-  envReceiver' <- mkAriviEnv
-  let env = envReceiver' { ariviEnvCryptoEnv = CryptoEnv sk
-                 , ariviEnvLoggerChan = tqReceiver
+  env' <- mkAriviEnv
+  let env = env' { ariviEnvCryptoEnv = CryptoEnv sk
+                 , ariviEnvLoggerChan = tq
                  -- , udpSocket = sock
                  --, ariviEnvUdpConnectionHashMap = mutableConnectionHashMap1
                  }
@@ -147,7 +147,7 @@ recipient f = do
 main :: IO ()
 main = do
   [size, n] <- getArgs
-  _ <- (recipient receiver) `concurrently` (threadDelay 1000000 >> initiator sender size n) `concurrently` (recipient receiver') `concurrently` (threadDelay 1000000 >> initiator sender' size n)
+  _ <- recipient receiver `concurrently` (threadDelay 1000000 >> initiator sender size n) `concurrently` recipient receiver' `concurrently` (threadDelay 1000000 >> initiator sender' size n)
   return ()
 
 a :: Int -> BSL.ByteString
@@ -155,3 +155,4 @@ a n = BSLC.pack (replicate n 'a')
 
 myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h
+

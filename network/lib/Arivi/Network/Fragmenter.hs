@@ -78,7 +78,7 @@ processFragment fragment conn msgId fragmentNum fragmentCount = do
     modifyTVar (Conn.aeadNonceCounter conn) (+ 1)
     modifyTVar (Conn.egressSeqNum conn) (+ 1)
     return $
-        case (transportType conn) of
+        case transportType conn of
             TCP -> serialiseAndFrame parcel
             UDP -> serialise parcel
 

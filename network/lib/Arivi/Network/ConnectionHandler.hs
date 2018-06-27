@@ -237,7 +237,7 @@ processParcel parcel connection fragmentsHM =
         _ -> throw AriviWrongParcelException
 
 getDatagram :: Socket -> IO (Either AriviException Parcel)
-getDatagram sock = first AriviDeserialiseException <$> deserialiseOrFail <$> N.recv sock 5100
+getDatagram sock = first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
 
 getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getDatagramWithTimeout sock microseconds = do
@@ -251,7 +251,7 @@ getDatagramWithTimeout sock microseconds = do
 
 
 readUdpSock :: (HasLogging m) => Conn.CompleteConnection -> m BSL.ByteString
-readUdpSock connection = do
+readUdpSock connection =
     $(withLoggingTH) (LogNetworkStatement "readUdpSock: ") LevelInfo $ do
         let sock = Conn.socket connection
             writeLock = Conn.waitWrite connection
@@ -261,7 +261,8 @@ readUdpSock connection = do
                 throw $ AriviDeserialiseException e
             Left AriviTimeoutException -> do
                 liftIO $ sendPing writeLock sock id
-                parcelOrFailAfterPing <- liftIO $ getDatagramWithTimeout sock 6000000
+                parcelOrFailAfterPing <-
+                    liftIO $ getDatagramWithTimeout sock 6000000
                 case parcelOrFailAfterPing of
                     Left e -> throw e
                     Right parcel ->

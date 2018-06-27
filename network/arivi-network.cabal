@@ -75,25 +75,6 @@ library
                       
   default-language:    Haskell2010
 
-executable arivi-network-exe
-    hs-source-dirs: exe
-    main-is: Main.hs
-    default-language:    Haskell2010
-    ghc-options:       -threaded -O1 +RTS -N -RTS
-    build-depends:     async
-                    ,  base >=4.9 && <4.11
-                    ,  bytestring
-                    ,  hashtables <= 1.2.6.1
-                    ,  lifted-async
-                    ,  monad-logger
-                    ,  mtl
-                    ,  stm >= 2.4.4.1
-                    ,  time
-                    ,  arivi-crypto
-                    ,  arivi-utils
-                    ,  arivi-network
-                    ,  network
-
 test-suite arivi-network-test
     type: exitcode-stdio-1.0
     main-is: Main.hs
