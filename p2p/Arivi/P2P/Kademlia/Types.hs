@@ -21,8 +21,8 @@ module Arivi.P2P.Kademlia.Types
     , packFnR
     , packPing
     , packPong
-    , serialise
-    , deserialise
+    -- , serialise
+    -- , deserialise
     , Peer(..)
     , Kbucket(..)
     , HasKbucket(..)
