@@ -58,6 +58,7 @@ maintainWatchersHelper watcherMap (topic:topicIdList) = do
                 let newList = checkWatchers currList currTime
                 let newSortedList = toSortedList newList
                 writeTVar currListTvar newSortedList)
+    maintainWatchersHelper watcherMap topicIdList
 
 -- will take the list of watchers for each topic and check their validity
 checkWatchers :: [Watcher] -> UTCTime -> [Watcher]
