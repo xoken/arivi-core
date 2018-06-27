@@ -64,6 +64,7 @@ library
                        Arivi.Network.HandshakeUtils
                        Arivi.Network.Instance
                        Arivi.Network.Reassembler
+                       Arivi.Network.Replay
                        Arivi.Network.StreamClient
                        Arivi.Network.StreamServer
                        Arivi.Network.Types
