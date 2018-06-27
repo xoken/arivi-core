@@ -5,6 +5,7 @@ module Arivi.P2P.MessageHandler.Handler
     ( sendRequest
     , sendRequestforKademlia
     , newIncomingConnection
+    , cleanConnection
     , sendResponse --to be removed in next commit
     , readKademliaRequest --to be removed in next commit
     , readRPCRequest --to be removed in next commit
@@ -162,6 +163,33 @@ newIncomingConnection nodeId connHandle transportType = do
     LAsync.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
     return ()
 
+cleanConnection ::
+       (HasP2PEnv m) => NodeId -> ConnectionId -> TransportType -> m ()
+cleanConnection nodeId connHandle transportType = do
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    let peerDetailsTVar = fromJust (HM.lookup nodeId nodeIdMap)
+    liftIO $
+        atomically
+            (do peerDetails <- readTVar peerDetailsTVar
+                let newPeerDetails =
+                        case transportType of
+                            UDP ->
+                                case datagramHandle peerDetails of
+                                    Connected _ ->
+                                        peerDetails
+                                            {datagramHandle = NotConnected}
+                                    _ -> peerDetails
+                            TCP ->
+                                case streamHandle peerDetails of
+                                    Connected _ ->
+                                        peerDetails
+                                            {streamHandle = NotConnected}
+                                    _ -> peerDetails
+                writeTVar peerDetailsTVar newPeerDetails)
+    liftIO $ cleanPeer nodeId nodeIdMapTVar
+    return ()
+
 processIncomingMessage ::
        (HasP2PEnv m)
     => ConnectionId
@@ -199,6 +227,19 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage = do
 {-Support Functions===========================================================-}
 -- | atomically checks for existing handle which is returned if it exists or else its status is changed to pending. then a new connection is established and it is stored as well as returned.
 --
+cleanPeer :: NodeId -> TVar NodeIdPeerMap -> IO ()
+cleanPeer nodeId nodeIdMapTVar =
+    atomically
+        (do nodeIdMap <- readTVar nodeIdMapTVar
+            let maybePeer = HM.lookup nodeId nodeIdMap
+            when (isJust maybePeer) $ do
+                let peerDetailsTVar = fromJust maybePeer
+                peerDetails <- readTVar peerDetailsTVar
+                case peerDetails of
+                    PeerDetails node Nothing Nothing Nothing Nothing NotConnected NotConnected _ -> do
+                        let newnodeIdMap = HM.delete nodeId nodeIdMap
+                        writeTVar nodeIdMapTVar newnodeIdMap)
+
 getConnectionHandle ::
        TVar PeerDetails -> TransportType -> IO (ConnectionId, Bool)
 getConnectionHandle peerDetailsTVar transportType = do
