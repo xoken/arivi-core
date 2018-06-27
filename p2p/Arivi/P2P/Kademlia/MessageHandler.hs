@@ -10,41 +10,43 @@
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
-module Arivi.P2P.MessageHandler
-    ( messageHandler
+module Arivi.P2P.Kademlia.MessageHandler
+    ( kademliaMessageHandler
     ) where
 
 import           Arivi.P2P.Kademlia.Kbucket
-import qualified Arivi.P2P.Kademlia.Types       as T
-import           Arivi.P2P.Kademlia.XorDistance
+import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.P2PEnv
+import           Arivi.P2P.Types
 import           Arivi.Utils.Exception
-import           Codec.Serialise                (serialise)
+import           Codec.Serialise             (deserialise, serialise)
 import           Control.Concurrent.STM.TVar
-import           Control.Monad.STM              (atomicallly)
-import           P2P.Types
+import           Control.Monad.IO.Class
+import           Control.Monad.STM
+import qualified Data.ByteString.Lazy        as L
 
-messageHandler ::
-       (HasP2PEnv m) => T.PayLoad -> m (Either AriviException T.PayLoad)
-messageHandler payl = do
-    let msg = deserialise payl
-        msgt = messageType $ message payl
-        msgb = messageBody $ message payl
-        nep = T.fromEndPoint msgb
+kademliaMessageHandler ::
+       (HasP2PEnv m) => L.ByteString -> m (Either AriviException L.ByteString)
+kademliaMessageHandler payl = do
+    let payl' = deserialise payl :: PayLoad
+        msgb = messageBody $ message payl'
+        nep = fromEndPoint msgb
         rnid = nodeId msgb
-    kb <- getKb
     p2pInstanceTVar <- getAriviTVarP2PEnv
-    p2pInstance <- atomically $ readTVar p2pInstanceTVar
+    p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
     case msgb of
-        (T.Ping x) ->
+        PING {} ->
             return $
             Right $
-            serialise $ T.packPong lnid (nodeIp nep) (udpPort nep) (tcpPort nep)
-        (T.FN_NODE y) -> do
-            pl <- getKClosestPeersByNodeid rnid
-            return $
-                Right $
-                serialise $
-                T.packFnR lnid pl (nodeIp nep) (udpPort nep) (tcpPort nep)
-        otherwsie -> return $ Left KademliaInvalidRequest
+            serialise $ packPong lnid (nodeIp nep) (udpPort nep) (tcpPort nep)
+        FIND_NODE {} -> do
+            pl <- getKClosestPeersByNodeid rnid 5
+            case pl of
+                Right pl2 ->
+                    return $
+                    Right $
+                    serialise $
+                    packFnR lnid pl2 (nodeIp nep) (udpPort nep) (tcpPort nep)
+                Left _ -> return $ Left KademliaInvalidPeer
+        _ -> return $ Left KademliaInvalidRequest
