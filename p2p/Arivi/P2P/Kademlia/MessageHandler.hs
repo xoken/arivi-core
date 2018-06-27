@@ -39,9 +39,12 @@ messageHandler payl = do
     case msgb of
         (T.Ping x) ->
             return $
+            Right $
             serialise $ T.packPong lnid (nodeIp nep) (udpPort nep) (tcpPort nep)
         (T.FN_NODE y) -> do
             pl <- getKClosestPeersByNodeid rnid
             return $
+                Right $
                 serialise $
                 T.packFnR lnid pl (nodeIp nep) (udpPort nep) (tcpPort nep)
+        otherwsie -> return $ Left KademliaInvalidRequest
