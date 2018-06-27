@@ -2,6 +2,7 @@
 
 module Arivi.P2P.RPC.SendOptions
     ( sendOptionsMessage
+    , optionsHandler
     ) where
 
 import           Arivi.Network.Types                   (ConnectionId)
