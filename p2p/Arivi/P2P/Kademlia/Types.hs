@@ -2,8 +2,9 @@
 -- throughout this Kademlia implementation, there are several advantages of
 -- this first being it enables the utilization of haskell's powerful type system
 -- and second it makes code cleaner and structured.
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Arivi.P2P.Kademlia.Types
     ( Message(..)
@@ -22,24 +23,30 @@ module Arivi.P2P.Kademlia.Types
     , packPong
     , serialise
     , deserialise
+    , Peer(..)
+    , Kbucket(..)
+    , HasKbucket(..)
     ) where
 
-import           Codec.Serialise          (deserialise, serialise)
-import           Codec.Serialise.Class    (Serialise (..))
+import           Codec.Serialise             (deserialise, serialise)
+import           Codec.Serialise.Class       (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
+import           Control.Monad.IO.Class      (MonadIO)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
-                                           signature)
-import           Data.ByteArray           (convert)
+import           Crypto.PubKey.Ed25519       (PublicKey, Signature, publicKey,
+                                              signature)
+import           Data.ByteArray              (convert)
 import           Data.ByteString
-import qualified Data.ByteString.Char8    as C
-import           Data.ByteString.Lazy     ()
+import qualified Data.ByteString.Char8       as C
+import           Data.ByteString.Lazy        ()
 import           Data.Monoid
-import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime)
+import           Data.Time.Clock.POSIX       (POSIXTime, getPOSIXTime)
 import           Data.Word
 import           GHC.Generics
 import           Network.Socket
+import qualified STMContainers.Map           as H
 
 -- | Helper function to get timeStamp/ epoch
 getTimeStamp :: IO TimeStamp
@@ -68,6 +75,24 @@ data MessageType
     | MSG04
     deriving (Show, Generic)
 
+-- | Peer information encapsulated in a single structure
+newtype Peer = Peer
+    { getPeer :: (NodeId, NodeEndPoint)
+    } deriving (Show, Generic)
+
+instance Eq Peer where
+    Peer (x, _) == Peer (a, _) = a == x
+
+-- | K-bucket to store peers
+newtype Kbucket k v = Kbucket
+    { getKbucket :: H.Map k v
+    }
+
+class (MonadIO m, MonadBaseControl IO m) =>
+      HasKbucket m
+    where
+    getKb :: m (Kbucket Int [Peer])
+
 -- Custom data type to send & receive message
 data MessageBody
     = PING { nodeId       :: NodeId
@@ -78,7 +103,7 @@ data MessageBody
                 , targetNodeId :: NodeId
                 , fromEndPoint :: NodeEndPoint }
     | FN_RESP { nodeId       :: NodeId
-              , peerList     :: [(NodeId, NodeEndPoint)]
+              , peerList     :: [Peer]
               , fromEndPoint :: NodeEndPoint }
     deriving (Generic, Show)
 
@@ -114,13 +139,7 @@ packFindMsg nId targetNode hostName' udpPort'' tcpPort'' = PayLoad msg
     msgBody = FIND_NODE nId targetNode fromep
     msg = Message MSG03 msgBody
 
-packFnR ::
-       NodeId
-    -> [(NodeId, NodeEndPoint)]
-    -> HostName
-    -> PortNumber
-    -> PortNumber
-    -> PayLoad
+packFnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
 packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
   where
     fromep = NodeEndPoint hostNamea udpPorta tcpPorta
@@ -139,6 +158,8 @@ instance Serialise PayLoad
 instance Serialise MessageType
 
 instance Serialise Message
+
+instance Serialise Peer
 
 -- Serialise instance for PublicKey
 instance Serialise PublicKey where

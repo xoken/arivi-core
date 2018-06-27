@@ -24,24 +24,6 @@ import           Control.Monad.Trans.Control           (MonadBaseControl)
 import           Data.HashMap.Strict                   as HM
 import qualified STMContainers.Map                     as H
 
--- | Peer information encapsulated in a single structure
-newtype Peer = Peer
-    { getPeer :: (T.NodeId, T.NodeEndPoint)
-    } deriving (Show)
-
-instance Eq Peer where
-    Peer (x, _) == Peer (a, _) = a == x
-
--- | K-bucket to store peers
-newtype Kbucket k v = Kbucket
-    { getKbucket :: H.Map k v
-    }
-
-class (MonadIO m, MonadBaseControl IO m) =>
-      HasKbucket m
-    where
-    getKb :: m (Kbucket Int [Peer])
-
 data P2PEnv = P2PEnv
     { tvarAriviP2PInstance :: TVar AriviP2PInstance
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
@@ -50,7 +32,7 @@ data P2PEnv = P2PEnv
     , tqueuePubSub :: TQueue MessageInfo
     , tqueueOption :: TQueue MessageInfo
     , tvarResourceToPeerMap :: TVar ResourceToPeerMap
-    , kbucket :: Kbucket Int [Peer]
+    , kbucket :: T.Kbucket Int [T.Peer]
     , statsdClient :: StatsdClient
     , tvarMessageTypeMap :: forall m. (HasP2PEnv m) =>
                                           (MessageTypeMap m)
@@ -62,7 +44,7 @@ data P2PEnv = P2PEnv
 
 type P2Papp = ReaderT P2PEnv IO
 
-class (MonadIO m, MonadBaseControl IO m, HasKbucket m, HasStatsdClient m) =>
+class (MonadIO m, MonadBaseControl IO m, T.HasKbucket m, HasStatsdClient m) =>
       HasP2PEnv m
     where
     getP2PEnv :: m P2PEnv
@@ -79,7 +61,7 @@ class (MonadIO m, MonadBaseControl IO m, HasKbucket m, HasStatsdClient m) =>
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
 
-instance HasKbucket P2Papp where
+instance T.HasKbucket P2Papp where
     getKb = asks kbucket
 
 instance HasStatsdClient P2Papp where
