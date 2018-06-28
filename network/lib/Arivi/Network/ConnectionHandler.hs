@@ -29,30 +29,31 @@ module Arivi.Network.ConnectionHandler
     ) where
 
 import           Arivi.Logging
-import           Arivi.Network.Connection       as Conn
+import           Arivi.Network.Connection    as Conn
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
-import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
+import           Arivi.Network.Utils         (getIPAddress, getPortNumber)
 import           Arivi.Utils.Exception
-import           Control.Concurrent             (MVar, newMVar, threadDelay)
-import qualified Control.Concurrent.Async       as Async (race)
-import           Control.Concurrent.STM         (atomically, newTChan)
+import           Control.Concurrent          (MVar, newMVar, threadDelay)
+import qualified Control.Concurrent.Async    as Async (race)
+import           Control.Concurrent.STM      (atomically, newTChan)
 import           Control.Concurrent.STM.TVar
-import           Control.Exception              (try)
+import           Control.Exception           (try)
 import           Control.Exception.Base
 import           Control.Monad.IO.Class
-import           Data.Binary
-import qualified Data.ByteString.Lazy            as BSL
-import qualified Data.ByteString.Lazy.Char8      as BSLC
 import           Data.Bifunctor
-import           Data.HashMap.Strict             as HM
+import           Data.Binary
+import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Lazy        as BSL
+import qualified Data.ByteString.Lazy.Char8  as BSLC
+import           Data.HashMap.Strict         as HM
 import           Data.Int
 import           Data.IORef
-import           Network.Socket                  hiding (send)
-import qualified Network.Socket.ByteString.Lazy  as N (recv)
+import           Network.Socket              hiding (send)
+import qualified Network.Socket.ByteString   as N (recv)
 import           System.Timeout
 
 
@@ -99,10 +100,10 @@ getTransportType (MkSocket _ _ Stream _ _) = TCP
 getTransportType _                         = UDP
 
 -- | Converts length in byteString to Num
-getFrameLength :: BSL.ByteString -> Int64
+getFrameLength :: BS.ByteString -> Int
 getFrameLength len = fromIntegral lenInt16
   where
-    lenInt16 = decode len :: Int16
+    lenInt16 = decode (BSL.fromStrict len) :: Int16
 
 -- | Races between a timer and receive parcel, returns an either type
 getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
@@ -118,7 +119,7 @@ getParcelWithTimeout sock microseconds = do
                     either
                         (return . Left . AriviDeserialiseException)
                         (return . Right)
-                        (deserialiseOrFail parcelCipher)
+                        (deserialiseOrFail $ BSL.fromStrict parcelCipher)
 
 -- | Reads frame a given socket
 getParcel :: Socket -> IO (Either AriviException Parcel)
@@ -128,7 +129,7 @@ getParcel sock = do
     either
         (return . Left . AriviDeserialiseException)
         (return . Right)
-        (deserialiseOrFail parcelCipher)
+        (deserialiseOrFail $ BSL.fromStrict parcelCipher)
 
 -- | Create and send a ping message on the socket
 sendPing :: MVar Int -> Socket -> Framer -> IO ()
@@ -227,6 +228,7 @@ processParcel parcel connection fragmentsHM =
     case parcel of
         Parcel DataHeader {} _ -> do
             hm <- liftIO $ readIORef fragmentsHM
+
             let (updatedHM, p2pMsg) = reassembleFrames connection parcel hm
             liftIO $ writeIORef fragmentsHM updatedHM
             return p2pMsg
@@ -237,7 +239,7 @@ processParcel parcel connection fragmentsHM =
         _ -> throw AriviWrongParcelException
 
 getDatagram :: Socket -> IO (Either AriviException Parcel)
-getDatagram sock = first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
+getDatagram sock = first AriviDeserialiseException . deserialiseOrFail . BSL.fromStrict <$> N.recv sock 5100
 
 getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getDatagramWithTimeout sock microseconds = do
@@ -247,7 +249,7 @@ getDatagramWithTimeout sock microseconds = do
     Nothing -> return $ Left AriviTimeoutException
     Just datagramEither -> case datagramEither of
       Left e -> return (Left e)
-      Right datagram -> return $ first AriviDeserialiseException $ deserialiseOrFail datagram
+      Right datagram -> return $ first AriviDeserialiseException $ deserialiseOrFail (BSL.fromStrict datagram)
 
 
 readUdpSock :: (HasLogging m) => Conn.CompleteConnection -> m BSL.ByteString
@@ -327,16 +329,16 @@ readUdpHandshakeRespSock writeLock sock = do
                 _ -> throw AriviWrongParcelException
 
 -- Helper Functions
-recvAll :: Socket -> Int64 -> IO BSL.ByteString
+recvAll :: Socket -> Int -> IO BS.ByteString
 recvAll sock len = do
     msg <-
         mapIOException
             (\(_ :: SomeException) -> AriviSocketException)
             (N.recv sock len)
-    if BSL.null msg
+    if BS.null msg
         then throw AriviSocketException
-        else if BSL.length msg == len
+        else if BS.length msg == len
                  then return msg
-                 else BSL.append msg <$> recvAll sock (len - BSL.length msg)
+                 else BS.append msg <$> recvAll sock (len - BS.length msg)
 
 type Framer = BSL.ByteString -> BSL.ByteString

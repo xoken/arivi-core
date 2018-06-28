@@ -4,15 +4,15 @@ module Arivi.Network.StreamClient
     , createFrame
     ) where
 
-import           Arivi.Network.Types            (TransportType (..))
+import           Arivi.Network.Types       (TransportType (..))
 
 import           Control.Concurrent.MVar
-import           Control.Monad                  (when)
+import           Control.Monad             (when)
 import           Data.Binary
-import qualified Data.ByteString.Lazy           as BSL
-import           Data.Int                       (Int16)
+import qualified Data.ByteString.Lazy      as BSL
+import           Data.Int                  (Int16)
 import           Network.Socket
-import qualified Network.Socket.ByteString.Lazy as N (sendAll)
+import qualified Network.Socket.ByteString as N (sendAll)
 
 
 -- | Eg: createSocket "127.0.0.1" 3000 TCP
@@ -43,7 +43,7 @@ createSocketWithOptions options ip port tt =
 sendFrame :: MVar Int -> Socket -> BSL.ByteString -> IO ()
 sendFrame writeLock sock msg = do
     a <- takeMVar writeLock
-    N.sendAll sock msg
+    N.sendAll sock (BSL.toStrict msg)
     putMVar writeLock a
 
 -- | prefixes length to cborg serialised parcel
