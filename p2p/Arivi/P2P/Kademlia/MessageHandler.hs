@@ -47,12 +47,16 @@ kademliaMessageHandler payl = do
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
+    let rpeer = Peer (rnid, nep)
     case msgb of
-        PING {} ->
+        PING {} -> do
+            addToKBucket rpeer
             return $
-            Right $
-            serialise $ packPong lnid (nodeIp nep) (udpPort nep) (tcpPort nep)
+                Right $
+                serialise $
+                packPong lnid (nodeIp nep) (udpPort nep) (tcpPort nep)
         FIND_NODE {} -> do
+            addToKBucket rpeer
             pl <- getKClosestPeersByNodeid rnid 5
             case pl of
                 Right pl2 ->
