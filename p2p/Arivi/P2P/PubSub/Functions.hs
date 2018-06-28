@@ -8,6 +8,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
 import           Codec.Serialise                       (deserialise, serialise)
+import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
@@ -58,7 +59,7 @@ sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> ByteString -> m ()
 sendPublishMessage [] _ = return ()
 sendPublishMessage (recievingPeer:peerList) message = do
     let recievingPeerNodeId = timerNodeId recievingPeer
-    fork (sendPublishMessageToPeer recievingPeerNodeId message)
+    LAsync.async (sendPublishMessageToPeer recievingPeerNodeId message)
     sendPublishMessage peerList message
 
 -- will have to do exception handling based on the response of sendRequest
@@ -72,7 +73,7 @@ maintainWatchers = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
     let topicIds = HM.keys watcherMap
-    fork (maintainWatchersHelper watcherMap topicIds)
+    LAsync.async (maintainWatchersHelper watcherMap topicIds)
     return ()
 
 maintainWatchersHelper :: (HasP2PEnv m) => WatchersTable -> [Topic] -> m ()
