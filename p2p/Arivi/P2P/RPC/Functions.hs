@@ -65,6 +65,7 @@ registerResource (resourceTuple:resourceHandlerList) = do
                 writeTVar resourceToPeerMapTvar newMap)
     registerResource resourceHandlerList
 
+-- TODO : need to replace currNodeId passed with nodeId from environment
 -------------------- Functions for periodic updation of the hashmap ---------------------
 -- creates a worker thread
 -- thread should read the hashMap and should check if the number of peers for a resource is less than some number

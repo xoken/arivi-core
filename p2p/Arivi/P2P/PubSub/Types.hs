@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Arivi.P2P.PubSub.Types
     ( Topic
     , Notifier
@@ -18,11 +20,14 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 
+import           Codec.Serialise                       (Serialise)
 import           Data.ByteString.Char8                 as Char8 (ByteString)
+import           Data.Fixed                            (Pico)
 import           Data.HashMap.Strict                   as HM
 import qualified Data.Map.Strict                       as Map
 import           Data.SortedList
 import           Data.Time.Clock
+import           GHC.Generics                          (Generic)
 
 type Topic = String
 
@@ -38,13 +43,16 @@ type ResponseCode = Int
 
 data MessageTypePubSub
     = Subscribe { topicId      :: Topic
-                , messageTimer :: NominalDiffTime }
+                , messageTimer :: Pico }
     | Notify { topicId      :: Topic
              , topicMessage :: TopicMessage }
     | Publish { topicId      :: Topic
               , topicMessage :: TopicMessage }
     | Response { responseCode :: ResponseCode
-               , messageTimer :: NominalDiffTime }
+               , messageTimer :: Pico }
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise MessageTypePubSub
 
 data NodeTimer = NodeTimer
     { timerNodeId :: NodeId
