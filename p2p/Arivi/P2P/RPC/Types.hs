@@ -12,6 +12,7 @@ module Arivi.P2P.RPC.Types
     , P2Pinfo(..)
     , ServiceMessage
     , ResourceHandler
+    , ResponseCode(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (ConnectionId, IP,
@@ -60,10 +61,21 @@ data MessageTypeRPC
                     , from           :: NodeId
                     , rid            :: ResourceId
                     , serviceMessage :: ServiceMessage }
+    | Response { to           :: NodeId
+               , from         :: NodeId
+               , responseCode :: ResponseCode }
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypeRPC
 
+data ResponseCode
+    = Busy
+    | Error
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise ResponseCode
+
+-- any other responses can be added here
 --instance Hashable MessageTypeRPC
 {-
 data MessageRC = RequestRC{

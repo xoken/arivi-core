@@ -168,16 +168,28 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
         Right returnMessage -> do
             let inmessage =
                     deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
-            if (mynodeid == to inmessage && nodeId == from inmessage) &&
-               resourceID == rid inmessage
-                then liftIO $
-                     atomically (writeTQueue nodeTQ nodeId) >>
-                     return (serviceMessage inmessage)
-                else sendResourceRequestToPeer
-                         nodeTQ
-                         resourceID
-                         mynodeid
-                         servicemessage
+            case inmessage of
+                ReplyResource toNodeId fromNodeId resID _ ->
+                    if (mynodeid == toNodeId && nodeId == fromNodeId) &&
+                       resourceID == resID
+                        then liftIO $
+                             atomically (unGetTQueue nodeTQ nodeId) >>
+                             return (serviceMessage inmessage)
+                        else sendResourceRequestToPeer
+                                 nodeTQ
+                                 resourceID
+                                 mynodeid
+                                 servicemessage
+                Response _ _ responseCode ->
+                    case responseCode of
+                        Busy -> do
+                            liftIO $ atomically (writeTQueue nodeTQ nodeId)
+                            sendResourceRequestToPeer
+                                nodeTQ
+                                resourceID
+                                mynodeid
+                                servicemessage
+                        Error -> return $ pack " error " -- need to define proper error handling maybe throw an exception
  -- should check to and from
 
 -- will need the from NodeId to check the to and from
