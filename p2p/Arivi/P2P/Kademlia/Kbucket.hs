@@ -193,7 +193,7 @@ getKClosestPeersByPeer peerR k = do
                 tkeys = L.sort $ fmap fst kvList
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
             peerl <- getPeerListFromKeyList k keys
-            return (Right peerl)
+            return (Right $ L.delete peerR peerl)
         Left x -> return (Left x)
 
 -- | Gets k-closest peers to a given nodeid if k-peer exist in kbukcet being
