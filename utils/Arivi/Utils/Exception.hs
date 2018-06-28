@@ -1,7 +1,7 @@
 module Arivi.Utils.Exception
-  ( AriviException(..)
-  , mapIOException
-  ) where
+    ( AriviException(..)
+    , mapIOException
+    ) where
 
 import           Codec.Serialise   (DeserialiseFailure)
 import           Control.Exception
@@ -22,6 +22,7 @@ data AriviException
     | HandlerOpenConnectionError
     | HandlerConnectionBroken
     | KademliaInvalidRequest
+    | KademliaInvalidResponse
     deriving (Show)
 
 instance Exception AriviException
