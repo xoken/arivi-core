@@ -4,9 +4,9 @@ module Arivi.Env
     ( module Arivi.Env
     ) where
 
-import           Arivi.Logging
 import           Arivi.Network.Connection
 import           Arivi.Network.Types      (Parcel (..))
+import           Arivi.Utils.Logging
 import           Control.Concurrent.STM
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import           Data.HashMap.Strict      as HM

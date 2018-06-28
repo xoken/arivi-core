@@ -1,29 +1,30 @@
-{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Arivi.Network.Instance
     ( openConnection
     ) where
 
-import           Arivi.Env
-import           Arivi.Logging
-import           Arivi.Network.Connection        as Conn
-import           Arivi.Network.ConnectionHandler
-import           Arivi.Network.Handshake
-import           Arivi.Network.StreamClient
-import           Arivi.Network.Types             as ANT (ConnectionHandle (..),
-                                                         NodeId,
-                                                         PersonalityType (..),
-                                                         TransportType (..))
-import           Arivi.Utils.Exception
-import           Control.Exception               (try)
+import Arivi.Env
+import Arivi.Network.Connection as Conn
+import Arivi.Network.ConnectionHandler
+import Arivi.Network.Handshake
+import Arivi.Network.StreamClient
+import Arivi.Network.Types as ANT
+    ( ConnectionHandle(..)
+    , NodeId
+    , PersonalityType(..)
+    , TransportType(..)
+    )
+import Arivi.Utils.Exception
+import Arivi.Utils.Logging
+import Control.Exception (try)
 
-import           Control.Monad.Reader
-import           Crypto.PubKey.Ed25519           (SecretKey)
-import           Data.HashMap.Strict             as HM
-import           Data.IORef
-import           Network.Socket
-
+import Control.Monad.Reader
+import Crypto.PubKey.Ed25519 (SecretKey)
+import Data.HashMap.Strict as HM
+import Data.IORef
+import Network.Socket
 
 doEncryptedHandshake ::
        Conn.IncompleteConnection -> SecretKey -> IO Conn.CompleteConnection
@@ -82,10 +83,7 @@ openTcpConnection conn = do
             }
 
 openUdpConnection ::
-       ( MonadIO m
-       , HasLogging m
-       , HasSecretKey m
-       )
+       (MonadIO m, HasLogging m, HasSecretKey m)
     => Conn.IncompleteConnection
     -> m (Either AriviException ConnectionHandle)
 openUdpConnection conn = do

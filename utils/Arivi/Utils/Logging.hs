@@ -4,22 +4,21 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
-module Arivi.Logging
-  ( LogStatement (..)
-  , withChanLogging
-  , withLogging
-  , withLoggingTH
-  , withChanLoggingTH
-  , LogLevel (..)
-  , LogChan
-  , HasLogging (..)
-  , withIOLogging
-  )
-where
+module Arivi.Utils.Logging
+    ( LogStatement(..)
+    , withChanLogging
+    , withLogging
+    , withLoggingTH
+    , withChanLoggingTH
+    , LogLevel(..)
+    , LogChan
+    , HasLogging(..)
+    , withIOLogging
+    ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception.Lifted    as CEL
 import           Control.Exception           as CE
+import           Control.Exception.Lifted    as CEL
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
@@ -41,21 +40,23 @@ class ( MonadLogger m
       , MonadThrow m
       , MonadCatch m
       ) =>
-      HasLogging m where
+      HasLogging m
+    where
     getLoggerChan :: m LogChan
 
 toText :: LogStatement -> Text
 toText (LogNetworkStatement l) = "LogNetworkStatement " <> l
 
 withLoggingTH :: Q Exp
-withLoggingTH = [|withLocLogging $(qLocation >>= liftLoc) |]
+withLoggingTH = [|withLocLogging $(qLocation >>= liftLoc)|]
 
 withChanLoggingTH :: Q Exp
-withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc) |]
+withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc)|]
 
 withLocLogging ::
        (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -> m a
-withLocLogging loc ls ll = logToF (monadLoggerLog loc (pack "") ll) (logOtherN ll) ls
+withLocLogging loc ls ll =
+    logToF (monadLoggerLog loc (pack "") ll) (logOtherN ll) ls
 
 withLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
 withLogging = withLocLogging defaultLoc

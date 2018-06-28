@@ -32,13 +32,19 @@ library
                     ,  cryptonite
                     ,  exceptions
                     ,  text
+                    ,  lifted-base
                     ,  monad-control
                     ,  mtl >= 2.2.2
+                    ,  monad-control
+                    ,  monad-logger
                     ,  statsd-client >= 0.3.0.0
+                    ,  stm >= 2.4.4.1
+                    ,  template-haskell
                     ,  time-units >= 1.0.0
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
-  exposed-modules:              
+  exposed-modules:
                        Arivi.Utils.Exception
+                       Arivi.Utils.Logging
                        Arivi.Utils.Statsd
 
   default-language:    Haskell2010

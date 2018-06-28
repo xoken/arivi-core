@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -15,7 +15,6 @@
 --
 -- This module provides useful functions for managing dispatch of frames in
 -- Arivi communication
-
 module Arivi.Network.ConnectionHandler
     ( establishSecureConnection
     , readHandshakeInitSock
@@ -28,35 +27,39 @@ module Arivi.Network.ConnectionHandler
     , closeConnection
     ) where
 
-import           Arivi.Logging
-import           Arivi.Network.Connection       as Conn
-import           Arivi.Network.Fragmenter
-import           Arivi.Network.Handshake
-import           Arivi.Network.Reassembler
-import           Arivi.Network.StreamClient
-import           Arivi.Network.Types
-import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
-import           Arivi.Utils.Exception
-import           Control.Concurrent             (MVar, newMVar, threadDelay)
-import qualified Control.Concurrent.Async       as Async (race)
-import           Control.Concurrent.STM         (atomically, newTChan)
-import           Control.Concurrent.STM.TVar
-import           Control.Exception              (try)
-import           Control.Exception.Base
-import           Control.Monad.IO.Class
-import           Data.Bifunctor
-import           Data.Binary
-import qualified Data.ByteString.Lazy           as BSL
-import qualified Data.ByteString.Lazy.Char8     as BSLC
-import           Data.HashMap.Strict            as HM
-import           Data.Int
-import           Data.IORef
-import           Network.Socket                 hiding (send)
+import Arivi.Network.Connection as Conn
+import Arivi.Network.Fragmenter
+import Arivi.Network.Handshake
+import Arivi.Network.Reassembler
+import Arivi.Network.StreamClient
+import Arivi.Network.Types
+import Arivi.Network.Utils (getIPAddress, getPortNumber)
+import Arivi.Utils.Exception
+import Arivi.Utils.Logging
+import Control.Concurrent (MVar, newMVar, threadDelay)
+import qualified Control.Concurrent.Async as Async (race)
+import Control.Concurrent.STM (atomically, newTChan)
+import Control.Concurrent.STM.TVar
+import Control.Exception (try)
+import Control.Exception.Base
+import Control.Monad.IO.Class
+import Data.Bifunctor
+import Data.Binary
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.HashMap.Strict as HM
+import Data.IORef
+import Data.Int
+import Network.Socket hiding (send)
 import qualified Network.Socket.ByteString.Lazy as N (recv)
-import           System.Timeout
+import System.Timeout
 
-
-establishSecureConnection :: SecretKey -> Socket -> (BSL.ByteString -> BSL.ByteString) -> Parcel -> IO CompleteConnection
+establishSecureConnection ::
+       SecretKey
+    -> Socket
+    -> (BSL.ByteString -> BSL.ByteString)
+    -> Parcel
+    -> IO CompleteConnection
 establishSecureConnection sk sock framer hsInitParcel = do
     socketName <- getSocketName sock
     ip <- getIPAddress socketName
@@ -96,7 +99,7 @@ establishSecureConnection sk sock framer hsInitParcel = do
 -- | Given `Socket` retrieves `TransportType`
 getTransportType :: Socket -> TransportType
 getTransportType (MkSocket _ _ Stream _ _) = TCP
-getTransportType _                         = UDP
+getTransportType _ = UDP
 
 -- | Converts length in byteString to Num
 getFrameLength :: BSL.ByteString -> Int64
@@ -133,17 +136,14 @@ getParcel sock = do
 -- | Create and send a ping message on the socket
 sendPing :: MVar Int -> Socket -> Framer -> IO ()
 sendPing writeLock sock framer =
-    let pingFrame =
-            framer $ serialise (Parcel PingHeader (Payload BSL.empty))
+    let pingFrame = framer $ serialise (Parcel PingHeader (Payload BSL.empty))
     in sendFrame writeLock sock pingFrame
 
 -- | Create and send a pong message on the socket
-sendPong :: MVar Int -> Socket -> Framer  -> IO ()
+sendPong :: MVar Int -> Socket -> Framer -> IO ()
 sendPong writeLock sock framer =
-    let pongFrame =
-            framer $ serialise (Parcel PongHeader (Payload BSL.empty))
+    let pongFrame = framer $ serialise (Parcel PongHeader (Payload BSL.empty))
     in sendFrame writeLock sock pongFrame
-
 
 sendTcpMessage ::
        forall m. (MonadIO m, HasLogging m)
@@ -176,15 +176,14 @@ sendUdpMessage conn msg =
         mapM_
             (\frame ->
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
-                     Left (e :: SomeException) -> liftIO (print e) >>
-                         closeConnection sock >> throw AriviSocketException
+                     Left (e :: SomeException) ->
+                         liftIO (print e) >> closeConnection sock >>
+                         throw AriviSocketException
                      Right _ -> return ())
             fragments
 
-
 closeConnection :: (HasLogging m) => Socket -> m ()
 closeConnection sock = liftIO $ Network.Socket.close sock
-
 
 readTcpSock ::
        (HasLogging m)
@@ -206,16 +205,14 @@ readTcpSock connection fragmentsHM =
                 case parcelOrFailAfterPing of
                     Left e -> throw e
                     Right parcel ->
-                        processParcel parcel connection fragmentsHM >>=
-                          \case
-                          Nothing -> readTcpSock connection fragmentsHM
-                          Just p2pMsg -> return p2pMsg
+                        processParcel parcel connection fragmentsHM >>= \case
+                            Nothing -> readTcpSock connection fragmentsHM
+                            Just p2pMsg -> return p2pMsg
             Left e -> throw e
             Right parcel ->
-                processParcel parcel connection fragmentsHM >>=
-                \case
-                Nothing -> readTcpSock connection fragmentsHM
-                Just p2pMsg -> return p2pMsg
+                processParcel parcel connection fragmentsHM >>= \case
+                    Nothing -> readTcpSock connection fragmentsHM
+                    Just p2pMsg -> return p2pMsg
 
 processParcel ::
        (HasLogging m)
@@ -231,24 +228,30 @@ processParcel parcel connection fragmentsHM =
             liftIO $ writeIORef fragmentsHM updatedHM
             return p2pMsg
         Parcel PingHeader {} _ -> do
-            liftIO $ sendPong (Conn.waitWrite connection) (Conn.socket connection) createFrame
+            liftIO $
+                sendPong
+                    (Conn.waitWrite connection)
+                    (Conn.socket connection)
+                    createFrame
             return Nothing
         Parcel PongHeader {} _ -> return Nothing
         _ -> throw AriviWrongParcelException
 
 getDatagram :: Socket -> IO (Either AriviException Parcel)
-getDatagram sock = first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
+getDatagram sock =
+    first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
 
 getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getDatagramWithTimeout sock microseconds = do
-  datagramOrNothing <- timeout microseconds (try $ N.recv sock 5100
-                                            )
-  case datagramOrNothing of
-    Nothing -> return $ Left AriviTimeoutException
-    Just datagramEither -> case datagramEither of
-      Left e -> return (Left e)
-      Right datagram -> return $ first AriviDeserialiseException $ deserialiseOrFail datagram
-
+    datagramOrNothing <- timeout microseconds (try $ N.recv sock 5100)
+    case datagramOrNothing of
+        Nothing -> return $ Left AriviTimeoutException
+        Just datagramEither ->
+            case datagramEither of
+                Left e -> return (Left e)
+                Right datagram ->
+                    return $
+                    first AriviDeserialiseException $ deserialiseOrFail datagram
 
 readUdpSock :: (HasLogging m) => Conn.CompleteConnection -> m BSL.ByteString
 readUdpSock connection =
@@ -310,7 +313,6 @@ readHandshakeRespSock writeLock sock = do
             case hsRespParcel of
                 parcel@(Parcel (HandshakeRespHeader _ _) _) -> return parcel
                 _ -> throw AriviWrongParcelException
-
 
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
 readUdpHandshakeRespSock :: MVar Int -> Socket -> IO Parcel
