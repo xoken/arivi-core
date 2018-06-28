@@ -20,6 +20,7 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Exception
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (forkIO, threadDelay)
+import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
@@ -40,7 +41,7 @@ import           Data.Maybe
 sendOptionsMessage :: (HasP2PEnv m) => NodeId -> [NodeId] -> m ()
 sendOptionsMessage _ [] = return ()
 sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
-    fork (sendOptionsToPeer sendingPeer recievingPeer)
+    LAsync.async (sendOptionsToPeer sendingPeer recievingPeer)
     sendOptionsMessage sendingPeer peerList
 
 -- this function runs on each lightweight thread

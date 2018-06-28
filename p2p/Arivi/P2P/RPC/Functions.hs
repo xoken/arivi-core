@@ -30,6 +30,7 @@ import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (forkIO, threadDelay)
+import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM.TQueue
@@ -77,7 +78,7 @@ updatePeerInResourceMap currNodeId = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
     let minimumNodes = 5
-    fork
+    LAsync.async
         (updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId)
     return ()
 
