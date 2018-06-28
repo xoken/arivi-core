@@ -17,8 +17,17 @@ import           Data.HashMap.Strict                   as HM
 
 import           Control.Concurrent
 import           Control.Concurrent.STM
+import           Network.Socket
 
-makeP2Pinstance :: NodeId -> IP -> Port -> Port -> IP -> Port -> String -> IO ()
+makeP2Pinstance ::
+       NodeId
+    -> IP
+    -> PortNumber
+    -> PortNumber
+    -> IP
+    -> PortNumber
+    -> String
+    -> IO ()
 makeP2Pinstance nodeid ip tcpport udpport statsdIP statsdPort statsdPrefix = do
     ariviP2PInstanceTvar <-
         atomically (newTVar (AriviP2PInstance nodeid ip tcpport udpport))

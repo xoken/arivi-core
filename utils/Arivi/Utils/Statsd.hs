@@ -18,6 +18,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Control
 import           Data.Time.Units
+import           Network.Socket              (PortNumber)
 import qualified Network.Statsd              as S
 import           Network.Statsd.UdpClient
 
@@ -26,7 +27,7 @@ type StatsdClient = UdpClient
 
 -- | Creates a statsd client which can be used to send unencypted messages
 --   to a statsd server
-createStatsdClient :: String -> Int -> String -> IO StatsdClient
+createStatsdClient :: String -> PortNumber -> String -> IO StatsdClient
 createStatsdClient hostname port prefix = do
     let str = "statsd://" ++ hostname ++ ":" ++ show port ++ "/" ++ prefix
     S.statsdClient str
