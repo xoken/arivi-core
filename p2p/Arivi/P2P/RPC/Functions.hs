@@ -1,4 +1,6 @@
-module Arivi.P2P.RPC.Functions where
+module Arivi.P2P.RPC.Functions
+    ( module Arivi.P2P.RPC.Functions
+    ) where
 
 import           Arivi.Network.Types              (ConnectionId, NodeId,
                                                    TransportType (..))
