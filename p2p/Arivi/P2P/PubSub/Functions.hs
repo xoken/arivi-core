@@ -2,13 +2,21 @@ module Arivi.P2P.PubSub.Functions
     (
     ) where
 
+import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
+import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
+                                                        NodeId)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
-import           Control.Concurrent.Lifted   (fork)
+import           Codec.Serialise                       (deserialise, serialise)
+import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TVar
-import           Control.Monad.IO.Class      (liftIO)
+import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
-import qualified Data.HashMap.Strict         as HM
+import           Data.ByteString.Char8                 as Char8 (ByteString)
+import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
+                                                                toStrict)
+import qualified Data.HashMap.Strict                   as HM
+import qualified Data.List                             as List
 import           Data.Maybe
 import           Data.SortedList
 import           Data.Time.Clock
@@ -19,9 +27,6 @@ import           Data.Time.Clock
 -- it can also return exception if the block is valid or invalidaccordingly peers are judged
 -- #registerTopic :: (HasP2PEnv m) => [(Topic, TopicHandler, Int)] -> m ()
 -- | called by a service when some content created by it needs to be broadcasted to the network ie notifiers as well as subscribers
--- #publishTopic :: (HasP2PEnv m) => Topic -> TopicMessage -> m ()
--- | spawns a thread with the parameter TVar TopicMap and checks expired subscribers and deletes entry
-maintainWatchers :: (HasP2PEnv m) => m ()
 -- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep. also checks if min number if satisfied and add more peers accordingly by calling send options which takes peer from kad
 -- #maintainNotifiers :: (HasP2PEnv m) => m ()-- -- | called by a service to read the TopicMessage TQueue
 -- readTopic :: (HasP2PEnv m) => TopicId -> m TopicMessage
@@ -29,15 +34,40 @@ maintainWatchers :: (HasP2PEnv m) => m ()
 -- notifyTopic :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()\
 -- -- | called in case of a unvalid block and used for peer rep based on MessageHashMap
 -- flagMessage :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
-{-
-maintain watchers checks the watchers list
-assuming that the watchers are sorted
-need to spawn a thread that will traverse the watchers list for each topic
-get the list of keys for the hashmap and use that to traverse
-for each key get the list of watchers and start traversing
-drop all the watchers that have expired and since it is sorted if a watcher is not expired kill the thread
-and continue for the other keys
--}
+publishTopic :: (HasP2PEnv m) => Topic -> TopicMessage -> m ()
+publishTopic messageTopic publishMessage = do
+    watcherTableTVar <- getWatcherTableP2PEnv
+    watcherMap <- liftIO $ readTVarIO watcherTableTVar
+    notifierTableTVar <- getNotifiersTableP2PEnv
+    notifierMap <- liftIO $ readTVarIO watcherTableTVar
+    let currWatcherListTvarMaybe = HM.lookup messageTopic watcherMap
+    let currNotifierListTvarMaybe = HM.lookup messageTopic notifierMap
+    currWatcherSortedList <-
+        liftIO $ readTVarIO $ fromJust currWatcherListTvarMaybe
+    currNotifierSortedList <-
+        liftIO $ readTVarIO $ fromJust currNotifierListTvarMaybe
+    let currWatcherList = fromSortedList currWatcherSortedList
+    let currNotifierList = fromSortedList currNotifierSortedList
+    let combinedList = currWatcherList `List.union` currNotifierList
+    let message =
+            Publish {topicId = messageTopic, topicMessage = publishMessage}
+    let serializedMessage = Lazy.toStrict $ serialise message
+    sendPublishMessage currWatcherList serializedMessage
+
+sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> ByteString -> m ()
+sendPublishMessage [] _ = return ()
+sendPublishMessage (recievingPeer:peerList) message = do
+    let recievingPeerNodeId = timerNodeId recievingPeer
+    fork (sendPublishMessageToPeer recievingPeerNodeId message)
+    sendPublishMessage peerList message
+
+-- will have to do exception handling based on the response of sendRequest
+sendPublishMessageToPeer :: (HasP2PEnv m) => NodeId -> ByteString -> m ()
+sendPublishMessageToPeer recievingPeerNodeId message = do
+    sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
+    return ()
+
+maintainWatchers :: (HasP2PEnv m) => m ()
 maintainWatchers = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
