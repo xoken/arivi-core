@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 
 -- |
 -- Module      :  Arivi.P2P.Types
