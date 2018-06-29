@@ -6,6 +6,8 @@ packages:
   extra-dep: true
 - location: ../utils
   extra-dep: true
+- location: ../network
+  extra-dep: true
 
 extra-deps:
 - serialise-0.2.0.0

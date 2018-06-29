@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Arivi.P2P.MessageHandler.HandlerTypes
     ( MessageType(..)
@@ -12,7 +12,7 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , UUIDMap
     , MessageInfo
     , NodeId
-    , ConnectionId
+    , ConnectionHandle(..)
     , TransportType(..)
     , NodeIdPeerMap
     , Handle(..)
@@ -20,31 +20,32 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , MessageTypeHandler
     ) where
 
-import           Control.Concurrent.MVar
+import Control.Concurrent.MVar
 
 {-
 
 -}
-import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar ()
-import           Control.Monad
-import           Control.Monad.IO.Class      (MonadIO)
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar ()
+import Control.Monad
+import Control.Monad.IO.Class (MonadIO)
 
-import           Codec.Serialise             (Serialise)
+import Codec.Serialise (Serialise)
 
-import           GHC.Generics                (Generic)
+import GHC.Generics (Generic)
 
-import           Data.ByteString.Char8       as Char8 (ByteString)
+import Data.ByteString.Char8 as Char8 (ByteString)
 
-import           Data.Hashable
-import           Data.HashMap.Strict         as HM
-import           Network.Socket              (PortNumber)
+import Arivi.Network (ConnectionHandle(..), TransportType(..))
+import Data.HashMap.Strict as HM
+import Data.Hashable
+import Network.Socket (PortNumber)
 
 --import           Arivi.Network.Types            (TransportType(..))
 --import Arivi.P2P.Types
 type IP = String
 
-type Port = Int
+type Port = PortNumber
 
 type NodeId = ByteString
 
@@ -52,12 +53,10 @@ type P2PUUID = String
 
 type P2PPayload = ByteString
 
-type ConnectionId = ByteString
-
 data P2PMessage = P2PMessage
-    { uuid        :: P2PUUID
+    { uuid :: P2PUUID
     , messageType :: MessageType
-    , payload     :: P2PPayload
+    , payload :: P2PPayload
     } deriving (Eq, Ord, Show, Generic)
 
 instance Serialise P2PMessage
@@ -79,13 +78,6 @@ instance Hashable MessageType
 --     , udpPort :: Port
 --     , tcpPort :: Port
 --     } deriving (Eq, Show, Generic)
-data TransportType
-    = UDP
-    | TCP
-    deriving (Eq, Show, Generic, Read)
-
-instance Hashable TransportType
-
 {-
 PeerToUUIDMap =
 TVar( HashMap[ NodeId->TVar( HashMap[ UUID->MVar] ) ] )
@@ -111,18 +103,23 @@ type MessageInfo = (P2PUUID, P2PPayload)
 data Handle
     = NotConnected
     | Pending
-    | Connected { connId :: ConnectionId }
-    deriving (Eq, Ord, Show, Generic)
+    | Connected { connId :: ConnectionHandle }
+
+instance Eq Handle where
+    NotConnected == NotConnected = True
+    Pending == Pending = True
+    Connected _ == Connected _ = True
+    _ == _ = False
 
 data PeerDetails = PeerDetails
-    { nodeId         :: NodeId
-    , rep            :: Maybe Int
-    , ip             :: Maybe IP
-    , udpPort        :: Maybe PortNumber
-    , tcpPort        :: Maybe PortNumber
-    , streamHandle   :: Handle
+    { nodeId :: NodeId
+    , rep :: Maybe Int
+    , ip :: Maybe IP
+    , udpPort :: Maybe PortNumber
+    , tcpPort :: Maybe PortNumber
+    , streamHandle :: Handle
     , datagramHandle :: Handle
-    , tvarUUIDMap    :: TVar UUIDMap
+    , tvarUUIDMap :: TVar UUIDMap
     }
 
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)

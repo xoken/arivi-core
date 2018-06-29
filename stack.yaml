@@ -45,7 +45,7 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: ["serialise-0.2.0.0","cborg-0.2.0.0","timers-updatable-0.2.0.2",
-             "statsd-client-0.3.0.0","digest-pure-0.0.3","time-units-1.0.0"]
+             "statsd-client-0.3.0.0","digest-pure-0.0.3","time-units-1.0.0" ]
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
