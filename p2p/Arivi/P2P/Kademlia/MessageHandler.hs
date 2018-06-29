@@ -21,6 +21,7 @@ import           Arivi.P2P.Types
 import           Arivi.Utils.Exception
 import           Codec.Serialise             (deserialise, serialise)
 import           Control.Concurrent.STM.TVar
+import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy        as L
@@ -37,8 +38,7 @@ import qualified Data.ByteString.Lazy        as L
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-kademliaMessageHandler ::
-       (HasP2PEnv m) => L.ByteString -> m (Either AriviException L.ByteString)
+kademliaMessageHandler :: (HasP2PEnv m) => L.ByteString -> m L.ByteString
 kademliaMessageHandler payl = do
     let payl' = deserialise payl :: PayLoad
         msgb = messageBody $ message payl'
@@ -52,7 +52,6 @@ kademliaMessageHandler payl = do
         PING {} -> do
             addToKBucket rpeer
             return $
-                Right $
                 serialise $
                 packPong lnid (nodeIp nep) (udpPort nep) (tcpPort nep)
         FIND_NODE {} -> do
@@ -61,8 +60,7 @@ kademliaMessageHandler payl = do
             case pl of
                 Right pl2 ->
                     return $
-                    Right $
                     serialise $
                     packFnR lnid pl2 (nodeIp nep) (udpPort nep) (tcpPort nep)
-                Left _ -> return $ Left KademliaInvalidPeer
-        _ -> return $ Left KademliaInvalidRequest
+                Left _ -> throw KademliaInvalidPeer
+        _ -> throw KademliaInvalidRequest
