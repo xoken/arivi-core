@@ -182,6 +182,8 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
                         Error -> return $ pack " error " -- need to define proper error handling maybe throw an exception
  -- should check to and from
 
+                _ -> return $ pack " default"
+
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
