@@ -47,7 +47,7 @@ getAeadNonceInitiator :: Int64
 getAeadNonceInitiator = 1 :: Int64
 
 getAeadNonceRecipient :: Int64
-getAeadNonceRecipient = 2 ^ 64 :: Int64 -- Need to get precise value
+getAeadNonceRecipient = 2 ^ (64 :: Int64)-- Need to get precise value
 
 getVersion :: [Version]
 getVersion = [V0]
@@ -61,8 +61,8 @@ generateRecipientNonce = 1
 generateEphemeralKeys :: IO EphemeralKeyPair
 generateEphemeralKeys = do
     (eSKSign, _) <- generateSigningKeyPair
-    let ephemeralPublicKey = getEncryptionPubKeyFromSigningSecretKey eSKSign
-    return (eSKSign, ephemeralPublicKey)
+    let mEphemeralPublicKey = getEncryptionPubKeyFromSigningSecretKey eSKSign
+    return (eSKSign, mEphemeralPublicKey)
 
 -- | Update the ephemeralPubKey, ephemeralSecretKey and shared secret in the connection structure
 updateCryptoParams ::
@@ -101,18 +101,18 @@ createHandshakeInitMsg sk conn eSKSign = (serialise hsInitMsg, updatedConn)
 
 -- Takes the connection object and creates the response msg
 createHandshakeRespMsg :: ConnectionId -> SerialisedMsg
-createHandshakeRespMsg connectionId = serialise hsRespMsg
+createHandshakeRespMsg mConnectionId = serialise hsRespMsg
   where
-    hsRespMsg = HandshakeRespMsg getVersion generateRecipientNonce connectionId
+    hsRespMsg = HandshakeRespMsg getVersion generateRecipientNonce mConnectionId
 
 -- | Encrypt the hs init msg and return a parcel
 generateInitParcel ::
        SerialisedMsg -> EphemeralPublicKey -> Conn.CompleteConnection -> Parcel
-generateInitParcel msg ephemeralPublicKey conn =
+generateInitParcel msg mEphemeralPublicKey conn =
     Parcel headerData (Payload $ strictToLazy ctWithMac)
   where
     aeadnonceInitiator = getAeadNonceInitiator
-    headerData = HandshakeInitHeader ephemeralPublicKey aeadnonceInitiator
+    headerData = HandshakeInitHeader mEphemeralPublicKey aeadnonceInitiator
     ssk = Conn.sharedSecret conn
     ctWithMac =
         encryptMsg
@@ -124,11 +124,11 @@ generateInitParcel msg ephemeralPublicKey conn =
 -- | Encrypt the given message and return a response parcel
 generateRespParcel ::
        SerialisedMsg -> SharedSecret -> EphemeralPublicKey -> Parcel
-generateRespParcel msg ssk ephemeralPublicKey =
+generateRespParcel msg ssk mEphemeralPublicKey =
     Parcel headerData (Payload $ strictToLazy ctWithMac)
   where
     aeadnonceRecipient = getAeadNonceRecipient
-    headerData = HandshakeRespHeader ephemeralPublicKey aeadnonceRecipient
+    headerData = HandshakeRespHeader mEphemeralPublicKey aeadnonceRecipient
     ctWithMac =
         encryptMsg
             aeadnonceRecipient

@@ -1,6 +1,6 @@
-{-# LANGUAGE RankNTypes #-}
-{-# OPTIONS_GHC -fno-warn-orphans  #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RankNTypes            #-}
+-- {-# OPTIONS_GHC -fno-warn-orphans  #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Arivi.Network.Types
@@ -41,21 +41,24 @@ module Arivi.Network.Types
     , serialise
     ) where
 
-import Arivi.Crypto.Utils.Keys.Encryption as Keys
-import Arivi.Utils.Logging (HasLogging)
-import Codec.Serialise
-import Codec.Serialise.Class
-import Codec.Serialise.Decoding
-import Codec.Serialise.Encoding
-import Crypto.PubKey.Curve25519 as Curve25519 (PublicKey, publicKey)
-import Crypto.PubKey.Ed25519 as Ed25519 (SecretKey, Signature, signature)
-import Data.ByteArray
-import Data.ByteString
-import qualified Data.ByteString.Lazy as BSL
-import Data.Int (Int32, Int64, Int8)
-import Data.Monoid
-import GHC.Generics
-import Network.Socket as Network
+import           Arivi.Crypto.Utils.Keys.Encryption as Keys
+import           Arivi.Utils.Logging                (HasLogging)
+import           Codec.Serialise
+import           Codec.Serialise.Class
+import           Codec.Serialise.Decoding
+import           Codec.Serialise.Encoding
+import           Crypto.PubKey.Curve25519           as Curve25519 (PublicKey,
+                                                                   publicKey)
+import           Crypto.PubKey.Ed25519              as Ed25519 (SecretKey,
+                                                                Signature,
+                                                                signature)
+import           Data.ByteArray
+import           Data.ByteString
+import qualified Data.ByteString.Lazy               as BSL
+import           Data.Int                           (Int32, Int64, Int8)
+import           Data.Monoid
+import           GHC.Generics
+import           Network.Socket                     as Network
 
 type ConnectionId = ByteString
 
@@ -93,16 +96,16 @@ type CipherText = ByteString
 
 -- | This message is encrypted and sent in the handshake message
 data HandshakeInitMasked = HandshakeInitMessage
-    { versionList :: [Version]
-    , connectionId :: ConnectionId
-    , nonce :: Nonce
+    { versionList   :: [Version]
+    , connectionId  :: ConnectionId
+    , nonce         :: Nonce
     , nodePublicKey :: NodeId
-    , signature :: Signature
+    , signature     :: Signature
     } deriving (Show, Eq, Generic)
 
 data HandshakeRespMasked = HandshakeRespMsg
-    { versionList :: [Version]
-    , nonce :: Nonce
+    { versionList  :: [Version]
+    , nonce        :: Nonce
     , connectionId :: ConnectionId
     } deriving (Show, Eq, Generic)
 
@@ -110,51 +113,51 @@ data HandshakeRespMasked = HandshakeRespMsg
 data Header
     = HandshakeInitHeader { ephemeralPublicKey :: PublicKey -- ^ `PublicKey` for
                                                       --    generating ssk
-                          , aeadNonce :: AeadNonce --  ^ 8 Byte Nonce in
+                          , aeadNonce          :: AeadNonce --  ^ 8 Byte Nonce in
                                                       --    Int64 format
                            }
     | HandshakeRespHeader { ephemeralPublicKey :: PublicKey -- ^ `PublicKey` for
                                                         --    generating ssk
-                          , aeadNonce :: AeadNonce -- ^ 8 Byte Nonce used
+                          , aeadNonce          :: AeadNonce -- ^ 8 Byte Nonce used
                                                        --   for encryption
                            }
     | PingHeader
     | PongHeader
-    | DataHeader { messageId :: MessageId -- ^ Unique Message
+    | DataHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
-                 , fragmentNumber :: FragmentNumber -- ^ Number of fragment
-                 , totalFragments :: FragmentNumber -- ^ Total fragments in
+                 , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                 , totalFragments     :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                  , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                 , nonce :: Nonce -- ^ Nonce which
+                 , nonce              :: Nonce -- ^ Nonce which
                                                       --   increments by one
                                                       --   after each message
                                                       --   is sent. Useful for
                                                       --   preventing Replay
                                                       --   Attacks
-                 , aeadNonce :: AeadNonce -- ^ 8 Byte Nonce used
+                 , aeadNonce          :: AeadNonce -- ^ 8 Byte Nonce used
                                                        --   for encryption
                   }
-    | ErrorHeader { messageId :: MessageId -- ^ Unique Message
+    | ErrorHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
-                  , fragmentNumber :: FragmentNumber -- ^ Number of fragment
-                  , totalFragments :: FragmentNumber -- ^ Total fragments in
+                  , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                  , totalFragments     :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
-                  , descriptor :: Descriptor -- ^ Shows type of error
+                  , descriptor         :: Descriptor -- ^ Shows type of error
                                                     --   and other fields
                   , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
                    }
-    | ByeHeader { fragmentNumber :: FragmentNumber -- ^ Number of fragment
-                , totalFragments :: FragmentNumber -- ^ Total fragments in
+    | ByeHeader { fragmentNumber     :: FragmentNumber -- ^ Number of fragment
+                , totalFragments     :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                 , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
                                                       --   connection
-                , messageId :: MessageId -- ^ Unique Message
+                , messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
                  }
     deriving (Show, Eq, Generic)
@@ -166,7 +169,7 @@ data Header
 --   this. After encoding these fields length of the parcel in Plain Text is
 --   appended before sending on the Network.
 data Parcel = Parcel
-    { header :: Header -- ^ Header of the Parcel
+    { header           :: Header -- ^ Header of the Parcel
     , encryptedPayload :: Payload -- ^ Encrypted `P2PMessage
     } deriving (Show, Eq, Generic)
 
