@@ -88,10 +88,10 @@ issueFindNode rpeer = do
         sendRequestforKademlia
             rnid
             Kademlia
-            (L.toStrict $ serialise fn_msg)
+            (serialise fn_msg)
             ruport
             rip
-    let peerl  = case getPeerListFromPayload (CL.fromStrict resp) of
+    let peerl  = case getPeerListFromPayload resp of
             Right x -> x
             Left  _ -> []
 
