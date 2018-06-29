@@ -1,4 +1,6 @@
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Arivi.P2P.MessageHandler.Handler
     ( sendRequest
@@ -11,6 +13,7 @@ import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
 
 import           Data.Maybe
+import           Data.Text
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
 
@@ -22,6 +25,7 @@ import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue         ()
 import           Control.Concurrent.STM.TVar           ()
 import           Control.Exception                     (throw)
+import           Control.Monad.Logger                  (logDebug)
 
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
@@ -66,6 +70,7 @@ sendRequest node mType p2pPayload = do
             liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
             throw e
         Right _ -> do
+            $(logDebug) "Request sent"
             winner <-
                 liftIO $
                 Async.race
@@ -74,8 +79,10 @@ sendRequest node mType p2pPayload = do
             case winner of
                 Left _ -> do
                     liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
+                    $(logDebug) "TimerExpiredMVar"
                     throw HandlerSendMessageTimeout
                 Right (p2pReturnMessage :: P2PMessage) -> do
+                    $(logDebug) "got response"
                     liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
                     let returnMessage = payload p2pReturnMessage
                     return returnMessage
@@ -98,6 +105,7 @@ sendRequestforKademlia node mType p2pPayload port mIP = do
             case res of
                 Left e -> throw e
                 Right connHandle -> do
+                    $(logDebug) "Connectionhandle made"
                     liftIO $
                         addPeerFromConnection node UDP connHandle nodeIdMapTVar
                     newNodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
@@ -121,18 +129,21 @@ readRequestThread connHandle uuidMapTVar messageTypeMap = do
         Left (_ :: Exception.SomeException) -> return ()
         Right byteMessage -> do
             _ <-
-                LAsync.async
-                    (processIncomingMessage
-                         connHandle
-                         uuidMapTVar
-                         messageTypeMap
-                         byteMessage)
+                do $(logDebug) "Recieved incoming message"
+                   LAsync.async
+                       (processIncomingMessage
+                            connHandle
+                            uuidMapTVar
+                            messageTypeMap
+                            byteMessage)
             readRequestThread connHandle uuidMapTVar messageTypeMap
 
 -- newConnectionHandler :: NodeId -> ConnectionHandle -> TransportType ->
-newIncomingConnection ::
+newIncomingConnection --TODO: no need to async
+ ::
        (HasP2PEnv m) => NodeId -> ConnectionHandle -> TransportType -> m ()
 newIncomingConnection mNodeId connHandle transportType = do
+    $(logDebug) "Got new incoming connection handle"
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     messageTypeMap <- getMessageTypeMapP2PEnv
     liftIO $
@@ -145,6 +156,7 @@ newIncomingConnection mNodeId connHandle transportType = do
 
 cleanConnection :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
 cleanConnection mNodeId transportType = do
+    $(logDebug) "Cleaned ConnectionHandle"
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
     let peerDetailsTVar = fromJust (HM.lookup mNodeId nodeIdMap)
@@ -169,7 +181,8 @@ cleanConnection mNodeId transportType = do
     liftIO $ cleanPeer mNodeId nodeIdMapTVar
     return ()
 
-processIncomingMessage ::
+processIncomingMessage --TODO: eed to do uuidcheck in this thread and spawn only on a request
+ ::
        (HasP2PEnv m)
     => ConnectionHandle
     -> TVar UUIDMap
@@ -182,6 +195,7 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage = do
     let temp = HM.lookup (uuid networkMessage) uuidMap
     if isNothing temp
         then do
+            $(logDebug) "incoming request recieved"
             response <-
                 fromJust
                     (HM.lookup (messageType networkMessage) messageTypeMap)
