@@ -14,18 +14,13 @@ module Arivi.P2P.Types
     ( AriviP2PInstance(..)
     ) where
 
-import Arivi.Network.Types (NodeId, TransportType(..))
-import Codec.Serialise (Serialise)
-import GHC.Generics (Generic)
-import Network.Socket (PortNumber)
-
-type IP = String
-
-type Port = PortNumber
+import           Arivi.Network.Types (NodeId)
+import           GHC.Generics        (Generic)
+import           Network.Socket      (PortNumber)
 
 data AriviP2PInstance = AriviP2PInstance
-    { selfNodeId :: NodeId
-    , selfIP :: String
+    { selfNodeId  :: NodeId
+    , selfIP      :: String
     , selfUDPPort :: PortNumber
     , selfTCPPort :: PortNumber
     } deriving (Eq, Ord, Show, Generic)
