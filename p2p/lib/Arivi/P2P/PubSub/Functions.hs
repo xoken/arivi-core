@@ -1,5 +1,5 @@
 module Arivi.P2P.PubSub.Functions
-    (
+    ( publishTopic
     ) where
 
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
@@ -7,16 +7,13 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         NodeId)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
-import           Codec.Serialise                       (deserialise, serialise)
+import           Codec.Serialise                       (serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
-import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
-import           Data.ByteString                       as B (ByteString)
-import qualified Data.ByteString.Lazy                  as Lazy (ByteString,
-                                                                fromStrict,
-                                                                toStrict)
+
+import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List                             as List
 import           Data.Maybe
@@ -41,7 +38,7 @@ publishTopic messageTopic publishMessage = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
     notifierTableTVar <- getNotifiersTableP2PEnv
-    notifierMap <- liftIO $ readTVarIO watcherTableTVar
+    notifierMap <- liftIO $ readTVarIO notifierTableTVar
     let currWatcherListTvarMaybe = HM.lookup messageTopic watcherMap
     let currNotifierListTvarMaybe = HM.lookup messageTopic notifierMap
     currWatcherSortedList <-
@@ -60,13 +57,13 @@ sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> Lazy.ByteString -> m ()
 sendPublishMessage [] _ = return ()
 sendPublishMessage (recievingPeer:peerList) message = do
     let recievingPeerNodeId = timerNodeId recievingPeer
-    LAsync.async (sendPublishMessageToPeer recievingPeerNodeId message)
+    _ <- LAsync.async (sendPublishMessageToPeer recievingPeerNodeId message)
     sendPublishMessage peerList message
 
 -- will have to do exception handling based on the response of sendRequest
 sendPublishMessageToPeer :: (HasP2PEnv m) => NodeId -> Lazy.ByteString -> m ()
 sendPublishMessageToPeer recievingPeerNodeId message = do
-    sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
+    _ <- sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
     return ()
 
 maintainWatchers :: (HasP2PEnv m) => m ()
@@ -74,7 +71,7 @@ maintainWatchers = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
     let topicIds = HM.keys watcherMap
-    LAsync.async (maintainWatchersHelper watcherMap topicIds)
+    _ <- LAsync.async (maintainWatchersHelper watcherMap topicIds)
     return ()
 
 maintainWatchersHelper :: (HasP2PEnv m) => WatchersTable -> [Topic] -> m ()

@@ -71,7 +71,7 @@ instance Eq NodeTimer where
 type WatchersTable = HM.HashMap Topic (TVar (SortedList Watcher)) -- need to use sorted list
 
 type NotifiersTable
-     = HM.HashMap Topic (TVar (SortedList Notifier), Int) -- need to use sorted list, might contain min no of peers
+     = HM.HashMap Topic (TVar (SortedList Notifier)) -- need to use sorted list, might contain min no of peers
                                                 -- and handler function here so dont use fst and snd in functions
 
 type TopicHandlerMap --maps topic to the respective TopicHandler
