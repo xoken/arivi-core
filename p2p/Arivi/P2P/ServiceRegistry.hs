@@ -10,6 +10,7 @@ import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.P2P.Kademlia.Kbucket
+import           Arivi.P2P.Kademlia.MessageHandler
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Functions
@@ -19,7 +20,6 @@ import           Arivi.Utils.Statsd
 
 import           Data.HashMap.Strict                    as HM
 
-import           Arivi.P2P.Kademlia.MessageHandler
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Network.Socket
@@ -62,4 +62,7 @@ insertHandlers ::
        forall m. (HasP2PEnv m)
     => MessageTypeMap m
 insertHandlers =
-    HM.insert Option optionsHandler (HM.insert RPC rpcHandler HM.empty)
+    HM.insert
+        Kademlia
+        kademliaMessageHandler
+        (HM.insert Option optionsHandler (HM.insert RPC rpcHandler HM.empty))

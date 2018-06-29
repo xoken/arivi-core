@@ -13,8 +13,9 @@ import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
-import           Data.ByteString.Char8                 as Char8 (ByteString)
-import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
+import           Data.ByteString                       as B (ByteString)
+import qualified Data.ByteString.Lazy                  as Lazy (ByteString,
+                                                                fromStrict,
                                                                 toStrict)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List                             as List
@@ -52,10 +53,10 @@ publishTopic messageTopic publishMessage = do
     let combinedList = currWatcherList `List.union` currNotifierList
     let message =
             Publish {topicId = messageTopic, topicMessage = publishMessage}
-    let serializedMessage = Lazy.toStrict $ serialise message
+    let serializedMessage = serialise message
     sendPublishMessage currWatcherList serializedMessage
 
-sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> ByteString -> m ()
+sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> Lazy.ByteString -> m ()
 sendPublishMessage [] _ = return ()
 sendPublishMessage (recievingPeer:peerList) message = do
     let recievingPeerNodeId = timerNodeId recievingPeer
@@ -63,7 +64,7 @@ sendPublishMessage (recievingPeer:peerList) message = do
     sendPublishMessage peerList message
 
 -- will have to do exception handling based on the response of sendRequest
-sendPublishMessageToPeer :: (HasP2PEnv m) => NodeId -> ByteString -> m ()
+sendPublishMessageToPeer :: (HasP2PEnv m) => NodeId -> Lazy.ByteString -> m ()
 sendPublishMessageToPeer recievingPeerNodeId message = do
     sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
     return ()

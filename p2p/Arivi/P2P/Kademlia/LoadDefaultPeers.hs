@@ -62,14 +62,8 @@ issueFindNode rpeer = do
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
         fn_msg = packFindMsg lnid lnid lip luport ltport
-    resp <-
-        sendRequestforKademlia
-            rnid
-            Kademlia
-            (L.toStrict $ serialise fn_msg)
-            ruport
-            rip
-    let peerl = getPeerListFromPayload (CL.fromStrict resp)
+    resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+    let peerl = getPeerListFromPayload resp
     liftIO $ print ""
     liftIO $ print peerl
     -- case peerl of

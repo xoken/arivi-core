@@ -24,6 +24,7 @@ import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
+import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Monad                         (forever, when)
@@ -52,14 +53,13 @@ sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
 sendOptionsToPeer :: (HasP2PEnv m) => NodeId -> NodeId -> m ()
 sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     let message = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
-    let byteStringMessage = Lazy.toStrict $ serialise message
+    let byteStringMessage = serialise message
     res1 <-
         Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
         Left (e :: Exception.SomeException) -> return ()
         Right returnMessage -> do
-            let supportMessage =
-                    deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
+            let supportMessage = deserialise returnMessage :: MessageTypeRPC
             case supportMessage of
                 Support _ fromPeer resourceList ->
                     Control.Monad.when (to message == fromPeer) $
@@ -100,7 +100,7 @@ updateResourcePeersHelper nodeId (currResource:listOfResources) resourceToPeerMa
 -- | takes an options message and returns a supported message
 optionsHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
 optionsHandler payload = do
-    let optionsMessage = deserialise (Lazy.fromStrict payload) :: MessageTypeRPC
+    let optionsMessage = deserialise payload :: MessageTypeRPC
     case optionsMessage of
         Options myNodeId fromNodeId -> do
             resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
@@ -112,10 +112,10 @@ optionsHandler payload = do
                         , from = myNodeId
                         , supportedResources = resourceList
                         }
-            let byteStringSupportMessage = Lazy.toStrict $ serialise message
+            let byteStringSupportMessage = serialise message
             return byteStringSupportMessage
             -- need to have proper error/exception messages and handling
-        _ -> return $ pack " "
+        _ -> throw HandlerNotRequest
 -- -- Formulate and send the Supported message as a reply to the Options message
 -- sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> NodeId -> NodeId -> m ()
 -- sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do

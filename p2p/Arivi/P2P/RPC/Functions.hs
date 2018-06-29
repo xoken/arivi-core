@@ -28,6 +28,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (Handle (..), IP,
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
+import           Arivi.Utils.Exception
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (forkIO, threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
@@ -35,6 +36,7 @@ import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
+import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Monad                         (forever)
@@ -161,14 +163,13 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
                 , rid = resourceID -- add RID
                 , serviceMessage = servicemessage
                 }
-    let message = Lazy.toStrict $ serialise requestMessage
+    let message = serialise requestMessage
     res1 <- Exception.try $ sendRequest nodeId RPC message
     case res1 of
         Left (e :: Exception.SomeException) ->
             sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage -- should discard the peer
         Right returnMessage -> do
-            let inmessage =
-                    deserialise (Lazy.fromStrict returnMessage) :: MessageTypeRPC
+            let inmessage = deserialise returnMessage :: MessageTypeRPC
             case inmessage of
                 ReplyResource toNodeId fromNodeId resID _ ->
                     if (mynodeid == toNodeId && nodeId == fromNodeId) &&
@@ -197,8 +198,7 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
 rpcHandler incomingRequest = do
-    let request =
-            deserialise (Lazy.fromStrict incomingRequest) :: MessageTypeRPC
+    let request = deserialise incomingRequest :: MessageTypeRPC
     case request of
         RequestResource myNodeId nodeId resourceId requestServiceMessage -> do
             resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
@@ -213,10 +213,10 @@ rpcHandler incomingRequest = do
                         , rid = resourceId
                         , serviceMessage = requestServiceMessage
                         }
-            let rpcResponse = Lazy.toStrict $ serialise replyMessage
+            let rpcResponse = serialise replyMessage
             return rpcResponse
             -- currently catching everything and returning an empty byte string in future need to define proper error messages
-        _ -> return $ pack " "
+        _ -> throw HandlerNotRequest
 
 -- should take peer from kademlia instead of taking stuff separately
 -- do it while integrating PeerDetails

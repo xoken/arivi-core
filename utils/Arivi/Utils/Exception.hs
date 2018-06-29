@@ -20,6 +20,7 @@ data AriviException
     | KademliaDefaultPeerDoesNotExists
     | HandlerSendMessageTimeout
     | HandlerOpenConnectionError
+    | HandlerNotRequest
     | HandlerConnectionBroken
     | KademliaInvalidRequest
     | KademliaInvalidResponse

@@ -15,28 +15,22 @@ module Arivi.P2P.RPC.Types
     , ResponseCode(..)
     ) where
 
-import Arivi.P2P.MessageHandler.HandlerTypes
-    ( ConnectionHandle
-    , IP
-    , NodeId
-    , P2PMessage
-    , Port
-    )
+import           Arivi.P2P.MessageHandler.HandlerTypes (ConnectionHandle, IP,
+                                                        NodeId, P2PMessage,
+                                                        Port)
 
 -- import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
-import Codec.Serialise (Serialise)
-import Control.Concurrent.MVar
-import Control.Concurrent.STM.TQueue
+import           Codec.Serialise                       (Serialise)
+import           Control.Concurrent.MVar
+import           Control.Concurrent.STM.TQueue
 
-import Control.Concurrent.STM.TVar
+import           Control.Concurrent.STM.TVar
 
-import Data.ByteString
+import           Data.ByteString
 
-import Data.ByteString.Char8 as Char8 (ByteString)
+import           Data.HashMap.Strict                   as HM
 
-import Data.HashMap.Strict as HM
-
-import GHC.Generics (Generic)
+import           GHC.Generics                          (Generic)
 
 --import              Data.Hashable
 type ResourceId = String
@@ -52,21 +46,21 @@ type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TQueue NodeId)
 type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
 data MessageTypeRPC
-    = Options { to :: NodeId
+    = Options { to   :: NodeId
               , from :: NodeId }
-    | Support { to :: NodeId
-              , from :: NodeId
+    | Support { to                 :: NodeId
+              , from               :: NodeId
               , supportedResources :: [ResourceId] }
-    | RequestResource { to :: NodeId
-                      , from :: NodeId
-                      , rid :: ResourceId
+    | RequestResource { to             :: NodeId
+                      , from           :: NodeId
+                      , rid            :: ResourceId
                       , serviceMessage :: ServiceMessage }
-    | ReplyResource { to :: NodeId
-                    , from :: NodeId
-                    , rid :: ResourceId
+    | ReplyResource { to             :: NodeId
+                    , from           :: NodeId
+                    , rid            :: ResourceId
                     , serviceMessage :: ServiceMessage }
-    | Response { to :: NodeId
-               , from :: NodeId
+    | Response { to           :: NodeId
+               , from         :: NodeId
                , responseCode :: ResponseCode }
     deriving (Eq, Ord, Show, Generic)
 
@@ -101,7 +95,7 @@ data P2Pinfo = P2Pinfo
     } deriving (Eq, Show)
 
 data ServicePayload = ServicePayload
-    { resid :: ResourceId
+    { resid   :: ResourceId
     , message :: ByteString
-    , extra :: Maybe P2Pinfo
+    , extra   :: Maybe P2Pinfo
     } deriving (Eq, Show)
