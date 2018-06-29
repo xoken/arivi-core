@@ -25,22 +25,16 @@ import           Control.Concurrent.MVar
 {-
 
 -}
-import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar ()
-import           Control.Monad
-import           Control.Monad.IO.Class      (MonadIO)
-
-import           Codec.Serialise             (Serialise)
-
-import           GHC.Generics                (Generic)
-
-import           Data.ByteString             as N (ByteString)
-import           Data.ByteString.Lazy        as Lazy (ByteString)
-
 import           Arivi.Network               (ConnectionHandle (..),
                                               TransportType (..))
+import           Codec.Serialise             (Serialise)
+import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TVar ()
+import           Data.ByteString             as N (ByteString)
+import           Data.ByteString.Lazy        as Lazy (ByteString)
 import           Data.Hashable
 import           Data.HashMap.Strict         as HM
+import           GHC.Generics                (Generic)
 import           Network.Socket              (PortNumber)
 
 --import           Arivi.Network.Types            (TransportType(..))
