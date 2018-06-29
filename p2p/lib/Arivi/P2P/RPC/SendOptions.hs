@@ -5,35 +5,32 @@ module Arivi.P2P.RPC.SendOptions
     , optionsHandler
     ) where
 
-import           Arivi.Network.Types                   (ConnectionId)
-import           Arivi.P2P.Kademlia.Utils              (extractFirst,
-                                                        extractSecond,
-                                                        extractThird)
+-- import           Arivi.Network.Types                   (ConnectionId)
+-- import           Arivi.P2P.Kademlia.Utils              (extractFirst,
+--                                                         extractSecond,
+--                                                         extractThird)
 import           Arivi.P2P.MessageHandler.Handler
-import           Arivi.P2P.MessageHandler.HandlerTypes (MessageInfo,
-                                                        MessageType (..),
-                                                        P2PPayload,
-                                                        PeerDetails (..),
-                                                        TransportType (..))
+import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
+                                                        P2PPayload)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Exception
 import           Codec.Serialise                       (deserialise, serialise)
-import           Control.Concurrent                    (forkIO, threadDelay)
+-- import           Control.Concurrent                    (forkIO, threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
-import           Control.Concurrent.Lifted             (fork)
+-- import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
-import           Control.Monad                         (forever, when)
+import           Control.Monad                         (when)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
-import           Data.ByteString.Char8                 as Char8 (ByteString,
-                                                                 pack, unpack)
-import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
-                                                                toStrict)
+-- import           Data.ByteString.Char8                 as Char8 (ByteString,
+                                                                --  pack, unpack)
+-- import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
+                                                                -- toStrict)
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
@@ -42,7 +39,7 @@ import           Data.Maybe
 sendOptionsMessage :: (HasP2PEnv m) => NodeId -> [NodeId] -> m ()
 sendOptionsMessage _ [] = return ()
 sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
-    LAsync.async (sendOptionsToPeer sendingPeer recievingPeer)
+    _ <- LAsync.async (sendOptionsToPeer sendingPeer recievingPeer)
     sendOptionsMessage sendingPeer peerList
 
 -- this function runs on each lightweight thread
@@ -52,17 +49,17 @@ sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
 -- blocks while waiting for a response from the Other Peer
 sendOptionsToPeer :: (HasP2PEnv m) => NodeId -> NodeId -> m ()
 sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
-    let message = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
-    let byteStringMessage = serialise message
+    let mMessage = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
+    let byteStringMessage = serialise mMessage
     res1 <-
         Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
-        Left (e :: Exception.SomeException) -> return ()
+        Left (_ :: Exception.SomeException) -> return ()
         Right returnMessage -> do
             let supportMessage = deserialise returnMessage :: MessageTypeRPC
             case supportMessage of
                 Support _ fromPeer resourceList ->
-                    Control.Monad.when (to message == fromPeer) $
+                    Control.Monad.when (to mMessage == fromPeer) $
                     updateResourcePeers (recievingPeerNodeId, resourceList)
                 _ -> return () -- should handle this better
 
@@ -71,9 +68,9 @@ updateResourcePeers :: (HasP2PEnv m) => (NodeId, [ResourceId]) -> m ()
 updateResourcePeers peerResourceTuple = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
-    let node = fst peerResourceTuple
+    let mNode = fst peerResourceTuple
     let listOfResources = snd peerResourceTuple
-    liftIO $ updateResourcePeersHelper node listOfResources resourceToPeerMap
+    _ <- liftIO $ updateResourcePeersHelper mNode listOfResources resourceToPeerMap
     return ()
 
 -- adds the peer to the TQueue of each resource
@@ -83,16 +80,16 @@ updateResourcePeers peerResourceTuple = do
 updateResourcePeersHelper ::
        NodeId -> [ResourceId] -> ResourceToPeerMap -> IO Int
 updateResourcePeersHelper _ [] _ = return 0
-updateResourcePeersHelper nodeId (currResource:listOfResources) resourceToPeerMap = do
+updateResourcePeersHelper mNodeId (currResource:listOfResources) resourceToPeerMap = do
     let temp = HM.lookup currResource resourceToPeerMap -- check for lookup returning Nothing
     if isNothing temp
-        then updateResourcePeersHelper nodeId listOfResources resourceToPeerMap
+        then updateResourcePeersHelper mNodeId listOfResources resourceToPeerMap
         else do
             let currTQ = snd (fromJust temp)
-            atomically (writeTQueue currTQ nodeId)
+            atomically (writeTQueue currTQ mNodeId)
             tmp <-
                 updateResourcePeersHelper
-                    nodeId
+                    mNodeId
                     listOfResources
                     resourceToPeerMap
             return $ 1 + tmp
@@ -106,13 +103,13 @@ optionsHandler payload = do
             resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
             resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
             let resourceList = keys resourceToPeerMap
-            let message =
+            let mMessage =
                     Support
                         { to = fromNodeId
                         , from = myNodeId
                         , supportedResources = resourceList
                         }
-            let byteStringSupportMessage = serialise message
+            let byteStringSupportMessage = serialise mMessage
             return byteStringSupportMessage
             -- need to have proper error/exception messages and handling
         _ -> throw HandlerNotRequest
