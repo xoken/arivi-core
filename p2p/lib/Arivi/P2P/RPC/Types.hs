@@ -15,34 +15,18 @@ module Arivi.P2P.RPC.Types
     , ResponseCode(..)
     ) where
 
-import           Arivi.P2P.MessageHandler.HandlerTypes (ConnectionHandle, IP,
-                                                        NodeId, P2PMessage,
-                                                        Port)
-
--- import           Arivi.P2P.MessageHandler.HandlerTypes (Peer (..))
+import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
 import           Codec.Serialise                       (Serialise)
-import           Control.Concurrent.MVar
 import           Control.Concurrent.STM.TQueue
-
-import           Control.Concurrent.STM.TVar
-
 import           Data.ByteString
-
 import           Data.HashMap.Strict                   as HM
-
 import           GHC.Generics                          (Generic)
 
---import              Data.Hashable
 type ResourceId = String
-
 type ServiceId = String
-
 type ServiceMessage = ByteString
-
 type ResourceHandlerList = [(ResourceId, ResourceHandler)]
-
 type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TQueue NodeId)
-
 type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
 data MessageTypeRPC
