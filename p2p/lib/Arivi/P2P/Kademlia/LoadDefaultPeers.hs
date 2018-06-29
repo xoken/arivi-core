@@ -13,7 +13,9 @@
 -- where closeness is determined by the XOR Metric and agains issues FIND_NODE
 -- to the peers it has recieved.
 module Arivi.P2P.Kademlia.LoadDefaultPeers
-    ( loadDefaultPeers
+    ( loadDefaultPeers,
+      deleteIfPeerExist,
+      ifPeerExist'
     ) where
 
 import           Arivi.P2P.Kademlia.Kbucket
@@ -28,8 +30,12 @@ import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import           Data.ByteString                       (ByteString)
+import qualified Data.ByteString.Char8                 as C (ByteString)
 import qualified Data.ByteString.Lazy                  as L
 import qualified Data.ByteString.Lazy.Char8            as CL
+import qualified Data.List                             as LL
+import           Network.Socket                        (PortNumber)
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
 --   local node information which are passed to P2P enviornment during
@@ -47,6 +53,22 @@ getPeerListFromPayload payl = do
         FN_RESP _ pl _ -> Right pl
         _              -> Left KademliaInvalidResponse
 
+ifPeerExist' :: (HasKbucket m) => Arivi.P2P.Kademlia.Types.NodeId -> m Bool
+ifPeerExist' nid = do
+    m <- ifPeerExist nid
+    case m of
+        Right x -> return x
+        Left y  -> return False
+
+deleteIfPeerExist :: (HasKbucket m) => [Peer] -> m [Peer]
+deleteIfPeerExist [] = return []
+deleteIfPeerExist (x:xs) = do
+    ife <- ifPeerExist' (fst $ getPeer x)
+    t <- deleteIfPeerExist xs
+    if not ife
+        then return (x:t)
+        else return []
+
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
 issueFindNode :: (HasP2PEnv m) => Peer -> m ()
 issueFindNode rpeer = do
@@ -62,14 +84,21 @@ issueFindNode rpeer = do
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
         fn_msg = packFindMsg lnid lnid lip luport ltport
-    resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
-    let peerl = getPeerListFromPayload resp
-    liftIO $ print ""
-    liftIO $ print peerl
-    -- case peerl of
-    --   Right x -> mapConcurrently_ issueFindNode x
-    --   Left  _ -> return ()
-  -- | Deletes nodes from peer list which already exists in k-bucket
-  --   this is important otherwise it will be stuck in a loop where the
-  --   function constantly issue FIND_NODE request forever.
-    -- let peerl2 = LL.deleteBy (\p -> ifPeerExist (fst $ getPeer p)) peerl
+    resp <-
+        sendRequestforKademlia
+            rnid
+            Kademlia
+            (L.toStrict $ serialise fn_msg)
+            ruport
+            rip
+    let peerl  = case getPeerListFromPayload (CL.fromStrict resp) of
+            Right x -> x
+            Left  _ -> []
+
+    peerl2 <- deleteIfPeerExist peerl
+
+    -- | Deletes nodes from peer list which already exists in k-bucket
+    --   this is important otherwise it will be stuck in a loop where the
+    --   function constantly issue FIND_NODE request forever.
+
+    mapConcurrently_ issueFindNode peerl2
