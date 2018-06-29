@@ -30,12 +30,7 @@ import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
-import           Data.ByteString                       (ByteString)
-import qualified Data.ByteString.Char8                 as C (ByteString)
 import qualified Data.ByteString.Lazy                  as L
-import qualified Data.ByteString.Lazy.Char8            as CL
-import qualified Data.List                             as LL
-import           Network.Socket                        (PortNumber)
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
 --   local node information which are passed to P2P enviornment during
@@ -58,7 +53,7 @@ ifPeerExist' nid = do
     m <- ifPeerExist nid
     case m of
         Right x -> return x
-        Left y  -> return False
+        Left _  -> return False
 
 deleteIfPeerExist :: (HasKbucket m) => [Peer] -> m [Peer]
 deleteIfPeerExist [] = return []
