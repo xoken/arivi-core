@@ -9,16 +9,14 @@ module Arivi.P2P.MessageHandler.Handler
 
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
-import           Data.List.Split                       (splitOn)
 
 import           Data.Maybe
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
 
-import           Control.Concurrent                    (forkIO)
-import qualified Control.Concurrent.Async              as Async (async, race)
+import qualified Control.Concurrent.Async              as Async (race)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
-import           Control.Concurrent.Lifted             (fork, threadDelay)
+import           Control.Concurrent.Lifted             (threadDelay)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue         ()
@@ -27,9 +25,8 @@ import           Control.Exception                     (throw)
 
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
-import           Control.Monad                         (forever, unless, when)
+import           Control.Monad                         (when)
 import           Control.Monad.IO.Class                (liftIO)
-import           Control.Monad.Trans
 
 import           Codec.Serialise                       (deserialise, serialise)
 
@@ -51,11 +48,12 @@ sendRequest node mType p2pPayload = do
     let peerDetailsTVar = fromJust (HM.lookup node nodeIdMap)
     peerDetails <- liftIO $ readTVarIO peerDetailsTVar
     let uuidMapTVar = tvarUUIDMap peerDetails
-    case newFlag of
-        True -> do
-            messageTypeMap <- getMessageTypeMapP2PEnv
+    when newFlag $ do
+        messageTypeMap <- getMessageTypeMapP2PEnv
+        _ <-
             LAsync.async
                 (readRequestThread connHandle uuidMapTVar messageTypeMap)
+        return ()
     liftIO $
         atomically
             (do uuidMap <- readTVar uuidMapTVar
@@ -90,20 +88,20 @@ sendRequestforKademlia ::
     -> PortNumber
     -> IP
     -> m P2PPayload
-sendRequestforKademlia node mType p2pPayload port ip = do
+sendRequestforKademlia node mType p2pPayload port mIP = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
     let maybePeer = HM.lookup node nodeIdMap
     if isNothing maybePeer -- concurrency issues might arise here need to check
         then do
-            res <- openConnection ip port UDP node
+            res <- openConnection mIP port UDP node
             case res of
                 Left e -> throw e
                 Right connHandle -> do
                     liftIO $
                         addPeerFromConnection node UDP connHandle nodeIdMapTVar
                     newNodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
-                    let peer = fromJust (HM.lookup node nodeIdMap)
+                    let peer = fromJust (HM.lookup node newNodeIdMap)
                     peerDetails <- liftIO $ readTVarIO peer
                     let uuidMapTVar = tvarUUIDMap peerDetails
                     messageTypeMap <- getMessageTypeMapP2PEnv
@@ -122,25 +120,27 @@ readRequestThread connHandle uuidMapTVar messageTypeMap = do
     case eitherByteMessage of
         Left (_ :: Exception.SomeException) -> return ()
         Right byteMessage -> do
-            LAsync.async
-                (processIncomingMessage
-                     connHandle
-                     uuidMapTVar
-                     messageTypeMap
-                     byteMessage)
+            _ <-
+                LAsync.async
+                    (processIncomingMessage
+                         connHandle
+                         uuidMapTVar
+                         messageTypeMap
+                         byteMessage)
             readRequestThread connHandle uuidMapTVar messageTypeMap
 
 -- newConnectionHandler :: NodeId -> ConnectionHandle -> TransportType ->
 newIncomingConnection ::
        (HasP2PEnv m) => NodeId -> ConnectionHandle -> TransportType -> m ()
-newIncomingConnection nodeId connHandle transportType = do
+newIncomingConnection mNodeId connHandle transportType = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     messageTypeMap <- getMessageTypeMapP2PEnv
-    liftIO $ addPeerFromConnection nodeId transportType connHandle nodeIdMapTVar
+    liftIO $
+        addPeerFromConnection mNodeId transportType connHandle nodeIdMapTVar
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
-    peerDetails <- liftIO $ readTVarIO (fromJust (HM.lookup nodeId nodeIdMap))
+    peerDetails <- liftIO $ readTVarIO (fromJust (HM.lookup mNodeId nodeIdMap))
     let uuidMapTVar = tvarUUIDMap peerDetails
-    LAsync.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
+    _ <- LAsync.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
     return ()
 
 cleanConnection :: (HasP2PEnv m) => NodeId -> TransportType -> m ()
@@ -157,13 +157,13 @@ cleanConnection mNodeId transportType = do
                                 case datagramHandle peerDetails of
                                     Connected _ ->
                                         peerDetails
-                                        {datagramHandle = NotConnected}
+                                            {datagramHandle = NotConnected}
                                     _ -> peerDetails
                             TCP ->
                                 case streamHandle peerDetails of
                                     Connected _ ->
                                         peerDetails
-                                        {streamHandle = NotConnected}
+                                            {streamHandle = NotConnected}
                                     _ -> peerDetails
                 writeTVar peerDetailsTVar newPeerDetails)
     liftIO $ cleanPeer mNodeId nodeIdMapTVar
@@ -209,13 +209,16 @@ cleanPeer mNodeId nodeIdMapTVar =
     atomically
         (do nodeIdMap <- readTVar nodeIdMapTVar
             let maybePeer = HM.lookup mNodeId nodeIdMap
-            when (isJust maybePeer) $ do
-                let peerDetailsTVar = fromJust maybePeer
-                peerDetails <- readTVar peerDetailsTVar
-                case peerDetails of
-                    PeerDetails _ Nothing Nothing Nothing Nothing NotConnected NotConnected _ -> do
-                        let newnodeIdMap = HM.delete mNodeId nodeIdMap
-                        writeTVar nodeIdMapTVar newnodeIdMap)
+            case maybePeer of
+                Just peerDetailsTVar -> do
+                    peerDetails <- readTVar peerDetailsTVar
+                    case peerDetails of
+                        PeerDetails _ Nothing Nothing Nothing Nothing NotConnected NotConnected _ -> do
+                            let newnodeIdMap = HM.delete mNodeId nodeIdMap
+                            writeTVar nodeIdMapTVar newnodeIdMap
+                            return ()
+                        _ -> return ()
+                Nothing -> return ())
 
 getConnectionHandle ::
        (HasP2PEnv m)
@@ -254,19 +257,19 @@ getConnectionHandle peerDetailsTVar transportType = do
                                         let newPeerDetails =
                                                 if transportType == TCP
                                                     then oldPeerDetails
-                                                         { streamHandle =
-                                                               Connected
-                                                               { connId =
-                                                                     connHandle
-                                                               }
-                                                         }
+                                                             { streamHandle =
+                                                                   Connected
+                                                                       { connId =
+                                                                             connHandle
+                                                                       }
+                                                             }
                                                     else oldPeerDetails
-                                                         { datagramHandle =
-                                                               Connected
-                                                               { connId =
-                                                                     connHandle
-                                                               }
-                                                         }
+                                                             { datagramHandle =
+                                                                   Connected
+                                                                       { connId =
+                                                                             connHandle
+                                                                       }
+                                                             }
                                         writeTVar peerDetailsTVar newPeerDetails)
                             return (connHandle, True)
                 else getConnectionHandle peerDetailsTVar transportType
@@ -340,15 +343,15 @@ addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
                 maybe
                     (do let newDetails =
                                 PeerDetails
-                                { nodeId = node
-                                , rep = Nothing
-                                , ip = Nothing
-                                , udpPort = Nothing
-                                , tcpPort = Nothing
-                                , streamHandle = NotConnected
-                                , datagramHandle = NotConnected
-                                , tvarUUIDMap = uuidMapTVar
-                                }
+                                    { nodeId = node
+                                    , rep = Nothing
+                                    , ip = Nothing
+                                    , udpPort = Nothing
+                                    , tcpPort = Nothing
+                                    , streamHandle = NotConnected
+                                    , datagramHandle = NotConnected
+                                    , tvarUUIDMap = uuidMapTVar
+                                    }
                         peerTVar <- newTVar newDetails
                         readTVar peerTVar)
                     readTVar
@@ -356,9 +359,13 @@ addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
             let newPeerDetails =
                     if transportType == TCP
                         then peerDetails
-                             {streamHandle = Connected {connId = connHandle}}
+                                 { streamHandle =
+                                       Connected {connId = connHandle}
+                                 }
                         else peerDetails
-                             {datagramHandle = Connected {connId = connHandle}}
+                                 { datagramHandle =
+                                       Connected {connId = connHandle}
+                                 }
             newPeerTvar <- newTVar newPeerDetails
             let newHashMap = HM.insert node newPeerTvar nodeIdPeerMap
             writeTVar nodeIdPeerMapTVar newHashMap)
