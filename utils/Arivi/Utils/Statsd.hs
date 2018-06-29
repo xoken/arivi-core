@@ -51,9 +51,9 @@ class (MonadIO m, MonadBaseControl IO m) =>
 
 -- | Initiates a counter with a given value and sends the metric to statsd server
 counter :: (HasStatsdClient m) => S.Stat -> Int -> m ()
-counter label init = do
+counter label initV = do
     client <- getStatsdClient
-    liftIO $ S.count client label init
+    liftIO $ S.count client label initV
 
 -- | Icrements and sends a counter given it's label
 incrementCounter :: (HasStatsdClient m) => S.Stat -> m ()
