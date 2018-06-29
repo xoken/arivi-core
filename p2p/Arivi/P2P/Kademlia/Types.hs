@@ -28,7 +28,6 @@ module Arivi.P2P.Kademlia.Types
     , HasKbucket(..)
     ) where
 
-import           Codec.Serialise             (deserialise, serialise)
 import           Codec.Serialise.Class       (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding

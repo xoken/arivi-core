@@ -34,7 +34,6 @@ module Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
-import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
 import           Control.Monad                  ()
 import           Control.Monad.IO.Class
@@ -80,8 +79,8 @@ getPeerList peerR = do
                 kbDistance = getKbIndex localPeer peer
             pl <-
                 liftIO $ atomically $ H.lookup kbDistance (getKbucket kbucket'')
-            let peerList = fromMaybe [] pl
-            return $ Right peerList
+            let mPeerList = fromMaybe [] pl
+            return $ Right mPeerList
         Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
 
 -- |Gets Peer by Kbucket-Index (kb-index) Index
@@ -97,8 +96,8 @@ getPeerListByKIndex kbi = do
 -- |Checks if a peer already exists
 ifPeerExist :: (HasKbucket m) => NodeId -> m (Either AriviException Bool)
 ifPeerExist peer = do
-    peerList <- getPeerList peer
-    case peerList of
+    mPeerList <- getPeerList peer
+    case mPeerList of
         Right pl ->
             if peer `elem` pl2
                 then return (Right True)
@@ -114,8 +113,8 @@ addToKBucket peerR = do
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
-            peerList <- getPeerList nid
-            case peerList of
+            mPeerList <- getPeerList nid
+            case mPeerList of
                 Right pl -> do
                     let kb = getKbucket kb''
                     let peer = fst $ getPeer peerR
@@ -139,8 +138,8 @@ removePeer peerR = do
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
-            peerList <- getPeerList peerR
-            case peerList of
+            mPeerList <- getPeerList peerR
+            case mPeerList of
                 Right pl -> do
                     let kb = getKbucket kbb'
                         kbDistance = getKbIndex localPeer peerR
@@ -169,9 +168,9 @@ getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
     kbb'' <- getKb
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
-    let peerList = fromMaybe [] pl
-        ple = fst $ L.splitAt k peerList
-    if L.length peerList >= k
+    let mPeerList = fromMaybe [] pl
+        ple = fst $ L.splitAt k mPeerList
+    if L.length mPeerList >= k
         then return ple
         else do
             temp <- getPeerListFromKeyList (k - L.length ple) xs
