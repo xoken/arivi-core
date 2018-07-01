@@ -9,14 +9,11 @@ module Arivi.P2P.MessageHandler.Handler
     , cleanConnection
     ) where
 
-import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
-import           Data.HashMap.Strict                   as HM
-
-import           Data.Maybe
-import           Data.Text
-import qualified Data.UUID                             as UUID (toString)
-import           Data.UUID.V4                          (nextRandom)
-
+import           Arivi.Network                         (openConnection)
+import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.P2PEnv
+import           Arivi.Utils.Exception
+import           Codec.Serialise                       (deserialise, serialise)
 import qualified Control.Concurrent.Async              as Async (race)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.Lifted             (threadDelay)
@@ -25,19 +22,16 @@ import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue         ()
 import           Control.Concurrent.STM.TVar           ()
 import           Control.Exception                     (throw)
-import           Control.Monad.Logger                  (logDebug)
-
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Monad                         (when)
 import           Control.Monad.IO.Class                (liftIO)
-
-import           Codec.Serialise                       (deserialise, serialise)
-
-import           Arivi.Network                         (openConnection)
-import           Arivi.P2P.MessageHandler.HandlerTypes
-import           Arivi.P2P.P2PEnv
-import           Arivi.Utils.Exception
+import           Control.Monad.Logger                  (logDebug)
+import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
+import           Data.HashMap.Strict                   as HM
+import           Data.Maybe
+import qualified Data.UUID                             as UUID (toString)
+import           Data.UUID.V4                          (nextRandom)
 import           Network.Socket                        (PortNumber)
 
 -- | used by RPC and PubSub to send outgoing requests. This is a blocing call which returns the reply
@@ -169,13 +163,13 @@ cleanConnection mNodeId transportType = do
                                 case datagramHandle peerDetails of
                                     Connected _ ->
                                         peerDetails
-                                            {datagramHandle = NotConnected}
+                                        {datagramHandle = NotConnected}
                                     _ -> peerDetails
                             TCP ->
                                 case streamHandle peerDetails of
                                     Connected _ ->
                                         peerDetails
-                                            {streamHandle = NotConnected}
+                                        {streamHandle = NotConnected}
                                     _ -> peerDetails
                 writeTVar peerDetailsTVar newPeerDetails)
     liftIO $ cleanPeer mNodeId nodeIdMapTVar
@@ -271,19 +265,19 @@ getConnectionHandle peerDetailsTVar transportType = do
                                         let newPeerDetails =
                                                 if transportType == TCP
                                                     then oldPeerDetails
-                                                             { streamHandle =
-                                                                   Connected
-                                                                       { connId =
-                                                                             connHandle
-                                                                       }
-                                                             }
+                                                         { streamHandle =
+                                                               Connected
+                                                               { connId =
+                                                                     connHandle
+                                                               }
+                                                         }
                                                     else oldPeerDetails
-                                                             { datagramHandle =
-                                                                   Connected
-                                                                       { connId =
-                                                                             connHandle
-                                                                       }
-                                                             }
+                                                         { datagramHandle =
+                                                               Connected
+                                                               { connId =
+                                                                     connHandle
+                                                               }
+                                                         }
                                         writeTVar peerDetailsTVar newPeerDetails)
                             return (connHandle, True)
                 else getConnectionHandle peerDetailsTVar transportType
@@ -357,15 +351,15 @@ addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
                 maybe
                     (do let newDetails =
                                 PeerDetails
-                                    { nodeId = node
-                                    , rep = Nothing
-                                    , ip = Nothing
-                                    , udpPort = Nothing
-                                    , tcpPort = Nothing
-                                    , streamHandle = NotConnected
-                                    , datagramHandle = NotConnected
-                                    , tvarUUIDMap = uuidMapTVar
-                                    }
+                                { nodeId = node
+                                , rep = Nothing
+                                , ip = Nothing
+                                , udpPort = Nothing
+                                , tcpPort = Nothing
+                                , streamHandle = NotConnected
+                                , datagramHandle = NotConnected
+                                , tvarUUIDMap = uuidMapTVar
+                                }
                         peerTVar <- newTVar newDetails
                         readTVar peerTVar)
                     readTVar
@@ -373,13 +367,9 @@ addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
             let newPeerDetails =
                     if transportType == TCP
                         then peerDetails
-                                 { streamHandle =
-                                       Connected {connId = connHandle}
-                                 }
+                             {streamHandle = Connected {connId = connHandle}}
                         else peerDetails
-                                 { datagramHandle =
-                                       Connected {connId = connHandle}
-                                 }
+                             {datagramHandle = Connected {connId = connHandle}}
             newPeerTvar <- newTVar newPeerDetails
             let newHashMap = HM.insert node newPeerTvar nodeIdPeerMap
             writeTVar nodeIdPeerMapTVar newHashMap)
