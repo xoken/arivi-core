@@ -237,9 +237,9 @@ processParcel parcel connection fragmentsHM =
         Parcel PongHeader {} _ -> return Nothing
         _ -> throw AriviWrongParcelException
 
-getDatagram :: Socket -> IO (Either AriviException Parcel)
-getDatagram sock =
-    first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
+-- getDatagram :: Socket -> IO (Either AriviException Parcel)
+-- getDatagram sock =
+--     first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
 
 getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
 getDatagramWithTimeout sock microseconds = do
@@ -333,7 +333,7 @@ recvAll :: Socket -> Int64 -> IO BSL.ByteString
 recvAll sock len = do
     msg <-
         mapIOException
-            (\(e :: SomeException) -> AriviSocketException)
+            (\(_ :: SomeException) -> AriviSocketException)
             (N.recv sock len)
     if BSL.null msg
         then throw AriviSocketException
