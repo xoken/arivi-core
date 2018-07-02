@@ -16,10 +16,11 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Exception
 import           Codec.Serialise                       (deserialise, serialise)
+
 -- import           Control.Concurrent                    (forkIO, threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
+
 -- import           Control.Concurrent.Lifted             (fork)
-import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
@@ -27,10 +28,11 @@ import qualified Control.Exception.Lifted              as Exception (SomeExcepti
 import           Control.Monad                         (when)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
--- import           Data.ByteString.Char8                 as Char8 (ByteString,
                                                                 --  pack, unpack)
--- import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
                                                                 -- toStrict)
+
+-- import           Data.ByteString.Char8                 as Char8 (ByteString,
+-- import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
@@ -70,7 +72,9 @@ updateResourcePeers peerResourceTuple = do
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
     let mNode = fst peerResourceTuple
     let listOfResources = snd peerResourceTuple
-    _ <- liftIO $ updateResourcePeersHelper mNode listOfResources resourceToPeerMap
+    _ <-
+        liftIO $
+        updateResourcePeersHelper mNode listOfResources resourceToPeerMap
     return ()
 
 -- adds the peer to the TQueue of each resource
@@ -86,19 +90,16 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) resourceToPeerM
         then updateResourcePeersHelper mNodeId listOfResources resourceToPeerMap
         else do
             let nodeListTVar = snd (fromJust temp)
-            atomically (
-                do
-                    nodeList <- readTVar nodeListTVar
+            atomically
+                (do nodeList <- readTVar nodeListTVar
                     let updatedList = nodeList ++ [mNodeId]
-                    writeTVar nodeListTVar updatedList
-                )
+                    writeTVar nodeListTVar updatedList)
             tmp <-
                 updateResourcePeersHelper
                     mNodeId
                     listOfResources
                     resourceToPeerMap
             return $ 1 + tmp
-
 
 -- | takes an options message and returns a supported message
 optionsHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload

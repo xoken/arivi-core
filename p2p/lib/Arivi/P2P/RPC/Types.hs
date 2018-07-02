@@ -18,17 +18,21 @@ module Arivi.P2P.RPC.Types
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
 import           Codec.Serialise                       (Serialise)
-import           Control.Concurrent.STM.TQueue
+import           Control.Concurrent.STM.TVar
 import           Data.ByteString
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
-import           Control.Concurrent.STM.TVar
 
 type ResourceId = String
+
 type ServiceId = String
+
 type ServiceMessage = ByteString
+
 type ResourceHandlerList = [(ResourceId, ResourceHandler)]
-type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TVar ([NodeId]))
+
+type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
+
 type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
 data MessageTypeRPC

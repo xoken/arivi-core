@@ -26,7 +26,6 @@ import           Arivi.Utils.Exception
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
-import           Control.Concurrent.STM.TQueue
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
@@ -66,8 +65,12 @@ updatePeerInResourceMap currNodeId = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
     let minimumNodes = 5
-    _ <- LAsync.async
-        (updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId)
+    _ <-
+        LAsync.async
+            (updatePeerInResourceMapHelper
+                 resourceToPeerMap
+                 minimumNodes
+                 currNodeId)
     return ()
 
 updatePeerInResourceMapHelper ::
@@ -102,10 +105,7 @@ extractListOfLengths ::
 extractListOfLengths [] = return [0]
 extractListOfLengths (x:xs) = do
     let nodeListTVar = snd (snd x) -- get the TQueue of Peers
-    len <-
-        atomically
-            (do nodeList <- readTVar nodeListTVar
-                return (length nodeList))
+    len <- atomically (length <$> readTVar nodeListTVar)
     lenNextTQ <- extractListOfLengths xs
     return $ len : lenNextTQ
 
@@ -116,7 +116,6 @@ extractListOfLengths (x:xs) = do
 --     writeTQueue currTQ currentElem
 --     writeBackToTQueue currTQ listOfTQ
 --
-
 -----------------------
 -- get NodeId from environment
 getResource ::
@@ -133,6 +132,7 @@ getResource mynodeid resourceID servicemessage = do
     let nodeListTVar = snd (fromJust temp)
     -- should check if list is empty
     sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage
+
 sendResourceRequestToPeer ::
        (HasP2PEnv m)
     => TVar [NodeId]
@@ -154,15 +154,18 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
     res1 <- Exception.try $ sendRequest mNodeId RPC mMessage
     case res1 of
         Left (_ :: Exception.SomeException) ->
-            sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage -- should discard the peer
+            sendResourceRequestToPeer
+                nodeListTVar
+                resourceID
+                mynodeid
+                servicemessage -- should discard the peer
         Right returnMessage -> do
             let inmessage = deserialise returnMessage :: MessageTypeRPC
             case inmessage of
                 ReplyResource toNodeId fromNodeId resID _ ->
                     if (mynodeid == toNodeId && mNodeId == fromNodeId) &&
                        resourceID == resID
-                        then liftIO $
-                             return (serviceMessage inmessage)
+                        then liftIO $ return (serviceMessage inmessage)
                         else sendResourceRequestToPeer
                                  nodeListTVar
                                  resourceID
@@ -170,7 +173,7 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                                  servicemessage
                 Response _ _ responseCode' ->
                     case responseCode' of
-                        Busy -> do
+                        Busy ->
                             sendResourceRequestToPeer
                                 nodeListTVar
                                 resourceID
@@ -178,7 +181,6 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                                 servicemessage
                         Error -> return $ pack " error " -- need to define proper error handling maybe throw an exception
  -- should check to and from
-
                 _ -> return $ pack " default"
 
 -- will need the from NodeId to check the to and from
@@ -265,23 +267,24 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
 updateDynamicResourceToPeerMap :: (HasP2PEnv m) => ResourceId -> NodeId -> m ()
 updateDynamicResourceToPeerMap resID nodeID = do
     dynamicResourceToPeerMapTVar <- getDynamicResourceToPeerMap
-    liftIO $ atomically (
-        do
-            dynamicResourceToPeerMap <- readTVar dynamicResourceToPeerMapTVar
-            let currentEntry = HM.lookup resID dynamicResourceToPeerMap
-            if isNothing currentEntry
-                then
-                    do
+    liftIO $
+        atomically
+            (do dynamicResourceToPeerMap <-
+                    readTVar dynamicResourceToPeerMapTVar
+                let currentEntry = HM.lookup resID dynamicResourceToPeerMap
+                if isNothing currentEntry
+                    then do
                         newNodeTVar <- newTVar [nodeID]
-                        let modifiedMap = HM.insert resID newNodeTVar dynamicResourceToPeerMap
+                        let modifiedMap =
+                                HM.insert
+                                    resID
+                                    newNodeTVar
+                                    dynamicResourceToPeerMap
                         writeTVar dynamicResourceToPeerMapTVar modifiedMap
-                else
-                    do
+                    else do
                         currNodeList <- readTVar $ fromJust currentEntry
                         let newNodeList = currNodeList ++ [nodeID]
-                        writeTVar (fromJust currentEntry) newNodeList
-        )
-
+                        writeTVar (fromJust currentEntry) newNodeList)
 -- readResourceRequest :: (HasP2PEnv m) => ResourceId -> m ServicePayload
 -- readResourceRequest resourceId = do
 --     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
