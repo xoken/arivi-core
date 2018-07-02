@@ -32,7 +32,8 @@ import           System.CPUTime
 type LogChan = TQueue (Loc, LogSource, LogLevel, Text)
 
 data LogStatement =
-    LogNetworkStatement Text
+     LogNetworkStatement Text
+   | LogP2PStatement Text
 
 class ( MonadLogger m
       , MonadIO m
@@ -46,6 +47,7 @@ class ( MonadLogger m
 
 toText :: LogStatement -> Text
 toText (LogNetworkStatement l) = "LogNetworkStatement " <> l
+toText (LogP2PStatement l)     = "LogP2PStatement " <> l
 
 withLoggingTH :: Q Exp
 withLoggingTH = [|withLocLogging $(qLocation >>= liftLoc)|]
