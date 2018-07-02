@@ -6,28 +6,23 @@
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
-    , HasStatsdClient (..)
-    , T.HasKbucket (..)
+    , HasStatsdClient(..)
+    , T.HasKbucket(..)
     ) where
 
 import           Arivi.Env
+import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-
-import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.Utils.Statsd
+
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Concurrent.STM.TQueue
-import           Control.Monad.IO.Class                (MonadIO)
-import           Control.Monad.Logger
-import           Control.Monad.Reader                  (ReaderT, ask, asks,
-                                                        runReaderT)
-import           Control.Monad.Trans.Control           (MonadBaseControl)
+
 import           Data.HashMap.Strict                   as HM
-import qualified STMContainers.Map                     as H
 
 data P2PEnv = P2PEnv
     { tvarAriviP2PInstance :: TVar AriviP2PInstance
@@ -69,7 +64,6 @@ class ( T.HasKbucket m
     getNotifiersTableP2PEnv :: m (TVar NotifiersTable)
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
-
 
 makeP2PEnvironment :: IO P2PEnv
 makeP2PEnvironment = do
