@@ -209,7 +209,8 @@ getKClosestPeersByNodeid nid k = do
             let kbi = getKbIndex localPeer nid
                 tkeys = L.sort $ fmap fst kvList
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
-            peerl <- getPeerListFromKeyList k keys
+                keys2 = L.delete 0 keys
+            peerl <- getPeerListFromKeyList k keys2
             return (Right peerl)
         Left x -> return (Left x)
 
