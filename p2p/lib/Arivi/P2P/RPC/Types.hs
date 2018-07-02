@@ -28,7 +28,7 @@ type ResourceId = String
 type ServiceId = String
 type ServiceMessage = ByteString
 type ResourceHandlerList = [(ResourceId, ResourceHandler)]
-type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TQueue NodeId)
+type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TVar ([NodeId]))
 type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
 data MessageTypeRPC

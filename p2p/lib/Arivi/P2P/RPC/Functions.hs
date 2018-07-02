@@ -4,7 +4,7 @@
 module Arivi.P2P.RPC.Functions
     ( registerResource
     , getResource
-    -- not for Service Layer
+    -- -- not for Service Layer
     , rpcHandler
     , updatePeerInResourceMap
     , updateDynamicResourceToPeerMap
@@ -43,7 +43,7 @@ import           Data.Maybe
 registerResource :: (HasP2PEnv m) => ResourceId -> ResourceHandler -> m ()
 registerResource resource resourceHandler = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-    nodeIds <- liftIO newTQueueIO -- create a new empty Tqueue for Peers
+    nodeIds <- liftIO $ newTVarIO [] -- create a new empty Tqueue for Peers
     liftIO $
         atomically
             (do resourceToPeerMap <- readTVar resourceToPeerMapTvar
@@ -98,24 +98,24 @@ updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId =
 -- function to find the TQueue with minimum length
 -- used by the worker thread
 extractListOfLengths ::
-       [(ResourceId, (ResourceHandler, TQueue NodeId))] -> IO [Int]
+       [(ResourceId, (ResourceHandler, TVar [NodeId]))] -> IO [Int]
 extractListOfLengths [] = return [0]
 extractListOfLengths (x:xs) = do
-    let temp = snd (snd x) -- get the TQueue of Peers
+    let nodeListTVar = snd (snd x) -- get the TQueue of Peers
     len <-
         atomically
-            (do listofTQ <- flushTQueue temp
-                writeBackToTQueue temp listofTQ
-                return (length listofTQ))
+            (do nodeList <- readTVar nodeListTVar
+                return (length nodeList))
     lenNextTQ <- extractListOfLengths xs
     return $ len : lenNextTQ
 
--- write the Peers flushed from the TQueue back to the TQueue
-writeBackToTQueue :: TQueue NodeId -> [NodeId] -> STM ()
-writeBackToTQueue _ [] = return ()
-writeBackToTQueue currTQ (currentElem:listOfTQ) = do
-    writeTQueue currTQ currentElem
-    writeBackToTQueue currTQ listOfTQ
+-- -- write the Peers flushed from the TQueue back to the TQueue
+-- writeBackToTQueue :: TQueue NodeId -> [NodeId] -> STM ()
+-- writeBackToTQueue _ [] = return ()
+-- writeBackToTQueue currTQ (currentElem:listOfTQ) = do
+--     writeTQueue currTQ currentElem
+--     writeBackToTQueue currTQ listOfTQ
+--
 
 -----------------------
 -- get NodeId from environment
@@ -130,18 +130,19 @@ getResource mynodeid resourceID servicemessage = do
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let temp = HM.lookup resourceID resourceToPeerMap
-    let nodeTQ = snd (fromJust temp)
-    sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage
-
+    let nodeListTVar = snd (fromJust temp)
+    -- should check if list is empty
+    sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage
 sendResourceRequestToPeer ::
        (HasP2PEnv m)
-    => TQueue NodeId
+    => TVar [NodeId]
     -> ResourceId
     -> NodeId
     -> ServiceMessage
     -> m ServiceMessage
-sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
-    mNodeId <- liftIO $ atomically (readTQueue nodeTQ)
+sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
+    nodeList <- liftIO $ readTVarIO nodeListTVar
+    let mNodeId = head nodeList --need to randomise
     let requestMessage =
             RequestResource
                 { to = mNodeId
@@ -153,7 +154,7 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
     res1 <- Exception.try $ sendRequest mNodeId RPC mMessage
     case res1 of
         Left (_ :: Exception.SomeException) ->
-            sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage -- should discard the peer
+            sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage -- should discard the peer
         Right returnMessage -> do
             let inmessage = deserialise returnMessage :: MessageTypeRPC
             case inmessage of
@@ -161,19 +162,17 @@ sendResourceRequestToPeer nodeTQ resourceID mynodeid servicemessage = do
                     if (mynodeid == toNodeId && mNodeId == fromNodeId) &&
                        resourceID == resID
                         then liftIO $
-                             atomically (unGetTQueue nodeTQ mNodeId) >>
                              return (serviceMessage inmessage)
                         else sendResourceRequestToPeer
-                                 nodeTQ
+                                 nodeListTVar
                                  resourceID
                                  mynodeid
                                  servicemessage
                 Response _ _ responseCode' ->
                     case responseCode' of
                         Busy -> do
-                            liftIO $ atomically (writeTQueue nodeTQ mNodeId)
                             sendResourceRequestToPeer
-                                nodeTQ
+                                nodeListTVar
                                 resourceID
                                 mynodeid
                                 servicemessage

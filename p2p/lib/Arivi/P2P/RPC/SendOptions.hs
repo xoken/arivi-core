@@ -85,14 +85,20 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) resourceToPeerM
     if isNothing temp
         then updateResourcePeersHelper mNodeId listOfResources resourceToPeerMap
         else do
-            let currTQ = snd (fromJust temp)
-            atomically (writeTQueue currTQ mNodeId)
+            let nodeListTVar = snd (fromJust temp)
+            atomically (
+                do
+                    nodeList <- readTVar nodeListTVar
+                    let updatedList = nodeList ++ [mNodeId]
+                    writeTVar nodeListTVar updatedList
+                )
             tmp <-
                 updateResourcePeersHelper
                     mNodeId
                     listOfResources
                     resourceToPeerMap
             return $ 1 + tmp
+
 
 -- | takes an options message and returns a supported message
 optionsHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
