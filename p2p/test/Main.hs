@@ -34,6 +34,7 @@ import           System.Environment                     (getArgs)
 
 import           CreateConfig
 import           Network.Socket                         (PortNumber (..))
+
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
 instance HasNetworkEnv AppM where
@@ -42,7 +43,6 @@ instance HasNetworkEnv AppM where
 instance HasSecretKey AppM
 
 instance HasLogging AppM
-
 
 instance HasKbucket AppM where
     getKb = asks kbucket
@@ -71,20 +71,37 @@ runAppM = flip runReaderT
 nodeS :: PortNumber -> PortNumber -> SecretKey -> SecretKey -> IO ()
 nodeS tcpPort udpPort sk rk = do
     let ha = "127.0.0.1"
-    env <- makeP2Pinstance (generateNodeId sk) ha tcpPort udpPort "89.98.98.98" 8089 "ad" sk
+    env <-
+        makeP2Pinstance
+            (generateNodeId sk)
+            ha
+            tcpPort
+            udpPort
+            "89.98.98.98"
+            8089
+            "ad"
+            sk
     runStdoutLoggingT $
-      runAppM
-        env
-        (do
-            async (runTcpServer (show tcpPort)  myAmazingHandler)
-            async (runUdpServer (show udpPort)  myAmazingHandler)
-            return ()
-        )
+        runAppM
+            env
+            (do async (runTcpServer (show tcpPort) myAmazingHandler)
+                async (runUdpServer (show udpPort) myAmazingHandler)
+                return ())
 
-sender :: PortNumber -> PortNumber -> SecretKey -> SecretKey -> Int -> Int -> IO ()
+sender ::
+       PortNumber -> PortNumber -> SecretKey -> SecretKey -> Int -> Int -> IO ()
 sender tcpPort udpPort sk rk n size = do
     let ha = "127.0.0.1"
-    env <- makeP2Pinstance (generateNodeId sk) ha tcpPort udpPort "89.98.98.98" 8089 "ad" sk
+    env <-
+        makeP2Pinstance
+            (generateNodeId sk)
+            ha
+            tcpPort
+            udpPort
+            "89.98.98.98"
+            8089
+            "ad"
+            sk
     runStdoutLoggingT $
         runAppM
             env
@@ -105,9 +122,18 @@ sender tcpPort udpPort sk rk n size = do
 receiver :: PortNumber -> PortNumber -> SecretKey -> IO ()
 receiver tcpPort udpPort sk = do
     let ha = "127.0.0.1"
-    env <- makeP2Pinstance (generateNodeId sk) ha tcpPort udpPort "89.98.98.98" 8089 "ad" sk
+    env <-
+        makeP2Pinstance
+            (generateNodeId sk)
+            ha
+            tcpPort
+            udpPort
+            "89.98.98.98"
+            8089
+            "ad"
+            sk
     runStdoutLoggingT $
-        runAppM env (runTcpServer (show (tcpPort)) myAmazingHandler)
+        runAppM env (runTcpServer (show tcpPort) myAmazingHandler)
 
 --initiator :: IO ()
 initiator f size n = do
@@ -126,12 +152,17 @@ recipient f = do
     threadDelay 1000000000000
 
 main :: IO ()
-main = do
+main
     -- [size, n] <- getArgs
     -- _ <-
     --     recipient receiver `concurrently`
     --     (threadDelay 1000000 >> initiator sender size n)
-    makeConfig (PortNum 8083) (PortNum 8083) "path" "/home/pawan/xoken/arivi/config.yaml"
+ = do
+    makeConfig
+        (PortNum 8083)
+        (PortNum 8083)
+        "path"
+        "/home/pawan/xoken/arivi/config.yaml"
     readConfig "/home/pawan/xoken/arivi/config.yaml"
     return ()
 
@@ -140,4 +171,3 @@ a n = BSLC.pack (replicate n 'a')
 
 myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h
-
