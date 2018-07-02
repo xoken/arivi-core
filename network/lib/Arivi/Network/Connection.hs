@@ -1,3 +1,5 @@
+
+{-# OPTIONS_GHC -fno-warn-missing-fields #-}
 {-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE EmptyDataDecls #-}
 
