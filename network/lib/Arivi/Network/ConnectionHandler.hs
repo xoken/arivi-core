@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -27,32 +27,32 @@ module Arivi.Network.ConnectionHandler
     , closeConnection
     ) where
 
-import Arivi.Network.Connection as Conn
-import Arivi.Network.Fragmenter
-import Arivi.Network.Handshake
-import Arivi.Network.Reassembler
-import Arivi.Network.StreamClient
-import Arivi.Network.Types
-import Arivi.Network.Utils (getIPAddress, getPortNumber)
-import Arivi.Utils.Exception
-import Arivi.Utils.Logging
-import Control.Concurrent (MVar, newMVar, threadDelay)
-import qualified Control.Concurrent.Async as Async (race)
-import Control.Concurrent.STM (atomically, newTChan)
-import Control.Concurrent.STM.TVar
-import Control.Exception (try)
-import Control.Exception.Base
-import Control.Monad.IO.Class
-import Data.Bifunctor
-import Data.Binary
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.HashMap.Strict as HM
-import Data.IORef
-import Data.Int
-import Network.Socket hiding (send)
+import           Arivi.Network.Connection       as Conn
+import           Arivi.Network.Fragmenter
+import           Arivi.Network.Handshake
+import           Arivi.Network.Reassembler
+import           Arivi.Network.StreamClient
+import           Arivi.Network.Types
+import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
+import           Arivi.Utils.Exception
+import           Arivi.Utils.Logging
+import           Control.Concurrent             (MVar, newMVar, threadDelay)
+import qualified Control.Concurrent.Async       as Async (race)
+import           Control.Concurrent.STM         (atomically, newTChan)
+import           Control.Concurrent.STM.TVar
+import           Control.Exception              (try)
+import           Control.Exception.Base
+import           Control.Monad.IO.Class
+import           Data.Bifunctor
+import           Data.Binary
+import qualified Data.ByteString.Lazy           as BSL
+import qualified Data.ByteString.Lazy.Char8     as BSLC
+import           Data.HashMap.Strict            as HM
+import           Data.Int
+import           Data.IORef
+import           Network.Socket                 hiding (send)
 import qualified Network.Socket.ByteString.Lazy as N (recv)
-import System.Timeout
+import           System.Timeout
 
 establishSecureConnection ::
        SecretKey
@@ -99,7 +99,7 @@ establishSecureConnection sk sock framer hsInitParcel = do
 -- | Given `Socket` retrieves `TransportType`
 getTransportType :: Socket -> TransportType
 getTransportType (MkSocket _ _ Stream _ _) = TCP
-getTransportType _ = UDP
+getTransportType _                         = UDP
 
 -- | Converts length in byteString to Num
 getFrameLength :: BSL.ByteString -> Int64
@@ -158,7 +158,7 @@ sendTcpMessage conn msg =
         mapM_
             (\frame ->
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
-                     Left (_ :: SomeException) ->
+                     Left (e :: SomeException) -> (liftIO $ print "SendTcpMessage" >> print e) >>
                          closeConnection sock >> throw AriviSocketException
                      Right _ -> return ())
             fragments
@@ -317,7 +317,7 @@ readHandshakeRespSock writeLock sock = do
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
 readUdpHandshakeRespSock :: MVar Int -> Socket -> IO Parcel
 readUdpHandshakeRespSock writeLock sock = do
-    parcelOrFail <- getDatagram sock
+    parcelOrFail <- getDatagramWithTimeout sock 30000000
     case parcelOrFail of
         Left (AriviDeserialiseException e) -> do
             sendFrame writeLock sock $ BSLC.pack (displayException e)
@@ -333,7 +333,7 @@ recvAll :: Socket -> Int64 -> IO BSL.ByteString
 recvAll sock len = do
     msg <-
         mapIOException
-            (\(_ :: SomeException) -> AriviSocketException)
+            (\(e :: SomeException) -> AriviSocketException)
             (N.recv sock len)
     if BSL.null msg
         then throw AriviSocketException
