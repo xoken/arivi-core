@@ -19,11 +19,12 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
-
-import           Control.Concurrent.STM                (TVar, newTVarIO)
+import           Control.Concurrent.STM                (TVar, atomically,
+                                                        newTVarIO)
 import           Control.Concurrent.STM.TQueue
 
 import           Data.HashMap.Strict                   as HM
+
 
 data P2PEnv = P2PEnv
     { tvarAriviP2PInstance :: TVar AriviP2PInstance
@@ -68,8 +69,8 @@ class ( T.HasKbucket m
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getDynamicResourceToPeerMap :: m (TVar DynamicResourceToPeerMap)
 
-makeP2PEnvironment :: IO P2PEnv
-makeP2PEnvironment = do
+makeP2PEnvironment :: T.NodeId -> IO P2PEnv
+makeP2PEnvironment nodeId = do
     nmap <- newTVarIO HM.empty
     kqueue <- newTQueueIO
     rqueue <- newTQueueIO
@@ -77,6 +78,10 @@ makeP2PEnvironment = do
     oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
+    kbMap <- H.newIO
+    let kb = T.Kbucket kbMap
+    let peer = T.Peer (nodeId, T.NodeEndPoint "127.0.0.1" 8080 8080)
+    atomically $ H.insert [peer] 0 kbMap
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty
@@ -96,4 +101,5 @@ makeP2PEnvironment = do
             , tvarTopicHandlerMap = topicHandleMap
             , tvarMessageHashMap = messageMap
             , tvarDynamicResourceToPeerMap = dr2pmap
+            , kbucket = kb
             }
