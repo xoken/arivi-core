@@ -6,6 +6,7 @@ import           Arivi.Crypto.Utils.PublicKey.Signature
 import           Arivi.Network                          (TransportType (..))
 import           Arivi.P2P.Kademlia.Types               (NodeEndPoint, NodeId,
                                                          Peer (..))
+import           Control.Exception
 import           Crypto.Error                           (throwCryptoError)
 import           Crypto.PubKey.Ed25519
 import qualified Data.ByteArray                         as BA
@@ -51,14 +52,10 @@ instance ToJSON SecretKey where
 instance ToJSON Config
 
 
-makeConfig tcpPort udpPort logFilePath configPath = do
-    (sk, _) <- generateKeyPair
-    print $ getPublicKey sk
-    let config = Config tcpPort udpPort sk [] logFilePath
-    encodeFile configPath config
+makeConfig config configPath = encodeFile configPath config
 
 readConfig path = do
     config <- decodeFileEither path :: IO (Either ParseException Config)
     case config of
-        Left e    -> print e
-        Right con -> print $ getPublicKey (CreateConfig.secretKey con)
+        Left e    -> throw e
+        Right con -> return con
