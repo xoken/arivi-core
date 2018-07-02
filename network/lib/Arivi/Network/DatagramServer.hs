@@ -1,7 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- |
 -- Module      :  Arivi.Network.StreamDatagram
@@ -17,24 +17,24 @@ module Arivi.Network.DatagramServer
     ( runUdpServer
     ) where
 
-import Arivi.Env
-import Arivi.Network.Connection as Conn
-import Arivi.Network.ConnectionHandler
-    ( closeConnection
-    , establishSecureConnection
-    , readUdpSock
-    , sendUdpMessage
-    )
-import Arivi.Network.Types (ConnectionHandle(..), deserialise)
-import Arivi.Utils.Logging
-import Control.Concurrent.Async.Lifted (async)
-import Control.Monad (forever)
-import Control.Monad.IO.Class
-import Data.ByteString (ByteString)
-import Data.ByteString.Lazy (fromStrict)
-import Data.Function ((&))
-import Network.Socket hiding (close, recv, recvFrom, send)
-import Network.Socket.ByteString hiding (recv, send)
+import           Arivi.Env
+import           Arivi.Network.Connection        as Conn
+import           Arivi.Network.ConnectionHandler (closeConnection,
+                                                  establishSecureConnection,
+                                                  readUdpSock, sendUdpMessage)
+import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
+                                                  Parcel, TransportType,
+                                                  deserialise)
+import           Arivi.Utils.Logging
+import           Control.Concurrent.Async.Lifted (async)
+import           Control.Monad                   (forever)
+import           Control.Monad.IO.Class
+import           Data.ByteString                 (ByteString)
+import           Data.ByteString.Lazy            (fromStrict)
+import           Data.Function                   ((&))
+import           Network.Socket                  hiding (close, recv, recvFrom,
+                                                  send)
+import           Network.Socket.ByteString       hiding (recv, send)
 
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
@@ -54,7 +54,7 @@ makeSocket portNumber socketType = do
 runUdpServer ::
        (HasSecretKey m, HasLogging m)
     => ServiceName
-    -> (ConnectionHandle -> m ())
+    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 runUdpServer portNumber handler =
     $(withLoggingTH) (LogNetworkStatement "UDP Server started...") LevelDebug $ do
@@ -69,17 +69,18 @@ newUdpConnection ::
        (HasSecretKey m, HasLogging m)
     => ByteString
     -> Socket
-    -> (ConnectionHandle -> m ())
+    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
     $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $ do
-        liftIO $ print hsInitMsg
+        -- liftIO $ print hsInitMsg
+        liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
         sk <- getSecretKey
         conn <-
             liftIO $
             deserialise (fromStrict hsInitMsg) &
             establishSecureConnection sk sock id
-        handler
+        handler (Conn.remoteNodeId conn) (Conn.transportType conn)
             ConnectionHandle
             { send = sendUdpMessage conn
             , recv = readUdpSock conn
