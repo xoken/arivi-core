@@ -26,10 +26,10 @@ makeP2Pinstance ::
     -> Port
     -> String
     -> SecretKey
-    -> IO ()
-makeP2Pinstance nodeid ipAdrress tcpport udpport statsdIP statsdPort statsdPrefix sk = do
+    -> IO P2PEnv
+makeP2Pinstance nodeid ip tcpport udpport statsdIP statsdPort statsdPrefix sk = do
     ariviP2PInstanceTvar <-
-        atomically (newTVar (AriviP2PInstance nodeid ipAdrress tcpport udpport))
+        atomically (newTVar (AriviP2PInstance nodeid ip tcpport udpport))
     -- newKBucket <- createKbucket nodeid ip tcpport udpport
     newStatsdClient <- createStatsdClient statsdIP statsdPort statsdPrefix
     let netENV = mkAriviEnv (read $ show tcpport) (read $ show udpport) sk -- TODO:  need to make port consistent
@@ -43,7 +43,7 @@ makeP2Pinstance nodeid ipAdrress tcpport udpport statsdIP statsdPort statsdPrefi
                 , statsdClient = newStatsdClient
                 , tvarMessageTypeMap = insertHandlers
                 }
-    return ()
+    return p2pEnv
 
 --     liftIO $
 --         forkIO $
