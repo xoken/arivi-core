@@ -24,6 +24,7 @@ import           Control.Concurrent.STM                (TVar, atomically,
 import           Control.Concurrent.STM.TQueue
 
 import           Data.HashMap.Strict                   as HM
+import qualified STMContainers.Map                     as H
 
 
 data P2PEnv = P2PEnv
