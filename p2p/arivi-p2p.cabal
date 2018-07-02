@@ -67,7 +67,7 @@ library
                     ,  stm-containers >= 0.2.16
                     ,  list-t >= 1.0.0.1
                     ,  either-unwrap >= 1.1
-                    ,  sorted-list >= 0.2.1.0
+                    ,  sorted-list
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                       --  Arivi.P2P.PubSub

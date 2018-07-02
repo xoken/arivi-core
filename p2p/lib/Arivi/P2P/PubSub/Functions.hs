@@ -1,5 +1,6 @@
 module Arivi.P2P.PubSub.Functions
-    ( publishTopic
+    (  publishTopic
+     , maintainWatchers
     ) where
 
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
@@ -11,14 +12,14 @@ import           Codec.Serialise                       (serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
--- import           Control.Monad.STM
+import           Control.Monad.STM
 
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import qualified Data.HashMap.Strict                   as HM
--- import qualified Data.List                             as List
+import qualified Data.List                             as List
 import           Data.Maybe
 import           Data.SortedList
--- import           Data.Time.Clock
+import           Data.Time.Clock
 
 -- | Called by each service to register its Topics. Creates entries in TopicMap
 -- the TopicHandler passed takes a topicmessage and returns a topic
@@ -37,23 +38,21 @@ publishTopic :: (HasP2PEnv m) => Topic -> TopicMessage -> m ()
 publishTopic messageTopic publishMessage = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
-    -- notifierTableTVar <- getNotifiersTableP2PEnv
-    -- notifierMap <- liftIO $ readTVarIO notifierTableTVar
+    notifierTableTVar <- getNotifiersTableP2PEnv
+    notifierMap <- liftIO $ readTVarIO notifierTableTVar
     let currWatcherListTvarMaybe = HM.lookup messageTopic watcherMap
-    -- let currNotifierListTvarMaybe = HM.lookup messageTopic notifierMap
+    let currNotifierListTvarMaybe = HM.lookup messageTopic notifierMap
     currWatcherSortedList <-
         liftIO $ readTVarIO $ fromJust currWatcherListTvarMaybe
-    -- TODO Remove if not needed
-    -- currNotifierSortedList <-
-    --     liftIO $ readTVarIO $ fromJust currNotifierListTvarMaybe
+    currNotifierSortedList <-
+        liftIO $ readTVarIO $ fromJust currNotifierListTvarMaybe
     let currWatcherList = fromSortedList currWatcherSortedList
-        -- TODO Remove if not needed
-    -- let currNotifierList = fromSortedList currNotifierSortedList
-    -- let combinedList = currWatcherList `List.union` currNotifierList
+    let currNotifierList = fromSortedList currNotifierSortedList
+    let combinedList = currWatcherList `List.union` currNotifierList
     let message =
             Publish {topicId = messageTopic, topicMessage = publishMessage}
     let serializedMessage = serialise message
-    sendPublishMessage currWatcherList serializedMessage
+    sendPublishMessage combinedList serializedMessage
 
 sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> Lazy.ByteString -> m ()
 sendPublishMessage [] _ = return ()
@@ -68,43 +67,37 @@ sendPublishMessageToPeer recievingPeerNodeId message = do
     _ <- sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
     return ()
 
--- TODO Remove if not needed
+maintainWatchers :: (HasP2PEnv m) => m ()
+maintainWatchers = do
+    watcherTableTVar <- getWatcherTableP2PEnv
+    watcherMap <- liftIO $ readTVarIO watcherTableTVar
+    let topicIds = HM.keys watcherMap
+    _ <- LAsync.async (maintainWatchersHelper watcherMap topicIds)
+    return ()
 
--- maintainWatchers :: (HasP2PEnv m) => m ()
--- maintainWatchers = do
---     watcherTableTVar <- getWatcherTableP2PEnv
---     watcherMap <- liftIO $ readTVarIO watcherTableTVar
---     let topicIds = HM.keys watcherMap
---     _ <- LAsync.async (maintainWatchersHelper watcherMap topicIds)
---     return ()
-
--- TODO Remove if not needed
-
--- maintainWatchersHelper :: (HasP2PEnv m) => WatchersTable -> [Topic] -> m ()
--- maintainWatchersHelper _ [] = return ()
--- maintainWatchersHelper watcherMap (topic:topicIdList) = do
---     let currListTvarMaybe = HM.lookup topic watcherMap
---     let currListTvar = fromJust currListTvarMaybe
---     currTime <- liftIO getCurrentTime
---     liftIO $
---         atomically
---             (do currSortedList <- readTVar currListTvar
---                 let currList = fromSortedList currSortedList
---                 let newList = checkWatchers currList currTime
---                 let newSortedList = toSortedList newList
---                 writeTVar currListTvar newSortedList)
---     maintainWatchersHelper watcherMap topicIdList
+maintainWatchersHelper :: (HasP2PEnv m) => WatchersTable -> [Topic] -> m ()
+maintainWatchersHelper _ [] = return ()
+maintainWatchersHelper watcherMap (topic:topicIdList) = do
+    let currListTvarMaybe = HM.lookup topic watcherMap
+    let currListTvar = fromJust currListTvarMaybe
+    currTime <- liftIO getCurrentTime
+    liftIO $
+        atomically
+            (do currSortedList <- readTVar currListTvar
+                let currList = fromSortedList currSortedList
+                let newList = checkWatchers currList currTime
+                let newSortedList = toSortedList newList
+                writeTVar currListTvar newSortedList)
+    maintainWatchersHelper watcherMap topicIdList
 
 -- will take the list of watchers for each topic and check their validity
 
--- TODO Remove if not needed
-
--- checkWatchers :: [Watcher] -> UTCTime -> [Watcher]
--- checkWatchers [] _ = []
--- checkWatchers (currWatcher:watcherList) currentTime =
---     if timer currWatcher < currentTime
---         then [] ++ checkWatchers watcherList currentTime
---         else currWatcher : watcherList
+checkWatchers :: [Watcher] -> UTCTime -> [Watcher]
+checkWatchers [] _ = []
+checkWatchers (currWatcher:watcherList) currentTime =
+    if timer currWatcher < currentTime
+        then [] ++ checkWatchers watcherList currentTime
+        else currWatcher : watcherList
 -- checkWatchers :: [Watcher] -> IO [Watcher]
 -- checkWatchers [] = return []
 -- checkWatchers (currWatcher : watcherList) =
