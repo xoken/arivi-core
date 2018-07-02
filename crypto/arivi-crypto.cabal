@@ -57,7 +57,7 @@ library
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
                     , arivi-utils
-  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  ghc-options:         -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
                        Arivi.Crypto.Cipher.AES256

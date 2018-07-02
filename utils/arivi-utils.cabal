@@ -41,12 +41,11 @@ library
                     ,  stm >= 2.4.4.1
                     ,  template-haskell
                     ,  time-units >= 1.0.0
-                    ,  network 
-  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
+                    ,  network
+  ghc-options:         -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.Utils.Exception
                        Arivi.Utils.Logging
                        Arivi.Utils.Statsd
 
   default-language:    Haskell2010
-  
