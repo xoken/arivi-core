@@ -189,12 +189,17 @@ rpcHandler incomingRequest = do
     let request = deserialise incomingRequest :: MessageTypeRPC
     case request of
         RequestResource myNodeId mNodeId resourceId requestServiceMessage -> do
+            resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
+            resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+            let resourceTuple = HM.lookup resourceId resourceToPeerMap
+            let resourceHandler = fst $ fromJust resourceTuple
+            let responseServiceMessage = resourceHandler requestServiceMessage
             let replyMessage =
                     ReplyResource
                         { to = mNodeId
                         , from = myNodeId
                         , rid = resourceId
-                        , serviceMessage = requestServiceMessage
+                        , serviceMessage = responseServiceMessage
                         }
             let rpcResponse = serialise replyMessage
             return rpcResponse
