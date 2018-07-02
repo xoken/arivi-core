@@ -19,10 +19,10 @@ import           Arivi.Utils.Logging
 
 import           Control.Concurrent                     (threadDelay)
 import           Control.Concurrent.Async               hiding (async,
-                                                         mapConcurrently_)
+                                                         mapConcurrently_, wait)
 
 import           Control.Concurrent.Async.Lifted        (async,
-                                                         mapConcurrently_)
+                                                         mapConcurrently_, wait)
 import           Control.Concurrent.STM.TQueue
 import           Control.Exception
 import           Control.Monad.Logger
@@ -32,7 +32,13 @@ import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import           Data.Time
 import           System.Environment                     (getArgs)
 
-import           CreateConfig
+import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
+import           Arivi.P2P.Kademlia.Types               (NodeEndPoint (..),
+                                                         NodeId, Peer (..))
+import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
+import qualified CreateConfig                           as Config
+import           Data.String.Conv
+import           Data.Text
 import           Network.Socket                         (PortNumber (..))
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
@@ -68,106 +74,84 @@ instance HasP2PEnv AppM where
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
-nodeS :: PortNumber -> PortNumber -> SecretKey -> SecretKey -> IO ()
-nodeS tcpPort udpPort sk rk = do
+
+writeConfigs = do
+    (skBootstrap, _) <- ACUPS.generateKeyPair
+    (skNode1, _) <- ACUPS.generateKeyPair
+    (skNode2, _) <- ACUPS.generateKeyPair
+    let bootstrapPort = 8080
+        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] "/home/pawan/xoken/arivi/arivi/p2p/bootstrapNode.log"
+        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/home/pawan/xoken/arivi/arivi/p2p/node1.log"
+        config2 = Config.Config 8081 8081 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/home/pawan/xoken/arivi/arivi/p2p/node2.log"
+    Config.makeConfig bootstrapConfig "/home/pawan/xoken/arivi/arivi/p2p/bootstrapConfig.yaml"
+    Config.makeConfig config1 "/home/pawan/xoken/arivi/arivi/p2p/config1.yaml"
+    Config.makeConfig config2 "/home/pawan/xoken/arivi/arivi/p2p/config2.yaml"
+
+runNode :: String -> IO ()
+runNode configPath = do
+    config <- Config.readConfig configPath
     let ha = "127.0.0.1"
-    env <-
-        makeP2Pinstance
-            (generateNodeId sk)
-            ha
-            tcpPort
-            udpPort
-            "89.98.98.98"
-            8089
-            "ad"
-            sk
-    runStdoutLoggingT $
-        runAppM
-            env
-            (do async (runTcpServer (show tcpPort) myAmazingHandler)
-                async (runUdpServer (show udpPort) myAmazingHandler)
-                return ())
+    env <- makeP2Pinstance (generateNodeId (Config.secretKey config)) ha (Config.tcpPort config) (Config.udpPort config) "89.98.98.98" 8089 "ad" (Config.secretKey config)
+    runFileLoggingT (toS $ Config.logFile config)$
+    -- runStdoutLoggingT $
+      runAppM
+        env
+        (do
 
-sender ::
-       PortNumber -> PortNumber -> SecretKey -> SecretKey -> Int -> Int -> IO ()
-sender tcpPort udpPort sk rk n size = do
+            async (runTcpServer (show (Config.tcpPort config))  newIncomingConnection)
+            async (runUdpServer (show (Config.udpPort config))  newIncomingConnection)
+            loadDefaultPeers (Config.trustedPeers config)
+            -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
+            -- handleOrFail <- openConnection (nodeIp bsNodeEndPoint) (tcpPort bsNodeEndPoint) TCP bsNodeId
+            -- case handleOrFail of
+            --     Left e -> throw e
+            --     Right cHandle -> do
+            --         time <- liftIO getCurrentTime
+            --         liftIO $ print time
+            --         mapConcurrently_
+            --             (const (send cHandle (a 1024)))
+            --             [1 .. 10]
+            --         forever $ recv cHandle
+            --         time2 <- liftIO getCurrentTime
+            --         liftIO $ print time2
+            -- liftIO $ print "done"
+            )
+
+runBSNode :: String -> IO ()
+runBSNode configPath = do
+    config <- Config.readConfig configPath
     let ha = "127.0.0.1"
-    env <-
-        makeP2Pinstance
-            (generateNodeId sk)
-            ha
-            tcpPort
-            udpPort
-            "89.98.98.98"
-            8089
-            "ad"
-            sk
-    runStdoutLoggingT $
-        runAppM
-            env
-            (do let ha = "127.0.0.1"
-                handleOrFail <- openConnection ha 8083 TCP (generateNodeId rk)
-                case handleOrFail of
-                    Left e -> throw e
-                    Right cHandle -> do
-                        time <- liftIO getCurrentTime
-                        liftIO $ print time
-                        mapConcurrently_
-                            (const (send cHandle (a size)))
-                            [1 .. n]
-                        time2 <- liftIO getCurrentTime
-                        liftIO $ print time2
-                liftIO $ print "done")
+    env <- makeP2Pinstance (generateNodeId (Config.secretKey config)) ha (Config.tcpPort config) (Config.udpPort config) "89.98.98.98" 8089 "ad" (Config.secretKey config)
+    runFileLoggingT (toS $ Config.logFile config)$
+    -- runStdoutLoggingT $
+      runAppM
+        env
+        (do
+            async (runUdpServer (show (Config.tcpPort config))  newIncomingConnection)
+            (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
+        )
 
-receiver :: PortNumber -> PortNumber -> SecretKey -> IO ()
-receiver tcpPort udpPort sk = do
-    let ha = "127.0.0.1"
-    env <-
-        makeP2Pinstance
-            (generateNodeId sk)
-            ha
-            tcpPort
-            udpPort
-            "89.98.98.98"
-            8089
-            "ad"
-            sk
-    runStdoutLoggingT $
-        runAppM env (runTcpServer (show tcpPort) myAmazingHandler)
-
---initiator :: IO ()
-initiator f size n = do
-    let sender_sk = ACUPS.getSecretKey "ssssssssssssssssssssssssssssssss"
-        recv_sk = ACUPS.getSecretKey "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
-    _ <-
-        threadDelay 1000000 >>
-        f 8083 8083 sender_sk recv_sk (read n) (read size)
-    threadDelay 1000000000000
-    return ()
-
---recipient :: IO ()
-recipient f = do
-    let recv_sk = ACUPS.getSecretKey "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
-    f 8083 8083 recv_sk
-    threadDelay 1000000000000
 
 main :: IO ()
-main
-    -- [size, n] <- getArgs
-    -- _ <-
-    --     recipient receiver `concurrently`
-    --     (threadDelay 1000000 >> initiator sender size n)
- = do
-    makeConfig
-        (PortNum 8083)
-        (PortNum 8083)
-        "path"
-        "/home/pawan/xoken/arivi/config.yaml"
-    readConfig "/home/pawan/xoken/arivi/config.yaml"
+main = do
+    -- writeConfigs
+    async (runBSNode  "/home/pawan/xoken/arivi/arivi/p2p/bootstrapConfig.yaml")
+    threadDelay 5000000
+    runNode "/home/pawan/xoken/arivi/arivi/p2p/config1.yaml"
+        `concurrently`
+        runNode "/home/pawan/xoken/arivi/arivi/p2p/config2.yaml"
+    threadDelay 10000000
     return ()
 
+-- main' = do
+--     [size, n] <- getArgs
+--     _ <-
+--         recipient receiver `concurrently`
+--         (threadDelay 1000000 >> initiator sender size n)
+--     return ()
+
 a :: Int -> BSL.ByteString
-a n = BSLC.pack (replicate n 'a')
+a n = BSLC.pack (Prelude.replicate n 'a')
 
 myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
-myAmazingHandler h = forever $ recv h
+myAmazingHandler h = forever $ recv h >>= send h

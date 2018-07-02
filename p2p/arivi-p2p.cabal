@@ -68,7 +68,8 @@ library
                     ,  list-t >= 1.0.0.1
                     ,  either-unwrap >= 1.1
                     ,  sorted-list
-  ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+                    ,  string-conv
+  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                       --  Arivi.P2P.PubSub
                       --  Arivi.P2P.Instance
@@ -114,5 +115,6 @@ test-suite arivi-p2p-test
                   , yaml
                   , cryptonite
                   , memory
+                  , string-conv
   other-modules: CreateConfig
 
