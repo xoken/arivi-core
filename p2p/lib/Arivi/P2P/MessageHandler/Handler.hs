@@ -13,6 +13,7 @@ import           Arivi.Network                         (openConnection)
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Exception
+import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import qualified Control.Concurrent.Async              as Async (race)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
@@ -30,6 +31,7 @@ import           Control.Monad.Logger                  (logDebug)
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe
+import           Data.String.Conv
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
 import           Network.Socket                        (PortNumber)
@@ -90,6 +92,7 @@ sendRequestforKademlia ::
     -> IP
     -> m P2PPayload
 sendRequestforKademlia node mType p2pPayload port mIP = do
+    -- $(logDebug) (toS $ show p2pPayload)
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
     let maybePeer = HM.lookup node nodeIdMap
@@ -107,7 +110,7 @@ sendRequestforKademlia node mType p2pPayload port mIP = do
                     peerDetails <- liftIO $ readTVarIO peer
                     let uuidMapTVar = tvarUUIDMap peerDetails
                     messageTypeMap <- getMessageTypeMapP2PEnv
-                    readRequestThread connHandle uuidMapTVar messageTypeMap
+                    LAsync.async $ readRequestThread connHandle uuidMapTVar messageTypeMap
                     sendRequest node mType p2pPayload
         else sendRequest node mType p2pPayload
 
@@ -117,7 +120,7 @@ readRequestThread ::
     -> TVar UUIDMap
     -> MessageTypeMap m
     -> m ()
-readRequestThread connHandle uuidMapTVar messageTypeMap = do
+readRequestThread connHandle uuidMapTVar messageTypeMap =  $(withLoggingTH) (LogP2PStatement "readRequestThread: ") LevelDebug $ do
     eitherByteMessage <- Exception.try $ recv connHandle
     case eitherByteMessage of
         Left (_ :: Exception.SomeException) -> return ()
@@ -135,8 +138,8 @@ readRequestThread connHandle uuidMapTVar messageTypeMap = do
 -- newConnectionHandler :: NodeId -> ConnectionHandle -> TransportType ->
 newIncomingConnection --TODO: no need to async
  ::
-       (HasP2PEnv m) => NodeId -> ConnectionHandle -> TransportType -> m ()
-newIncomingConnection mNodeId connHandle transportType = do
+       (HasP2PEnv m) => NodeId -> TransportType -> ConnectionHandle -> m ()
+newIncomingConnection mNodeId transportType connHandle = do
     $(logDebug) "Got new incoming connection handle"
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     messageTypeMap <- getMessageTypeMapP2PEnv
@@ -183,7 +186,7 @@ processIncomingMessage --TODO: eed to do uuidcheck in this thread and spawn only
     -> MessageTypeMap m
     -> Lazy.ByteString
     -> m ()
-processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage = do
+processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage = $(withLoggingTH) (LogP2PStatement "processIncomingMessage: ") LevelInfo $ do
     let networkMessage = deserialise byteMessage :: P2PMessage
     uuidMap <- liftIO $ atomically (readTVar uuidMapTVar)
     let temp = HM.lookup (uuid networkMessage) uuidMap
