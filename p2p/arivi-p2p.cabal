@@ -110,4 +110,9 @@ test-suite arivi-p2p-test
                   ,  arivi-network
                   ,  network
                   ,  arivi-p2p
+                  , text
+                  , yaml
+                  , cryptonite
+                  , memory
+  other-modules: CreateConfig
 

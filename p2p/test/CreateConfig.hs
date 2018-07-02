@@ -1,0 +1,64 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+module CreateConfig where
+import           Arivi.Crypto.Utils.PublicKey.Signature
+import           Arivi.Network                          (TransportType (..))
+import           Arivi.P2P.Kademlia.Types               (NodeEndPoint, NodeId,
+                                                         Peer (..))
+import           Crypto.Error                           (throwCryptoError)
+import           Crypto.PubKey.Ed25519
+import qualified Data.ByteArray                         as BA
+import           Data.ByteString.Char8
+import           Data.Text                              as T
+import           Data.Yaml
+import           GHC.Generics
+import           Network.Socket
+
+data Config = Config {
+      tcpPort      :: PortNumber
+    , udpPort      :: PortNumber
+    , secretKey    :: SecretKey
+    , trustedPeers :: [Peer]
+    , logFile      :: T.Text
+} deriving (Show, Generic)
+
+
+instance FromJSON ByteString where
+    parseJSON = withText "ByteString" $ \t -> pure $ Data.ByteString.Char8.pack ( T.unpack t)
+
+instance FromJSON Peer
+instance FromJSON NodeEndPoint
+instance FromJSON PortNumber where
+    parseJSON v = fromInteger <$> parseJSON v
+instance FromJSON SecretKey where
+    parseJSON v = throwCryptoError . Crypto.PubKey.Ed25519.secretKey <$> (parseJSON v :: Parser ByteString)
+
+instance FromJSON Config
+
+instance ToJSON ByteString where
+    toJSON a = String $ T.pack (Data.ByteString.Char8.unpack a)
+
+instance ToJSON Peer
+instance ToJSON NodeEndPoint
+
+instance ToJSON PortNumber where
+    toJSON = Number . fromInteger . toInteger
+
+instance ToJSON SecretKey where
+    toJSON sk  = toJSON (BA.convert sk :: ByteString)
+
+instance ToJSON Config
+
+
+makeConfig tcpPort udpPort logFilePath configPath = do
+    (sk, _) <- generateKeyPair
+    print $ getPublicKey sk
+    let config = Config tcpPort udpPort sk [] logFilePath
+    encodeFile configPath config
+
+readConfig path = do
+    config <- decodeFileEither path :: IO (Either ParseException Config)
+    case config of
+        Left e    -> print e
+        Right con -> print $ getPublicKey (CreateConfig.secretKey con)
