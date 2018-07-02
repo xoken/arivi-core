@@ -7,6 +7,7 @@ module Arivi.P2P.RPC.Functions
     -- not for Service Layer
     , rpcHandler
     , updatePeerInResourceMap
+    , updateDynamicResourceToPeerMap
     ) where
 
 import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (Peer (..), getKClosestPeersByNodeid,
@@ -38,23 +39,20 @@ import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
-registerResource :: (HasP2PEnv m) => ResourceHandlerList -> m ()
-registerResource [] = return () -- recursion corner case
-registerResource (resourceTuple:resourceHandlerList) = do
+-- register the resource and it's handler in the ResourceToPeerMap of RPC
+registerResource :: (HasP2PEnv m) => ResourceId -> ResourceHandler -> m ()
+registerResource resource resourceHandler = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     nodeIds <- liftIO newTQueueIO -- create a new empty Tqueue for Peers
-    let mRid = fst resourceTuple
-    let resourceHandler = snd resourceTuple
     liftIO $
         atomically
             (do resourceToPeerMap <- readTVar resourceToPeerMapTvar
                 let newMap =
                         HM.insert
-                            mRid
+                            resource
                             (resourceHandler, nodeIds)
                             resourceToPeerMap --
                 writeTVar resourceToPeerMapTvar newMap)
-    registerResource resourceHandlerList
 
 -- TODO : need to replace currNodeId passed with nodeId from environment
 -------------------- Functions for periodic updation of the hashmap ---------------------
@@ -258,6 +256,28 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
                                        }
                            writeTVar (fromJust mapEntry) newDetails
                    return mNodeId)
+
+-- used by PubSub to register peer for dynamic resource, which it has been notified for
+updateDynamicResourceToPeerMap :: (HasP2PEnv m) => ResourceId -> NodeId -> m ()
+updateDynamicResourceToPeerMap resID nodeID = do
+    dynamicResourceToPeerMapTVar <- getDynamicResourceToPeerMap
+    liftIO $ atomically (
+        do
+            dynamicResourceToPeerMap <- readTVar dynamicResourceToPeerMapTVar
+            let currentEntry = HM.lookup resID dynamicResourceToPeerMap
+            if isNothing currentEntry
+                then
+                    do
+                        newNodeTVar <- newTVar [nodeID]
+                        let modifiedMap = HM.insert resID newNodeTVar dynamicResourceToPeerMap
+                        writeTVar dynamicResourceToPeerMapTVar modifiedMap
+                else
+                    do
+                        currNodeList <- readTVar $ fromJust currentEntry
+                        let newNodeList = currNodeList ++ [nodeID]
+                        writeTVar (fromJust currentEntry) newNodeList
+        )
+
 -- readResourceRequest :: (HasP2PEnv m) => ResourceId -> m ServicePayload
 -- readResourceRequest resourceId = do
 --     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv

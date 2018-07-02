@@ -13,6 +13,7 @@ module Arivi.P2P.RPC.Types
     , ServiceMessage
     , ResourceHandler
     , ResponseCode(..)
+    , DynamicResourceToPeerMap
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
@@ -21,6 +22,7 @@ import           Control.Concurrent.STM.TQueue
 import           Data.ByteString
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
+import           Control.Concurrent.STM.TVar
 
 type ResourceId = String
 type ServiceId = String
@@ -50,6 +52,7 @@ data MessageTypeRPC
 
 instance Serialise MessageTypeRPC
 
+-- Error here is a placeholder proper errors will be defined later
 data ResponseCode
     = Busy
     | Error
@@ -83,3 +86,5 @@ data ServicePayload = ServicePayload
     , message :: ByteString
     , extra   :: Maybe P2Pinfo
     } deriving (Eq, Show)
+
+type DynamicResourceToPeerMap = HM.HashMap ResourceId (TVar [NodeId])

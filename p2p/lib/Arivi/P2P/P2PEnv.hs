@@ -42,6 +42,7 @@ data P2PEnv = P2PEnv
     , tvarTopicHandlerMap :: TVar TopicHandlerMap
     , tvarMessageHashMap :: TVar MessageHashMap
     , ariviNetworkEnv :: AriviEnv
+    , tvarDynamicResourceToPeerMap :: TVar DynamicResourceToPeerMap
     }
 
 class ( T.HasKbucket m
@@ -65,6 +66,7 @@ class ( T.HasKbucket m
     getNotifiersTableP2PEnv :: m (TVar NotifiersTable)
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
+    getDynamicResourceToPeerMap :: m (TVar DynamicResourceToPeerMap)
 
 makeP2PEnvironment :: IO P2PEnv
 makeP2PEnvironment = do
@@ -74,6 +76,7 @@ makeP2PEnvironment = do
     pqueue <- newTQueueIO
     oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
+    dr2pmap <- newTVarIO HM.empty
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty
@@ -92,4 +95,5 @@ makeP2PEnvironment = do
             , tvarNotifiersTable = notifierMap
             , tvarTopicHandlerMap = topicHandleMap
             , tvarMessageHashMap = messageMap
+            , tvarDynamicResourceToPeerMap = dr2pmap
             }
