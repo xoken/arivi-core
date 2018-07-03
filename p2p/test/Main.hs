@@ -40,6 +40,8 @@ import qualified CreateConfig                           as Config
 import           Data.String.Conv
 import           Data.Text
 import           Network.Socket                         (PortNumber (..))
+import           System.Directory (withCurrentDirectory, doesPathExist)
+import           Data.Monoid ((<>))
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -74,17 +76,22 @@ runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
 
-writeConfigs = do
+writeConfigs path = do
     (skBootstrap, _) <- ACUPS.generateKeyPair
     (skNode1, _) <- ACUPS.generateKeyPair
     (skNode2, _) <- ACUPS.generateKeyPair
     let bootstrapPort = 8080
-        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] "/Users/pranaysashank/Desktop/arivi/p2p/bootstrapNode.log"
-        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/Users/pranaysashank/Desktop/arivi/p2p/node1.log"
-        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/Users/pranaysashank/Desktop/arivi/p2p/node2.log"
-    Config.makeConfig bootstrapConfig "/Users/pranaysashank/Desktop/arivi/p2p/bootstrapConfig.yaml"
-    Config.makeConfig config1 "/Users/pranaysashank/Desktop/arivi/p2p/config1.yaml"
-    Config.makeConfig config2 "/Users/pranaysashank/Desktop/arivi/p2p/config2.yaml"
+        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] (Data.Text.pack path <> "/bootstrapNode.log")
+        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (Data.Text.pack path <> "/node1.log")
+        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (Data.Text.pack path <> "/node2.log")
+    Config.makeConfig bootstrapConfig (path <> "/bootstrapConfig.yaml")
+    Config.makeConfig config1 (path <> "/config1.yaml")
+    Config.makeConfig config2 (path <> "/config2.yaml")
+
+defaultConfig path = do
+  (sk, _) <- ACUPS.generateKeyPair
+  let config = Config.Config 5678 5678 sk [] (Data.Text.pack path <> "/node1.log")
+  Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
 runNode configPath = do
@@ -106,7 +113,7 @@ runNode configPath = do
             --     Left e -> throw e
             --     Right cHandle -> do
             --         time <- liftIO getCurrentTime
-            --         liftIO $ print time
+            --         liftIO $ print timep
             --         mapConcurrently_
             --             (const (send cHandle (a 1024)))
             --             [1 .. 10]
@@ -134,14 +141,14 @@ runBSNode configPath = do
 
 main :: IO ()
 main = do
-    [config] <- getArgs
-    when (config == "--config") writeConfigs
-    -- cd <- getCurrentDirectory
-    async (runBSNode  "/Users/pranaysashank/Desktop/arivi/p2p/bootstrapConfig.yaml")
+    [path] <- getArgs
+    b <- doesPathExist (path <> "/config.yaml")
+    unless b (defaultConfig path)
+    async (runBSNode  (path <> "/bootstrapConfig.yaml"))
     threadDelay 5000000
-    async (runNode "/Users/pranaysashank/Desktop/arivi/p2p/config1.yaml")
+    async (runNode (path <> "/config1.yaml"))
     threadDelay 5000000
-    async (runNode "/Users/pranaysashank/Desktop/arivi/p2p/config2.yaml")
+    async (runNode (path <> "/config2.yaml"))
     threadDelay 100000000
     return ()
 

@@ -159,7 +159,7 @@ sendTcpMessage conn msg =
         mapM_
             (\frame ->
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
-                     Left (e :: SomeException) -> (liftIO $ print "SendTcpMessage" >> print e) >>
+                     Left (e :: SomeException) -> liftIO (print "SendTcpMessage" >> print e) >>
                          closeConnection sock >> throw AriviSocketException
                      Right _ -> return ())
             fragments

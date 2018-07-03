@@ -101,6 +101,7 @@ test-suite arivi-p2p-test
   default-extensions:          FlexibleContexts
   build-depends:     async
                   ,  base >=4.9 && <4.11
+                  ,  directory
                   ,  bytestring
                   ,  hashtables <= 1.2.6.1
                   ,  lifted-async
