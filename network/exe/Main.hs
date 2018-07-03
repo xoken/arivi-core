@@ -9,7 +9,7 @@ module Main where
 import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
-import           Arivi.Logging
+import           Arivi.Utils.Logging
 import           Arivi.Network.Connection           (CompleteConnection,
                                                      ConnectionId)
 import           Arivi.Network.Instance

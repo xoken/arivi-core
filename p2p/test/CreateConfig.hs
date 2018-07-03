@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module CreateConfig where
+module CreateConfig (module CreateConfig) where
 import           Arivi.Crypto.Utils.PublicKey.Signature
 import           Arivi.Network                          (TransportType (..))
 import           Arivi.P2P.Kademlia.Types               (NodeEndPoint, NodeId,

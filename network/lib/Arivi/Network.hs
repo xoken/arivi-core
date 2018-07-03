@@ -4,7 +4,7 @@ module Arivi.Network
     , runUdpServer
     , openConnection
     , HasSecretKey(..)
-    , HasLogging(..)
+    , HasLogging
     , TransportType(..)
     , mkAriviEnv
     ) where
@@ -15,4 +15,4 @@ import           Arivi.Network.Instance       (openConnection)
 import           Arivi.Network.StreamServer   (runTcpServer)
 import           Arivi.Network.Types          (ConnectionHandle (..),
                                                TransportType (..))
-import           Arivi.Utils.Logging          (HasLogging (..))
+import           Arivi.Utils.Logging          (HasLogging)

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -6,13 +7,13 @@
 
 module Arivi.Utils.Logging
     ( LogStatement(..)
-    , withChanLogging
+--    , withChanLogging
     , withLogging
     , withLoggingTH
-    , withChanLoggingTH
+--    , withChanLoggingTH
     , LogLevel(..)
     , LogChan
-    , HasLogging(..)
+    , HasLogging
     , withIOLogging
     ) where
 
@@ -25,6 +26,7 @@ import           Control.Monad.Logger
 import           Control.Monad.Trans.Control
 import           Data.Monoid
 import           Data.Text
+import           GHC.Stack
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax
 import           System.CPUTime
@@ -35,15 +37,7 @@ data LogStatement =
      LogNetworkStatement Text
    | LogP2PStatement Text
 
-class ( MonadLogger m
-      , MonadIO m
-      , MonadBaseControl IO m
-      , MonadThrow m
-      , MonadCatch m
-      ) =>
-      HasLogging m
-    where
-    getLoggerChan :: m LogChan
+type HasLogging m = (MonadLogger m, MonadIO m, MonadBaseControl IO m, MonadThrow m, MonadCatch m, HasCallStack)
 
 toText :: LogStatement -> Text
 toText (LogNetworkStatement l) = "LogNetworkStatement " <> l
@@ -52,8 +46,8 @@ toText (LogP2PStatement l)     = "LogP2PStatement " <> l
 withLoggingTH :: Q Exp
 withLoggingTH = [|withLocLogging $(qLocation >>= liftLoc)|]
 
-withChanLoggingTH :: Q Exp
-withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc)|]
+--withChanLoggingTH :: Q Exp
+--withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc)|]
 
 withLocLogging ::
        (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -> m a
@@ -63,18 +57,18 @@ withLocLogging loc ls ll =
 withLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
 withLogging = withLocLogging defaultLoc
 
-withChanLocLogging ::
-       (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -> m a
-withChanLocLogging loc ls ll action = do
-    logger <- getLoggerChan
-    let lifts t = liftIO $ atomically $ writeTQueue logger (loc, pack "", ll, t)
-    logToF lifts lifts ls action
+-- withChanLocLogging ::
+--        (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -> m a
+-- withChanLocLogging loc ls ll action = do
+--     logger <- getLoggerChan
+--     let lifts t = liftIO $ atomically $ writeTQueue logger (loc, pack "", ll, t)
+--     logToF lifts lifts ls action
 
-withChanLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
-withChanLogging = withChanLocLogging defaultLoc
+-- withChanLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
+-- withChanLogging = withChanLocLogging defaultLoc
 
 logToF ::
-       (MonadIO m, MonadBaseControl IO m, MonadThrow m)
+       (MonadIO m, MonadBaseControl IO m, MonadThrow m, HasCallStack)
     => (Text -> m ())
     -> (Text -> m ())
     -> LogStatement
@@ -84,7 +78,7 @@ logToF lf rf ls action = do
     (time, result) <- timeIt action
     case result of
         Left (e :: SomeException) -> do
-            lf (pack $ displayException e)
+            lf (toText ls <> pack (prettyCallStack callStack) <> pack (displayException e))
             throwM e
         Right r -> do
             rf (toText ls <> " " <> pack (show time))

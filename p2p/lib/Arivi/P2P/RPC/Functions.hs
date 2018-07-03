@@ -23,6 +23,7 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Exception
+import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
@@ -39,7 +40,8 @@ import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
-registerResource :: (HasP2PEnv m) => ResourceId -> ResourceHandler -> m ()
+registerResource ::
+       (HasP2PEnv m, HasLogging m) => ResourceId -> ResourceHandler -> m ()
 registerResource resource resourceHandler = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     nodeIds <- liftIO $ newTVarIO [] -- create a new empty Tqueue for Peers
@@ -60,7 +62,7 @@ registerResource resource resourceHandler = do
 -- if it is less should ask Kademlia for more nodes
 -- send each peer and option message
 -- the options message module will handle the sending of messages and updating of the HashMap based on the support message
-updatePeerInResourceMap :: (HasP2PEnv m) => NodeId -> m ()
+updatePeerInResourceMap :: (HasP2PEnv m, HasLogging m) => NodeId -> m ()
 updatePeerInResourceMap currNodeId = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
@@ -74,7 +76,7 @@ updatePeerInResourceMap currNodeId = do
     return ()
 
 updatePeerInResourceMapHelper ::
-       (HasP2PEnv m) => ResourceToPeerMap -> Int -> NodeId -> m ()
+       (HasP2PEnv m, HasLogging m) => ResourceToPeerMap -> Int -> NodeId -> m ()
 updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId =
     forever $ do
         let tempList = HM.toList resourceToPeerMap
@@ -119,7 +121,7 @@ extractListOfLengths (x:xs) = do
 -----------------------
 -- get NodeId from environment
 getResource ::
-       (HasP2PEnv m)
+       (HasP2PEnv m, HasLogging m)
     => NodeId
     -> ResourceId
     -> ServiceMessage
@@ -134,7 +136,7 @@ getResource mynodeid resourceID servicemessage = do
     sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage
 
 sendResourceRequestToPeer ::
-       (HasP2PEnv m)
+       (HasP2PEnv m, HasLogging m)
     => TVar [NodeId]
     -> ResourceId
     -> NodeId
@@ -214,7 +216,7 @@ rpcHandler incomingRequest = do
 -- let peerDetailsTVar = fromJust (HM.lookup nodeIdPeer nodeIdMap)
 -- peerDetails <- readTVar peerDetailsTVar
 -- return ()
-addPeerFromKademlia :: (HasP2PEnv m) => [Kademlia.Peer] -> m [NodeId]
+addPeerFromKademlia :: (HasP2PEnv m, HasLogging m) => [Kademlia.Peer] -> m [NodeId]
 addPeerFromKademlia [] = return []
 addPeerFromKademlia (peer:peerList) = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
@@ -223,7 +225,7 @@ addPeerFromKademlia (peer:peerList) = do
     return $ mNodeId : nextNodeId
 
 addPeerFromKademliaHelper ::
-       (HasP2PEnv m) => Kademlia.Peer -> TVar NodeIdPeerMap -> m NodeId
+       (HasP2PEnv m, HasLogging m) => Kademlia.Peer -> TVar NodeIdPeerMap -> m NodeId
 addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
     uuidMapTVar <- liftIO $ newTVarIO HM.empty
     liftIO $
@@ -264,7 +266,7 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
                    return mNodeId)
 
 -- used by PubSub to register peer for dynamic resource, which it has been notified for
-updateDynamicResourceToPeerMap :: (HasP2PEnv m) => ResourceId -> NodeId -> m ()
+updateDynamicResourceToPeerMap :: (HasP2PEnv m, HasLogging m) => ResourceId -> NodeId -> m ()
 updateDynamicResourceToPeerMap resID nodeID = do
     dynamicResourceToPeerMapTVar <- getDynamicResourceToPeerMap
     liftIO $

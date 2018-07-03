@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -258,14 +259,14 @@ readUdpSock connection =
     $(withLoggingTH) (LogNetworkStatement "readUdpSock: ") LevelInfo $ do
         let sock = Conn.socket connection
             writeLock = Conn.waitWrite connection
-        parcelOrFail <- liftIO $ getDatagramWithTimeout sock 3000000
+        parcelOrFail <- liftIO $ getDatagramWithTimeout sock 30000000
         case parcelOrFail of
             Left (AriviDeserialiseException e) ->
                 throw $ AriviDeserialiseException e
             Left AriviTimeoutException -> do
                 liftIO $ sendPing writeLock sock id
                 parcelOrFailAfterPing <-
-                    liftIO $ getDatagramWithTimeout sock 6000000
+                    liftIO $ getDatagramWithTimeout sock 60000000
                 case parcelOrFailAfterPing of
                     Left e -> throw e
                     Right parcel ->

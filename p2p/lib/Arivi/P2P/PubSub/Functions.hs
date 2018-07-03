@@ -8,6 +8,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         NodeId)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
+import           Arivi.Utils.Logging
 import           Codec.Serialise                       (serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
@@ -34,7 +35,7 @@ import           Data.Time.Clock
 -- notifyTopic :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()\
 -- -- | called in case of a unvalid block and used for peer rep based on MessageHashMap
 -- flagMessage :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
-publishTopic :: (HasP2PEnv m) => Topic -> TopicMessage -> m ()
+publishTopic :: (HasP2PEnv m, HasLogging m) => Topic -> TopicMessage -> m ()
 publishTopic messageTopic publishMessage = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
@@ -54,7 +55,7 @@ publishTopic messageTopic publishMessage = do
     let serializedMessage = serialise message
     sendPublishMessage combinedList serializedMessage
 
-sendPublishMessage :: (HasP2PEnv m) => [NodeTimer] -> Lazy.ByteString -> m ()
+sendPublishMessage :: (HasP2PEnv m, HasLogging m) => [NodeTimer] -> Lazy.ByteString -> m ()
 sendPublishMessage [] _ = return ()
 sendPublishMessage (recievingPeer:peerList) message = do
     let recievingPeerNodeId = timerNodeId recievingPeer
@@ -62,12 +63,12 @@ sendPublishMessage (recievingPeer:peerList) message = do
     sendPublishMessage peerList message
 
 -- will have to do exception handling based on the response of sendRequest
-sendPublishMessageToPeer :: (HasP2PEnv m) => NodeId -> Lazy.ByteString -> m ()
+sendPublishMessageToPeer :: (HasP2PEnv m, HasLogging m) => NodeId -> Lazy.ByteString -> m ()
 sendPublishMessageToPeer recievingPeerNodeId message = do
     _ <- sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
     return ()
 
-maintainWatchers :: (HasP2PEnv m) => m ()
+maintainWatchers :: (HasP2PEnv m, HasLogging m) => m ()
 maintainWatchers = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
@@ -75,7 +76,7 @@ maintainWatchers = do
     _ <- LAsync.async (maintainWatchersHelper watcherMap topicIds)
     return ()
 
-maintainWatchersHelper :: (HasP2PEnv m) => WatchersTable -> [Topic] -> m ()
+maintainWatchersHelper :: (HasP2PEnv m, HasLogging m) => WatchersTable -> [Topic] -> m ()
 maintainWatchersHelper _ [] = return ()
 maintainWatchersHelper watcherMap (topic:topicIdList) = do
     let currListTvarMaybe = HM.lookup topic watcherMap

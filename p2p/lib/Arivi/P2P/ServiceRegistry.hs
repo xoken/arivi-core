@@ -33,7 +33,7 @@ makeP2Pinstance nodeid mIP tcpport udpport statsdIP statsdPort statsdPrefix sk =
     -- newKBucket <- createKbucket nodeid mIP tcpport udpport
     newStatsdClient <- createStatsdClient statsdIP statsdPort statsdPrefix
     let netENV = mkAriviEnv (read $ show tcpport) (read $ show udpport) sk -- TODO:  need to make port consistent
-    p2p' <- makeP2PEnvironment nodeid
+    p2p' <- makeP2PEnvironment nodeid tcpport udpport
     -- let newmap = HM.insert RPC rpcHandler $ tvarMessageTypeMap p2p'
     let p2pEnv =
             p2p'
@@ -51,9 +51,7 @@ makeP2Pinstance nodeid mIP tcpport udpport statsdIP statsdPort statsdPrefix sk =
 --             p2pEnv
 -- --add funcs to run at start
 --             ()
-insertHandlers ::
-       forall m. (HasP2PEnv m)
-    => MessageTypeMap m
+insertHandlers :: (HasP2PEnv m) => MessageTypeMap m
 insertHandlers =
     HM.insert
         Kademlia

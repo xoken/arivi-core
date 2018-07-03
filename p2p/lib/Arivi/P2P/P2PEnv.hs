@@ -17,7 +17,6 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, atomically,
                                                         newTVarIO)
@@ -25,6 +24,7 @@ import           Control.Concurrent.STM.TQueue
 
 import           Data.HashMap.Strict                   as HM
 import qualified STMContainers.Map                     as H
+import           Network.Socket                        (PortNumber)
 
 
 data P2PEnv = P2PEnv
@@ -50,7 +50,6 @@ data P2PEnv = P2PEnv
 class ( T.HasKbucket m
       , HasStatsdClient m
       , HasNetworkEnv m
-      , HasLogging m
       , HasSecretKey m
       ) =>
       HasP2PEnv m
@@ -70,8 +69,8 @@ class ( T.HasKbucket m
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getDynamicResourceToPeerMap :: m (TVar DynamicResourceToPeerMap)
 
-makeP2PEnvironment :: T.NodeId -> IO P2PEnv
-makeP2PEnvironment nodeId = do
+makeP2PEnvironment :: T.NodeId -> PortNumber -> PortNumber -> IO P2PEnv
+makeP2PEnvironment nId tPort uPort = do
     nmap <- newTVarIO HM.empty
     kqueue <- newTQueueIO
     rqueue <- newTQueueIO
@@ -81,7 +80,7 @@ makeP2PEnvironment nodeId = do
     dr2pmap <- newTVarIO HM.empty
     kbMap <- H.newIO
     let kb = T.Kbucket kbMap
-    let peer = T.Peer (nodeId, T.NodeEndPoint "127.0.0.1" 8080 8080)
+    let peer = T.Peer (nId, T.NodeEndPoint "127.0.0.1" tPort uPort)
     atomically $ H.insert [peer] 0 kbMap
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty

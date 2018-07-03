@@ -15,6 +15,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Exception
+import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 
 -- import           Control.Concurrent                    (forkIO, threadDelay)
@@ -38,7 +39,7 @@ import           Data.Maybe
 
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
-sendOptionsMessage :: (HasP2PEnv m) => NodeId -> [NodeId] -> m ()
+sendOptionsMessage :: (HasP2PEnv m, HasLogging m) => NodeId -> [NodeId] -> m ()
 sendOptionsMessage _ [] = return ()
 sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
     _ <- LAsync.async (sendOptionsToPeer sendingPeer recievingPeer)
@@ -49,7 +50,7 @@ sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based oh the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: (HasP2PEnv m) => NodeId -> NodeId -> m ()
+sendOptionsToPeer :: (HasP2PEnv m, HasLogging m) => NodeId -> NodeId -> m ()
 sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     let mMessage = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
     let byteStringMessage = serialise mMessage
@@ -66,7 +67,7 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
                 _ -> return () -- should handle this better
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers :: (HasP2PEnv m) => (NodeId, [ResourceId]) -> m ()
+updateResourcePeers :: (HasP2PEnv m, HasLogging m) => (NodeId, [ResourceId]) -> m ()
 updateResourcePeers peerResourceTuple = do
     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar

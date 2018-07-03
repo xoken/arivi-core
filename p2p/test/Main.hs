@@ -48,8 +48,6 @@ instance HasNetworkEnv AppM where
 
 instance HasSecretKey AppM
 
-instance HasLogging AppM
-
 instance HasKbucket AppM where
     getKb = asks kbucket
 
@@ -70,6 +68,7 @@ instance HasP2PEnv AppM where
     getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
+    getDynamicResourceToPeerMap = undefined
 
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
@@ -80,12 +79,12 @@ writeConfigs = do
     (skNode1, _) <- ACUPS.generateKeyPair
     (skNode2, _) <- ACUPS.generateKeyPair
     let bootstrapPort = 8080
-        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] "/home/pawan/xoken/arivi/arivi/p2p/bootstrapNode.log"
-        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/home/pawan/xoken/arivi/arivi/p2p/node1.log"
-        config2 = Config.Config 8081 8081 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/home/pawan/xoken/arivi/arivi/p2p/node2.log"
-    Config.makeConfig bootstrapConfig "/home/pawan/xoken/arivi/arivi/p2p/bootstrapConfig.yaml"
-    Config.makeConfig config1 "/home/pawan/xoken/arivi/arivi/p2p/config1.yaml"
-    Config.makeConfig config2 "/home/pawan/xoken/arivi/arivi/p2p/config2.yaml"
+        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] "/Users/pranaysashank/Desktop/arivi/p2p/bootstrapNode.log"
+        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/Users/pranaysashank/Desktop/arivi/p2p/node1.log"
+        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] "/Users/pranaysashank/Desktop/arivi/p2p/node2.log"
+    Config.makeConfig bootstrapConfig "/Users/pranaysashank/Desktop/arivi/p2p/bootstrapConfig.yaml"
+    Config.makeConfig config1 "/Users/pranaysashank/Desktop/arivi/p2p/config1.yaml"
+    Config.makeConfig config2 "/Users/pranaysashank/Desktop/arivi/p2p/config2.yaml"
 
 runNode :: String -> IO ()
 runNode configPath = do
@@ -98,7 +97,7 @@ runNode configPath = do
         env
         (do
 
-            async (runTcpServer (show (Config.tcpPort config))  newIncomingConnection)
+            -- (runTcpServer (show (Config.tcpPort config))  newIncomingConnection)
             async (runUdpServer (show (Config.udpPort config))  newIncomingConnection)
             loadDefaultPeers (Config.trustedPeers config)
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
@@ -126,21 +125,24 @@ runBSNode configPath = do
     -- runStdoutLoggingT $
       runAppM
         env
-        (do
-            async (runUdpServer (show (Config.tcpPort config))  newIncomingConnection)
-            (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
+        (
+            runUdpServer (show (Config.tcpPort config))  newIncomingConnection
+            --async (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
+            -- return ()
         )
 
 
 main :: IO ()
 main = do
-    -- writeConfigs
-    async (runBSNode  "/home/pawan/xoken/arivi/arivi/p2p/bootstrapConfig.yaml")
+    [config] <- getArgs
+    when (config == "--config") writeConfigs
+    -- cd <- getCurrentDirectory
+    async (runBSNode  "/Users/pranaysashank/Desktop/arivi/p2p/bootstrapConfig.yaml")
     threadDelay 5000000
-    runNode "/home/pawan/xoken/arivi/arivi/p2p/config1.yaml"
-        `concurrently`
-        runNode "/home/pawan/xoken/arivi/arivi/p2p/config2.yaml"
-    threadDelay 10000000
+    async (runNode "/Users/pranaysashank/Desktop/arivi/p2p/config1.yaml")
+    threadDelay 5000000
+    async (runNode "/Users/pranaysashank/Desktop/arivi/p2p/config2.yaml")
+    threadDelay 100000000
     return ()
 
 -- main' = do

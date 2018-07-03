@@ -54,6 +54,7 @@ library
                     ,  arivi-utils
 
   ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  default-extensions:          FlexibleContexts
   exposed-modules:
                        Arivi.Env
                        Arivi.Network

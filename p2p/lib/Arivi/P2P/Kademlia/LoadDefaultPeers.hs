@@ -25,6 +25,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Exception
+import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
@@ -33,9 +34,9 @@ import           Control.Monad.STM
 import qualified Data.ByteString.Lazy                  as L
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
---   local node information which are passed to P2P enviornment during
+--   local node information which are passed to P2P environment during
 --   P2P instance initialization.
-loadDefaultPeers :: (HasP2PEnv m) => [Peer] -> m ()
+loadDefaultPeers :: (HasP2PEnv m, HasLogging m) => [Peer] -> m ()
 loadDefaultPeers = mapConcurrently_ issueFindNode
 
 -- | Helper function to retrieve Peer list from PayLoad
@@ -65,7 +66,7 @@ deleteIfPeerExist (x:xs) = do
         else return []
 
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
-issueFindNode :: (HasP2PEnv m) => Peer -> m ()
+issueFindNode :: (HasP2PEnv m, HasLogging m) => Peer -> m ()
 issueFindNode rpeer = do
     addToKBucket rpeer
     p2pInstanceTVar <- getAriviTVarP2PEnv
