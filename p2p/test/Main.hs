@@ -75,7 +75,7 @@ instance HasP2PEnv AppM where
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
-
+{--
 writeConfigs path = do
     (skBootstrap, _) <- ACUPS.generateKeyPair
     (skNode1, _) <- ACUPS.generateKeyPair
@@ -87,16 +87,16 @@ writeConfigs path = do
     Config.makeConfig bootstrapConfig (path <> "/bootstrapConfig.yaml")
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
-
+-}
 defaultConfig path = do
   (sk, _) <- ACUPS.generateKeyPair
-  let config = Config.Config 5678 5678 sk [] (generateNodeId sk) (Data.Text.pack path <> "/node.log")
+  let config = Config.Config 5678 5678 sk [] (generateNodeId sk) "127.0.0.1" (Data.Text.pack (path <> "/node.log"))
   Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    let ha = "127.0.0.1"
+    let ha = Config.myIp config
     env <- makeP2Pinstance (generateNodeId (Config.secretKey config)) ha (Config.tcpPort config) (Config.udpPort config) "89.98.98.98" 8089 "ad" (Config.secretKey config)
     runFileLoggingT (toS $ Config.logFile config)$
     -- runStdoutLoggingT $

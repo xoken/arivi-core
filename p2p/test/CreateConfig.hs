@@ -22,6 +22,7 @@ data Config = Config {
     , secretKey    :: SecretKey
     , trustedPeers :: [Peer]
     , myNodeId     :: ByteString
+    , myIp         :: String
     , logFile      :: T.Text
 } deriving (Show, Generic)
 
