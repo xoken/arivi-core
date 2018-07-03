@@ -179,7 +179,7 @@ getPeerListFromKeyList k (x:xs) = do
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
     let mPeerList = fromMaybe [] pl
         ple = fst $ L.splitAt k mPeerList
-    if L.length mPeerList >= k
+    if L.length ple >= k
         then return ple
         else do
             temp <- getPeerListFromKeyList (k - L.length ple) xs
@@ -216,10 +216,10 @@ getKClosestPeersByNodeid nid k = do
             let kbtemp = H.stream (getKbucket kbbb'')
             kvList <- liftIO $ atomically $ toList kbtemp
             let kbi = getKbIndex localPeer nid
-                tkeys = L.sort $ fmap fst kvList
+                tkeys = L.delete 0 (L.sort $ fmap fst kvList)
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
-                keys2 = L.delete 0 keys
-            peerl <- getPeerListFromKeyList k keys2
+
+            peerl <- getPeerListFromKeyList k keys
             return (Right peerl)
         Left x -> return (Left x)
 
