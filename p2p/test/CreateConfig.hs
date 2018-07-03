@@ -21,6 +21,7 @@ data Config = Config {
     , udpPort      :: PortNumber
     , secretKey    :: SecretKey
     , trustedPeers :: [Peer]
+    , myNodeId     :: ByteString
     , logFile      :: T.Text
 } deriving (Show, Generic)
 

@@ -13,17 +13,17 @@ module Arivi.P2P.P2PEnv
 
 import           Arivi.Env
 import qualified Arivi.P2P.Kademlia.Types              as T
+import           Arivi.P2P.Kademlia.Kbucket            (createKbucket)
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Statsd
-import           Control.Concurrent.STM                (TVar, atomically,
+import           Control.Concurrent.STM                (TVar,
                                                         newTVarIO)
 import           Control.Concurrent.STM.TQueue
 
 import           Data.HashMap.Strict                   as HM
-import qualified STMContainers.Map                     as H
 import           Network.Socket                        (PortNumber)
 
 
@@ -78,10 +78,7 @@ makeP2PEnvironment nId tPort uPort = do
     oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
-    kbMap <- H.newIO
-    let kb = T.Kbucket kbMap
-    let peer = T.Peer (nId, T.NodeEndPoint "127.0.0.1" tPort uPort)
-    atomically $ H.insert [peer] 0 kbMap
+    kb <- createKbucket (T.Peer (nId, T.NodeEndPoint "127.0.0.1" tPort uPort))
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty

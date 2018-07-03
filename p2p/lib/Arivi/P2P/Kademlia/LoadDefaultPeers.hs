@@ -1,3 +1,5 @@
+{-# language TemplateHaskell #-}
+
 -- |
 -- Module      : Arivi.Kademlia.LoadDefaultPeers
 -- Copyright   : (c) Xoken Labs
@@ -31,7 +33,9 @@ import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
+import           Control.Monad.Logger
 import qualified Data.ByteString.Lazy                  as L
+import qualified Data.Text as T
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
 --   local node information which are passed to P2P environment during
@@ -91,7 +95,9 @@ issueFindNode rpeer = do
             Right x -> x
             Left  _ -> []
 
+    $(logDebug) $ T.pack ("Received PeerList : " ++ show peerl)
     peerl2 <- deleteIfPeerExist peerl
+    $(logDebug) $ T.pack ("Received DeletedPeerList : " ++ show peerl)
 
     -- | Deletes nodes from peer list which already exists in k-bucket
     --   this is important otherwise it will be stuck in a loop where the

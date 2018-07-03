@@ -44,6 +44,7 @@ kademliaMessageHandler payl = do
         msgb = messageBody $ message payl'
         nep = fromEndPoint msgb
         rnid = nodeId msgb
+    liftIO $ print (show nep ++ " " ++ show rnid)
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance

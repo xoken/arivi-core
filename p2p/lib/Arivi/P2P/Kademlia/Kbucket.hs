@@ -35,6 +35,7 @@ import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.Utils.Exception
+import           Control.Exception
 import           Control.Monad                  ()
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader           ()
@@ -43,6 +44,8 @@ import qualified Data.List                      as L
 import           Data.Maybe
 import           ListT
 import qualified STMContainers.Map              as H
+
+import           GHC.Stack
 
 -- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
@@ -72,9 +75,11 @@ getDefaultNodeId = do
 getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
+    liftIO $ (atomically (H.size (getKbucket kbucket'')) >>= print)
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
+            liftIO $ print (peerR == localPeer)
             let peer = peerR
                 kbDistance = getKbIndex localPeer peer
             pl <-
@@ -107,7 +112,7 @@ ifPeerExist peer = do
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
-addToKBucket :: (HasKbucket m) => Peer -> m ()
+addToKBucket :: (HasKbucket m, HasCallStack) => Peer -> m ()
 addToKBucket peerR = do
     kb'' <- getKb
     lp <- getDefaultNodeId
@@ -125,11 +130,15 @@ addToKBucket peerR = do
                             liftIO $
                                 atomically $
                                 H.insert (pl ++ [peerR]) kbDistance kb
-                        else liftIO $
+                        else liftIO $ do
+                             print (prettyCallStack callStack)
+                             print (show peerR)
                              atomically $ H.insert [peerR] kbDistance kb
-                Left _ -> return ()
+                             i <- atomically $ H.size kb
+                             print ("Kbucket size " ++ show (i))
+                Left e -> throw e
             where nid = fst $ getPeer peerR
-        Left _ -> return ()
+        Left e -> throw e
 
 -- | Removes a given peer from kbucket
 removePeer :: (HasKbucket m) => NodeId -> m ()

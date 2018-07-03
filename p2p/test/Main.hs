@@ -81,16 +81,16 @@ writeConfigs path = do
     (skNode1, _) <- ACUPS.generateKeyPair
     (skNode2, _) <- ACUPS.generateKeyPair
     let bootstrapPort = 8080
-        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] (Data.Text.pack path <> "/bootstrapNode.log")
-        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (Data.Text.pack path <> "/node1.log")
-        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (Data.Text.pack path <> "/node2.log")
+        bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] (generateNodeId skBootstrap) (Data.Text.pack path <> "/bootstrapNode.log")
+        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode1) (Data.Text.pack path <> "/node1.log")
+        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode2) (Data.Text.pack path <> "/node2.log")
     Config.makeConfig bootstrapConfig (path <> "/bootstrapConfig.yaml")
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
 
 defaultConfig path = do
   (sk, _) <- ACUPS.generateKeyPair
-  let config = Config.Config 5678 5678 sk [] (Data.Text.pack path <> "/node1.log")
+  let config = Config.Config 5678 5678 sk [] (generateNodeId sk) (Data.Text.pack path <> "/node.log")
   Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
@@ -105,8 +105,9 @@ runNode configPath = do
         (do
 
             -- (runTcpServer (show (Config.tcpPort config))  newIncomingConnection)
-            async (runUdpServer (show (Config.udpPort config))  newIncomingConnection)
+            tid <- async (runUdpServer (show (Config.udpPort config))  newIncomingConnection)
             loadDefaultPeers (Config.trustedPeers config)
+            wait tid
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
             -- handleOrFail <- openConnection (nodeIp bsNodeEndPoint) (tcpPort bsNodeEndPoint) TCP bsNodeId
             -- case handleOrFail of
@@ -130,7 +131,7 @@ runBSNode configPath = do
     env <- makeP2Pinstance (generateNodeId (Config.secretKey config)) ha (Config.tcpPort config) (Config.udpPort config) "89.98.98.98" 8089 "ad" (Config.secretKey config)
     runFileLoggingT (toS $ Config.logFile config)$
     -- runStdoutLoggingT $
-      runAppM
+        runAppM
         env
         (
             runUdpServer (show (Config.tcpPort config))  newIncomingConnection
@@ -141,16 +142,16 @@ runBSNode configPath = do
 
 main :: IO ()
 main = do
-    [path] <- getArgs
+    (path:args) <- getArgs
     b <- doesPathExist (path <> "/config.yaml")
     unless b (defaultConfig path)
-    async (runBSNode  (path <> "/bootstrapConfig.yaml"))
-    threadDelay 5000000
-    async (runNode (path <> "/config1.yaml"))
-    threadDelay 5000000
-    async (runNode (path <> "/config2.yaml"))
-    threadDelay 100000000
-    return ()
+    runNode (path <> "/config.yaml")
+    --threadDelay 5000000
+    --async (runNode (path <> "/config1.yaml"))
+    --threadDelay 5000000
+    --async (runNode (path <> "/config2.yaml"))
+    --threadDelay 100000000
+    --return ()
 
 -- main' = do
 --     [size, n] <- getArgs
