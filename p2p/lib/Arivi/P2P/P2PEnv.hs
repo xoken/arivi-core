@@ -69,8 +69,8 @@ class ( T.HasKbucket m
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getDynamicResourceToPeerMap :: m (TVar DynamicResourceToPeerMap)
 
-makeP2PEnvironment :: T.NodeId -> PortNumber -> PortNumber -> IO P2PEnv
-makeP2PEnvironment nId tPort uPort = do
+makeP2PEnvironment :: String -> T.NodeId -> PortNumber -> PortNumber -> IO P2PEnv
+makeP2PEnvironment nIp nId tPort uPort = do
     nmap <- newTVarIO HM.empty
     kqueue <- newTQueueIO
     rqueue <- newTQueueIO
@@ -78,7 +78,7 @@ makeP2PEnvironment nId tPort uPort = do
     oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
-    kb <- createKbucket (T.Peer (nId, T.NodeEndPoint "127.0.0.1" tPort uPort))
+    kb <- createKbucket (T.Peer (nId, T.NodeEndPoint nIp tPort uPort))
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty
