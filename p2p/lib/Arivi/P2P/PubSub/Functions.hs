@@ -1,6 +1,7 @@
 module Arivi.P2P.PubSub.Functions
-    (  publishTopic
-     , maintainWatchers
+    ( publishTopic
+    , maintainWatchers
+    , updateDynamicResourceToPeerMap
     ) where
 
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
@@ -8,6 +9,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         NodeId)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
+import           Arivi.P2P.RPC.Types                   (ResourceId)
 import           Arivi.Utils.Logging
 import           Codec.Serialise                       (serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
@@ -55,7 +57,8 @@ publishTopic messageTopic publishMessage = do
     let serializedMessage = serialise message
     sendPublishMessage combinedList serializedMessage
 
-sendPublishMessage :: (HasP2PEnv m, HasLogging m) => [NodeTimer] -> Lazy.ByteString -> m ()
+sendPublishMessage ::
+       (HasP2PEnv m, HasLogging m) => [NodeTimer] -> Lazy.ByteString -> m ()
 sendPublishMessage [] _ = return ()
 sendPublishMessage (recievingPeer:peerList) message = do
     let recievingPeerNodeId = timerNodeId recievingPeer
@@ -63,7 +66,8 @@ sendPublishMessage (recievingPeer:peerList) message = do
     sendPublishMessage peerList message
 
 -- will have to do exception handling based on the response of sendRequest
-sendPublishMessageToPeer :: (HasP2PEnv m, HasLogging m) => NodeId -> Lazy.ByteString -> m ()
+sendPublishMessageToPeer ::
+       (HasP2PEnv m, HasLogging m) => NodeId -> Lazy.ByteString -> m ()
 sendPublishMessageToPeer recievingPeerNodeId message = do
     _ <- sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
     return ()
@@ -76,7 +80,8 @@ maintainWatchers = do
     _ <- LAsync.async (maintainWatchersHelper watcherMap topicIds)
     return ()
 
-maintainWatchersHelper :: (HasP2PEnv m, HasLogging m) => WatchersTable -> [Topic] -> m ()
+maintainWatchersHelper ::
+       (HasP2PEnv m, HasLogging m) => WatchersTable -> [Topic] -> m ()
 maintainWatchersHelper _ [] = return ()
 maintainWatchersHelper watcherMap (topic:topicIdList) = do
     let currListTvarMaybe = HM.lookup topic watcherMap
@@ -92,13 +97,35 @@ maintainWatchersHelper watcherMap (topic:topicIdList) = do
     maintainWatchersHelper watcherMap topicIdList
 
 -- will take the list of watchers for each topic and check their validity
-
 checkWatchers :: [Watcher] -> UTCTime -> [Watcher]
 checkWatchers [] _ = []
 checkWatchers (currWatcher:watcherList) currentTime =
     if timer currWatcher < currentTime
         then [] ++ checkWatchers watcherList currentTime
         else currWatcher : watcherList
+
+updateDynamicResourceToPeerMap ::
+       (HasP2PEnv m, HasLogging m) => ResourceId -> NodeId -> m ()
+updateDynamicResourceToPeerMap resID nodeID = do
+    dynamicResourceToPeerMapTVar <- getDynamicResourceToPeerMap
+    liftIO $
+        atomically
+            (do dynamicResourceToPeerMap <-
+                    readTVar dynamicResourceToPeerMapTVar
+                let currentEntry = HM.lookup resID dynamicResourceToPeerMap
+                if isNothing currentEntry
+                    then do
+                        newNodeTVar <- newTVar [nodeID]
+                        let modifiedMap =
+                                HM.insert
+                                    resID
+                                    newNodeTVar
+                                    dynamicResourceToPeerMap
+                        writeTVar dynamicResourceToPeerMapTVar modifiedMap
+                    else do
+                        currNodeList <- readTVar $ fromJust currentEntry
+                        let newNodeList = currNodeList ++ [nodeID]
+                        writeTVar (fromJust currentEntry) newNodeList)
 -- checkWatchers :: [Watcher] -> IO [Watcher]
 -- checkWatchers [] = return []
 -- checkWatchers (currWatcher : watcherList) =

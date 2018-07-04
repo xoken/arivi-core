@@ -7,7 +7,6 @@ module Arivi.P2P.RPC.Functions
     -- -- not for Service Layer
     , rpcHandler
     , updatePeerInResourceMap
-    , updateDynamicResourceToPeerMap
     ) where
 
 import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (Peer (..), getKClosestPeersByNodeid,
@@ -38,6 +37,7 @@ import           Data.ByteString.Char8                 as Char8 (pack)
 import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
+import           System.Random                         (randomRIO)
 
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
 registerResource ::
@@ -144,7 +144,7 @@ sendResourceRequestToPeer ::
     -> m ServiceMessage
 sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
     nodeList <- liftIO $ readTVarIO nodeListTVar
-    let mNodeId = head nodeList --need to randomise
+    mNodeId <- liftIO $ (nodeList !!) <$> randomRIO (0, length nodeList - 1) -- selecting a random node
     let requestMessage =
             RequestResource
                 { to = mNodeId
@@ -216,7 +216,8 @@ rpcHandler incomingRequest = do
 -- let peerDetailsTVar = fromJust (HM.lookup nodeIdPeer nodeIdMap)
 -- peerDetails <- readTVar peerDetailsTVar
 -- return ()
-addPeerFromKademlia :: (HasP2PEnv m, HasLogging m) => [Kademlia.Peer] -> m [NodeId]
+addPeerFromKademlia ::
+       (HasP2PEnv m, HasLogging m) => [Kademlia.Peer] -> m [NodeId]
 addPeerFromKademlia [] = return []
 addPeerFromKademlia (peer:peerList) = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
@@ -225,7 +226,10 @@ addPeerFromKademlia (peer:peerList) = do
     return $ mNodeId : nextNodeId
 
 addPeerFromKademliaHelper ::
-       (HasP2PEnv m, HasLogging m) => Kademlia.Peer -> TVar NodeIdPeerMap -> m NodeId
+       (HasP2PEnv m, HasLogging m)
+    => Kademlia.Peer
+    -> TVar NodeIdPeerMap
+    -> m NodeId
 addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
     uuidMapTVar <- liftIO $ newTVarIO HM.empty
     liftIO $
@@ -264,29 +268,7 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
                                        }
                            writeTVar (fromJust mapEntry) newDetails
                    return mNodeId)
-
 -- used by PubSub to register peer for dynamic resource, which it has been notified for
-updateDynamicResourceToPeerMap :: (HasP2PEnv m, HasLogging m) => ResourceId -> NodeId -> m ()
-updateDynamicResourceToPeerMap resID nodeID = do
-    dynamicResourceToPeerMapTVar <- getDynamicResourceToPeerMap
-    liftIO $
-        atomically
-            (do dynamicResourceToPeerMap <-
-                    readTVar dynamicResourceToPeerMapTVar
-                let currentEntry = HM.lookup resID dynamicResourceToPeerMap
-                if isNothing currentEntry
-                    then do
-                        newNodeTVar <- newTVar [nodeID]
-                        let modifiedMap =
-                                HM.insert
-                                    resID
-                                    newNodeTVar
-                                    dynamicResourceToPeerMap
-                        writeTVar dynamicResourceToPeerMapTVar modifiedMap
-                    else do
-                        currNodeList <- readTVar $ fromJust currentEntry
-                        let newNodeList = currNodeList ++ [nodeID]
-                        writeTVar (fromJust currentEntry) newNodeList)
 -- readResourceRequest :: (HasP2PEnv m) => ResourceId -> m ServicePayload
 -- readResourceRequest resourceId = do
 --     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
