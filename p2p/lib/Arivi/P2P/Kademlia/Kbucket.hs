@@ -16,6 +16,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
+
 module Arivi.P2P.Kademlia.Kbucket
     ( Kbucket(..)
     , Peer(..)
@@ -127,9 +128,10 @@ addToKBucket peerR = do
                     if peerR `elem` pl
                         then do
                             removePeer nid
-                            liftIO $
-                                atomically $
-                                H.insert (pl ++ [peerR]) kbDistance kb
+                            liftIO $ do
+                                atomically $ H.insert (pl ++ [peerR]) kbDistance kb
+                                i <- atomically $ H.size kb
+                                print ("Kbucket size " ++ show (i))
                         else liftIO $ do
                              print (prettyCallStack callStack)
                              print (show peerR)
@@ -165,7 +167,7 @@ removePeer peerR = do
                                  kb
                         else liftIO $ atomically $ H.insert pl kbDistance kb
                     where pl2 = fmap (fst . getPeer) pl
-                          fnep = NodeEndPoint "127.0.0.1" 0 0
+                          fnep = NodeEndPoint "" 0 0
                           fp = Peer (peerR, fnep)
                 Left _ -> return ()
         Left _ -> return ()
@@ -220,7 +222,11 @@ getKClosestPeersByNodeid nid k = do
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
 
             peerl <- getPeerListFromKeyList k keys
-            return (Right peerl)
+            let dnep  = NodeEndPoint "" 0 0
+                dpeer = Peer (nid,dnep)
+                pl2 = L.deleteBy (\p1 p2 -> fst (getPeer p1) == fst
+                                    (getPeer p2)) dpeer peerl
+            return (Right pl2)
         Left x -> return (Left x)
 
 -- | gets 'k' random peers from the kbucket for a given 'k', notice in this
