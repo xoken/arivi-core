@@ -37,6 +37,7 @@ type TopicHandler = (TopicMessage -> TopicMessage)
 
 type ResponseCode = Int
 
+-- convert the pico passed to diff time in functions, diff time is not serialisable
 data MessageTypePubSub
     = Subscribe { topicId      :: Topic
                 , messageTimer :: Pico }
@@ -64,10 +65,10 @@ instance Ord NodeTimer where
 instance Eq NodeTimer where
     x == y = timerNodeId x == timerNodeId y
 
-type WatchersTable = HM.HashMap Topic (TVar (SortedList Watcher)) -- need to use sorted list
+type WatchersTable = HM.HashMap Topic (TVar (SortedList Watcher))
 
 type NotifiersTable
-     = HM.HashMap Topic (TVar (SortedList Notifier)) -- need to use sorted list, might contain min no of peers
+     = HM.HashMap Topic (TVar (SortedList Notifier)) -- might contain min no of peers
                                                 -- and handler function here so dont use fst and snd in functions
 
 type TopicHandlerMap --maps topic to the respective TopicHandler
