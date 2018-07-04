@@ -75,7 +75,7 @@ getDefaultNodeId = do
 getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
-    liftIO $ (atomically (H.size (getKbucket kbucket'')) >>= print)
+    liftIO (atomically (H.size (getKbucket kbucket'')) >>= print)
     lp <- getDefaultNodeId
     case lp of
         Right localPeer -> do
@@ -131,11 +131,11 @@ addToKBucket peerR = do
                                 atomically $
                                 H.insert (pl ++ [peerR]) kbDistance kb
                         else liftIO $ do
-                             print (prettyCallStack callStack)
-                             print (show peerR)
-                             atomically $ H.insert [peerR] kbDistance kb
-                             i <- atomically $ H.size kb
-                             print ("Kbucket size " ++ show (i))
+                                 print (prettyCallStack callStack)
+                                 print (show peerR)
+                                 atomically $ H.insert [peerR] kbDistance kb
+                                 i <- atomically $ H.size kb
+                                 print ("Kbucket size " ++ show i)
                 Left e -> throw e
             where nid = fst $ getPeer peerR
         Left e -> throw e
@@ -218,7 +218,6 @@ getKClosestPeersByNodeid nid k = do
             let kbi = getKbIndex localPeer nid
                 tkeys = L.delete 0 (L.sort $ fmap fst kvList)
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
-
             peerl <- getPeerListFromKeyList k keys
             return (Right peerl)
         Left x -> return (Left x)
