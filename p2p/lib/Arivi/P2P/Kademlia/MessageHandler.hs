@@ -26,6 +26,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy        as L
 
+-- import qualified STMContainers.Map           as H
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
 --   It takes a bytesting as input which is deserialized to kademlia
@@ -45,7 +46,7 @@ kademliaMessageHandler payl = do
         rnep = fromEndPoint msgb
         rnid = nodeId msgb
         rpeer = Peer (rnid, rnep)
-    liftIO $ print (show rnep ++ " " ++ show rnid)
+    -- liftIO $ print (show rnep ++ " " ++ show rnid)
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
@@ -56,9 +57,18 @@ kademliaMessageHandler payl = do
         PING {} -> do
             addToKBucket rpeer
             return $ serialise $ packPong lnid lip luport ltport
-        FIND_NODE {} -> do
+        FIND_NODE {}
+            -- kb'' <- getKb
+            -- let kb = getKbucket kb''
+            -- liftIO $ do
+            --     i <- liftIO $ atomically $ H.size kb
+            --     print ("Kbucket size before mH " ++ show i)
+         -> do
             addToKBucket rpeer
-            liftIO $ print "Find_Node recieved and peer added"
+            -- liftIO $ do
+            --     print "Find_Node recieved and peer added"
+            --     i <- atomically $ H.size kb
+            --     print ("Kbucket size after mH " ++ show i)
             pl <- getKClosestPeersByNodeid rnid 10
             case pl of
                 Right pl2 ->

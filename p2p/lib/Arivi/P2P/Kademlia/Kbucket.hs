@@ -42,10 +42,9 @@ import           Control.Monad.Reader           ()
 import           Control.Monad.STM
 import qualified Data.List                      as L
 import           Data.Maybe
+import           GHC.Stack
 import           ListT
 import qualified STMContainers.Map              as H
-
-import           GHC.Stack
 
 -- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
@@ -75,11 +74,12 @@ getDefaultNodeId = do
 getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
-    liftIO (atomically (H.size (getKbucket kbucket'')) >>= print)
+    -- liftIO (atomically (H.size (getKbucket kbucket'')) >>= print)
     lp <- getDefaultNodeId
     case lp of
-        Right localPeer -> do
-            liftIO $ print (peerR == localPeer)
+        Right localPeer
+            -- liftIO $ print (peerR == localPeer)
+         -> do
             let peer = peerR
                 kbDistance = getKbIndex localPeer peer
             pl <-
@@ -116,30 +116,44 @@ addToKBucket :: (HasKbucket m, HasCallStack) => Peer -> m ()
 addToKBucket peerR = do
     kb'' <- getKb
     lp <- getDefaultNodeId
+    -- liftIO $ do
+    --     let kbm2 = getKbucket kb''
+    --     print "ADD entered"
+    --     print (show peerR)
+    --     i <- atomically $ H.size kbm2
+    --     print ("Kbucket size before " ++ show i)
     case lp of
         Right localPeer -> do
-            mPeerList <- getPeerList nid
+            let nid = fst $ getPeer peerR
+                kbDistance = getKbIndex localPeer nid
+                kb = getKbucket kb''
+            mPeerList <- liftIO $ atomically $ H.lookup kbDistance kb
             case mPeerList of
-                Right pl -> do
-                    let kb = getKbucket kb''
-                    let peer = fst $ getPeer peerR
-                        kbDistance = getKbIndex localPeer peer
+                Just pl ->
                     if peerR `elem` pl
                         then do
                             removePeer nid
-                            liftIO $ do
+                            liftIO $
                                 atomically $
-                                    H.insert (pl ++ [peerR]) kbDistance kb
-                                i <- atomically $ H.size kb
-                                print ("Kbucket size " ++ show i)
-                        else liftIO $ do
-                                 print (prettyCallStack callStack)
-                                 print (show peerR)
-                                 atomically $ H.insert [peerR] kbDistance kb
-                                 i <- atomically $ H.size kb
-                                 print ("Kbucket size " ++ show i)
-                Left e -> throw e
-            where nid = fst $ getPeer peerR
+                                H.insert (pl ++ [peerR]) kbDistance kb
+                        else liftIO $
+                             atomically $ H.insert (pl ++ [peerR]) kbDistance kb
+                                --  i <- atomically $ H.size kb
+                                --  print ("Kbucket size " ++ show i)
+                Nothing -> liftIO $ atomically $ H.insert [peerR] kbDistance kb
+                    -- liftIO $ do
+                    --     print $ show pl
+                    --     print $ show peerR
+                    --     i <- atomically $ H.size kb
+                    --     print ("Kbucket size after " ++ show i)
+            liftIO $ do
+                let kbm2 = getKbucket kb''
+                    kbtemp = H.stream kbm2
+                kvList <- atomically $ toList kbtemp
+                print (show kvList)
+                print ""
+                -- Left e -> throw e
+            -- where nid = fst $ getPeer peerR
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
