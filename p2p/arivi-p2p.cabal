@@ -69,8 +69,8 @@ library
                     ,  either-unwrap >= 1.1
                     ,  sorted-list
                     ,  string-conv
-  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
-  default-extensions:  FlexibleContexts
+  ghc-options:         -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  default-extensions:  FlexibleContexts 
   exposed-modules:
                       --  Arivi.P2P.PubSub
                       --  Arivi.P2P.Instance
