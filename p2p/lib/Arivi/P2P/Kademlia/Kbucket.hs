@@ -133,9 +133,16 @@ addToKBucket peerR = do
                     if peerR `elem` pl
                         then do
                             removePeer nid
+                            let pl2 =
+                                    L.deleteBy
+                                        (\p1 p2 ->
+                                             fst (getPeer p1) ==
+                                             fst (getPeer p2))
+                                        peerR
+                                        pl
                             liftIO $
                                 atomically $
-                                H.insert (pl ++ [peerR]) kbDistance kb
+                                H.insert (pl2 ++ [peerR]) kbDistance kb
                         else liftIO $
                              atomically $ H.insert (pl ++ [peerR]) kbDistance kb
                                 --  i <- atomically $ H.size kb
