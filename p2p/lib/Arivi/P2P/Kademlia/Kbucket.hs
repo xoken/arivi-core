@@ -16,7 +16,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
-
 module Arivi.P2P.Kademlia.Kbucket
     ( Kbucket(..)
     , Peer(..)
@@ -129,9 +128,10 @@ addToKBucket peerR = do
                         then do
                             removePeer nid
                             liftIO $ do
-                                atomically $ H.insert (pl ++ [peerR]) kbDistance kb
+                                atomically $
+                                    H.insert (pl ++ [peerR]) kbDistance kb
                                 i <- atomically $ H.size kb
-                                print ("Kbucket size " ++ show (i))
+                                print ("Kbucket size " ++ show i)
                         else liftIO $ do
                                  print (prettyCallStack callStack)
                                  print (show peerR)
@@ -221,10 +221,13 @@ getKClosestPeersByNodeid nid k = do
                 tkeys = L.delete 0 (L.sort $ fmap fst kvList)
                 keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
             peerl <- getPeerListFromKeyList k keys
-            let dnep  = NodeEndPoint "" 0 0
-                dpeer = Peer (nid,dnep)
-                pl2 = L.deleteBy (\p1 p2 -> fst (getPeer p1) == fst
-                                    (getPeer p2)) dpeer peerl
+            let dnep = NodeEndPoint "" 0 0
+                dpeer = Peer (nid, dnep)
+                pl2 =
+                    L.deleteBy
+                        (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))
+                        dpeer
+                        peerl
             return (Right pl2)
         Left x -> return (Left x)
 
