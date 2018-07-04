@@ -26,7 +26,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy        as L
 
-
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
 --   It takes a bytesting as input which is deserialized to kademlia
@@ -49,23 +48,19 @@ kademliaMessageHandler payl = do
     liftIO $ print (show rnep ++ " " ++ show rnid)
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
-    let lnid   = selfNodeId p2pInstance
+    let lnid = selfNodeId p2pInstance
         luport = selfUDPPort p2pInstance
-        lip    = selfIP p2pInstance
+        lip = selfIP p2pInstance
         ltport = selfTCPPort p2pInstance
     case msgb of
         PING {} -> do
             addToKBucket rpeer
-            return $
-                serialise $
-                packPong lnid lip luport ltport
+            return $ serialise $ packPong lnid lip luport ltport
         FIND_NODE {} -> do
             addToKBucket rpeer
-            pl <- getKClosestPeersByNodeid rnid 5
+            pl <- getKClosestPeersByNodeid rnid 10
             case pl of
                 Right pl2 ->
-                    return $
-                    serialise $
-                    packFnR lnid pl2 lip luport ltport
+                    return $ serialise $ packFnR lnid pl2 lip luport ltport
                 Left _ -> throw KademliaInvalidPeer
         _ -> throw KademliaInvalidRequest
