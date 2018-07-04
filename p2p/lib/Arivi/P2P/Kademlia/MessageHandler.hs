@@ -59,7 +59,7 @@ kademliaMessageHandler payl = do
         FIND_NODE {} -> do
             addToKBucket rpeer
             liftIO $ print "Find_Node recieved and peer added"
-            pl <- getKClosestPeersByNodeid rnid 5
+            pl <- getKClosestPeersByNodeid rnid 10
             case pl of
                 Right pl2 ->
                     return $ serialise $ packFnR lnid pl2 lip luport ltport

@@ -16,11 +16,11 @@ module Arivi.P2P.Types
 
 import           Arivi.Network.Types (NodeId)
 import           GHC.Generics        (Generic)
-import           Network.Socket      (PortNumber)
+import           Network.Socket      (HostName, PortNumber)
 
 data AriviP2PInstance = AriviP2PInstance
     { selfNodeId  :: NodeId
-    , selfIP      :: String
+    , selfIP      :: HostName
     , selfUDPPort :: PortNumber
     , selfTCPPort :: PortNumber
     } deriving (Eq, Ord, Show, Generic)
