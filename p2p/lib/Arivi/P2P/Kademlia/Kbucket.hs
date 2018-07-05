@@ -138,6 +138,13 @@ addToKBucket peerR = do
                                     H.insert (pl2 ++ [peerR]) kbDistance kb
                                 else H.insert (pl ++ [peerR]) kbDistance kb
                         Nothing -> H.insert [peerR] kbDistance kb
+            -- Prints kbucket
+            -- liftIO $ do
+            --     let kbm2 = getKbucket kb''
+            --         kbtemp = H.stream kbm2
+            --     kvList <- atomically $ toList kbtemp
+            --     print (show kvList)
+            --     print ""
         Left e -> throw e
 
 -- | Removes a given peer from kbucket

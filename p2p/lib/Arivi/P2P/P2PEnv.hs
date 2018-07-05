@@ -12,20 +12,18 @@ module Arivi.P2P.P2PEnv
     ) where
 
 import           Arivi.Env
-import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.Kademlia.Kbucket            (createKbucket)
+import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Statsd
-import           Control.Concurrent.STM                (TVar,
-                                                        newTVarIO)
+import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Concurrent.STM.TQueue
 
 import           Data.HashMap.Strict                   as HM
 import           Network.Socket                        (PortNumber)
-
 
 data P2PEnv = P2PEnv
     { tvarAriviP2PInstance :: TVar AriviP2PInstance
@@ -45,13 +43,10 @@ data P2PEnv = P2PEnv
     , tvarMessageHashMap :: TVar MessageHashMap
     , ariviNetworkEnv :: AriviEnv
     , tvarDynamicResourceToPeerMap :: TVar DynamicResourceToPeerMap
+    , kademliaConcurrencyFactor :: Int
     }
 
-class ( T.HasKbucket m
-      , HasStatsdClient m
-      , HasNetworkEnv m
-      , HasSecretKey m
-      ) =>
+class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
       HasP2PEnv m
     where
     getP2PEnv :: m P2PEnv
@@ -68,9 +63,11 @@ class ( T.HasKbucket m
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getDynamicResourceToPeerMap :: m (TVar DynamicResourceToPeerMap)
+    getKademliaConcurrencyFactor :: m Int
 
-makeP2PEnvironment :: String -> T.NodeId -> PortNumber -> PortNumber -> IO P2PEnv
-makeP2PEnvironment nIp nId tPort uPort = do
+makeP2PEnvironment ::
+       String -> T.NodeId -> PortNumber -> PortNumber -> Int -> IO P2PEnv
+makeP2PEnvironment nIp nId tPort uPort alpha = do
     nmap <- newTVarIO HM.empty
     kqueue <- newTQueueIO
     rqueue <- newTQueueIO
@@ -99,4 +96,5 @@ makeP2PEnvironment nIp nId tPort uPort = do
             , tvarMessageHashMap = messageMap
             , tvarDynamicResourceToPeerMap = dr2pmap
             , kbucket = kb
+            , kademliaConcurrencyFactor = alpha
             }

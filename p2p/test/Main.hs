@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleContexts     #-}
 
 module Main
     ( module Main
@@ -37,11 +38,12 @@ import           Arivi.P2P.Kademlia.Types               (NodeEndPoint (..),
                                                          NodeId, Peer (..))
 import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
 import qualified CreateConfig                           as Config
+import           Data.Monoid                            ((<>))
 import           Data.String.Conv
 import           Data.Text
 import           Network.Socket                         (PortNumber (..))
-import           System.Directory (withCurrentDirectory, doesPathExist)
-import           Data.Monoid ((<>))
+import           System.Directory                       (doesPathExist,
+                                                         withCurrentDirectory)
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -71,6 +73,7 @@ instance HasP2PEnv AppM where
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
     getDynamicResourceToPeerMap = undefined
+    getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
 
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
@@ -89,25 +92,45 @@ writeConfigs path = do
     Config.makeConfig config2 (path <> "/config2.yaml")
 -}
 defaultConfig path = do
-  (sk, _) <- ACUPS.generateKeyPair
-  let config = Config.Config 5678 5678 sk [] (generateNodeId sk) "127.0.0.1" (Data.Text.pack (path <> "/node.log"))
-  Config.makeConfig config (path <> "/config.yaml")
+    (sk, _) <- ACUPS.generateKeyPair
+    let config =
+            Config.Config
+                5678
+                5678
+                sk
+                []
+                (generateNodeId sk)
+                "127.0.0.1"
+                (Data.Text.pack (path <> "/node.log"))
+    Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
     let ha = Config.myIp config
-    env <- makeP2Pinstance (generateNodeId (Config.secretKey config)) ha (Config.tcpPort config) (Config.udpPort config) "89.98.98.98" 8089 "ad" (Config.secretKey config)
-    runFileLoggingT (toS $ Config.logFile config)$
+    env <-
+        makeP2Pinstance
+            (generateNodeId (Config.secretKey config))
+            ha
+            (Config.tcpPort config)
+            (Config.udpPort config)
+            "89.98.98.98"
+            8089
+            "ad"
+            (Config.secretKey config)
+            3
+    runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
-      runAppM
-        env
-        (do
-
+        runAppM
+            env
             -- (runTcpServer (show (Config.tcpPort config))  newIncomingConnection)
-            tid <- async (runUdpServer (show (Config.udpPort config))  newIncomingConnection)
-            loadDefaultPeers (Config.trustedPeers config)
-            wait tid
+            (do tid <-
+                    async
+                        (runUdpServer
+                             (show (Config.udpPort config))
+                             newIncomingConnection)
+                loadDefaultPeers (Config.trustedPeers config)
+                wait tid
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
             -- handleOrFail <- openConnection (nodeIp bsNodeEndPoint) (tcpPort bsNodeEndPoint) TCP bsNodeId
             -- case handleOrFail of
@@ -122,23 +145,31 @@ runNode configPath = do
             --         time2 <- liftIO getCurrentTime
             --         liftIO $ print time2
             -- liftIO $ print "done"
-            )
+             )
 
 runBSNode :: String -> IO ()
 runBSNode configPath = do
     config <- Config.readConfig configPath
     let ha = "127.0.0.1"
-    env <- makeP2Pinstance (generateNodeId (Config.secretKey config)) ha (Config.tcpPort config) (Config.udpPort config) "89.98.98.98" 8089 "ad" (Config.secretKey config)
-    runFileLoggingT (toS $ Config.logFile config)$
+    env <-
+        makeP2Pinstance
+            (generateNodeId (Config.secretKey config))
+            ha
+            (Config.tcpPort config)
+            (Config.udpPort config)
+            "89.98.98.98"
+            8089
+            "ad"
+            (Config.secretKey config)
+            3
+    runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
-        env
-        (
-            runUdpServer (show (Config.tcpPort config))  newIncomingConnection
+            env
+            (runUdpServer (show (Config.tcpPort config)) newIncomingConnection
             --async (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
             -- return ()
-        )
-
+             )
 
 main :: IO ()
 main = do
@@ -159,7 +190,6 @@ main = do
 --         recipient receiver `concurrently`
 --         (threadDelay 1000000 >> initiator sender size n)
 --     return ()
-
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 

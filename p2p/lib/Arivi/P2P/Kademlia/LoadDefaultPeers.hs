@@ -15,9 +15,9 @@
 -- where closeness is determined by the XOR Metric and agains issues FIND_NODE
 -- to the peers it has recieved.
 module Arivi.P2P.Kademlia.LoadDefaultPeers
-    ( loadDefaultPeers,
-      deleteIfPeerExist,
-      ifPeerExist'
+    ( loadDefaultPeers
+    , deleteIfPeerExist
+    , ifPeerExist'
     ) where
 
 import           Arivi.P2P.Kademlia.Kbucket
@@ -35,6 +35,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy                  as L
+import qualified Data.List                             as LL
 import qualified Data.Text                             as T
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
@@ -66,7 +67,7 @@ deleteIfPeerExist (x:xs) = do
     ife <- ifPeerExist' (fst $ getPeer x)
     t <- deleteIfPeerExist xs
     if not ife
-        then return (x:t)
+        then return (x : t)
         else return []
 
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
@@ -84,23 +85,18 @@ issueFindNode rpeer = do
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
         fn_msg = packFindMsg lnid lnid lip luport ltport
-    resp <-
-        sendRequestforKademlia
-            rnid
-            Kademlia
-            (serialise fn_msg)
-            ruport
-            rip
-    let peerl  = case getPeerListFromPayload resp of
-            Right x -> x
-            Left  _ -> []
-
+    resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+    let peerl =
+            case getPeerListFromPayload resp of
+                Right x -> x
+                Left _  -> []
     $(logDebug) $ T.pack ("Received PeerList : " ++ show peerl)
     peerl2 <- deleteIfPeerExist peerl
     $(logDebug) $ T.pack ("Received DeletedPeerList : " ++ show peerl2)
-
     -- | Deletes nodes from peer list which already exists in k-bucket
     --   this is important otherwise it will be stuck in a loop where the
     --   function constantly issue FIND_NODE request forever.
-
-    mapConcurrently_ issueFindNode peerl2
+    alpha <- getKademliaConcurrencyFactor
+    let pl3 = LL.splitAt alpha peerl2
+    mapConcurrently_ issueFindNode $ fst pl3
+    mapConcurrently_ issueFindNode $ snd pl3
