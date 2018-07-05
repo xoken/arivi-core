@@ -44,7 +44,6 @@ library
                     ,  network
   ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
-                       Arivi.Utils.Exception
                        Arivi.Utils.Logging
                        Arivi.Utils.Statsd
 
