@@ -3,7 +3,7 @@
 module Arivi.P2P.RPC.Types
     ( ServiceId
     , ResourceHandlerList
-    , ResourceToPeerMap
+    , ArchivedResourceToPeerMap
     , ResourceId
     , MessageTypeRPC(..)
     , NodeId
@@ -13,13 +13,15 @@ module Arivi.P2P.RPC.Types
     , ServiceMessage
     , ResourceHandler
     , ResponseCode(..)
-    , DynamicResourceToPeerMap
+    , TransientResourceToPeerMap
+    , ResourceType(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString
+import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
 
@@ -27,11 +29,12 @@ type ResourceId = String
 
 type ServiceId = String
 
-type ServiceMessage = ByteString
+type ServiceMessage = Lazy.ByteString
 
 type ResourceHandlerList = [(ResourceId, ResourceHandler)]
 
-type ResourceToPeerMap = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
+type ArchivedResourceToPeerMap
+     = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
 
 type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
@@ -91,4 +94,12 @@ data ServicePayload = ServicePayload
     , extra   :: Maybe P2Pinfo
     } deriving (Eq, Show)
 
-type DynamicResourceToPeerMap = HM.HashMap ResourceId (TVar [NodeId])
+type TransientResourceToPeerMap
+     = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
+
+data ResourceType
+    = Archived
+    | Transient
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise ResourceType

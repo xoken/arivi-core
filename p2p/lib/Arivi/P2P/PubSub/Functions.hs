@@ -11,7 +11,8 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         NodeId)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
-import           Arivi.P2P.RPC.Types                   (ResourceId)
+import           Arivi.P2P.RPC.Types                   (ResourceHandler,
+                                                        ResourceId)
 import           Arivi.Utils.Logging
 import           Codec.Serialise                       (serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
@@ -142,27 +143,32 @@ notifyTopic mTopic mTopicMessage = do
 
 -- | used by pubsub to update the dynamic resource to peer mapping when it receives a notify message for a particular dynamic resource
 updateDynamicResourceToPeerMap ::
-       (HasP2PEnv m, HasLogging m) => ResourceId -> NodeId -> m ()
-updateDynamicResourceToPeerMap resID nodeID = do
-    dynamicResourceToPeerMapTVar <- getDynamicResourceToPeerMap
+       (HasP2PEnv m, HasLogging m)
+    => ResourceId
+    -> ResourceHandler
+    -> NodeId
+    -> m ()
+updateDynamicResourceToPeerMap resID resHandler nodeID = do
+    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
     liftIO $
         atomically
-            (do dynamicResourceToPeerMap <-
-                    readTVar dynamicResourceToPeerMapTVar
-                let currentEntry = HM.lookup resID dynamicResourceToPeerMap
+            (do transientResourceToPeerMap <-
+                    readTVar transientResourceToPeerMapTVar
+                let currentEntry = HM.lookup resID transientResourceToPeerMap
                 if isNothing currentEntry
                     then do
                         newNodeTVar <- newTVar [nodeID]
                         let modifiedMap =
                                 HM.insert
                                     resID
-                                    newNodeTVar
-                                    dynamicResourceToPeerMap
-                        writeTVar dynamicResourceToPeerMapTVar modifiedMap
+                                    (resHandler, newNodeTVar)
+                                    transientResourceToPeerMap
+                        writeTVar transientResourceToPeerMapTVar modifiedMap
                     else do
-                        currNodeList <- readTVar $ fromJust currentEntry
+                        let nodeListTVar = snd $ fromJust currentEntry
+                        currNodeList <- readTVar nodeListTVar
                         let newNodeList = currNodeList ++ [nodeID]
-                        writeTVar (fromJust currentEntry) newNodeList)
+                        writeTVar nodeListTVar newNodeList)
 
 -- | Called by each service to register its Topics. Creates entries in TopicMap
 -- the TopicHandler passed takes a topicmessage and returns a topic

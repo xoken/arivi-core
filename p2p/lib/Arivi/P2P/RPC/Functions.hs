@@ -34,6 +34,7 @@ import           Control.Monad                         (forever)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
 import           Data.ByteString.Char8                 as Char8 (pack)
+import           Data.ByteString.Lazy                  as Lazy (fromStrict)
 import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
@@ -41,21 +42,41 @@ import           System.Random                         (randomRIO)
 
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
 registerResource ::
-       (HasP2PEnv m, HasLogging m) => ResourceId -> ResourceHandler -> m ()
-registerResource resource resourceHandler = do
-    resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
+       (HasP2PEnv m, HasLogging m)
+    => ResourceId
+    -> ResourceHandler
+    -> ResourceType
+    -> m ()
+registerResource resource resourceHandler resourceType = do
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
     nodeIds <- liftIO $ newTVarIO [] -- create a new empty Tqueue for Peers
-    liftIO $
-        atomically
-            (do resourceToPeerMap <- readTVar resourceToPeerMapTvar
-                let newMap =
-                        HM.insert
-                            resource
-                            (resourceHandler, nodeIds)
-                            resourceToPeerMap --
-                writeTVar resourceToPeerMapTvar newMap)
+    case resourceType of
+        Archived ->
+            liftIO $
+            atomically
+                (do archivedResourceToPeerMap <-
+                        readTVar archivedResourceToPeerMapTvar
+                    let newMap =
+                            HM.insert
+                                resource
+                                (resourceHandler, nodeIds)
+                                archivedResourceToPeerMap --
+                    writeTVar archivedResourceToPeerMapTvar newMap)
+        Transient ->
+            liftIO $
+            atomically
+                (do transientResourceToPeerMap <-
+                        readTVar transientResourceToPeerMapTVar
+                    let updatedMap =
+                            HM.insert
+                                resource
+                                (resourceHandler, nodeIds)
+                                transientResourceToPeerMap --
+                    writeTVar transientResourceToPeerMapTVar updatedMap)
 
 -- TODO : need to replace currNodeId passed with nodeId from environment
+-- TODO : integrate dynamic and static resource hashmaps
 -------------------- Functions for periodic updation of the hashmap ---------------------
 -- creates a worker thread
 -- thread should read the hashMap and should check if the number of peers for a resource is less than some number
@@ -64,22 +85,27 @@ registerResource resource resourceHandler = do
 -- the options message module will handle the sending of messages and updating of the HashMap based on the support message
 updatePeerInResourceMap :: (HasP2PEnv m, HasLogging m) => NodeId -> m ()
 updatePeerInResourceMap currNodeId = do
-    resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-    resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    archivedResourceToPeerMap <-
+        liftIO $ readTVarIO archivedResourceToPeerMapTvar
     let minimumNodes = 5
     _ <-
         LAsync.async
             (updatePeerInResourceMapHelper
-                 resourceToPeerMap
+                 archivedResourceToPeerMap
                  minimumNodes
                  currNodeId)
     return ()
 
 updatePeerInResourceMapHelper ::
-       (HasP2PEnv m, HasLogging m) => ResourceToPeerMap -> Int -> NodeId -> m ()
-updatePeerInResourceMapHelper resourceToPeerMap minimumNodes currNodeId =
+       (HasP2PEnv m, HasLogging m)
+    => ArchivedResourceToPeerMap
+    -> Int
+    -> NodeId
+    -> m ()
+updatePeerInResourceMapHelper archivedResourceToPeerMap minimumNodes currNodeId =
     forever $ do
-        let tempList = HM.toList resourceToPeerMap
+        let tempList = HM.toList archivedResourceToPeerMap
         listOfLengths <- liftIO $ extractListOfLengths tempList
         let numberOfPeers = minimumNodes - minimum listOfLengths
         if numberOfPeers > 0
@@ -127,13 +153,29 @@ getResource ::
     -> ServiceMessage
     -> m ServiceMessage
 getResource mynodeid resourceID servicemessage = do
-    resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-    resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    archivedResourceToPeerMap <-
+        liftIO $ readTVarIO archivedResourceToPeerMapTvar
+    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
+    transientResourceToPeerMap <-
+        liftIO $ readTVarIO transientResourceToPeerMapTVar
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
-    let temp = HM.lookup resourceID resourceToPeerMap
-    let nodeListTVar = snd (fromJust temp)
+    let entryInArchivedResourceMap =
+            HM.lookup resourceID archivedResourceToPeerMap
+    let entry =
+            if isNothing entryInArchivedResourceMap
+                then HM.lookup resourceID archivedResourceToPeerMap
+                else HM.lookup resourceID transientResourceToPeerMap
+    if isNothing entry
+        then return $ Lazy.fromStrict $ pack "Entry not found Error"
+        else do
+            let nodeListTVar = snd (fromJust entry)
     -- should check if list is empty
-    sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage
+            sendResourceRequestToPeer
+                nodeListTVar
+                resourceID
+                mynodeid
+                servicemessage
 
 sendResourceRequestToPeer ::
        (HasP2PEnv m, HasLogging m)
@@ -181,9 +223,9 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                                 resourceID
                                 mynodeid
                                 servicemessage
-                        Error -> return $ pack " error " -- need to define proper error handling maybe throw an exception
+                        Error -> return $ Lazy.fromStrict $ pack " error " -- need to define proper error handling maybe throw an exception
  -- should check to and from
-                _ -> return $ pack " default"
+                _ -> return $ Lazy.fromStrict $ pack " default"
 
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
@@ -192,20 +234,33 @@ rpcHandler incomingRequest = do
     let request = deserialise incomingRequest :: MessageTypeRPC
     case request of
         RequestResource myNodeId mNodeId resourceId requestServiceMessage -> do
-            resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-            resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
-            let resourceTuple = HM.lookup resourceId resourceToPeerMap
-            let resourceHandler = fst $ fromJust resourceTuple
-            let responseServiceMessage = resourceHandler requestServiceMessage
-            let replyMessage =
-                    ReplyResource
-                        { to = mNodeId
-                        , from = myNodeId
-                        , rid = resourceId
-                        , serviceMessage = responseServiceMessage
-                        }
-            let rpcResponse = serialise replyMessage
-            return rpcResponse
+            archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+            archivedResourceToPeerMap <-
+                liftIO $ readTVarIO archivedResourceToPeerMapTvar
+            transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
+            transientResourceToPeerMap <-
+                liftIO $ readTVarIO transientResourceToPeerMapTVar
+            let entryInArchivedResourceMap =
+                    HM.lookup resourceId archivedResourceToPeerMap
+            let entry =
+                    if isNothing entryInArchivedResourceMap
+                        then HM.lookup resourceId archivedResourceToPeerMap
+                        else HM.lookup resourceId transientResourceToPeerMap
+            if isNothing entry
+                then return $ Lazy.fromStrict $ pack "Entry not found Error"
+                else do
+                    let resourceHandler = fst $ fromJust entry
+                    let responseServiceMessage =
+                            resourceHandler requestServiceMessage
+                    let replyMessage =
+                            ReplyResource
+                                { to = mNodeId
+                                , from = myNodeId
+                                , rid = resourceId
+                                , serviceMessage = responseServiceMessage
+                                }
+                    let rpcResponse = serialise replyMessage
+                    return rpcResponse
             -- currently catching everything and returning an empty byte string in future need to define proper error messages
         _ -> throw HandlerNotRequest
 

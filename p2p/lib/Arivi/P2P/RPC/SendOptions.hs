@@ -67,15 +67,20 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
                 _ -> return () -- should handle this better
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers :: (HasP2PEnv m, HasLogging m) => (NodeId, [ResourceId]) -> m ()
+updateResourcePeers ::
+       (HasP2PEnv m, HasLogging m) => (NodeId, [ResourceId]) -> m ()
 updateResourcePeers peerResourceTuple = do
-    resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-    resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    archivedResourceToPeerMap <-
+        liftIO $ readTVarIO archivedResourceToPeerMapTvar
     let mNode = fst peerResourceTuple
     let listOfResources = snd peerResourceTuple
     _ <-
         liftIO $
-        updateResourcePeersHelper mNode listOfResources resourceToPeerMap
+        updateResourcePeersHelper
+            mNode
+            listOfResources
+            archivedResourceToPeerMap
     return ()
 
 -- adds the peer to the TQueue of each resource
@@ -83,12 +88,15 @@ updateResourcePeers peerResourceTuple = do
 -- assumes that the resourceIDs are present in the HashMap
 -- cannot add new currently because the serviceID is not available
 updateResourcePeersHelper ::
-       NodeId -> [ResourceId] -> ResourceToPeerMap -> IO Int
+       NodeId -> [ResourceId] -> ArchivedResourceToPeerMap -> IO Int
 updateResourcePeersHelper _ [] _ = return 0
-updateResourcePeersHelper mNodeId (currResource:listOfResources) resourceToPeerMap = do
-    let temp = HM.lookup currResource resourceToPeerMap -- check for lookup returning Nothing
+updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourceToPeerMap = do
+    let temp = HM.lookup currResource archivedResourceToPeerMap -- check for lookup returning Nothing
     if isNothing temp
-        then updateResourcePeersHelper mNodeId listOfResources resourceToPeerMap
+        then updateResourcePeersHelper
+                 mNodeId
+                 listOfResources
+                 archivedResourceToPeerMap
         else do
             let nodeListTVar = snd (fromJust temp)
             atomically
@@ -99,7 +107,7 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) resourceToPeerM
                 updateResourcePeersHelper
                     mNodeId
                     listOfResources
-                    resourceToPeerMap
+                    archivedResourceToPeerMap
             return $ 1 + tmp
 
 -- | takes an options message and returns a supported message
@@ -108,9 +116,10 @@ optionsHandler payload = do
     let optionsMessage = deserialise payload :: MessageTypeRPC
     case optionsMessage of
         Options myNodeId fromNodeId -> do
-            resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
-            resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
-            let resourceList = keys resourceToPeerMap
+            archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+            archivedResourceToPeerMap <-
+                liftIO $ readTVarIO archivedResourceToPeerMapTvar
+            let resourceList = keys archivedResourceToPeerMap
             let mMessage =
                     Support
                         { to = fromNodeId

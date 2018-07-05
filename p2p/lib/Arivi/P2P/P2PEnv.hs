@@ -32,7 +32,7 @@ data P2PEnv = P2PEnv
     , tqueueRPC :: TQueue MessageInfo
     , tqueuePubSub :: TQueue MessageInfo
     , tqueueOption :: TQueue MessageInfo
-    , tvarResourceToPeerMap :: TVar ResourceToPeerMap
+    , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket :: T.Kbucket Int [T.Peer]
     , statsdClient :: StatsdClient
     , tvarMessageTypeMap :: forall m. (HasP2PEnv m) =>
@@ -42,8 +42,8 @@ data P2PEnv = P2PEnv
     , tvarTopicHandlerMap :: TVar TopicHandlerMap
     , tvarMessageHashMap :: TVar MessageHashMap
     , ariviNetworkEnv :: AriviEnv
-    , tvarDynamicResourceToPeerMap :: TVar DynamicResourceToPeerMap
     , kademliaConcurrencyFactor :: Int
+    , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
     }
 
 class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
@@ -56,14 +56,14 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getrpcTQueueP2PEnv :: m (TQueue MessageInfo)
     getpubsubTQueueP2PEnv :: m (TQueue MessageInfo)
     getoptionTQueueP2PEnv :: m (TQueue MessageInfo)
-    getResourceToPeerMapP2PEnv :: m (TVar ResourceToPeerMap)
+    getArchivedResourceToPeerMapP2PEnv :: m (TVar ArchivedResourceToPeerMap)
     getMessageTypeMapP2PEnv :: m (MessageTypeMap m)
     getWatcherTableP2PEnv :: m (TVar WatchersTable)
     getNotifiersTableP2PEnv :: m (TVar NotifiersTable)
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
-    getDynamicResourceToPeerMap :: m (TVar DynamicResourceToPeerMap)
     getKademliaConcurrencyFactor :: m Int
+    getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
 
 makeP2PEnvironment ::
        String -> T.NodeId -> PortNumber -> PortNumber -> Int -> IO P2PEnv
@@ -88,7 +88,7 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
             , tqueueRPC = rqueue
             , tqueuePubSub = pqueue
             , tqueueOption = oqueue
-            , tvarResourceToPeerMap = r2pmap
+            , tvarArchivedResourceToPeerMap = r2pmap
             , tvarMessageTypeMap = mtypemap
             , tvarWatchersTable = watcherMap
             , tvarNotifiersTable = notifierMap
