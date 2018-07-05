@@ -112,56 +112,6 @@ ifPeerExist peer = do
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
--- addToKBucket :: (HasKbucket m, HasCallStack) => Peer -> m ()
--- addToKBucket peerR = do
---     kb'' <- getKb
---     lp <- getDefaultNodeId
---     -- liftIO $ do
---     --     let kbm2 = getKbucket kb''
---     --     print "ADD entered"
---     --     print (show peerR)
---     --     i <- atomically $ H.size kbm2
---     --     print ("Kbucket size before " ++ show i)
---     case lp of
---         Right localPeer -> do
---             let nid = fst $ getPeer peerR
---                 kbDistance = getKbIndex localPeer nid
---                 kb = getKbucket kb''
---             mPeerList <- liftIO $ atomically $ H.lookup kbDistance kb
---             case mPeerList of
---                 Just pl ->
---                     if peerR `elem` pl
---                         then do
---                             removePeer nid
---                             let pl2 =
---                                     L.deleteBy
---                                         (\p1 p2 ->
---                                              fst (getPeer p1) ==
---                                              fst (getPeer p2))
---                                         peerR
---                                         pl
---                             liftIO $
---                                 atomically $
---                                 H.insert (pl2 ++ [peerR]) kbDistance kb
---                         else liftIO $
---                              atomically $ H.insert (pl ++ [peerR]) kbDistance kb
---                                 --  i <- atomically $ H.size kb
---                                 --  print ("Kbucket size " ++ show i)
---                 Nothing -> liftIO $ atomically $ H.insert [peerR] kbDistance kb
---                     -- liftIO $ do
---                     --     print $ show pl
---                     --     print $ show peerR
---                     --     i <- atomically $ H.size kb
---                     --     print ("Kbucket size after " ++ show i)
---             liftIO $ do
---                 let kbm2 = getKbucket kb''
---                     kbtemp = H.stream kbm2
---                 kvList <- atomically $ toList kbtemp
---                 print (show kvList)
---                 print ""
---                 -- Left e -> throw e
---             -- where nid = fst $ getPeer peerR
---         Left e -> throw e
 addToKBucket :: (HasKbucket m, HasCallStack) => Peer -> m ()
 addToKBucket peerR = do
     kb'' <- getKb
@@ -177,7 +127,6 @@ addToKBucket peerR = do
                     case mPeerList of
                         Just pl ->
                             if peerR `elem` pl
-                          -- removePeer nid
                                 then do
                                     let pl2 =
                                             L.deleteBy
