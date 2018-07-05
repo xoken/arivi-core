@@ -3,6 +3,7 @@ module Arivi.P2P.PubSub.Functions
     , maintainWatchers
     , updateDynamicResourceToPeerMap -- remove form exported functions later
     , notifyTopic
+    , registerTopic
     ) where
 
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
@@ -18,6 +19,9 @@ import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
 
+import           Arivi.P2P.Kademlia.Utils              (extractFirst,
+                                                        extractSecond,
+                                                        extractThird)
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List                             as List
@@ -33,9 +37,7 @@ import           Data.Time.Clock
 -- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep. also checks if min number if satisfied and add more peers accordingly by calling send options which takes peer from kad
 -- #maintainNotifiers :: (HasP2PEnv m) => m ()-- -- | called by a service to read the TopicMessage TQueue
 -- readTopic :: (HasP2PEnv m) => TopicId -> m TopicMessage
--- -- | called by a service after it has verified a previously read TopicMessage to broadcast it further to the subscribers. only sent to Subscribers minus nodes in MessageHashMap
--- notifyTopic :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
--- -- | called in case of a unvalid block and used for peer rep based on MessageHashMap
+-- -- | called in case of a invalid block and used for peer rep based on MessageHashMap
 -- flagMessage :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
 -- | called by a service when some content created by it needs to be broad-casted to the network i.e. notifiers as well as subscribers
 publishTopic :: (HasP2PEnv m, HasLogging m) => Topic -> TopicMessage -> m ()
@@ -49,7 +51,7 @@ publishTopic messageTopic publishMessage = do
     currWatcherSortedList <-
         liftIO $ readTVarIO $ fromJust currWatcherListTvarMaybe
     currNotifierSortedList <-
-        liftIO $ readTVarIO $ fromJust currNotifierListTvarMaybe
+        liftIO $ readTVarIO $ fst $ fromJust currNotifierListTvarMaybe
     let currWatcherList = fromSortedList currWatcherSortedList
     let currNotifierList = fromSortedList currNotifierSortedList
     let combinedList = currWatcherList `List.union` currNotifierList
@@ -117,7 +119,7 @@ notifyTopic mTopic mTopicMessage = do
         else do
             let notifyMessage =
                     Notify {topicId = mTopic, topicMessage = mTopicMessage}
-            let noteMessageByteString = serialise notifyMessage
+            let notifyMessageByteString = serialise notifyMessage
             currWatcherSortedList <-
                 liftIO $ readTVarIO $ fromJust listOfWatchersForTopic
             let watcherList = fromSortedList currWatcherSortedList
@@ -128,13 +130,15 @@ notifyTopic mTopic mTopicMessage = do
                     -- need to add an exception for failed sending of pubsub message
             if isNothing currTuple
                              -- there are no nodes for this message in the MessageHashMap so send to all the watchers
-                then sendPubSubMessage watcherNodeIdList noteMessageByteString
+                then sendPubSubMessage watcherNodeIdList notifyMessageByteString
                 else do
                     messageMapTuple <- liftIO $ readTVarIO $ fromJust currTuple
                     let messageNodeIdList = snd messageMapTuple
                     let finalListOfWatchers =
                             watcherNodeIdList List.\\ messageNodeIdList
-                    sendPubSubMessage finalListOfWatchers noteMessageByteString
+                    sendPubSubMessage
+                        finalListOfWatchers
+                        notifyMessageByteString
 
 -- | used by pubsub to update the dynamic resource to peer mapping when it receives a notify message for a particular dynamic resource
 updateDynamicResourceToPeerMap ::
@@ -159,3 +163,31 @@ updateDynamicResourceToPeerMap resID nodeID = do
                         currNodeList <- readTVar $ fromJust currentEntry
                         let newNodeList = currNodeList ++ [nodeID]
                         writeTVar (fromJust currentEntry) newNodeList)
+
+-- | Called by each service to register its Topics. Creates entries in TopicMap
+-- the TopicHandler passed takes a topicmessage and returns a topic
+-- if topicmessage is returned it is sent to all watchers
+registerTopic ::
+       (HasP2PEnv m, HasLogging m) => (Topic, TopicHandler, Int) -> m ()
+registerTopic topicTuple = do
+    topicHandlerTVar <- getTopicHandlerMapP2PEnv
+    notifierTVar <- getNotifiersTableP2PEnv
+    let topic = extractFirst topicTuple
+    let topicHandler = extractSecond topicTuple
+    let minimumNotifiersForTopic = extractThird topicTuple
+    liftIO $
+        atomically
+            (do topicHandlerMap <- readTVar topicHandlerTVar
+                let updatedMap = HM.insert topic topicHandler topicHandlerMap
+                writeTVar topicHandlerTVar updatedMap)
+    liftIO $
+        atomically
+            (do notifierTable <- readTVar notifierTVar
+                let emptyNotifierList = toSortedList []
+                emptyNotifierListTVar <- newTVar emptyNotifierList
+                let updatedNotifierHashMap =
+                        HM.insert
+                            topic
+                            (emptyNotifierListTVar, minimumNotifiersForTopic)
+                            notifierTable
+                writeTVar notifierTVar updatedNotifierHashMap)
