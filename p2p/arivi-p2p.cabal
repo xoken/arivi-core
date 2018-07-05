@@ -77,6 +77,7 @@ library
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.P2PEnv
+                       Arivi.P2P.Exception
                        Arivi.P2P.MessageHandler.Handler
                        Arivi.P2P.MessageHandler.HandlerTypes
                        Arivi.P2P.Kademlia.Types

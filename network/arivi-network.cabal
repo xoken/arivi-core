@@ -62,6 +62,7 @@ library
   other-modules:
                        Arivi.Network.Connection
                        Arivi.Network.DatagramServer
+                       Arivi.Network.Exception
                        Arivi.Network.Fragmenter
                        Arivi.Network.ConnectionHandler
                        Arivi.Network.Handshake

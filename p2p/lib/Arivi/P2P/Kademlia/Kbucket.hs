@@ -31,10 +31,10 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKRandomPeers
     ) where
 
+import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
-import           Arivi.Utils.Exception
 import           Control.Exception
 import           Control.Monad                  ()
 import           Control.Monad.IO.Class
@@ -58,7 +58,7 @@ createKbucket localPeer = do
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
-getDefaultNodeId :: (HasKbucket m) => m (Either AriviException NodeId)
+getDefaultNodeId :: (HasKbucket m) => m (Either AriviP2PException NodeId)
 getDefaultNodeId = do
     kbucket' <- getKb
     let kb = getKbucket kbucket'
@@ -71,7 +71,7 @@ getDefaultNodeId = do
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 --   given peer with respect to the default peer or local peer for which
 --   the kbucket is created. If peer doesn't exist it returns an empty list
-getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviException [Peer])
+getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviP2PException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
     -- liftIO (atomically (H.size (getKbucket kbucket'')) >>= print)
@@ -89,7 +89,7 @@ getPeerList peerR = do
         Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
 
 -- |Gets Peer by Kbucket-Index (kb-index) Index
-getPeerListByKIndex :: (HasKbucket m) => Int -> m (Either AriviException [Peer])
+getPeerListByKIndex :: (HasKbucket m) => Int -> m (Either AriviP2PException [Peer])
 getPeerListByKIndex kbi = do
     kb' <- getKb
     peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kb')
@@ -99,7 +99,7 @@ getPeerListByKIndex kbi = do
         _  -> return $ Right pl
 
 -- |Checks if a peer already exists
-ifPeerExist :: (HasKbucket m) => NodeId -> m (Either AriviException Bool)
+ifPeerExist :: (HasKbucket m) => NodeId -> m (Either AriviP2PException Bool)
 ifPeerExist peer = do
     mPeerList <- getPeerList peer
     case mPeerList of
@@ -195,7 +195,7 @@ getPeerListFromKeyList k (x:xs) = do
 -- | Gets k-closest peers to a given peeer if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
 getKClosestPeersByPeer ::
-       (HasKbucket m) => Peer -> Int -> m (Either AriviException [Peer])
+       (HasKbucket m) => Peer -> Int -> m (Either AriviP2PException [Peer])
 getKClosestPeersByPeer peerR k = do
     lp <- getDefaultNodeId
     case lp of
@@ -214,7 +214,7 @@ getKClosestPeersByPeer peerR k = do
 -- | Gets k-closest peers to a given nodeid if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
 getKClosestPeersByNodeid ::
-       (HasKbucket m) => NodeId -> Int -> m (Either AriviException [Peer])
+       (HasKbucket m) => NodeId -> Int -> m (Either AriviP2PException [Peer])
 getKClosestPeersByNodeid nid k = do
     lp <- getDefaultNodeId
     case lp of

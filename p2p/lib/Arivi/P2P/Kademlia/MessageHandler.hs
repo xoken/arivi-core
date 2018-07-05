@@ -14,11 +14,11 @@ module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
     ) where
 
+import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
-import           Arivi.Utils.Exception
 import           Codec.Serialise             (deserialise, serialise)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception

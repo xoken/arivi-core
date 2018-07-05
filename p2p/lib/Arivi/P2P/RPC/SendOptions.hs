@@ -9,12 +9,12 @@ module Arivi.P2P.RPC.SendOptions
 -- import           Arivi.P2P.Kademlia.Utils              (extractFirst,
 --                                                         extractSecond,
 --                                                         extractThird)
+import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         P2PPayload)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
-import           Arivi.Utils.Exception
 import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 

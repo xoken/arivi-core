@@ -9,6 +9,7 @@ module Arivi.P2P.RPC.Functions
     , updatePeerInResourceMap
     ) where
 
+import           Arivi.P2P.Exception
 import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (Peer (..), getKClosestPeersByNodeid,
                                                                     getKRandomPeers)
 import qualified Arivi.P2P.Kademlia.Types              as KademliaTypes (NodeEndPoint (..))
@@ -21,7 +22,6 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (Handle (..),
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
-import           Arivi.Utils.Exception
 import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent                    (threadDelay)

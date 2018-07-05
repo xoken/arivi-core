@@ -10,9 +10,9 @@ module Arivi.P2P.MessageHandler.Handler
     ) where
 
 import           Arivi.Network                         (openConnection)
+import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
-import           Arivi.Utils.Exception
 import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import qualified Control.Concurrent.Async              as Async (race)

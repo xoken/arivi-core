@@ -20,13 +20,13 @@ module Arivi.P2P.Kademlia.LoadDefaultPeers
     , ifPeerExist'
     ) where
 
+import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
-import           Arivi.Utils.Exception
 import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent.Async.Lifted
@@ -45,7 +45,7 @@ loadDefaultPeers :: (HasP2PEnv m, HasLogging m) => [Peer] -> m ()
 loadDefaultPeers = mapConcurrently_ issueFindNode
 
 -- | Helper function to retrieve Peer list from PayLoad
-getPeerListFromPayload :: L.ByteString -> Either AriviException [Peer]
+getPeerListFromPayload :: L.ByteString -> Either AriviP2PException [Peer]
 getPeerListFromPayload payl = do
     let payl' = deserialise payl :: PayLoad
         msg = message payl'

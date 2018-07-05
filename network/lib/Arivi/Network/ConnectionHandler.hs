@@ -1,10 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -29,13 +29,13 @@ module Arivi.Network.ConnectionHandler
     ) where
 
 import           Arivi.Network.Connection       as Conn
+import           Arivi.Network.Exception
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types
 import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
-import           Arivi.Utils.Exception
 import           Arivi.Utils.Logging
 import           Control.Concurrent             (MVar, newMVar, threadDelay)
 import qualified Control.Concurrent.Async       as Async (race)
@@ -109,28 +109,28 @@ getFrameLength len = fromIntegral lenInt16
     lenInt16 = decode len :: Int16
 
 -- | Races between a timer and receive parcel, returns an either type
-getParcelWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
+getParcelWithTimeout :: Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getParcelWithTimeout sock microseconds = do
     winner <- Async.race (threadDelay microseconds) (try $ recvAll sock 2)
     case winner of
-        Left _ -> return $ Left AriviTimeoutException
+        Left _ -> return $ Left NetworkTimeoutException
         Right lenbsOrFail ->
             case lenbsOrFail of
                 Left e -> return (Left e)
                 Right lenbs -> do
                     parcelCipher <- recvAll sock (getFrameLength lenbs)
                     either
-                        (return . Left . AriviDeserialiseException)
+                        (return . Left . NetworkDeserialiseException)
                         (return . Right)
                         (deserialiseOrFail parcelCipher)
 
 -- | Reads frame a given socket
-getParcel :: Socket -> IO (Either AriviException Parcel)
+getParcel :: Socket -> IO (Either AriviNetworkException Parcel)
 getParcel sock = do
     lenbs <- recvAll sock 2
     parcelCipher <- recvAll sock $ getFrameLength lenbs
     either
-        (return . Left . AriviDeserialiseException)
+        (return . Left . NetworkDeserialiseException)
         (return . Right)
         (deserialiseOrFail parcelCipher)
 
@@ -160,7 +160,7 @@ sendTcpMessage conn msg =
             (\frame ->
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
                      Left (e :: SomeException) -> liftIO (print "SendTcpMessage" >> print e) >>
-                         closeConnection sock >> throw AriviSocketException
+                         closeConnection sock >> throw NetworkSocketException
                      Right _ -> return ())
             fragments
 
@@ -179,7 +179,7 @@ sendUdpMessage conn msg =
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
                      Left (e :: SomeException) ->
                          liftIO (print e) >> closeConnection sock >>
-                         throw AriviSocketException
+                         throw NetworkSocketException
                      Right _ -> return ())
             fragments
 
@@ -197,9 +197,9 @@ readTcpSock connection fragmentsHM =
             writeLock = Conn.waitWrite connection
         parcelOrFail <- liftIO $ getParcelWithTimeout sock 30000000
         case parcelOrFail of
-            Left (AriviDeserialiseException e) ->
-                throw $ AriviDeserialiseException e
-            Left AriviTimeoutException -> do
+            Left (NetworkDeserialiseException e) ->
+                throw $ NetworkDeserialiseException e
+            Left NetworkTimeoutException -> do
                 liftIO $ sendPing writeLock sock createFrame
                 parcelOrFailAfterPing <-
                     liftIO $ getParcelWithTimeout sock 60000000
@@ -236,23 +236,23 @@ processParcel parcel connection fragmentsHM =
                     createFrame
             return Nothing
         Parcel PongHeader {} _ -> return Nothing
-        _ -> throw AriviWrongParcelException
+        _ -> throw NetworkWrongParcelException
 
 -- getDatagram :: Socket -> IO (Either AriviException Parcel)
 -- getDatagram sock =
 --     first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
 
-getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviException Parcel)
+getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getDatagramWithTimeout sock microseconds = do
     datagramOrNothing <- timeout microseconds (try $ N.recv sock 5100)
     case datagramOrNothing of
-        Nothing -> return $ Left AriviTimeoutException
+        Nothing -> return $ Left NetworkTimeoutException
         Just datagramEither ->
             case datagramEither of
                 Left e -> return (Left e)
                 Right datagram ->
                     return $
-                    first AriviDeserialiseException $ deserialiseOrFail datagram
+                    first NetworkDeserialiseException $ deserialiseOrFail datagram
 
 readUdpSock :: (HasLogging m) => Conn.CompleteConnection -> m BSL.ByteString
 readUdpSock connection =
@@ -261,9 +261,9 @@ readUdpSock connection =
             writeLock = Conn.waitWrite connection
         parcelOrFail <- liftIO $ getDatagramWithTimeout sock 30000000
         case parcelOrFail of
-            Left (AriviDeserialiseException e) ->
-                throw $ AriviDeserialiseException e
-            Left AriviTimeoutException -> do
+            Left (NetworkDeserialiseException e) ->
+                throw $ NetworkDeserialiseException e
+            Left NetworkTimeoutException -> do
                 liftIO $ sendPing writeLock sock id
                 parcelOrFailAfterPing <-
                     liftIO $ getDatagramWithTimeout sock 60000000
@@ -293,7 +293,7 @@ processDatagram connection parcel =
                 sendPong (Conn.waitWrite connection) (Conn.socket connection) id
             return Nothing
         Parcel PongHeader {} _ -> return Nothing
-        _ -> throw AriviWrongParcelException
+        _ -> throw NetworkWrongParcelException
 
 -- | Read on the socket for handshakeInit parcel and return it or throw AriviException
 readHandshakeInitSock :: Socket -> IO Parcel
@@ -306,38 +306,38 @@ readHandshakeRespSock :: MVar Int -> Socket -> IO Parcel
 readHandshakeRespSock writeLock sock = do
     parcelOrFail <- getParcelWithTimeout sock 30000000
     case parcelOrFail of
-        Left (AriviDeserialiseException e) -> do
+        Left (NetworkDeserialiseException e) -> do
             sendFrame writeLock sock $ BSLC.pack (displayException e)
-            throw $ AriviDeserialiseException e
+            throw $ NetworkDeserialiseException e
         Left e -> throw e
         Right hsRespParcel ->
             case hsRespParcel of
                 parcel@(Parcel (HandshakeRespHeader _ _) _) -> return parcel
-                _ -> throw AriviWrongParcelException
+                _ -> throw NetworkWrongParcelException
 
 -- | Read on the socket for a handshakeRespParcel and return it or throw appropriate AriviException
 readUdpHandshakeRespSock :: MVar Int -> Socket -> IO Parcel
 readUdpHandshakeRespSock writeLock sock = do
     parcelOrFail <- getDatagramWithTimeout sock 30000000
     case parcelOrFail of
-        Left (AriviDeserialiseException e) -> do
+        Left (NetworkDeserialiseException e) -> do
             sendFrame writeLock sock $ BSLC.pack (displayException e)
-            throw $ AriviDeserialiseException e
+            throw $ NetworkDeserialiseException e
         Left e -> throw e
         Right hsRespParcel ->
             case hsRespParcel of
                 Parcel (HandshakeRespHeader _ _) _ -> return hsRespParcel
-                _ -> throw AriviWrongParcelException
+                _ -> throw NetworkWrongParcelException
 
 -- Helper Functions
 recvAll :: Socket -> Int64 -> IO BSL.ByteString
 recvAll sock len = do
     msg <-
         mapIOException
-            (\(_ :: SomeException) -> AriviSocketException)
+            (\(_ :: SomeException) -> NetworkSocketException)
             (N.recv sock len)
     if BSL.null msg
-        then throw AriviSocketException
+        then throw NetworkSocketException
         else if BSL.length msg == len
                  then return msg
                  else BSL.append msg <$> recvAll sock (len - BSL.length msg)
