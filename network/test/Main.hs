@@ -2,40 +2,39 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Main
     ( module Main
     ) where
 
-import           Arivi.Crypto.Utils.Keys.Signature
-import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
-import           Arivi.Crypto.Utils.PublicKey.Utils
-import           Arivi.Env
-import           Arivi.Network
-import           Arivi.Utils.Logging
+import Arivi.Crypto.Utils.Keys.Signature
+import Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
+import Arivi.Crypto.Utils.PublicKey.Utils
+import Arivi.Env
+import Arivi.Utils.Logging
+import Arivi.Network
 
-import           Arivi.Network.Types                    (NodeId)
-import           Control.Concurrent                     (threadDelay)
-import           Control.Concurrent.Async               hiding
-                                                         (mapConcurrently_)
-import           Control.Concurrent.Async.Lifted        (mapConcurrently_)
-import           Control.Concurrent.STM.TQueue
-import           Control.Exception
-import           Control.Monad.Logger
-import           Control.Monad.Reader
-import           Data.ByteString.Lazy                   as BSL (ByteString)
-import           Data.ByteString.Lazy.Char8             as BSLC (pack)
-import           Data.Time
-import           System.Environment                     (getArgs)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async hiding (mapConcurrently_)
+import Control.Concurrent.Async.Lifted (mapConcurrently_)
+import Control.Concurrent.STM.TQueue
+import Control.Exception
+import Control.Monad.Logger
+import Control.Monad.Reader
+import Data.ByteString.Lazy as BSL (ByteString)
+import qualified Data.ByteString      as BS  (ByteString)
+import Data.ByteString.Lazy.Char8 as BSLC (pack)
+import Data.Time
+import System.Environment (getArgs)
+
 type AppM = ReaderT AriviEnv (LoggingT IO)
 
 instance HasNetworkEnv AppM where
     getEnv = ask
 
 instance HasSecretKey AppM
-
-instance HasLogging AppM
 
 runAppM :: AriviEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
@@ -121,5 +120,5 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => NodeId -> TransportType -> ConnectionHandle -> m ()
-myAmazingHandler nId tt h = forever $ recv h
+myAmazingHandler :: (HasLogging m, HasSecretKey m) => BS.ByteString -> TransportType -> ConnectionHandle -> m ()
+myAmazingHandler _ _ h = forever $ recv h
