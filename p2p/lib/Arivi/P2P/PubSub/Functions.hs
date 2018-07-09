@@ -4,6 +4,7 @@ module Arivi.P2P.PubSub.Functions
     , updateDynamicResourceToPeerMap -- remove form exported functions later
     , notifyTopic
     , registerTopic
+    , maintainNotifiers
     ) where
 
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
@@ -14,7 +15,7 @@ import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types                   (ResourceHandler,
                                                         ResourceId)
 import           Arivi.Utils.Logging
-import           Codec.Serialise                       (serialise)
+import           Codec.Serialise                       (deserialise, serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
@@ -30,13 +31,7 @@ import           Data.Maybe
 import           Data.SortedList
 import           Data.Time.Clock
 
--- | Called by each service to register its Topics. Creates entries in TopicMap
--- the TopicHandler passed takes a topicmessage and returns a topic
--- if topicmessage is returned it is sent to all watchers
--- it can also return exception if the block is valid or invalidaccordingly peers are judged
--- #registerTopic :: (HasP2PEnv m) => [(Topic, TopicHandler, Int)] -> m ()
--- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep. also checks if min number if satisfied and add more peers accordingly by calling send options which takes peer from kad
--- #maintainNotifiers :: (HasP2PEnv m) => m ()-- -- | called by a service to read the TopicMessage TQueue
+-- | called by a service to read the TopicMessage TQueue
 -- readTopic :: (HasP2PEnv m) => TopicId -> m TopicMessage
 -- -- | called in case of a invalid block and used for peer rep based on MessageHashMap
 -- flagMessage :: (HasP2PEnv m) => TopicId -> TopicMessage -> m ()
@@ -66,15 +61,8 @@ sendPubSubMessage ::
        (HasP2PEnv m, HasLogging m) => [NodeId] -> Lazy.ByteString -> m ()
 sendPubSubMessage [] _ = return ()
 sendPubSubMessage (recievingPeerNodeId:peerList) message = do
-    _ <- LAsync.async (sendPubSubMessageToPeer recievingPeerNodeId message)
+    _ <- LAsync.async (sendRequest recievingPeerNodeId PubSub message) -- need to handle errors
     sendPubSubMessage peerList message
-
--- will have to do exception handling based on the response of sendRequest
-sendPubSubMessageToPeer ::
-       (HasP2PEnv m, HasLogging m) => NodeId -> Lazy.ByteString -> m ()
-sendPubSubMessageToPeer recievingPeerNodeId message = do
-    _ <- sendRequest recievingPeerNodeId PubSub message -- wrapper written execptions can be handled here and  integrity of the response can be checked
-    return ()
 
 maintainWatchers :: (HasP2PEnv m, HasLogging m) => m ()
 maintainWatchers = do
@@ -95,18 +83,18 @@ maintainWatchersHelper watcherMap (topic:topicIdList) = do
         atomically
             (do currSortedList <- readTVar currListTvar
                 let currList = fromSortedList currSortedList
-                let newList = checkWatchers currList currTime
+                let newList = checkNodeTimers currList currTime
                 let newSortedList = toSortedList newList
                 writeTVar currListTvar newSortedList)
     maintainWatchersHelper watcherMap topicIdList
 
 -- will take the list of watchers for each topic and check their validity
-checkWatchers :: [Watcher] -> UTCTime -> [Watcher]
-checkWatchers [] _ = []
-checkWatchers (currWatcher:watcherList) currentTime =
-    if timer currWatcher < currentTime
-        then [] ++ checkWatchers watcherList currentTime
-        else currWatcher : watcherList
+checkNodeTimers :: [NodeTimer] -> UTCTime -> [NodeTimer]
+checkNodeTimers [] _ = []
+checkNodeTimers (currNodeTimer:nodeTimerList) currentTime =
+    if timer currNodeTimer < currentTime
+        then [] ++ checkNodeTimers nodeTimerList currentTime
+        else currNodeTimer : nodeTimerList
 
 -- | called by a service after it has verified a previously read TopicMessage to broadcast it further to the subscribers.
 -- Only sent to Subscribers minus nodes in MessageHashMap
@@ -197,3 +185,79 @@ registerTopic topicTuple = do
                             (emptyNotifierListTVar, minimumNotifiersForTopic)
                             notifierTable
                 writeTVar notifierTVar updatedNotifierHashMap)
+
+-- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep. also checks if min number if satisfied and add more peers accordingly by calling send options which takes peer from kad
+maintainNotifiers :: (HasP2PEnv m, HasLogging m) => m ()
+maintainNotifiers = do
+    notifierTableTVar <- getNotifiersTableP2PEnv
+    notifierMap <- liftIO $ readTVarIO notifierTableTVar
+    let topicIds = HM.keys notifierMap
+    _ <- LAsync.async (maintainNotifiersHelper notifierMap topicIds)
+    return ()
+
+maintainNotifiersHelper ::
+       (HasP2PEnv m, HasLogging m) => NotifiersTable -> [Topic] -> m ()
+maintainNotifiersHelper _ [] = return ()
+maintainNotifiersHelper notifierMap (currTopic:topicList) = do
+    let currNotifierListTvar = HM.lookup currTopic notifierMap
+    -- not checking for Nothing since the topic list is a list of keys for the map
+    currTime <- liftIO getCurrentTime
+    expiredNotifs <-
+        liftIO $
+        atomically
+            (do currSortedList <- readTVar $ fst $ fromJust currNotifierListTvar
+                let currNotiferList = fromSortedList currSortedList
+                let nonExpiredNotifiers =
+                        checkNodeTimers currNotiferList currTime
+                let expiredNotifiers =
+                        currNotiferList List.\\ nonExpiredNotifiers
+                writeTVar
+                    (fst $ fromJust currNotifierListTvar)
+                    (toSortedList nonExpiredNotifiers) -- removing the expired notifiers
+                return expiredNotifiers)
+    resubscribeToExpiredPeers currTopic expiredNotifs -- there needs to a filtering of expired notifiers based on PeerReputation.
+    maintainNotifiersHelper notifierMap topicList
+
+resubscribeToExpiredPeers ::
+       (HasP2PEnv m, HasLogging m) => Topic -> [Notifier] -> m ()
+resubscribeToExpiredPeers _ [] = return ()
+resubscribeToExpiredPeers mTopic (peer:peerList) = do
+    _ <- LAsync.async (sendSubscribeToPeer mTopic peer)
+    resubscribeToExpiredPeers mTopic peerList
+
+sendSubscribeToPeer :: (HasP2PEnv m, HasLogging m) => Topic -> NodeTimer -> m ()
+sendSubscribeToPeer mTopic currentNode = do
+    let subMessage = Subscribe {topicId = mTopic, messageTimer = 30}
+    let serializedSubMessage = serialise subMessage
+    let notifierNodeId = timerNodeId currentNode
+    currTime <- liftIO getCurrentTime
+    response <- sendRequest notifierNodeId PubSub serializedSubMessage -- not exactly RPC, needs to be changed
+    let responseMessage = deserialise response :: MessageTypePubSub
+    case responseMessage of
+        Response mresponseCode mTimer -- the notifier returns the actual time of the subscription
+         -> do
+            notifierTableTVar <- getNotifiersTableP2PEnv
+            notifierMap <- liftIO $ readTVarIO notifierTableTVar
+            let currNotifierListTvar = HM.lookup mTopic notifierMap
+            case mresponseCode of
+                Ok ->
+                    liftIO $
+                    atomically
+                        (do currSortedList <-
+                                readTVar $ fst $ fromJust currNotifierListTvar
+                            let currNotiferList = fromSortedList currSortedList
+                            let timeDiff = fromInteger mTimer :: NominalDiffTime
+                            let subscriptionTime = addUTCTime timeDiff currTime
+                            let newNotifier =
+                                    NodeTimer
+                                        { timerNodeId = notifierNodeId
+                                        , timer = subscriptionTime
+                                        }
+                            let updatedList = currNotiferList ++ [newNotifier]
+                            let updatedSortedList = toSortedList updatedList
+                            writeTVar
+                                (fst $ fromJust currNotifierListTvar)
+                                updatedSortedList)
+                Error -> return ()
+        _ -> return () -- need a proper error message
+-- maintainMinimumCountNotifier :: (HasP2PEnv m, HasLogging m) =>
