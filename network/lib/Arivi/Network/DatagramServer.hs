@@ -27,6 +27,7 @@ import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
                                                   deserialise)
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
+import           Control.Exception.Lifted        (finally)
 import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
 import           Data.ByteString                 (ByteString)
@@ -34,6 +35,7 @@ import           Data.ByteString.Lazy            (fromStrict)
 import           Data.Function                   ((&))
 import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
+import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
 
 makeSocket :: ServiceName -> SocketType -> IO Socket
@@ -59,11 +61,13 @@ runUdpServer ::
 runUdpServer portNumber handler =
     $(withLoggingTH) (LogNetworkStatement "UDP Server started...") LevelDebug $ do
         mSocket <- liftIO $ makeSocket portNumber Datagram
-        forever $ do
-            (msg, peerSockAddr) <- liftIO $ recvFrom mSocket 4096
-            mSocket' <- liftIO $ makeSocket portNumber Datagram
-            liftIO $ connect mSocket' peerSockAddr
-            async (newUdpConnection msg mSocket' handler)
+        finally
+            (forever $ do
+                 (msg, peerSockAddr) <- liftIO $ recvFrom mSocket 4096
+                 mSocket' <- liftIO $ makeSocket portNumber Datagram
+                 liftIO $ connect mSocket' peerSockAddr
+                 async (newUdpConnection msg mSocket' handler))
+            (liftIO $ Network.Socket.close mSocket)
 
 newUdpConnection ::
        (HasSecretKey m, HasLogging m)
