@@ -7,6 +7,7 @@ module Arivi.P2P.RPC.Functions
     -- -- not for Service Layer
     , rpcHandler
     , updatePeerInResourceMap
+    , addPeerFromKademlia
     ) where
 
 import           Arivi.P2P.Exception

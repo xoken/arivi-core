@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Arivi.P2P.PubSub.Functions
     ( publishTopic
     , maintainWatchers
@@ -5,6 +7,7 @@ module Arivi.P2P.PubSub.Functions
     , notifyTopic
     , registerTopic
     , maintainNotifiers
+    , maintainMinimumCountNotifier -- exporting right now to not have warnings should be removed later
     ) where
 
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
@@ -21,10 +24,17 @@ import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.STM
 
+import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (getKClosestPeersByNodeid,
+                                                                    getKRandomPeers)
 import           Arivi.P2P.Kademlia.Utils              (extractFirst,
                                                         extractSecond,
                                                         extractThird)
+import           Arivi.P2P.RPC.Functions               (addPeerFromKademlia)
+import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                     try)
+import           Control.Monad                         (when)
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
+import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List                             as List
 import           Data.Maybe
@@ -215,21 +225,21 @@ maintainNotifiersHelper notifierMap (currTopic:topicList) = do
                     (fst $ fromJust currNotifierListTvar)
                     (toSortedList nonExpiredNotifiers) -- removing the expired notifiers
                 return expiredNotifiers)
-    resubscribeToExpiredPeers currTopic expiredNotifs -- there needs to a filtering of expired notifiers based on PeerReputation.
+    let expiredNodeIds = List.map timerNodeId expiredNotifs
+    subscribeToMultiplePeers currTopic expiredNodeIds -- there needs to a filtering of expired notifiers based on PeerReputation.
     maintainNotifiersHelper notifierMap topicList
 
-resubscribeToExpiredPeers ::
-       (HasP2PEnv m, HasLogging m) => Topic -> [Notifier] -> m ()
-resubscribeToExpiredPeers _ [] = return ()
-resubscribeToExpiredPeers mTopic (peer:peerList) = do
+subscribeToMultiplePeers ::
+       (HasP2PEnv m, HasLogging m) => Topic -> [NodeId] -> m ()
+subscribeToMultiplePeers _ [] = return ()
+subscribeToMultiplePeers mTopic (peer:peerList) = do
     _ <- LAsync.async (sendSubscribeToPeer mTopic peer)
-    resubscribeToExpiredPeers mTopic peerList
+    subscribeToMultiplePeers mTopic peerList
 
-sendSubscribeToPeer :: (HasP2PEnv m, HasLogging m) => Topic -> NodeTimer -> m ()
-sendSubscribeToPeer mTopic currentNode = do
+sendSubscribeToPeer :: (HasP2PEnv m, HasLogging m) => Topic -> NodeId -> m ()
+sendSubscribeToPeer mTopic notifierNodeId = do
     let subMessage = Subscribe {topicId = mTopic, messageTimer = 30}
     let serializedSubMessage = serialise subMessage
-    let notifierNodeId = timerNodeId currentNode
     currTime <- liftIO getCurrentTime
     response <- sendRequest notifierNodeId PubSub serializedSubMessage -- not exactly RPC, needs to be changed
     let responseMessage = deserialise response :: MessageTypePubSub
@@ -260,4 +270,26 @@ sendSubscribeToPeer mTopic currentNode = do
                                 updatedSortedList)
                 Error -> return ()
         _ -> return () -- need a proper error message
--- maintainMinimumCountNotifier :: (HasP2PEnv m, HasLogging m) =>
+
+-- might have to write a wrapper above this
+-- need to take nodeID from env
+maintainMinimumCountNotifier ::
+       (HasP2PEnv m, HasLogging m) => Topic -> NodeId -> m ()
+maintainMinimumCountNotifier mTopic currNodeId = do
+    notifierTableTVar <- getNotifiersTableP2PEnv
+    notifierMap <- liftIO $ readTVarIO notifierTableTVar
+    let currNotifierListTuple = HM.lookup mTopic notifierMap
+    currSortedList <- liftIO $ readTVarIO $ fst $ fromJust currNotifierListTuple
+    let minNumberOfNotifiers = snd $ fromJust currNotifierListTuple
+    let currNotiferList = fromSortedList currSortedList
+    Control.Monad.when (length currNotiferList - minNumberOfNotifiers < 0) $ do
+        peerRandom <- Kademlia.getKRandomPeers 2
+        res1 <- Exception.try $ Kademlia.getKClosestPeersByNodeid currNodeId 3
+        peersClose <-
+            case res1 of
+                Left (_ :: Exception.SomeException) ->
+                    Kademlia.getKRandomPeers 3
+                Right peers -> return (fromRight peers)
+        let peers = peerRandom ++ peersClose
+        nodeIds <- addPeerFromKademlia peers
+        subscribeToMultiplePeers mTopic nodeIds
