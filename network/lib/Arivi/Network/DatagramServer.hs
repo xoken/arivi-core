@@ -67,7 +67,9 @@ runUdpServer portNumber handler =
                  mSocket' <- liftIO $ makeSocket portNumber Datagram
                  liftIO $ connect mSocket' peerSockAddr
                  async (newUdpConnection msg mSocket' handler))
-            (liftIO $ Network.Socket.close mSocket)
+            (liftIO
+                 (print ("So long and thanks for all the fish." :: String) >>
+                  Network.Socket.close mSocket))
 
 newUdpConnection ::
        (HasSecretKey m, HasLogging m)
@@ -77,7 +79,6 @@ newUdpConnection ::
     -> m ()
 newUdpConnection hsInitMsg sock handler =
     $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $ do
-        -- liftIO $ print hsInitMsg
         liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
         sk <- getSecretKey
         conn <-

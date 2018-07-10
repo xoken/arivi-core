@@ -17,3 +17,5 @@ cabal.sandbox.config
 .vscode/
 learn/*
 *.DS_Store
+*.idea/
+*.iml
