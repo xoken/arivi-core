@@ -6,7 +6,7 @@ module Arivi.P2P.PubSub.Types
     , Watcher
     , TopicMessage
     , TopicHandler
-    , ResponseCode
+    , ResponseCode(..)
     , MessageTypePubSub(..)
     , NodeTimer(..)
     , WatchersTable
@@ -19,7 +19,6 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString.Char8                 as Char8 (ByteString)
-import           Data.Fixed                            (Pico)
 import           Data.HashMap.Strict                   as HM
 import           Data.SortedList
 import           Data.Time.Clock
@@ -35,18 +34,24 @@ type TopicMessage = ByteString
 
 type TopicHandler = (TopicMessage -> TopicMessage)
 
-type ResponseCode = Int
+data ResponseCode
+    = Error
+    | Ok
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise ResponseCode
 
 -- convert the pico passed to diff time in functions, diff time is not serialisable
 data MessageTypePubSub
     = Subscribe { topicId      :: Topic
-                , messageTimer :: Pico }
+                , messageTimer :: Integer }
     | Notify { topicId      :: Topic
              , topicMessage :: TopicMessage }
     | Publish { topicId      :: Topic
               , topicMessage :: TopicMessage }
     | Response { responseCode :: ResponseCode
-               , messageTimer :: Pico }
+               , messageTimer :: Integer -- specify time duration as seconds
+                }
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypePubSub

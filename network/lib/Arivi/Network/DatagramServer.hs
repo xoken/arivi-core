@@ -23,8 +23,9 @@ import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readUdpSock, sendUdpMessage)
 import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  Parcel, TransportType,
-                                                  deserialise)
+                                                  TransportType, deserialise,
+                                                  Parcel)
+
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
 import           Control.Exception.Lifted        (finally)
@@ -85,9 +86,11 @@ newUdpConnection hsInitMsg sock handler =
             liftIO $
             deserialise (fromStrict hsInitMsg) &
             establishSecureConnection sk sock id
-        handler (Conn.remoteNodeId conn) (Conn.transportType conn)
+        handler
+            (Conn.remoteNodeId conn)
+            (Conn.transportType conn)
             ConnectionHandle
-            { send = sendUdpMessage conn
-            , recv = readUdpSock conn
-            , close = closeConnection (Conn.socket conn)
-            }
+                { send = sendUdpMessage conn
+                , recv = readUdpSock conn
+                , close = closeConnection (Conn.socket conn)
+                }
