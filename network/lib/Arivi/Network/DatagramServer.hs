@@ -23,11 +23,12 @@ import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readUdpSock, sendUdpMessage)
 import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType, deserialise)
-                                                --   Parcel,
+                                                  TransportType, deserialise,
+                                                  Parcel)
 
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
+import           Control.Exception.Lifted        (finally)
 import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
 import           Data.ByteString                 (ByteString)
@@ -35,6 +36,7 @@ import           Data.ByteString.Lazy            (fromStrict)
 import           Data.Function                   ((&))
 import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
+import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
 
 makeSocket :: ServiceName -> SocketType -> IO Socket
@@ -60,11 +62,15 @@ runUdpServer ::
 runUdpServer portNumber handler =
     $(withLoggingTH) (LogNetworkStatement "UDP Server started...") LevelDebug $ do
         mSocket <- liftIO $ makeSocket portNumber Datagram
-        forever $ do
-            (msg, peerSockAddr) <- liftIO $ recvFrom mSocket 4096
-            mSocket' <- liftIO $ makeSocket portNumber Datagram
-            liftIO $ connect mSocket' peerSockAddr
-            async (newUdpConnection msg mSocket' handler)
+        finally
+            (forever $ do
+                 (msg, peerSockAddr) <- liftIO $ recvFrom mSocket 4096
+                 mSocket' <- liftIO $ makeSocket portNumber Datagram
+                 liftIO $ connect mSocket' peerSockAddr
+                 async (newUdpConnection msg mSocket' handler))
+            (liftIO
+                 (print ("So long and thanks for all the fish." :: String) >>
+                  Network.Socket.close mSocket))
 
 newUdpConnection ::
        (HasSecretKey m, HasLogging m)
@@ -73,10 +79,8 @@ newUdpConnection ::
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
-    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $
-        -- liftIO $ print hsInitMsg
-        -- liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
-     do
+    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $ do
+        liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
         sk <- getSecretKey
         conn <-
             liftIO $

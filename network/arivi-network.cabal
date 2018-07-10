@@ -85,8 +85,11 @@ test-suite arivi-network-test
     build-depends:     async
                     ,  base >=4.9 && <4.11
                     ,  bytestring
+                    ,  exceptions
                     ,  hashtables <= 1.2.6.1
+                    ,  hspec
                     ,  lifted-async
+                    ,  monad-control
                     ,  monad-logger
                     ,  mtl
                     ,  stm >= 2.4.4.1
