@@ -16,4 +16,6 @@ cabal.sandbox.config
 .stack-work/
 .vscode/
 learn/*
-*.DS_Store
+*.DS_Store 
+p2p/test/config*
+p2p/test/*.log  
