@@ -1,11 +1,10 @@
 from fabric import Connection
 import pandas as pd
+import sys
 
 src = "./"
-
 dst = "/home/xkn/"
 remoteConfigFile = "config.yaml"
-executableName = "hello.sh"
 configFileName = "ServerConfig.xls"
 
 def getHostNameList(configFileName):
@@ -45,12 +44,12 @@ def generateConfigFile(srcPath, dstPath, remoteUserName, serverIp, rowNo):
                 configFile = configFile + str(columnNames[i]) + ": " + "" + "\n"
         configFile = configFile + "\"" + " > " + dst + remoteConfigFile
         Connection(remoteUserName + "@" + serverIp).run(configFile)
-        print "Configfile generation is done"
+        print ("Configfile generation is done")
     except :
         print("Can not connect to remote server")
 
 
-def copyFile(srcPath,dstPath,remoteUserName,serverIp):
+def copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName):
     print("Copying " + src + executableName + " to " + dst + executableName + \
                                          " at " + serverIp)
     try:
@@ -60,7 +59,7 @@ def copyFile(srcPath,dstPath,remoteUserName,serverIp):
     except :
         print("Can not connect to remote server")
 
-def executeProgram(dstPath,remoteUserName,serverIp):
+def executeProgram(dstPath,remoteUserName,serverIp,executableName):
     try:
         print("Making executable " + dstPath + executableName)
         Connection(remoteUserName + "@" + serverIp).run("chmod +x " \
@@ -74,18 +73,19 @@ def executeProgram(dstPath,remoteUserName,serverIp):
     except:
         print("Can not execute file")
 
-def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo):
-    copyFile(srcPath,dstPath,remoteUserName,serverIp)
+def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
+    copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
     generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
-    executeProgram(dstPath,remoteUserName,serverIp)
+    executeProgram(dstPath,remoteUserName,serverIp,executableName)
 
 
 def deployAll(configFileName):
     hostList = getHostNameList(configFileName)
     remoteUserNameList = getRemoteUserNameList(configFileName)
     rowNo = 0
+    executableName = str(sys.argv[1])
     for (remoteUserName,serverIp) in zip(remoteUserNameList,hostList):
-        deploy(src, dst, remoteUserName, serverIp, rowNo)
+        deploy(src, dst, remoteUserName, serverIp, rowNo,executableName)
         rowNo = rowNo + 1
         print("Done for " + serverIp + "\n")
 
