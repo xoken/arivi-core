@@ -149,11 +149,11 @@ extractListOfLengths (x:xs) = do
 -- get NodeId from environment
 getResource ::
        (HasP2PEnv m, HasLogging m)
-    => NodeId
-    -> ResourceId
+    => ResourceId
     -> ServiceMessage
     -> m ServiceMessage
-getResource mynodeid resourceID servicemessage = do
+getResource resourceID servicemessage = do
+    mynodeid <- getSelfNodeId
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar

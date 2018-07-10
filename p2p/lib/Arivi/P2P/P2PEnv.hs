@@ -26,7 +26,8 @@ import           Data.HashMap.Strict                   as HM
 import           Network.Socket                        (PortNumber)
 
 data P2PEnv = P2PEnv
-    { tvarAriviP2PInstance :: TVar AriviP2PInstance
+    { selfNId :: T.NodeId
+    , tvarAriviP2PInstance :: TVar AriviP2PInstance
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
     , tqueueKadem :: TQueue MessageInfo
     , tqueueRPC :: TQueue MessageInfo
@@ -50,6 +51,7 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
       HasP2PEnv m
     where
     getP2PEnv :: m P2PEnv
+    getSelfNodeId :: m T.NodeId
     getAriviTVarP2PEnv :: m (TVar AriviP2PInstance)
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getkademTQueueP2PEnv :: m (TQueue MessageInfo)
@@ -83,7 +85,8 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
     messageMap <- newTVarIO HM.empty
     return
         P2PEnv
-            { tvarNodeIdPeerMap = nmap
+            { selfNId = nId
+            , tvarNodeIdPeerMap = nmap
             , tqueueKadem = kqueue
             , tqueueRPC = rqueue
             , tqueuePubSub = pqueue
