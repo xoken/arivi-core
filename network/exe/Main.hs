@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Main where
+module Main (module Main) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Crypto.Utils.PublicKey.Utils
