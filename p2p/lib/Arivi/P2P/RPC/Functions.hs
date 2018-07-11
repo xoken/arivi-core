@@ -39,7 +39,8 @@ import           Data.ByteString.Lazy                  as Lazy (fromStrict)
 import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
-import           System.Random                         (randomRIO)
+-- import           Debug.Trace
+-- import           System.Random                         (randomRIO)
 
 getEntryBasedOnTypeOfResource ::
        Maybe (ResourceHandler, TVar [NodeId])
@@ -73,6 +74,7 @@ registerResource resource resourceHandler resourceType = do
                                 (resourceHandler, nodeIds)
                                 archivedResourceToPeerMap --
                     writeTVar archivedResourceToPeerMapTvar newMap)
+
         Transient ->
             liftIO $
             atomically
@@ -93,8 +95,9 @@ registerResource resource resourceHandler resourceType = do
 -- if it is less should ask Kademlia for more nodes
 -- send each peer and option message
 -- the options message module will handle the sending of messages and updating of the HashMap based on the support message
-updatePeerInResourceMap :: (HasP2PEnv m, HasLogging m) => NodeId -> m ()
-updatePeerInResourceMap currNodeId = do
+updatePeerInResourceMap :: (HasP2PEnv m, HasLogging m) => m ()
+updatePeerInResourceMap = do
+    currNodeId <- getSelfNodeId
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
@@ -172,6 +175,7 @@ getResource resourceID servicemessage = do
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let entryInArchivedResourceMap =
             HM.lookup resourceID archivedResourceToPeerMap
+
     let entryInTransientResourceMap =
             HM.lookup resourceID transientResourceToPeerMap
     let entry =
@@ -182,6 +186,8 @@ getResource resourceID servicemessage = do
         then return $ Lazy.fromStrict $ pack "Entry not found Error"
         else do
             let nodeListTVar = snd (fromJust entry)
+            nodeList <- liftIO $ atomically $ readTVar nodeListTVar
+            liftIO $ print nodeList
     -- should check if list is empty
             sendResourceRequestToPeer
                 nodeListTVar
@@ -198,7 +204,8 @@ sendResourceRequestToPeer ::
     -> m ServiceMessage
 sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
     nodeList <- liftIO $ readTVarIO nodeListTVar
-    mNodeId <- liftIO $ (nodeList !!) <$> randomRIO (0, length nodeList - 1) -- selecting a random node
+    -- mNodeId <- liftIO $ (nodeList !!) <$> randomRIO (0, length nodeList - 1) -- selecting a random node
+    let mNodeId = head nodeList
     let requestMessage =
             RequestResource
                 { to = mNodeId
