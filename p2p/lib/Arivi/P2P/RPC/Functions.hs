@@ -41,11 +41,11 @@ import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 import           System.Random                         (randomRIO)
 
-getValueFromHM ::
+getEntryBasedOnTypeOfResource ::
        Maybe (ResourceHandler, TVar [NodeId])
     -> Maybe (ResourceHandler, TVar [NodeId])
     -> Maybe (ResourceHandler, TVar [NodeId])
-getValueFromHM entryInArchivedResourceMap entryInTransientResourceMap
+getEntryBasedOnTypeOfResource entryInArchivedResourceMap entryInTransientResourceMap
     | isJust entryInArchivedResourceMap = entryInArchivedResourceMap
     | isJust entryInTransientResourceMap = entryInTransientResourceMap
     | otherwise = Nothing
@@ -175,7 +175,7 @@ getResource resourceID servicemessage = do
     let entryInTransientResourceMap =
             HM.lookup resourceID transientResourceToPeerMap
     let entry =
-            getValueFromHM
+            getEntryBasedOnTypeOfResource
                 entryInArchivedResourceMap
                 entryInTransientResourceMap
     if isNothing entry
@@ -257,7 +257,7 @@ rpcHandler incomingRequest = do
             let entryInTransientResourceMap =
                     HM.lookup resourceId transientResourceToPeerMap
             let entry =
-                    getValueFromHM
+                    getEntryBasedOnTypeOfResource
                         entryInArchivedResourceMap
                         entryInTransientResourceMap
             if isNothing entry
