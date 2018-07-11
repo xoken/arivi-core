@@ -65,6 +65,7 @@ registerResource resource resourceHandler resourceType = do
                                 (resourceHandler, nodeIds)
                                 archivedResourceToPeerMap --
                     writeTVar archivedResourceToPeerMapTvar newMap)
+
         Transient ->
             liftIO $
             atomically
@@ -156,6 +157,7 @@ getResource resourceID servicemessage = do
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let entryInArchivedResourceMap =
             HM.lookup resourceID archivedResourceToPeerMap
+
     let entryInTransientResourceMap =
             HM.lookup resourceID transientResourceToPeerMap
     let entry =

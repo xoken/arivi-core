@@ -9,6 +9,7 @@ import           Control.Monad.IO.Class
 import           Data.ByteString.Lazy    as Lazy
 -- import           Service.Types                    (ResourceType (Archived))
 import           Arivi.P2P.RPC.Types     (ResourceType (..))
+import           Control.Concurrent
 
 type ServiceMsg = Lazy.ByteString
 
@@ -19,7 +20,7 @@ getResourceId :: String
 getResourceId = "HelloWorld"
 
 registerHelloWorld :: (HasP2PEnv m, HasLogging m) => m ()
-registerHelloWorld = registerResource getResourceId handler Archived
+registerHelloWorld = registerResource getResourceId handler Archived >> liftIO (threadDelay 5000000) >> updatePeerInResourceMap
 
 getHelloWorld :: (HasP2PEnv m, HasLogging m) => m ()
 getHelloWorld = do
