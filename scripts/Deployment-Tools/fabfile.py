@@ -46,7 +46,7 @@ def generateConfigFile(srcPath, dstPath, remoteUserName, serverIp, rowNo):
         Connection(remoteUserName + "@" + serverIp).run(configFile)
         print ("Configfile generation is done")
     except :
-        print("Can not connect to remote server")
+        print("Can not generate configFile at " + serverIp)
 
 
 def copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName):
@@ -57,7 +57,15 @@ def copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName):
                         srcPath + executableName,dstPath + executableName)
         print("Uploaded {0.local} to {0.remote}".format(result))
     except :
-        print("Can not connect to remote server")
+        print("Can not copy " + executableName + " to remote server")
+
+def killPrevious(dstPath,remoteUserName,serverIp,executableName):
+    try:
+        print("Killing previous executable  if any " + dstPath + executableName)
+        Connection(remoteUserName + "@" + serverIp).run("pkill " + dstPath + \
+                                                + executableName)
+    except:
+        print("No previous processto kill")
 
 def executeProgram(dstPath,remoteUserName,serverIp,executableName):
     try:
@@ -67,12 +75,13 @@ def executeProgram(dstPath,remoteUserName,serverIp,executableName):
     except:
         print("Can not make file executable")
     try:
+        killPrevious(dstPath,remoteUserName,serverIp,executableName)
         print("Executing " + dstPath + remoteConfigFile + " at " + serverIp)
-        Connection(remoteUserName + "@" + serverIp).run(dstPath\
-                                                         + executableName)
+        executablePath = dstPath + executableName
+        Connection(remoteUserName + "@" + serverIp).run("nohup " \
+                + executablePath +  " > nohup.out 2> nohup.err < /dev/null &")
     except:
         print("Can not execute file")
-
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
     copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
     generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
