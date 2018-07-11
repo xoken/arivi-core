@@ -41,6 +41,15 @@ import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 import           System.Random                         (randomRIO)
 
+getValueFromHM ::
+       Maybe (ResourceHandler, TVar [NodeId])
+    -> Maybe (ResourceHandler, TVar [NodeId])
+    -> Maybe (ResourceHandler, TVar [NodeId])
+getValueFromHM entryInArchivedResourceMap entryInTransientResourceMap
+    | isJust entryInArchivedResourceMap = entryInArchivedResourceMap
+    | isJust entryInTransientResourceMap = entryInTransientResourceMap
+    | otherwise = Nothing
+
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
 registerResource ::
        (HasP2PEnv m, HasLogging m)
@@ -163,10 +172,12 @@ getResource resourceID servicemessage = do
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let entryInArchivedResourceMap =
             HM.lookup resourceID archivedResourceToPeerMap
+    let entryInTransientResourceMap =
+            HM.lookup resourceID transientResourceToPeerMap
     let entry =
-            if isNothing entryInArchivedResourceMap
-                then HM.lookup resourceID archivedResourceToPeerMap
-                else HM.lookup resourceID transientResourceToPeerMap
+            getValueFromHM
+                entryInArchivedResourceMap
+                entryInTransientResourceMap
     if isNothing entry
         then return $ Lazy.fromStrict $ pack "Entry not found Error"
         else do
@@ -243,10 +254,12 @@ rpcHandler incomingRequest = do
                 liftIO $ readTVarIO transientResourceToPeerMapTVar
             let entryInArchivedResourceMap =
                     HM.lookup resourceId archivedResourceToPeerMap
+            let entryInTransientResourceMap =
+                    HM.lookup resourceId transientResourceToPeerMap
             let entry =
-                    if isNothing entryInArchivedResourceMap
-                        then HM.lookup resourceId archivedResourceToPeerMap
-                        else HM.lookup resourceId transientResourceToPeerMap
+                    getValueFromHM
+                        entryInArchivedResourceMap
+                        entryInTransientResourceMap
             if isNothing entry
                 then return $ Lazy.fromStrict $ pack "Entry not found Error"
                 else do
