@@ -57,14 +57,15 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     res1 <-
         Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
-        Left (_ :: Exception.SomeException) -> return ()
+        Left (_ :: Exception.SomeException) -> throw SendOptionsFailedException
         Right returnMessage -> do
-            let supportMessage = deserialise returnMessage :: MessageTypeRPC
-            case supportMessage of
+            let deserialisedMessage =
+                    deserialise returnMessage :: MessageTypeRPC
+            case deserialisedMessage of
                 Support _ fromPeer resourceList ->
                     Control.Monad.when (to mMessage == fromPeer) $
                     updateResourcePeers (recievingPeerNodeId, resourceList)
-                _ -> return () -- should handle this better
+                _ -> throw (OptionsInvalidMessageType deserialisedMessage)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
 updateResourcePeers ::
@@ -128,22 +129,4 @@ optionsHandler payload = do
                         }
             let byteStringSupportMessage = serialise mMessage
             return byteStringSupportMessage
-            -- need to have proper error/exception messages and handling
-        _ -> throw HandlerNotRequest
--- -- Formulate and send the Supported message as a reply to the Options message
--- sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> NodeId -> NodeId -> m ()
--- sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do
---     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
---     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
---     let resourceList = keys resourceToPeerMap
---     let message =
---             Support
---                 { to = recievingPeerNodeId
---                 , from = sendingPeerNodeId
---                 , supportedResources = resourceList
---                 }
---     let byteStringMessage = Lazy.toStrict $ serialise message
---     let uuid = fst messageInfo
---     let newMessageInfo = (uuid, byteStringMessage)
---                 -- need to handle exceptions
---     sendResponse recievingPeerNodeId newMessageInfo Option -- might not be RPC
+        _ -> throw (OptionsHandlerInvalidMessageType optionsMessage)

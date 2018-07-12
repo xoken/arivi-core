@@ -20,18 +20,13 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, newTVarIO)
-import           Control.Concurrent.STM.TQueue
-
 import           Data.HashMap.Strict                   as HM
 import           Network.Socket                        (PortNumber)
 
 data P2PEnv = P2PEnv
-    { tvarAriviP2PInstance :: TVar AriviP2PInstance
+    { selfNId :: T.NodeId
+    , tvarAriviP2PInstance :: TVar AriviP2PInstance
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
-    , tqueueKadem :: TQueue MessageInfo
-    , tqueueRPC :: TQueue MessageInfo
-    , tqueuePubSub :: TQueue MessageInfo
-    , tqueueOption :: TQueue MessageInfo
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket :: T.Kbucket Int [(T.Peer, T.PeerStatus)]
     , statsdClient :: StatsdClient
@@ -50,12 +45,9 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
       HasP2PEnv m
     where
     getP2PEnv :: m P2PEnv
+    getSelfNodeId :: m T.NodeId
     getAriviTVarP2PEnv :: m (TVar AriviP2PInstance)
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
-    getkademTQueueP2PEnv :: m (TQueue MessageInfo)
-    getrpcTQueueP2PEnv :: m (TQueue MessageInfo)
-    getpubsubTQueueP2PEnv :: m (TQueue MessageInfo)
-    getoptionTQueueP2PEnv :: m (TQueue MessageInfo)
     getArchivedResourceToPeerMapP2PEnv :: m (TVar ArchivedResourceToPeerMap)
     getMessageTypeMapP2PEnv :: m (MessageTypeMap m)
     getWatcherTableP2PEnv :: m (TVar WatchersTable)
@@ -69,10 +61,6 @@ makeP2PEnvironment ::
        String -> T.NodeId -> PortNumber -> PortNumber -> Int -> IO P2PEnv
 makeP2PEnvironment nIp nId tPort uPort alpha = do
     nmap <- newTVarIO HM.empty
-    kqueue <- newTQueueIO
-    rqueue <- newTQueueIO
-    pqueue <- newTQueueIO
-    oqueue <- newTQueueIO
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
     kb <- createKbucket (T.Peer (nId, T.NodeEndPoint nIp tPort uPort))
@@ -83,11 +71,8 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
     messageMap <- newTVarIO HM.empty
     return
         P2PEnv
-            { tvarNodeIdPeerMap = nmap
-            , tqueueKadem = kqueue
-            , tqueueRPC = rqueue
-            , tqueuePubSub = pqueue
-            , tqueueOption = oqueue
+            { selfNId = nId
+            , tvarNodeIdPeerMap = nmap
             , tvarArchivedResourceToPeerMap = r2pmap
             , tvarMessageTypeMap = mtypemap
             , tvarWatchersTable = watcherMap
