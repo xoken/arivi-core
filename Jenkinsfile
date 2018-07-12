@@ -25,6 +25,7 @@ pipeline {
                 echo 'Deploying....'
                 sh 'stack test arivi-network --no-run-tests'
                 sh 'cp network/.stack-work/dist/x86_64-linux-nopie/Cabal-2.0.1.0/build/arivi-network-test/arivi-network-test  scripts/Deployment-Tools/arivi-network-test'
+                sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
             }
         }
     }
