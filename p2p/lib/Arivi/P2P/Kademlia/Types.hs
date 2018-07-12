@@ -26,6 +26,7 @@ module Arivi.P2P.Kademlia.Types
     , Peer(..)
     , Kbucket(..)
     , HasKbucket(..)
+    , PeerStatus(..)
     ) where
 
 import           Codec.Serialise.Class       (Serialise (..))
@@ -79,6 +80,11 @@ newtype Peer = Peer
     { getPeer :: (NodeId, NodeEndPoint)
     } deriving (Show, Generic)
 
+data PeerStatus
+    = Active
+    | Stale
+    deriving (Show)
+
 instance Eq Peer where
     Peer (x, _) == Peer (a, _) = a == x
 
@@ -90,7 +96,7 @@ newtype Kbucket k v = Kbucket
 class (MonadIO m, MonadBaseControl IO m) =>
       HasKbucket m
     where
-    getKb :: m (Kbucket Int [Peer])
+    getKb :: m (Kbucket Int [(Peer, PeerStatus)])
 
 -- Custom data type to send & receive message
 data MessageBody

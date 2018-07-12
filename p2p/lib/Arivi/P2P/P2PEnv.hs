@@ -33,7 +33,7 @@ data P2PEnv = P2PEnv
     , tqueuePubSub :: TQueue MessageInfo
     , tqueueOption :: TQueue MessageInfo
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
-    , kbucket :: T.Kbucket Int [T.Peer]
+    , kbucket :: T.Kbucket Int [(T.Peer, T.PeerStatus)]
     , statsdClient :: StatsdClient
     , tvarMessageTypeMap :: forall m. (HasP2PEnv m) =>
                                           (MessageTypeMap m)

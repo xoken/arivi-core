@@ -50,10 +50,10 @@ import qualified STMContainers.Map              as H
 -- node with position 0 i.e kb index is zero since the distance of a node
 -- from it's own address is zero. This will help insert the new peers into
 -- kbucket with respect to the local peer
-createKbucket :: Peer -> IO (Kbucket Int [Peer])
+createKbucket :: Peer -> IO (Kbucket Int [(Peer, PeerStatus)])
 createKbucket localPeer = do
     m <- atomically H.new
-    atomically $ H.insert [localPeer] 0 m
+    atomically $ H.insert [(localPeer, Active)] 0 m
     return (Kbucket m)
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
@@ -66,7 +66,7 @@ getDefaultNodeId = do
     let localPeer = fromMaybe [] lp
     if Prelude.null localPeer
         then return $ Left KademliaDefaultPeerDoesNotExists
-        else return $ Right $ fst $ getPeer $ Prelude.head localPeer
+        else return $ Right $ fst $ getPeer $ fst $ Prelude.head localPeer
 
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 --   given peer with respect to the default peer or local peer for which
@@ -84,16 +84,17 @@ getPeerList peerR = do
                 kbDistance = getKbIndex localPeer peer
             pl <-
                 liftIO $ atomically $ H.lookup kbDistance (getKbucket kbucket'')
-            let mPeerList = fromMaybe [] pl
+            let mPeerList = fmap fst (fromMaybe [] pl)
             return $ Right mPeerList
         Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
 
 -- |Gets Peer by Kbucket-Index (kb-index) Index
-getPeerListByKIndex :: (HasKbucket m) => Int -> m (Either AriviP2PException [Peer])
+getPeerListByKIndex ::
+       (HasKbucket m) => Int -> m (Either AriviP2PException [Peer])
 getPeerListByKIndex kbi = do
     kb' <- getKb
     peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kb')
-    let pl = fromMaybe [] peerl
+    let pl = fmap fst (fromMaybe [] peerl)
     case pl of
         [] -> return $ Left KademliaKbIndexDoesNotExist
         _  -> return $ Right pl
@@ -124,20 +125,28 @@ addToKBucket peerR = do
             liftIO $
                 atomically $ do
                     mPeerList <- H.lookup kbDistance kb
-                    case mPeerList of
-                        Just pl ->
+                    let orgPl = fromMaybe [] mPeerList
+                        mPeerList2 = fmap fst orgPl
+                    case mPeerList2 of
+                        pl ->
                             if peerR `elem` pl
                                 then do
                                     let pl2 =
                                             L.deleteBy
                                                 (\p1 p2 ->
-                                                     fst (getPeer p1) ==
-                                                     fst (getPeer p2))
-                                                peerR
-                                                pl
-                                    H.insert (pl2 ++ [peerR]) kbDistance kb
-                                else H.insert (pl ++ [peerR]) kbDistance kb
-                        Nothing -> H.insert [peerR] kbDistance kb
+                                                     fst (getPeer $ fst p1) ==
+                                                     fst (getPeer $ fst p2))
+                                                (peerR, Active)
+                                                orgPl
+                                    H.insert
+                                        (pl2 ++ [(peerR, Active)])
+                                        kbDistance
+                                        kb
+                                else H.insert
+                                         (orgPl ++ [(peerR, Active)])
+                                         kbDistance
+                                         kb
+                        -- _ -> H.insert [(peerR,Active)] kbDistance kb
             -- Prints kbucket
             -- liftIO $ do
             --     let kbm2 = getKbucket kb''
@@ -161,19 +170,22 @@ removePeer peerR = do
                         kbDistance = getKbIndex localPeer peerR
                     if peerR `elem` pl2
                         then liftIO $
-                             atomically $
-                             H.insert
-                                 (L.deleteBy
-                                      (\p1 p2 ->
-                                           fst (getPeer p1) == fst (getPeer p2))
-                                      fp
-                                      pl)
-                                 kbDistance
-                                 kb
-                        else liftIO $ atomically $ H.insert pl kbDistance kb
-                    where pl2 = fmap (fst . getPeer) pl
-                          fnep = NodeEndPoint "" 0 0
+                             atomically $ do
+                                 tempL <- H.lookup kbDistance kb
+                                 let orgPl = fromMaybe [] tempL
+                                 H.insert
+                                     (L.deleteBy
+                                          (\p1 p2 ->
+                                               fst (getPeer $ fst p1) ==
+                                               fst (getPeer $ fst p2))
+                                          (fp, Active)
+                                          orgPl)
+                                     kbDistance
+                                     kb
+                        else liftIO $ atomically $ return ()
+                    where fnep = NodeEndPoint "" 0 0
                           fp = Peer (peerR, fnep)
+                          pl2 = fmap (fst . getPeer) pl
                 Left _ -> return ()
         Left _ -> return ()
 
@@ -184,7 +196,7 @@ getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
     kbb'' <- getKb
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
-    let mPeerList = fromMaybe [] pl
+    let mPeerList = fmap fst (fromMaybe [] pl)
         ple = fst $ L.splitAt k mPeerList
     if L.length ple >= k
         then return ple
