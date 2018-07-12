@@ -66,14 +66,16 @@ instance HasP2PEnv AppM where
     getrpcTQueueP2PEnv = tqueueRPC <$> getP2PEnv
     getpubsubTQueueP2PEnv = tqueuePubSub <$> getP2PEnv
     getoptionTQueueP2PEnv = tqueueOption <$> getP2PEnv
-    getResourceToPeerMapP2PEnv = tvarResourceToPeerMap <$> getP2PEnv
     getMessageTypeMapP2PEnv = tvarMessageTypeMap <$> getP2PEnv
     getWatcherTableP2PEnv = tvarWatchersTable <$> getP2PEnv
     getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
-    getDynamicResourceToPeerMap = undefined
     getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
+    getArchivedResourceToPeerMapP2PEnv = tvarArchivedResourceToPeerMap <$> getP2PEnv
+    getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
+    getSelfNodeId = selfNId <$> getP2PEnv
+
 
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
