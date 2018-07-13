@@ -9,33 +9,31 @@ module Arivi.P2P.RPC.SendOptions
 -- import           Arivi.P2P.Kademlia.Utils              (extractFirst,
 --                                                         extractSecond,
 --                                                         extractThird)
-import           Arivi.P2P.Exception
-import           Arivi.P2P.MessageHandler.Handler
-import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
-                                                        P2PPayload)
-import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.RPC.Types
-import           Arivi.Utils.Logging
-import           Codec.Serialise                       (deserialise, serialise)
+import Arivi.P2P.Exception
+import Arivi.P2P.MessageHandler.Handler
+import Arivi.P2P.MessageHandler.HandlerTypes (MessageType(..), P2PPayload)
+import Arivi.P2P.P2PEnv
+import Arivi.P2P.RPC.Types
+import Arivi.Utils.Logging
+import Codec.Serialise (deserialise, serialise)
 
 -- import           Control.Concurrent                    (forkIO, threadDelay)
-import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
+import qualified Control.Concurrent.Async.Lifted as LAsync (async)
 
 -- import           Control.Concurrent.Lifted             (fork)
-import           Control.Concurrent.STM.TVar
-import           Control.Exception
-import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                     try)
-import           Control.Monad                         (when)
-import           Control.Monad.IO.Class                (liftIO)
-import           Control.Monad.STM
+import Control.Concurrent.STM.TVar
+import Control.Exception
+import qualified Control.Exception.Lifted as Exception (SomeException, try)
+import Control.Monad (when)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.STM
                                                                 --  pack, unpack)
                                                                 -- toStrict)
 
 -- import           Data.ByteString.Char8                 as Char8 (ByteString,
 -- import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
-import           Data.HashMap.Strict                   as HM
-import           Data.Maybe
+import Data.HashMap.Strict as HM
+import Data.Maybe
 
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
@@ -57,14 +55,15 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     res1 <-
         Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
-        Left (_ :: Exception.SomeException) -> return ()
+        Left (_ :: Exception.SomeException) -> throw SendOptionsFailedException
         Right returnMessage -> do
-            let supportMessage = deserialise returnMessage :: MessageTypeRPC
-            case supportMessage of
+            let deserialisedMessage =
+                    deserialise returnMessage :: MessageTypeRPC
+            case deserialisedMessage of
                 Support _ fromPeer resourceList ->
                     Control.Monad.when (to mMessage == fromPeer) $
                     updateResourcePeers (recievingPeerNodeId, resourceList)
-                _ -> return () -- should handle this better
+                _ -> throw (OptionsInvalidMessageType deserialisedMessage)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
 updateResourcePeers ::
@@ -128,22 +127,4 @@ optionsHandler payload = do
                         }
             let byteStringSupportMessage = serialise mMessage
             return byteStringSupportMessage
-            -- need to have proper error/exception messages and handling
-        _ -> throw HandlerNotRequest
--- -- Formulate and send the Supported message as a reply to the Options message
--- sendSupportedMessage :: (HasP2PEnv m) => MessageInfo -> NodeId -> NodeId -> m ()
--- sendSupportedMessage messageInfo sendingPeerNodeId recievingPeerNodeId = do
---     resourceToPeerMapTvar <- getResourceToPeerMapP2PEnv
---     resourceToPeerMap <- liftIO $ readTVarIO resourceToPeerMapTvar
---     let resourceList = keys resourceToPeerMap
---     let message =
---             Support
---                 { to = recievingPeerNodeId
---                 , from = sendingPeerNodeId
---                 , supportedResources = resourceList
---                 }
---     let byteStringMessage = Lazy.toStrict $ serialise message
---     let uuid = fst messageInfo
---     let newMessageInfo = (uuid, byteStringMessage)
---                 -- need to handle exceptions
---     sendResponse recievingPeerNodeId newMessageInfo Option -- might not be RPC
+        _ -> throw (OptionsHandlerInvalidMessageType optionsMessage)
