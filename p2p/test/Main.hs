@@ -62,10 +62,6 @@ instance HasP2PEnv AppM where
     getP2PEnv = ask
     getAriviTVarP2PEnv = tvarAriviP2PInstance <$> getP2PEnv
     getNodeIdPeerMapTVarP2PEnv = tvarNodeIdPeerMap <$> getP2PEnv
-    getkademTQueueP2PEnv = tqueueKadem <$> getP2PEnv
-    getrpcTQueueP2PEnv = tqueueRPC <$> getP2PEnv
-    getpubsubTQueueP2PEnv = tqueuePubSub <$> getP2PEnv
-    getoptionTQueueP2PEnv = tqueueOption <$> getP2PEnv
     getMessageTypeMapP2PEnv = tvarMessageTypeMap <$> getP2PEnv
     getWatcherTableP2PEnv = tvarWatchersTable <$> getP2PEnv
     getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
