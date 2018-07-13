@@ -47,20 +47,12 @@ import qualified Data.List                      as L
 import           Data.Maybe
 
 -- import           GHC.Stack
+import           Arivi.P2P.P2PEnv               (HasP2PEnv)
+import           Arivi.Utils.Statsd
 import           Control.Monad.Logger           (logDebug)
 import qualified Data.Text                      as T
 import           ListT
 import qualified STMContainers.Map              as H
-
--- | Creates a new K-bucket which is a mutable hash table, and inserts the local
--- node with position 0 i.e kb index is zero since the distance of a node
--- from it's own address is zero. This will help insert the new peers into
--- kbucket with respect to the local peer
-createKbucket :: Peer -> IO (Kbucket Int [(Peer, PeerStatus)])
-createKbucket localPeer = do
-    m <- atomically H.new
-    atomically $ H.insert [(localPeer, Active)] 0 m
-    return (Kbucket m)
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
@@ -125,7 +117,7 @@ ifPeerExist peer = do
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
 addToKBucket ::
-       (HasKbucket m, MonadIO m, HasLogging m) => Peer -> PeerStatus -> m ()
+       (HasP2PEnv m, MonadIO m, HasLogging m) => Peer -> PeerStatus -> m ()
 addToKBucket peerR status = do
     kb'' <- getKb
     lp <- getDefaultNodeId
@@ -164,10 +156,11 @@ addToKBucket peerR status = do
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
             $(logDebug) $ T.append (T.pack "Kbucket : ") (T.pack (show kvList))
+            counter "Kbucket" 1
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
-removePeer :: (HasKbucket m, MonadIO m) => NodeId -> m ()
+removePeer :: (HasP2PEnv m, MonadIO m) => NodeId -> m ()
 removePeer peerR = do
     kbb' <- getKb
     lp <- getDefaultNodeId
@@ -197,6 +190,7 @@ removePeer peerR = do
                           fp = Peer (peerR, fnep)
                           pl2 = fmap (fst . getPeer) pl
                 Left _ -> return ()
+            counter "Kbucket" (-1)
         Left _ -> return ()
 
 -- Gives a peer list given a list of keys

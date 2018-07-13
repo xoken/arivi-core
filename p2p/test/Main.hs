@@ -1,45 +1,49 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts     #-}
 
 module Main
     ( module Main
     ) where
 
-import Arivi.Crypto.Utils.Keys.Signature
-import Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
-import Arivi.Crypto.Utils.PublicKey.Utils
-import Arivi.Env
-import Arivi.Network
-import Arivi.P2P.P2PEnv
-import Arivi.P2P.ServiceRegistry
-import Arivi.Utils.Logging
+import           Arivi.Crypto.Utils.Keys.Signature
+import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
+import           Arivi.Crypto.Utils.PublicKey.Utils
+import           Arivi.Env
+import           Arivi.Network
+import           Arivi.P2P.P2PEnv
+import           Arivi.P2P.ServiceRegistry
+import           Arivi.Utils.Logging
 
-import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async hiding (async, mapConcurrently_, wait)
+import           Control.Concurrent                     (threadDelay)
+import           Control.Concurrent.Async               hiding (async,
+                                                         mapConcurrently_, wait)
 
-import Control.Concurrent.Async.Lifted (async, mapConcurrently_, wait)
-import Control.Concurrent.STM.TQueue
-import Control.Exception
-import Control.Monad.Logger
-import Control.Monad.Reader
-import Data.ByteString.Lazy as BSL (ByteString)
-import Data.ByteString.Lazy.Char8 as BSLC (pack)
-import Data.Time
-import System.Environment (getArgs)
+import           Control.Concurrent.Async.Lifted        (async,
+                                                         mapConcurrently_, wait)
+import           Control.Concurrent.STM.TQueue
+import           Control.Exception
+import           Control.Monad.Logger
+import           Control.Monad.Reader
+import           Data.ByteString.Lazy                   as BSL (ByteString)
+import           Data.ByteString.Lazy.Char8             as BSLC (pack)
+import           Data.Time
+import           System.Environment                     (getArgs)
 
-import Arivi.P2P.Kademlia.LoadDefaultPeers (loadDefaultPeers)
-import Arivi.P2P.Kademlia.Types (NodeEndPoint(..), NodeId, Peer(..))
-import Arivi.P2P.MessageHandler.Handler (newIncomingConnection)
-import qualified CreateConfig as Config
-import Data.Monoid ((<>))
-import Data.String.Conv
-import Data.Text
-import Network.Socket (PortNumber(..))
-import System.Directory (doesPathExist, withCurrentDirectory)
+import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
+import           Arivi.P2P.Kademlia.Types               (NodeEndPoint (..),
+                                                         NodeId, Peer (..))
+import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
+import qualified CreateConfig                           as Config
+import           Data.Monoid                            ((<>))
+import           Data.String.Conv
+import           Data.Text
+import           Network.Socket                         (PortNumber (..))
+import           System.Directory                       (doesPathExist,
+                                                         withCurrentDirectory)
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -151,9 +155,9 @@ runBSNode configPath = do
             ha
             (Config.tcpPort config)
             (Config.udpPort config)
-            "89.98.98.98"
-            8089
-            "ad"
+            "127.0.0.1"
+            8125
+            "Xoken"
             (Config.secretKey config)
             3
     runFileLoggingT (toS $ Config.logFile config) $

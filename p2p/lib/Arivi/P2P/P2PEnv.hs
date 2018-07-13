@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -11,19 +11,19 @@ module Arivi.P2P.P2PEnv
     , T.HasKbucket(..)
     ) where
 
-import Arivi.Env
-import Arivi.P2P.Kademlia.Kbucket (createKbucket)
-import qualified Arivi.P2P.Kademlia.Types as T
-import Arivi.P2P.MessageHandler.HandlerTypes
-import Arivi.P2P.PubSub.Types
-import Arivi.P2P.RPC.Types
-import Arivi.P2P.Types
-import Arivi.Utils.Logging
-import Arivi.Utils.Statsd
-import Control.Concurrent.STM (TVar, newTVarIO)
-import Control.Concurrent.STM.TQueue
-import Data.HashMap.Strict as HM
-import Network.Socket (PortNumber)
+import           Arivi.Env
+import           Arivi.P2P.Kademlia.Types              (createKbucket)
+import qualified Arivi.P2P.Kademlia.Types              as T
+import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.PubSub.Types
+import           Arivi.P2P.RPC.Types
+import           Arivi.P2P.Types
+import           Arivi.Utils.Logging
+import           Arivi.Utils.Statsd
+import           Control.Concurrent.STM                (TVar, newTVarIO)
+import           Control.Concurrent.STM.TQueue
+import           Data.HashMap.Strict                   as HM
+import           Network.Socket                        (PortNumber)
 
 data P2PEnv = P2PEnv
     { selfNId :: T.NodeId
