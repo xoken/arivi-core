@@ -13,7 +13,9 @@
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
 module Arivi.P2P.Kademlia.Kbucket
@@ -35,14 +37,18 @@ import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils       as U
 import           Arivi.P2P.Kademlia.XorDistance
+import           Arivi.Utils.Logging
 import           Control.Exception
 import           Control.Monad                  ()
-import           Control.Monad.IO.Class
+import           Control.Monad.IO.Class         (MonadIO, liftIO)
 import           Control.Monad.Reader           ()
 import           Control.Monad.STM
 import qualified Data.List                      as L
 import           Data.Maybe
-import           GHC.Stack
+
+-- import           GHC.Stack
+import           Control.Monad.Logger           (logDebug)
+import qualified Data.Text                      as T
 import           ListT
 import qualified STMContainers.Map              as H
 
@@ -58,7 +64,8 @@ createKbucket localPeer = do
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
-getDefaultNodeId :: (HasKbucket m) => m (Either AriviP2PException NodeId)
+getDefaultNodeId ::
+       (HasKbucket m, MonadIO m) => m (Either AriviP2PException NodeId)
 getDefaultNodeId = do
     kbucket' <- getKb
     let kb = getKbucket kbucket'
@@ -71,7 +78,10 @@ getDefaultNodeId = do
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 --   given peer with respect to the default peer or local peer for which
 --   the kbucket is created. If peer doesn't exist it returns an empty list
-getPeerList :: (HasKbucket m) => NodeId -> m (Either AriviP2PException [Peer])
+getPeerList ::
+       (HasKbucket m, MonadIO m)
+    => NodeId
+    -> m (Either AriviP2PException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
     -- liftIO (atomically (H.size (getKbucket kbucket'')) >>= print)
@@ -90,7 +100,7 @@ getPeerList peerR = do
 
 -- |Gets Peer by Kbucket-Index (kb-index) Index
 getPeerListByKIndex ::
-       (HasKbucket m) => Int -> m (Either AriviP2PException [Peer])
+       (HasKbucket m, MonadIO m) => Int -> m (Either AriviP2PException [Peer])
 getPeerListByKIndex kbi = do
     kb' <- getKb
     peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kb')
@@ -100,7 +110,8 @@ getPeerListByKIndex kbi = do
         _  -> return $ Right pl
 
 -- |Checks if a peer already exists
-ifPeerExist :: (HasKbucket m) => NodeId -> m (Either AriviP2PException Bool)
+ifPeerExist ::
+       (HasKbucket m, MonadIO m) => NodeId -> m (Either AriviP2PException Bool)
 ifPeerExist peer = do
     mPeerList <- getPeerList peer
     case mPeerList of
@@ -113,8 +124,9 @@ ifPeerExist peer = do
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
-addToKBucket :: (HasKbucket m, HasCallStack) => Peer -> m ()
-addToKBucket peerR = do
+addToKBucket ::
+       (HasKbucket m, MonadIO m, HasLogging m) => Peer -> PeerStatus -> m ()
+addToKBucket peerR status = do
     kb'' <- getKb
     lp <- getDefaultNodeId
     case lp of
@@ -136,28 +148,26 @@ addToKBucket peerR = do
                                                 (\p1 p2 ->
                                                      fst (getPeer $ fst p1) ==
                                                      fst (getPeer $ fst p2))
-                                                (peerR, Active)
+                                                (peerR, status)
                                                 orgPl
                                     H.insert
-                                        (pl2 ++ [(peerR, Active)])
+                                        (pl2 ++ [(peerR, status)])
                                         kbDistance
                                         kb
                                 else H.insert
-                                         (orgPl ++ [(peerR, Active)])
+                                         (orgPl ++ [(peerR, status)])
                                          kbDistance
                                          kb
                         -- _ -> H.insert [(peerR,Active)] kbDistance kb
-            -- Prints kbucket
-            -- liftIO $ do
-            --     let kbm2 = getKbucket kb''
-            --         kbtemp = H.stream kbm2
-            --     kvList <- atomically $ toList kbtemp
-            --     print (show kvList)
-            --     print ""
+            -- Logs the Kbucket
+            let kbm2 = getKbucket kb''
+                kbtemp = H.stream kbm2
+            kvList <- liftIO $ atomically $ toList kbtemp
+            $(logDebug) $ T.append (T.pack "Kbucket : ") (T.pack (show kvList))
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
-removePeer :: (HasKbucket m) => NodeId -> m ()
+removePeer :: (HasKbucket m, MonadIO m) => NodeId -> m ()
 removePeer peerR = do
     kbb' <- getKb
     lp <- getDefaultNodeId
@@ -190,7 +200,7 @@ removePeer peerR = do
         Left _ -> return ()
 
 -- Gives a peer list given a list of keys
-getPeerListFromKeyList :: (HasKbucket m) => Int -> [Int] -> m [Peer]
+getPeerListFromKeyList :: (HasKbucket m, MonadIO m) => Int -> [Int] -> m [Peer]
 getPeerListFromKeyList _ [] = return []
 getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
@@ -207,7 +217,10 @@ getPeerListFromKeyList k (x:xs) = do
 -- | Gets k-closest peers to a given peeer if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
 getKClosestPeersByPeer ::
-       (HasKbucket m) => Peer -> Int -> m (Either AriviP2PException [Peer])
+       (HasKbucket m, MonadIO m)
+    => Peer
+    -> Int
+    -> m (Either AriviP2PException [Peer])
 getKClosestPeersByPeer peerR k = do
     lp <- getDefaultNodeId
     case lp of
@@ -226,7 +239,10 @@ getKClosestPeersByPeer peerR k = do
 -- | Gets k-closest peers to a given nodeid if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
 getKClosestPeersByNodeid ::
-       (HasKbucket m) => NodeId -> Int -> m (Either AriviP2PException [Peer])
+       (HasKbucket m, MonadIO m)
+    => NodeId
+    -> Int
+    -> m (Either AriviP2PException [Peer])
 getKClosestPeersByNodeid nid k = do
     lp <- getDefaultNodeId
     case lp of
@@ -250,7 +266,7 @@ getKClosestPeersByNodeid nid k = do
 
 -- | gets 'k' random peers from the kbucket for a given 'k', notice in this
 --   case peers returned will not be closest peers
-getKRandomPeers :: (HasKbucket m) => Int -> m [Peer]
+getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
     keyl <- liftIO $ U.randomList 255
     getPeerListFromKeyList k keyl

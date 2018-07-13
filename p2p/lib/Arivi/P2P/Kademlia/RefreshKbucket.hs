@@ -14,6 +14,7 @@
 -- to the k-bucket entries and shuffle the list based on the response
 --
 module Arivi.P2P.Kademlia.RefreshKbucket
+        -- updatePeer
     (
     ) where
 -- import           Arivi.P2P.Kademlia.Kbucket
@@ -22,7 +23,22 @@ module Arivi.P2P.Kademlia.RefreshKbucket
 -- import           Control.Concurrent         (threadDelay)
 -- import           Control.Monad              (forever)
 -- import           Control.Monad.IO.Class     (liftIO)
+-- import           Control.Monad.STM          (atomically)
+-- import qualified STMContainers.Map          as H
+-- import           GHC.Conc.Sync
+-- updatePeer :: (HasKbucket m) => Peer
+--                              -> PeerStatus
+--                              -> m ()
+-- updatePeer peerR status = do
+--     let nid = fst $ getPeer peerR
+--     removePeer nid
+--     addToKBucket peerR status
 -- refreshKbucket :: (HasKbucket m) => Int -> m ()
 -- refreshKbucket timeDelay = forever $ do
 --                                 threadDelay timeDelay
+--                                 kb <- getKb
 --                                 liftIO $ atomically $ do
+--                                     let kbtemp = H.stream (getKbucket kb)
+--                                     vListTemp  <- toList kbtemp
+--                                     let vList  = fmap (fst . snd) vListTemp
+--                                     mapM_ issuePing vList

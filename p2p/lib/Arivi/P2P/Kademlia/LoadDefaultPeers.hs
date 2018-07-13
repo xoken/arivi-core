@@ -31,7 +31,7 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
-import           Control.Monad.IO.Class
+import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy                  as L
@@ -54,14 +54,15 @@ getPeerListFromPayload payl = do
         FN_RESP _ pl _ -> Right pl
         _              -> Left KademliaInvalidResponse
 
-ifPeerExist' :: (HasKbucket m) => Arivi.P2P.Kademlia.Types.NodeId -> m Bool
+ifPeerExist' ::
+       (HasKbucket m, MonadIO m) => Arivi.P2P.Kademlia.Types.NodeId -> m Bool
 ifPeerExist' nid = do
     m <- ifPeerExist nid
     case m of
         Right x -> return x
         Left _  -> return False
 
-deleteIfPeerExist :: (HasKbucket m) => [Peer] -> m [Peer]
+deleteIfPeerExist :: (HasKbucket m, MonadIO m) => [Peer] -> m [Peer]
 deleteIfPeerExist [] = return []
 deleteIfPeerExist (x:xs) = do
     ife <- ifPeerExist' (fst $ getPeer x)
@@ -71,9 +72,9 @@ deleteIfPeerExist (x:xs) = do
         else return []
 
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
-issueFindNode :: (HasP2PEnv m, HasLogging m) => Peer -> m ()
+issueFindNode :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m ()
 issueFindNode rpeer = do
-    addToKBucket rpeer
+    addToKBucket rpeer Active
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance

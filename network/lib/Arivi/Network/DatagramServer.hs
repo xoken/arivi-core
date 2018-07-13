@@ -23,8 +23,8 @@ import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readUdpSock, sendUdpMessage)
 import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType, deserialise,
-                                                  Parcel)
+                                                  TransportType, deserialise)
+                                                --   Parcel,
 
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
@@ -79,8 +79,9 @@ newUdpConnection ::
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
-    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $ do
-        liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
+    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $
+        -- liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
+     do
         sk <- getSecretKey
         conn <-
             liftIO $

@@ -18,10 +18,10 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
+import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Concurrent.STM.TQueue
-
 import           Data.HashMap.Strict                   as HM
 import           Network.Socket                        (PortNumber)
 
@@ -35,7 +35,7 @@ data P2PEnv = P2PEnv
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket :: T.Kbucket Int [(T.Peer, T.PeerStatus)]
     , statsdClient :: StatsdClient
-    , tvarMessageTypeMap :: forall m. (HasP2PEnv m) =>
+    , tvarMessageTypeMap :: forall m. (HasP2PEnv m, HasLogging m) =>
                                           (MessageTypeMap m)
     , tvarWatchersTable :: TVar WatchersTable
     , tvarNotifiersTable :: TVar NotifiersTable

@@ -19,6 +19,7 @@ import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
+import           Arivi.Utils.Logging
 import           Codec.Serialise             (deserialise, serialise)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
@@ -39,7 +40,8 @@ import qualified Data.ByteString.Lazy        as L
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-kademliaMessageHandler :: (HasP2PEnv m) => L.ByteString -> m L.ByteString
+kademliaMessageHandler ::
+       (HasP2PEnv m, HasLogging m) => L.ByteString -> m L.ByteString
 kademliaMessageHandler payl = do
     let payl' = deserialise payl :: PayLoad
         msgb = messageBody $ message payl'
@@ -55,7 +57,7 @@ kademliaMessageHandler payl = do
         ltport = selfTCPPort p2pInstance
     case msgb of
         PING {} -> do
-            addToKBucket rpeer
+            addToKBucket rpeer Active
             return $ serialise $ packPong lnid lip luport ltport
         FIND_NODE {}
             -- kb'' <- getKb
@@ -64,7 +66,7 @@ kademliaMessageHandler payl = do
             --     i <- liftIO $ atomically $ H.size kb
             --     print ("Kbucket size before mH " ++ show i)
          -> do
-            addToKBucket rpeer
+            addToKBucket rpeer Active
             -- liftIO $ do
             --     print "Find_Node recieved and peer added"
             --     i <- atomically $ H.size kb

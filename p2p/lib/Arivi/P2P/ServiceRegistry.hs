@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes       #-}
 
 module Arivi.P2P.ServiceRegistry
     ( makeP2Pinstance
@@ -13,6 +14,7 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Functions
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.Types
+import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM
 import           Data.HashMap.Strict                   as HM
@@ -52,7 +54,7 @@ makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk a
 --             p2pEnv
 -- --add funcs to run at start
 --             ()
-insertHandlers :: (HasP2PEnv m) => MessageTypeMap m
+insertHandlers :: (HasP2PEnv m, HasLogging m) => MessageTypeMap m
 insertHandlers =
     HM.insert
         Kademlia

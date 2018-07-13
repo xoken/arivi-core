@@ -29,24 +29,25 @@ module Arivi.P2P.Kademlia.Types
     , PeerStatus(..)
     ) where
 
-import           Codec.Serialise.Class       (Serialise (..))
+import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-import           Control.Monad.IO.Class      (MonadIO)
-import           Control.Monad.Trans.Control (MonadBaseControl)
+
+-- import           Control.Monad.IO.Class   (MonadIO)
+-- import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519       (PublicKey, Signature, publicKey,
-                                              signature)
-import           Data.ByteArray              (convert)
+import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
+                                           signature)
+import           Data.ByteArray           (convert)
 import           Data.ByteString
-import qualified Data.ByteString.Char8       as C
-import           Data.ByteString.Lazy        ()
+import qualified Data.ByteString.Char8    as C
+import           Data.ByteString.Lazy     ()
 import           Data.Monoid
-import           Data.Time.Clock.POSIX       (POSIXTime, getPOSIXTime)
+import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime)
 import           Data.Word
 import           GHC.Generics
 import           Network.Socket
-import qualified STMContainers.Map           as H
+import qualified STMContainers.Map        as H
 
 -- | Helper function to get timeStamp/ epoch
 getTimeStamp :: IO TimeStamp
@@ -93,9 +94,7 @@ newtype Kbucket k v = Kbucket
     { getKbucket :: H.Map k v
     }
 
-class (MonadIO m, MonadBaseControl IO m) =>
-      HasKbucket m
-    where
+class HasKbucket m where
     getKb :: m (Kbucket Int [(Peer, PeerStatus)])
 
 -- Custom data type to send & receive message
