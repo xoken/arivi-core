@@ -4,7 +4,7 @@ import sys
 
 src = "./"
 dst = "/home/xkn/"
-remoteConfigFile = "config.yaml"
+remoteConfigFile = "config1.yaml"
 configFileName = "ServerConfig.xls"
 
 def getHostNameList(configFileName):
@@ -40,11 +40,13 @@ def generateConfigFile(srcPath, dstPath, remoteUserName, serverIp, rowNo):
             try:
                 configFile = configFile + str(columnNames[i]) \
                             + ": " + str(nthRow[i]) + "\n"
+                # print(str(columnNames[i]))
             except:
                 configFile = configFile + str(columnNames[i]) + ": " + "" + "\n"
         configFile = configFile + "\"" + " > " + dst + remoteConfigFile
         Connection(remoteUserName + "@" + serverIp).run(configFile)
-        print ("Configfile generation is done")
+        print("Configfile generation is done")
+        # print(configFile)
     except :
         print("Can not generate configFile at " + serverIp)
 
@@ -62,10 +64,10 @@ def copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName):
 def killPrevious(dstPath,remoteUserName,serverIp,executableName):
     try:
         print("Killing previous executable  if any " + dstPath + executableName)
-        Connection(remoteUserName + "@" + serverIp).run("pkill " + dstPath + \
+        Connection(remoteUserName + "@" + serverIp).run("pkill -f " + dstPath + \
                                                 + executableName)
     except:
-        print("No previous processto kill")
+        print("No previous process to kill")
 
 def executeProgram(dstPath,remoteUserName,serverIp,executableName):
     try:
@@ -75,14 +77,15 @@ def executeProgram(dstPath,remoteUserName,serverIp,executableName):
     except:
         print("Can not make file executable")
     try:
-        killPrevious(dstPath,remoteUserName,serverIp,executableName)
-        print("Executing " + dstPath + remoteConfigFile + " at " + serverIp)
+        print("Executing " + dstPath + executableName + " at " + serverIp)
         executablePath = dstPath + executableName
-        Connection(remoteUserName + "@" + serverIp).run("nohup " \
-                + executablePath +  " > nohup.out 2> nohup.err < /dev/null &")
+        # Connection(remoteUserName + "@" + serverIp).run("nohup " \
+        #         + executablePath +  " > nohup.out 2> nohup.err < /dev/null &")
+        Connection(remoteUserName + "@" + serverIp).run("exec 1>&2; " + executablePath + " & disown ")
     except:
         print("Can not execute file")
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
+    killPrevious(dstPath,remoteUserName,serverIp,executableName)
     copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
     generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
     executeProgram(dstPath,remoteUserName,serverIp,executableName)
