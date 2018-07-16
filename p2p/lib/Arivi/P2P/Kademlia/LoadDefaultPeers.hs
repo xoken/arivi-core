@@ -74,7 +74,6 @@ deleteIfPeerExist (x:xs) = do
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
 issueFindNode :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m ()
 issueFindNode rpeer = do
-    addToKBucket rpeer Active
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
@@ -89,6 +88,7 @@ issueFindNode rpeer = do
     $(logDebug) $
         T.pack ("Issueing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
     resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+    addToKBucket rpeer Active
     let peerl =
             case getPeerListFromPayload resp of
                 Right x -> x
