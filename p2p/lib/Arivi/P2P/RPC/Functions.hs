@@ -10,39 +10,35 @@ module Arivi.P2P.RPC.Functions
     , addPeerFromKademlia
     ) where
 
-import Arivi.P2P.Exception
-import qualified Arivi.P2P.Kademlia.Kbucket as Kademlia
-    ( Peer(..)
-    , getKClosestPeersByNodeid
-    , getKRandomPeers
-    )
-import qualified Arivi.P2P.Kademlia.Types as KademliaTypes (NodeEndPoint(..))
-import Arivi.P2P.MessageHandler.Handler
-import Arivi.P2P.MessageHandler.HandlerTypes
-    ( Handle(..)
-    , MessageType(..)
-    , NodeIdPeerMap
-    , P2PPayload
-    , PeerDetails(..)
-    )
-import Arivi.P2P.P2PEnv
-import Arivi.P2P.RPC.SendOptions
-import Arivi.P2P.RPC.Types
-import Arivi.Utils.Logging
-import Codec.Serialise (deserialise, serialise)
-import Control.Concurrent (threadDelay)
-import qualified Control.Concurrent.Async.Lifted as LAsync (async)
-import Control.Concurrent.STM.TVar
-import Control.Exception
-import qualified Control.Exception.Lifted as Exception (SomeException, try)
-import Control.Monad (forever)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.STM
-import Data.ByteString.Char8 as Char8 (pack)
-import Data.ByteString.Lazy as Lazy (fromStrict)
-import Data.Either.Unwrap
-import qualified Data.HashMap.Strict as HM
-import Data.Maybe
+import           Arivi.P2P.Exception
+import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (Peer (..), getKClosestPeersByNodeid,
+                                                                    getKRandomPeers)
+import qualified Arivi.P2P.Kademlia.Types              as KademliaTypes (NodeEndPoint (..))
+import           Arivi.P2P.MessageHandler.Handler
+import           Arivi.P2P.MessageHandler.HandlerTypes (Handle (..),
+                                                        MessageType (..),
+                                                        NodeIdPeerMap,
+                                                        P2PPayload,
+                                                        PeerDetails (..))
+import           Arivi.P2P.P2PEnv
+import           Arivi.P2P.RPC.SendOptions
+import           Arivi.P2P.RPC.Types
+import           Arivi.Utils.Logging
+import           Codec.Serialise                       (deserialise, serialise)
+import           Control.Concurrent                    (threadDelay)
+import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
+import           Control.Concurrent.STM.TVar
+import           Control.Exception
+import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                     try)
+import           Control.Monad                         (forever)
+import           Control.Monad.IO.Class                (liftIO)
+import           Control.Monad.STM
+import           Data.ByteString.Char8                 as Char8 (pack)
+import           Data.ByteString.Lazy                  as Lazy (fromStrict)
+import           Data.Either.Unwrap
+import qualified Data.HashMap.Strict                   as HM
+import           Data.Maybe
 
 -- import           Debug.Trace
 -- import           System.Random                         (randomRIO)
@@ -81,8 +77,6 @@ registerResource resource resourceHandler resourceType = do
                                 transientResourceToPeerMap --
                     writeTVar transientResourceToPeerMapTVar updatedMap)
 
--- TODO : need to replace currNodeId passed with nodeId from environment
--- TODO : integrate dynamic and static resource hashmaps
 -------------------- Functions for periodic updation of the hashmap ---------------------
 -- creates a worker thread
 -- thread should read the hashMap and should check if the number of peers for a resource is less than some number
@@ -122,13 +116,21 @@ updatePeerInResourceMapHelper archivedResourceToPeerMap minimumNodes currNodeId 
                     Exception.try $
                     Kademlia.getKClosestPeersByNodeid currNodeId 3
                 peersClose <-
-                    case res1 of
-                        Left (_ :: Exception.SomeException) ->
-                            Kademlia.getKRandomPeers 3 -- if getting closest peer fails what to do? currently getting random peers
+                    case res1
+                        -- TODO:: if getting closest peer fails what to do? currently getting random peers
+                        -- TODO:: handle certain exceptions specifically
+                          of
+                        Left (_ :: AriviP2PException) ->
+                            Kademlia.getKRandomPeers 3
+                            -- return KademliaGetClosePeersFailedException
                         Right peers -> return (fromRight peers)
                 let peers = peerRandom ++ peersClose
                 nodeIds <- addPeerFromKademlia peers
                 sendOptionsMessage currNodeId nodeIds
+                -- The thread delay is needed here put the updation thread to sleep for a given amount of time
+                -- We want a periodic updation of the hashMap so, if the hashMap was updated the thread sleeps for a larger
+                -- period of time (which needs to be decided after testing) but if the thread did not do any updation
+                -- it sleeps for a smaller but fixed amount of time
                 liftIO $ threadDelay (40 * 1000000) -- the timings need to be decided upon
             else liftIO $ threadDelay (30 * 1000000) -- in microseconds
         return ()
@@ -162,10 +164,7 @@ getResource resourceID servicemessage = do
             HM.lookup resourceID archivedResourceToPeerMap
     let entryInTransientResourceMap =
             HM.lookup resourceID transientResourceToPeerMap
-    let entry =
-            getEntryBasedOnTypeOfResource
-                entryInArchivedResourceMap
-                entryInTransientResourceMap
+    let entry = firstJust entryInArchivedResourceMap entryInTransientResourceMap
     if isNothing entry
         then throw RPCResourceNotFoundException
         else do
@@ -251,7 +250,7 @@ rpcHandler incomingRequest = do
             let entryInTransientResourceMap =
                     HM.lookup resourceId transientResourceToPeerMap
             let entry =
-                    getEntryBasedOnTypeOfResource
+                    firstJust
                         entryInArchivedResourceMap
                         entryInTransientResourceMap
             if isNothing entry
@@ -326,11 +325,8 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
                            writeTVar (fromJust mapEntry) newDetails
                    return mNodeId)
 
-getEntryBasedOnTypeOfResource ::
-       Maybe (ResourceHandler, TVar [NodeId])
-    -> Maybe (ResourceHandler, TVar [NodeId])
-    -> Maybe (ResourceHandler, TVar [NodeId])
-getEntryBasedOnTypeOfResource entryInArchivedResourceMap entryInTransientResourceMap
+firstJust :: Maybe a -> Maybe a -> Maybe a
+firstJust entryInArchivedResourceMap entryInTransientResourceMap
     | isJust entryInArchivedResourceMap = entryInArchivedResourceMap
     | isJust entryInTransientResourceMap = entryInTransientResourceMap
     | otherwise = Nothing

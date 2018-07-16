@@ -2,8 +2,8 @@ module Arivi.P2P.Exception
     ( AriviP2PException(..)
     ) where
 
-import Arivi.P2P.RPC.Types (MessageTypeRPC)
-import Control.Exception
+import           Arivi.P2P.RPC.Types (MessageTypeRPC)
+import           Control.Exception
 
 data AriviP2PException
     = KademliaKbIndexDoesNotExist
@@ -18,10 +18,10 @@ data AriviP2PException
     | RPCResourceNotFoundException
     | RPCHandlerResourceNotFoundException
     | RPCEmptyNodeListException
-    | RPCInvalidMessageType { mTypeRPC :: MessageTypeRPC }
+    | RPCInvalidMessageType MessageTypeRPC
     | SendOptionsFailedException
-    | OptionsInvalidMessageType { mTypeOpt :: MessageTypeRPC }
-    | OptionsHandlerInvalidMessageType { mTypeOptH :: MessageTypeRPC }
+    | OptionsInvalidMessageType MessageTypeRPC
+    | OptionsHandlerInvalidMessageType MessageTypeRPC
     deriving (Show)
 
 instance Exception AriviP2PException
