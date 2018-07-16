@@ -112,9 +112,9 @@ runNode configPath = do
             ha
             (Config.tcpPort config)
             (Config.udpPort config)
-            "89.98.98.98"
-            8089
-            "ad"
+            "127.0.0.1"
+            8125
+            "Xoken"
             (Config.secretKey config)
             3
     runFileLoggingT (toS $ Config.logFile config) $
