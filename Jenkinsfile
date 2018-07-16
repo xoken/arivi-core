@@ -23,8 +23,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying....'
-                sh 'stack test arivi-network --no-run-tests'
-                sh 'cp network/.stack-work/dist/x86_64-linux/Cabal-2.0.1.0/build/arivi-network-test/arivi-network-test  scripts/Deployment-Tools/arivi-network-test'
+                sh 'stack ghc p2p/test/Main.hs'
+                sh 'mv p2p/test/Main  scripts/Deployment-Tools/Main'
                 sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
             }
         }
