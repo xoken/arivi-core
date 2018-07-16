@@ -86,14 +86,22 @@ issueFindNode rpeer = do
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
         fn_msg = packFindMsg lnid lnid lip luport ltport
+    $(logDebug) $
+        T.pack ("Issueing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
     resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
     let peerl =
             case getPeerListFromPayload resp of
                 Right x -> x
                 Left _  -> []
-    $(logDebug) $ T.pack ("Received PeerList : " ++ show peerl)
+    $(logDebug) $
+        T.pack
+            ("Received PeerList from " ++
+             show rip ++ ":" ++ show ruport ++ ": " ++ show peerl)
     peerl2 <- deleteIfPeerExist peerl
-    $(logDebug) $ T.pack ("Received DeletedPeerList : " ++ show peerl2)
+    $(logDebug) $
+        T.pack
+            ("Received PeerList after removing exisiting peers : " ++
+             show peerl2)
     -- | Deletes nodes from peer list which already exists in k-bucket
     --   this is important otherwise it will be stuck in a loop where the
     --   function constantly issue FIND_NODE request forever.

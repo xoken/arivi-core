@@ -155,12 +155,15 @@ addToKBucket peerR status = do
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
-            $(logDebug) $ T.append (T.pack "Kbucket : ") (T.pack (show kvList))
+            $(logDebug) $
+                T.append
+                    (T.pack "Kbucket after adding : ")
+                    (T.pack (show kvList))
             counter "Kbucket" 1
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
-removePeer :: (HasP2PEnv m, MonadIO m) => NodeId -> m ()
+removePeer :: (HasP2PEnv m, MonadIO m, HasLogging m) => NodeId -> m ()
 removePeer peerR = do
     kbb' <- getKb
     lp <- getDefaultNodeId
@@ -190,6 +193,14 @@ removePeer peerR = do
                           fp = Peer (peerR, fnep)
                           pl2 = fmap (fst . getPeer) pl
                 Left _ -> return ()
+            -- Logging
+            let kbm2 = getKbucket kbb'
+                kbtemp = H.stream kbm2
+            kvList <- liftIO $ atomically $ toList kbtemp
+            $(logDebug) $
+                T.append
+                    (T.pack "Kbucket after deleting : ")
+                    (T.pack (show kvList))
             counter "Kbucket" (-1)
         Left _ -> return ()
 
