@@ -40,13 +40,16 @@ def generateConfigFile(srcPath, dstPath, remoteUserName, serverIp, rowNo):
             try:
                 configFile = configFile + str(columnNames[i]) \
                             + ": " + str(nthRow[i]) + "\n"
-                # print(str(columnNames[i]))
             except:
-                configFile = configFile + str(columnNames[i]) + ": " + "" + "\n"
+                try:
+                    configFile = configFile + str(columnNames[i]) \
+                                + ": " + nthRow[i] + "\n"
+                except:
+                    configFile = configFile + str(columnNames[i]) + ": " + "" + "\n"
         configFile = configFile + "\"" + " > " + dst + remoteConfigFile
         Connection(remoteUserName + "@" + serverIp).run(configFile)
         print("Configfile generation is done")
-        # print(configFile)
+        print(configFile)
     except :
         print("Can not generate configFile at " + serverIp)
 
@@ -81,7 +84,8 @@ def executeProgram(dstPath,remoteUserName,serverIp,executableName):
         executablePath = dstPath + executableName
         # Connection(remoteUserName + "@" + serverIp).run("nohup " \
         #         + executablePath +  " > nohup.out 2> nohup.err < /dev/null &")
-        Connection(remoteUserName + "@" + serverIp).run("exec 1>&2; " + executablePath + " & disown ")
+        # Connection(remoteUserName + "@" + serverIp).run("exec 1>&2; " + executablePath + " & disown ")
+        Connection(remoteUserName + "@" + serverIp).run(executablePath)
     except:
         print("Can not execute file")
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
