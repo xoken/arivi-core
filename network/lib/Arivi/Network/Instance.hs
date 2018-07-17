@@ -58,7 +58,7 @@ openConnection ::
     -> m (Either AriviNetworkException ConnectionHandle)
 openConnection host portNum tt rnId =
     $(withLoggingTH)
-        (LogNetworkStatement ([qc|"Opening Connection to host " ++ {host}|]))
+        (LogNetworkStatement ([qc|Opening Connection to host {host} |]))
         LevelDebug $ do
         let cId = makeConnectionId host portNum tt
         sock <- liftIO $ createSocket host (read (show portNum)) tt

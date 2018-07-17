@@ -254,7 +254,10 @@ processParcel parcel connection fragmentsHM =
 
 getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getDatagramWithTimeout sock microseconds = do
-    datagramOrNothing <- timeout microseconds (try $ N.recv sock 5100)
+    datagramOrNothing <-
+        timeout
+            microseconds
+            (try $ mapIOException (\(_ :: SomeException) -> NetworkSocketException) (N.recv sock 5100))
     case datagramOrNothing of
         Nothing -> return $ Left NetworkTimeoutException
         Just datagramEither ->
@@ -262,7 +265,8 @@ getDatagramWithTimeout sock microseconds = do
                 Left e -> return (Left e)
                 Right datagram ->
                     return $
-                    first NetworkDeserialiseException $ deserialiseOrFail datagram
+                    first NetworkDeserialiseException $
+                    deserialiseOrFail datagram
 
 readUdpSock :: (HasLogging m) => Conn.CompleteConnection -> m BSL.ByteString
 readUdpSock connection =
