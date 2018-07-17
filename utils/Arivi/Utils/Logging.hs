@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE QuasiQuotes           #-}
 
 module Arivi.Utils.Logging
     ( LogStatement(..)
@@ -26,11 +27,12 @@ import           Control.Monad.Logger
 import           Control.Monad.Trans.Control
 import           Data.Monoid
 import           Data.Text
+import           Data.Time
 import           GHC.Stack
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax
 import           System.CPUTime
-import           Data.Time
+import           Text.InterpolatedString.Perl6
 
 type LogChan = TQueue (Loc, LogSource, LogLevel, Text)
 
@@ -79,14 +81,12 @@ logToF ::
     -> m a
     -> m a
 logToF lf rf ls action = do
-    currentTime <- liftIO $ getCurrentTime
-    rf (pack (show currentTime) <> " | " <> toText ls <> " ")
+    currentTime <- liftIO getCurrentTime
+    rf [qc|{currentTime} | {toText ls} |]
     (_, result) <- timeIt action
     case result of
         Left (e :: SomeException) -> do
-            lf
-                ("Exception occured: " <> pack (displayException e) <>
-                 pack (prettyCallStack callStack))
+            lf [qc|Exception occured: {displayException e} at {prettyCallStack callStack}|]
             throwM e
         Right r
             -- TODO: rf ("Took: " <> pack (show time))
