@@ -75,13 +75,14 @@ logToF ::
     -> m a
     -> m a
 logToF lf rf ls action = do
-    (time, result) <- timeIt action
+    rf (toText ls <> " ")
+    (_, result) <- timeIt action
     case result of
         Left (e :: SomeException) -> do
-            lf (toText ls <> pack (prettyCallStack callStack) <> pack (displayException e))
+            lf ("Exception occured: " <> pack (displayException e) <> pack (prettyCallStack callStack))
             throwM e
         Right r -> do
-            rf (toText ls <> " " <> pack (show time))
+            -- TODO: rf ("Took: " <> pack (show time))
             return r
 
 timeIt ::
