@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -19,7 +20,6 @@ import Arivi.Network
 import Control.Concurrent (threadDelay, newEmptyMVar, putMVar, takeMVar, MVar)
 import Control.Concurrent.Async hiding (mapConcurrently_)
 import Control.Concurrent.Async.Lifted (mapConcurrently_)
-import Control.Concurrent.STM.TQueue
 import Control.Exception
 import Control.Monad.Catch (MonadCatch)
 import Control.Monad.Logger
@@ -29,7 +29,6 @@ import qualified Data.ByteString.Lazy as BSL (ByteString)
 import qualified Data.ByteString      as BS  (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time
-import System.Environment (getArgs)
 
 import Test.Hspec
 

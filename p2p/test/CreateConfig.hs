@@ -1,10 +1,10 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module CreateConfig (module CreateConfig) where
-import           Arivi.Crypto.Utils.PublicKey.Signature
-import           Arivi.Network                          (TransportType (..))
-import           Arivi.P2P.Kademlia.Types               (NodeEndPoint, NodeId,
+
+import           Arivi.P2P.Kademlia.Types               (NodeEndPoint,
                                                          Peer (..))
 import           Control.Exception
 import           Crypto.Error                           (throwCryptoError)
@@ -54,8 +54,10 @@ instance ToJSON SecretKey where
 instance ToJSON Config
 
 
+makeConfig :: Config -> FilePath -> IO ()
 makeConfig config configPath = encodeFile configPath config
 
+readConfig :: FilePath -> IO Config
 readConfig path = do
     config <- decodeFileEither path :: IO (Either ParseException Config)
     case config of

@@ -9,41 +9,27 @@ module Main
     ( module Main
     ) where
 
-import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Network
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.ServiceRegistry
-import           Arivi.Utils.Logging
 
-import           Control.Concurrent                     (threadDelay)
-import           Control.Concurrent.Async               hiding (async,
-                                                         mapConcurrently_, wait)
-
-import           Control.Concurrent.Async.Lifted        (async,
-                                                         mapConcurrently_, wait)
-import           Control.Concurrent.STM.TQueue
-import           Control.Exception
+import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
-import           Data.Time
 import           System.Environment                     (getArgs)
 
 import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import           Arivi.P2P.Kademlia.Types               (NodeEndPoint (..),
-                                                         NodeId, Peer (..))
 import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
 import qualified CreateConfig                           as Config
 import           Data.Monoid                            ((<>))
 import           Data.String.Conv
 import           Data.Text
-import           Network.Socket                         (PortNumber (..))
-import           System.Directory                       (doesPathExist,
-                                                         withCurrentDirectory)
+import           System.Directory                       (doesPathExist)
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -89,6 +75,8 @@ writeConfigs path = do
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
 -}
+
+defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
     let config =
@@ -171,7 +159,7 @@ runBSNode configPath = do
 
 main :: IO ()
 main = do
-    (path:args) <- getArgs
+    (path:_) <- getArgs
     b <- doesPathExist (path <> "/config.yaml")
     unless b (defaultConfig path)
     runNode (path <> "/config.yaml")

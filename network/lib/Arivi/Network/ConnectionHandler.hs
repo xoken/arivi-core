@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE QuasiQuotes         #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -54,6 +55,7 @@ import           Data.IORef
 import           Network.Socket                 hiding (send)
 import qualified Network.Socket.ByteString.Lazy as N (recv)
 import           System.Timeout
+import           Text.InterpolatedString.Perl6
 
 establishSecureConnection ::
        SecretKey
@@ -152,15 +154,20 @@ sendTcpMessage ::
     -> BSLC.ByteString
     -> m ()
 sendTcpMessage conn msg =
-    $(withLoggingTH) (LogNetworkStatement "sendTcpMessage: ") LevelInfo $ do
+    $(withLoggingTH)
+        (LogNetworkStatement
+             ([qc|sendTcpMessage: Host: {Conn.ipAddress conn} |]))
+        LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
         fragments <- liftIO $ processPayload 1024 (Payload msg) conn
         mapM_
             (\frame ->
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
-                     Left (e :: SomeException) -> liftIO (print "SendTcpMessage" >> print e) >>
-                         closeConnection sock >> throw NetworkSocketException
+                     Left (e :: SomeException) ->
+                         liftIO (print "SendTcpMessage" >> print e) >>
+                         closeConnection sock >>
+                         throw NetworkSocketException
                      Right _ -> return ())
             fragments
 
@@ -170,7 +177,10 @@ sendUdpMessage ::
     -> BSLC.ByteString
     -> m ()
 sendUdpMessage conn msg =
-    $(withLoggingTH) (LogNetworkStatement "sendUdpMessage: ") LevelInfo $ do
+    $(withLoggingTH)
+        (LogNetworkStatement
+             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn} |]))
+        LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
         fragments <- liftIO $ processPayload 4096 (Payload msg) conn
