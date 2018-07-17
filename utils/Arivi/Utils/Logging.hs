@@ -30,6 +30,7 @@ import           GHC.Stack
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax
 import           System.CPUTime
+import           Data.Time
 
 type LogChan = TQueue (Loc, LogSource, LogLevel, Text)
 
@@ -78,7 +79,8 @@ logToF ::
     -> m a
     -> m a
 logToF lf rf ls action = do
-    rf (toText ls <> " ")
+    currentTime <- liftIO $ getCurrentTime
+    rf (pack (show currentTime) <> " | " <> toText ls <> " ")
     (_, result) <- timeIt action
     case result of
         Left (e :: SomeException) -> do
