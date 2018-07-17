@@ -1,4 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -7,16 +7,16 @@
 
 module Arivi.Utils.Logging
     ( LogStatement(..)
---    , withChanLogging
     , withLogging
     , withLoggingTH
---    , withChanLoggingTH
     , LogLevel(..)
     , LogChan
     , HasLogging
     , withIOLogging
     ) where
 
+--    , withChanLogging
+--    , withChanLoggingTH
 import           Control.Concurrent.STM
 import           Control.Exception           as CE
 import           Control.Exception.Lifted    as CEL
@@ -33,11 +33,17 @@ import           System.CPUTime
 
 type LogChan = TQueue (Loc, LogSource, LogLevel, Text)
 
-data LogStatement =
-     LogNetworkStatement Text
-   | LogP2PStatement Text
+data LogStatement
+    = LogNetworkStatement Text
+    | LogP2PStatement Text
 
-type HasLogging m = (MonadLogger m, MonadIO m, MonadBaseControl IO m, MonadThrow m, MonadCatch m, HasCallStack)
+type HasLogging m
+     = ( MonadLogger m
+       , MonadIO m
+       , MonadBaseControl IO m
+       , MonadThrow m
+       , MonadCatch m
+       , HasCallStack)
 
 toText :: LogStatement -> Text
 toText (LogNetworkStatement l) = "LogNetworkStatement " <> l
@@ -48,7 +54,6 @@ withLoggingTH = [|withLocLogging $(qLocation >>= liftLoc)|]
 
 --withChanLoggingTH :: Q Exp
 --withChanLoggingTH = [|withChanLocLogging $(qLocation >>= liftLoc)|]
-
 withLocLogging ::
        (HasLogging m) => Loc -> LogStatement -> LogLevel -> m a -> m a
 withLocLogging loc ls ll =
@@ -63,10 +68,8 @@ withLogging = withLocLogging defaultLoc
 --     logger <- getLoggerChan
 --     let lifts t = liftIO $ atomically $ writeTQueue logger (loc, pack "", ll, t)
 --     logToF lifts lifts ls action
-
 -- withChanLogging :: (HasLogging m) => LogStatement -> LogLevel -> m a -> m a
 -- withChanLogging = withChanLocLogging defaultLoc
-
 logToF ::
        (MonadIO m, MonadBaseControl IO m, MonadThrow m, HasCallStack)
     => (Text -> m ())
@@ -79,11 +82,13 @@ logToF lf rf ls action = do
     (_, result) <- timeIt action
     case result of
         Left (e :: SomeException) -> do
-            lf ("Exception occured: " <> pack (displayException e) <> pack (prettyCallStack callStack))
+            lf
+                ("Exception occured: " <> pack (displayException e) <>
+                 pack (prettyCallStack callStack))
             throwM e
-        Right r -> do
+        Right r
             -- TODO: rf ("Took: " <> pack (show time))
-            return r
+         -> return r
 
 timeIt ::
        forall m a e. (MonadIO m, MonadBaseControl IO m, Exception e)
