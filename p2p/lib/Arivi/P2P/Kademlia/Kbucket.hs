@@ -159,7 +159,7 @@ addToKBucket peerR status = do
                 T.append
                     (T.pack "Kbucket after adding : ")
                     (T.pack (show kvList))
-            counter "Kbucket" 1
+            incrementCounter "KbucketSize"
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
@@ -201,7 +201,7 @@ removePeer peerR = do
                 T.append
                     (T.pack "Kbucket after deleting : ")
                     (T.pack (show kvList))
-            counter "Kbucket" (-1)
+            decrementCounter "KbucketSize"
         Left _ -> return ()
 
 -- Gives a peer list given a list of keys
