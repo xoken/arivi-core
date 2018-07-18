@@ -89,10 +89,10 @@ def executeProgram(dstPath,remoteUserName,serverIp,executableName):
     except:
         print("Can not execute file")
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
-    killPrevious(dstPath,remoteUserName,serverIp,executableName)
+    #killPrevious(dstPath,remoteUserName,serverIp,executableName)
     copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
-    generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
-    executeProgram(dstPath,remoteUserName,serverIp,executableName)
+    #generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
+    #executeProgram(dstPath,remoteUserName,serverIp,executableName)
 
 
 def deployAll(configFileName):
