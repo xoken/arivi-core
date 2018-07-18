@@ -3,9 +3,9 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE QuasiQuotes         #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -257,7 +257,7 @@ getDatagramWithTimeout sock microseconds = do
     datagramOrNothing <-
         timeout
             microseconds
-            (try $ mapIOException (\(_ :: SomeException) -> NetworkSocketException) (N.recv sock 5100))
+            (try (N.recv sock 5100))
     case datagramOrNothing of
         Nothing -> return $ Left NetworkTimeoutException
         Just datagramEither ->
