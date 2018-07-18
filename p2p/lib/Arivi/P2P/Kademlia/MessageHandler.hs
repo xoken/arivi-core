@@ -10,6 +10,10 @@
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
     ) where
@@ -24,8 +28,10 @@ import           Codec.Serialise             (deserialise, serialise)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import           Control.Monad.IO.Class
+import           Control.Monad.Logger
 import           Control.Monad.STM
 import qualified Data.ByteString.Lazy        as L
+import qualified Data.Text                   as T
 
 -- import qualified STMContainers.Map           as H
 -- | Handler function to process incoming kademlia requests, requires a
@@ -57,6 +63,10 @@ kademliaMessageHandler payl = do
         ltport = selfTCPPort p2pInstance
     case msgb of
         PING {} -> do
+            $(logDebug) $
+                T.append
+                    (T.pack "Ping Message Recieved from : ")
+                    (T.pack (show rnep))
             addToKBucket rpeer Active
             return $ serialise $ packPong lnid lip luport ltport
         FIND_NODE {}
@@ -66,6 +76,10 @@ kademliaMessageHandler payl = do
             --     i <- liftIO $ atomically $ H.size kb
             --     print ("Kbucket size before mH " ++ show i)
          -> do
+            $(logDebug) $
+                T.append
+                    (T.pack "Find_Node Message Recieved from : ")
+                    (T.pack (show rnep))
             addToKBucket rpeer Active
             -- liftIO $ do
             --     print "Find_Node recieved and peer added"
