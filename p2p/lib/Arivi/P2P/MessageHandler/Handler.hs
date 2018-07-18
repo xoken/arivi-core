@@ -22,7 +22,7 @@ import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue         ()
 import           Control.Concurrent.STM.TVar           ()
-import           Control.Exception                     (displayException, throw)
+import           Control.Exception                     (displayException)
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Monad                         (when)
@@ -280,7 +280,9 @@ getConnectionHandle peerDetailsTVar transportType = do
                             transportType
                             (nodeId peerDetails)
                     case res of
-                        Left e -> throw e
+                        Left e -> do
+                            $(logDebug) (T.pack (displayException e))
+                            getConnectionHandle peerDetailsTVar transportType
                         Right connHandle -> do
                             liftIO $
                                 atomically

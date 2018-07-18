@@ -79,8 +79,9 @@ newUdpConnection ::
     -> Socket
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
-newUdpConnection hsInitMsg sock handler =
-    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $
+newUdpConnection hsInitMsg sock handler = do
+    addr <- liftIO $ getPeerName sock
+    $(withLoggingTH) (LogNetworkStatement $ T.append (T.pack "newUdpConnection': ") (T.pack (show addr))) LevelDebug $
         -- liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
      do
         sk <- getSecretKey
