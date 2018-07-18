@@ -31,14 +31,15 @@ import           Control.Concurrent.Async.Lifted (async)
 import           Control.Exception.Lifted        (finally)
 import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
+import           Control.Monad.Logger
 import           Data.ByteString                 (ByteString)
 import           Data.ByteString.Lazy            (fromStrict)
 import           Data.Function                   ((&))
+import qualified Data.Text                       as T
 import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
 import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
-
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
     let hint =
@@ -87,6 +88,7 @@ newUdpConnection hsInitMsg sock handler =
             liftIO $
             deserialise (fromStrict hsInitMsg) &
             establishSecureConnection sk sock id
+        $(logDebug) $ T.pack ("New udp connection from: " ++ Conn.ipAddress conn)
         handler
             (Conn.remoteNodeId conn)
             (Conn.transportType conn)
