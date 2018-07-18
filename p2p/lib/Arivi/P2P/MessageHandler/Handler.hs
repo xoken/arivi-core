@@ -22,7 +22,7 @@ import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TQueue         ()
 import           Control.Concurrent.STM.TVar           ()
-import           Control.Exception                     (throw)
+import           Control.Exception                     (displayException, throw)
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Monad                         (when)
@@ -36,7 +36,7 @@ import           Data.UUID.V4                          (nextRandom)
 import           Network.Socket                        (PortNumber)
 
 import           Data.String.Conv
-
+import qualified Data.Text                             as T
 -- | used by RPC and PubSub to send outgoing requests. This is a blocing call which returns the reply
 sendRequest ::
        (HasP2PEnv m, HasLogging m) => NodeId -> MessageType -> P2PPayload -> m P2PPayload
@@ -103,7 +103,7 @@ sendRequestforKademlia node mType p2pPayload port mIP = do
         then do
             res <- openConnection mIP port UDP node
             case res of
-                Left e -> throw e
+                Left e -> $(logDebug) (T.pack (displayException e)) >> throw e
                 Right connHandle -> do
                     $(logDebug) (toS $ show node)
                     $(logDebug) (toS $ show mType)
