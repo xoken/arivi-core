@@ -10,7 +10,7 @@ module Arivi.P2P.MessageHandler.Handler
     ) where
 
 import           Arivi.Network                         (openConnection)
-import           Arivi.P2P.Exception
+-- import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Logging
@@ -29,6 +29,7 @@ import           Control.Monad                         (when)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Logger                  (logDebug)
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
+import qualified Data.ByteString.Lazy.Char8            as BSLC (pack)
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe
 import qualified Data.UUID                             as UUID (toString)
@@ -65,7 +66,8 @@ sendRequest node mType p2pPayload = do
     case res of
         Left (e :: Exception.SomeException) -> do
             liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
-            throw e
+            $(logDebug) (T.pack (displayException e))
+            return $ BSLC.pack (displayException e)
         Right _ -> do
             $(logDebug) "Request sent"
             winner <-
@@ -77,7 +79,7 @@ sendRequest node mType p2pPayload = do
                 Left _ -> do
                     liftIO $ atomically (deleteUUID newuuid uuidMapTVar)
                     $(logDebug) "TimerExpiredMVar"
-                    throw HandlerSendMessageTimeout
+                    return $ BSLC.pack "Timer expired"
                 Right (p2pReturnMessage :: P2PMessage) -> do
                     $(logDebug) "got response"
                     $(logDebug) (toS $ show p2pReturnMessage)
@@ -103,7 +105,9 @@ sendRequestforKademlia node mType p2pPayload port mIP = do
         then do
             res <- openConnection mIP port UDP node
             case res of
-                Left e -> $(logDebug) (T.pack (displayException e)) >> throw e
+                Left e -> do
+                    $(logDebug) (T.pack (displayException e))
+                    return $ BSLC.pack (displayException e ++ show mIP)
                 Right connHandle -> do
                     $(logDebug) (toS $ show node)
                     $(logDebug) (toS $ show mType)
@@ -131,7 +135,9 @@ readRequestThread ::
 readRequestThread connHandle uuidMapTVar messageTypeMap =  $(withLoggingTH) (LogP2PStatement "readRequestThread: ") LevelDebug $ do
     eitherByteMessage <- Exception.try $ recv connHandle
     case eitherByteMessage of
-        Left (e :: Exception.SomeException) -> throw e
+        Left (e :: Exception.SomeException) -> do
+            $(logDebug) (T.pack (displayException e))
+            return ()
         Right byteMessage -> do
             _ <-
                 do $(logDebug) "Recieved incoming message"
@@ -217,7 +223,10 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage = $(wit
             res <- Exception.try $ send connHandle (serialise p2pResponse)
             case res of
                 Left (e :: Exception.SomeException) --TODO: ExceptionHadnling
-                 -> throw e
+                 -> do
+                    $(logDebug) (T.pack (displayException e))
+                    return ()
+
                 Right _ -> return ()
         else do
             let mVar = fromJust temp
