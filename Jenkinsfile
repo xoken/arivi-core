@@ -26,7 +26,7 @@ pipeline {
                 sh 'cd p2p/test; stack clean;stack build;stack ghc Main.hs'
                 sh 'mv p2p/test/Main  scripts/Deployment-Tools/Main'
                 sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
-                sh 'cd scripts/Deployment-Tools; python fabfile.py Main'
+                sh 'cd scripts/Deployment-Tools; python fabfile.py Main;rm Main'
             }
         }
     }
