@@ -77,18 +77,18 @@ establishSecureConnection sk sock framer hsInitParcel = do
     writeLock <- newMVar 0
     let connection =
             Conn.mkIncompleteConnection'
-            { Conn.connectionId = cId
-            , Conn.ipAddress = ip
-            , Conn.port = portNum
-            , Conn.transportType = tt
-            , Conn.personalityType = RECIPIENT
-            , Conn.socket = sock
-            , Conn.waitWrite = writeLock
-            , Conn.p2pMessageTChan = p2pMsgTChan
-            , Conn.egressSeqNum = egressNonce
-            , Conn.ingressSeqNum = ingressNonce
-            , Conn.aeadNonceCounter = initNonce
-            }
+                { Conn.connectionId = cId
+                , Conn.ipAddress = ip
+                , Conn.port = portNum
+                , Conn.transportType = tt
+                , Conn.personalityType = RECIPIENT
+                , Conn.socket = sock
+                , Conn.waitWrite = writeLock
+                , Conn.p2pMessageTChan = p2pMsgTChan
+                , Conn.egressSeqNum = egressNonce
+                , Conn.ingressSeqNum = ingressNonce
+                , Conn.aeadNonceCounter = initNonce
+                }
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits
     (serialisedParcel, updatedConn) <-
@@ -111,7 +111,8 @@ getFrameLength len = fromIntegral lenInt16
     lenInt16 = decode len :: Int16
 
 -- | Races between a timer and receive parcel, returns an either type
-getParcelWithTimeout :: Socket -> Int -> IO (Either AriviNetworkException Parcel)
+getParcelWithTimeout ::
+       Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getParcelWithTimeout sock microseconds = do
     winner <- Async.race (threadDelay microseconds) (try $ recvAll sock 2)
     case winner of
@@ -140,13 +141,13 @@ getParcel sock = do
 sendPing :: MVar Int -> Socket -> Framer -> IO ()
 sendPing writeLock sock framer =
     let pingFrame = framer $ serialise (Parcel PingHeader (Payload BSL.empty))
-    in sendFrame writeLock sock pingFrame
+     in sendFrame writeLock sock pingFrame
 
 -- | Create and send a pong message on the socket
 sendPong :: MVar Int -> Socket -> Framer -> IO ()
 sendPong writeLock sock framer =
     let pongFrame = framer $ serialise (Parcel PongHeader (Payload BSL.empty))
-    in sendFrame writeLock sock pongFrame
+     in sendFrame writeLock sock pongFrame
 
 sendTcpMessage ::
        forall m. (MonadIO m, HasLogging m)
@@ -179,7 +180,7 @@ sendUdpMessage ::
 sendUdpMessage conn msg =
     $(withLoggingTH)
         (LogNetworkStatement
-             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn} |]))
+             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}|]))
         LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
@@ -188,8 +189,7 @@ sendUdpMessage conn msg =
             (\frame ->
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
                      Left (e :: SomeException) ->
-                         liftIO (print e) >> closeConnection sock >>
-                         throw e
+                         liftIO (print e) >> closeConnection sock >> throw e
                      Right _ -> return ())
             fragments
 
@@ -251,13 +251,10 @@ processParcel parcel connection fragmentsHM =
 -- getDatagram :: Socket -> IO (Either AriviException Parcel)
 -- getDatagram sock =
 --     first AriviDeserialiseException . deserialiseOrFail <$> N.recv sock 5100
-
-getDatagramWithTimeout :: Socket -> Int -> IO (Either AriviNetworkException Parcel)
+getDatagramWithTimeout ::
+       Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getDatagramWithTimeout sock microseconds = do
-    datagramOrNothing <-
-        timeout
-            microseconds
-            (try (N.recv sock 5100))
+    datagramOrNothing <- timeout microseconds (try (N.recv sock 5100))
     case datagramOrNothing of
         Nothing -> return $ Left NetworkTimeoutException
         Just datagramEither ->
