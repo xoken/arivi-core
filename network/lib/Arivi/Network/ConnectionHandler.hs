@@ -64,7 +64,7 @@ establishSecureConnection ::
     -> Parcel
     -> IO CompleteConnection
 establishSecureConnection sk sock framer hsInitParcel = do
-    socketName <- getSocketName sock
+    socketName <- getPeerName sock
     ip <- getIPAddress socketName
     let portNum = getPortNumber socketName
         tt = getTransportType sock
