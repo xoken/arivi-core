@@ -54,7 +54,16 @@ def generateConfigFile(srcPath, dstPath, remoteUserName, serverIp, rowNo):
         print("Can not generate configFile at " + serverIp)
 
 
-def copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName):
+def copyFile(srcPath, dstPath, remoteUserName, serverIp, executableName):
+    print("Deleting path if any " + dst + executableName + " at " + serverIp)
+
+    try:
+        result = Connection(remoteUserName + "@" + serverIp).run(\
+                        "rm -rf " + dstPath + executableName)
+        print("Deleted " + dstPath + executableName)
+    except :
+        print(executableName + "not found " + " to remote server")
+
     print("Copying " + src + executableName + " to " + dst + executableName + \
                                          " at " + serverIp)
     try:
