@@ -189,7 +189,7 @@ sendUdpMessage conn msg =
                  liftIO (atomically frame >>= (try . sendFrame lock sock)) >>= \case
                      Left (e :: SomeException) ->
                          liftIO (print e) >> closeConnection sock >>
-                         throw NetworkSocketException
+                         throw e
                      Right _ -> return ())
             fragments
 
