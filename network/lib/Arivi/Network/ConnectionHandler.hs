@@ -181,10 +181,11 @@ sendUdpMessage ::
 sendUdpMessage conn msg =
     $(withLoggingTH)
         (LogNetworkStatement
-             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}|]))
+             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}: MsgLength: {BSLC.length msg}|]))
         LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
+
         fragments <- liftIO $ processPayload 4096 (Payload msg) conn
         mapM_
             (\frame ->
