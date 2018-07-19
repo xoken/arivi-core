@@ -24,7 +24,8 @@ import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-import           Codec.Serialise             (deserialise, serialise)
+import           Codec.Serialise             (DeserialiseFailure,
+                                              deserialiseOrFail, serialise)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import           Control.Monad.IO.Class
@@ -49,45 +50,42 @@ import qualified Data.Text                   as T
 kademliaMessageHandler ::
        (HasP2PEnv m, HasLogging m) => L.ByteString -> m L.ByteString
 kademliaMessageHandler payl = do
-    let payl' = deserialise payl :: PayLoad
-        msgb = messageBody $ message payl'
-        rnep = fromEndPoint msgb
-        rnid = nodeId msgb
-        rpeer = Peer (rnid, rnep)
-    -- liftIO $ print (show rnep ++ " " ++ show rnid)
-    p2pInstanceTVar <- getAriviTVarP2PEnv
-    p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
-    let lnid = selfNodeId p2pInstance
-        luport = selfUDPPort p2pInstance
-        lip = selfIP p2pInstance
-        ltport = selfTCPPort p2pInstance
-    case msgb of
-        PING {} -> do
-            $(logDebug) $
-                T.append
-                    (T.pack "Ping Message Recieved from : ")
-                    (T.pack (show rnep))
-            addToKBucket rpeer
-            return $ serialise $ packPong lnid lip luport ltport
-        FIND_NODE {}
-            -- kb'' <- getKb
-            -- let kb = getKbucket kb''
-            -- liftIO $ do
-            --     i <- liftIO $ atomically $ H.size kb
-            --     print ("Kbucket size before mH " ++ show i)
-         -> do
-            $(logDebug) $
-                T.append
-                    (T.pack "Find_Node Message Recieved from : ")
-                    (T.pack (show rnep))
-            addToKBucket rpeer
-            -- liftIO $ do
-            --     print "Find_Node recieved and peer added"
-            --     i <- atomically $ H.size kb
-            --     print ("Kbucket size after mH " ++ show i)
-            pl <- getKClosestPeersByNodeid rnid 10
-            case pl of
-                Right pl2 ->
-                    return $ serialise $ packFnR lnid pl2 lip luport ltport
-                Left _ -> throw KademliaInvalidPeer
-        _ -> throw KademliaInvalidRequest
+    let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
+    case payl' of
+        Left _ -> throw KademliaDeserilaiseFailiure
+        Right payl'' -> do
+            let msgb = messageBody $ message payl''
+                rnep = fromEndPoint msgb
+                rnid = nodeId msgb
+                rpeer = Peer (rnid, rnep)
+            p2pInstanceTVar <- getAriviTVarP2PEnv
+            p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
+            let lnid = selfNodeId p2pInstance
+                luport = selfUDPPort p2pInstance
+                lip = selfIP p2pInstance
+                ltport = selfTCPPort p2pInstance
+            case msgb of
+                PING {} -> do
+                    $(logDebug) $
+                        T.append
+                            (T.pack "Ping Message Recieved from : ")
+                            (T.pack (show rnep))
+                    addToKBucket rpeer
+                    return $ serialise $ packPong lnid lip luport ltport
+                FIND_NODE {} -> do
+                    $(logDebug) $
+                        T.append
+                            (T.pack "Find_Node Message Recieved from : ")
+                            (T.pack (show rnep))
+                    addToKBucket rpeer
+                    -- liftIO $ do
+                    --     print "Find_Node recieved and peer added"
+                    --     i <- atomically $ H.size kb
+                    --     print ("Kbucket size after mH " ++ show i)
+                    pl <- getKClosestPeersByNodeid rnid 10
+                    case pl of
+                        Right pl2 ->
+                            return $
+                            serialise $ packFnR lnid pl2 lip luport ltport
+                        Left _ -> throw KademliaInvalidPeer
+                _ -> throw KademliaInvalidRequest

@@ -11,7 +11,7 @@ module Arivi.P2P.MessageHandler.Handler
 
 import           Arivi.Network                         (openConnection)
 
--- import           Arivi.P2P.Exception
+import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.Utils.Logging
@@ -205,7 +205,7 @@ cleanConnection mNodeId transportType = do
  --TODO: need to do uuidcheck in this thread and spawn only on a request
 
 processIncomingMessage ::
-       (HasP2PEnv m, HasLogging m)
+       forall m. (HasP2PEnv m, HasLogging m)
     => ConnectionHandle
     -> TVar UUIDMap
     -> MessageTypeMap m
@@ -219,22 +219,34 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage =
         if isNothing temp
             then do
                 $(logDebug) "incoming request recieved"
+                let fnc =
+                        fromJust $
+                        HM.lookup (messageType networkMessage) messageTypeMap
+                -- response <- Exception.try $ fnc (payload networkMessage) :: m (Either AriviP2PException P2PPayload)
                 response <-
-                    fromJust
-                        (HM.lookup (messageType networkMessage) messageTypeMap)
-                        (payload networkMessage)
-                let p2pResponse =
-                        generateP2PMessage
-                            (messageType networkMessage)
-                            response
-                            (uuid networkMessage)
-                res <- Exception.try $ send connHandle (serialise p2pResponse)
-                case res of
-                    Left (e :: Exception.SomeException) --TODO: ExceptionHadnling
-                     -> do
-                        $(logDebug) (T.pack (displayException e))
-                        return ()
-                    Right _ -> return ()
+                    Exception.try (fnc (payload networkMessage)) :: m (Either AriviP2PException P2PPayload)
+                case response of
+                    Left e ->
+                        $(logDebug) $
+                        T.append
+                            (T.pack
+                                 "Couldn't deserialise message while handiling incoming msg : ")
+                            (T.pack (displayException e))
+                    Right response' -> do
+                        let p2pResponse =
+                                generateP2PMessage
+                                    (messageType networkMessage)
+                                    response'
+                                    (uuid networkMessage)
+                        res <-
+                            Exception.try $
+                            send connHandle (serialise p2pResponse)
+                        case res of
+                            Left (e :: Exception.SomeException) --TODO: ExceptionHadnling
+                             -> do
+                                $(logDebug) (T.pack (displayException e))
+                                return ()
+                            Right _ -> return ()
             else do
                 let mVar = fromJust temp
                 liftIO $ putMVar mVar networkMessage
