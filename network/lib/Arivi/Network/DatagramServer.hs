@@ -23,7 +23,8 @@ import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readUdpSock, sendUdpMessage)
 import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType, deserialiseOrFail)
+                                                  TransportType,
+                                                  deserialiseOrFail)
                                                 --   Parcel,
 
 import           Arivi.Network.Exception
@@ -34,6 +35,7 @@ import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
 import           Data.ByteString                 (ByteString)
 import           Data.ByteString.Lazy            (fromStrict)
+import qualified Data.Text                       as T
 import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
 import qualified Network.Socket
@@ -78,7 +80,8 @@ newUdpConnection ::
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
-    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $
+    liftIO (getPeerName sock) >>= \addr ->
+    $(withLoggingTH) (LogNetworkStatement $ T.append (T.pack "newUdpConnection latest: ") (T.pack (show addr))) LevelDebug $
     either
         (throw . NetworkDeserialiseException)
         (\hsInitParcel -> do
