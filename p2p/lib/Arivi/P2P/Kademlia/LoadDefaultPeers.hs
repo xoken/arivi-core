@@ -55,7 +55,7 @@ getPeerListFromPayload :: L.ByteString -> Either AriviP2PException [Peer]
 getPeerListFromPayload payl = do
     let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
     case payl' of
-        Left _ -> Left KademliaDeserilaiseFailiure
+        Left _ -> Left KademliaDeserialiseFailure
         Right payl'' -> do
             let msg = message payl''
                 msgb = messageBody msg

@@ -22,7 +22,7 @@ data AriviP2PException
     | SendOptionsFailedException
     | OptionsInvalidMessageType { mTypeOpt :: MessageTypeRPC }
     | OptionsHandlerInvalidMessageType { mTypeOptH :: MessageTypeRPC }
-    | KademliaDeserialiseFailiure
+    | KademliaDeserialiseFailure
     deriving (Show)
 
 instance Exception AriviP2PException

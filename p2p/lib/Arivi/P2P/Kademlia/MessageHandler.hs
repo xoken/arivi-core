@@ -52,7 +52,7 @@ kademliaMessageHandler ::
 kademliaMessageHandler payl = do
     let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
     case payl' of
-        Left _ -> throw KademliaDeserilaiseFailiure
+        Left _ -> throw KademliaDeserialiseFailure
         Right payl'' -> do
             let msgb = messageBody $ message payl''
                 rnep = fromEndPoint msgb
