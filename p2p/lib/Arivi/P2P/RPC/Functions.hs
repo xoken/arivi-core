@@ -24,7 +24,8 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
-import           Codec.Serialise                       (deserialise, serialise)
+import           Codec.Serialise                       (deserialiseOrFail,
+                                                        serialise)
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
@@ -165,10 +166,10 @@ getResource resourceID servicemessage = do
     let entryInTransientResourceMap =
             HM.lookup resourceID transientResourceToPeerMap
     let entry = firstJust entryInArchivedResourceMap entryInTransientResourceMap
-    if isNothing entry
-        then throw RPCResourceNotFoundException
-        else do
-            let nodeListTVar = snd (fromJust entry)
+    case entry of
+        Nothing -> throw RPCResourceNotFoundException
+        Just entryMap -> do
+            let nodeListTVar = snd entryMap
             nodeList <- liftIO $ atomically $ readTVar nodeListTVar
             liftIO $ print nodeList
             if null nodeList
@@ -208,68 +209,100 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                 resourceID
                 mynodeid
                 servicemessage -- should discard the peer
-        Right returnMessage -> do
-            let inmessage = deserialise returnMessage :: MessageTypeRPC
-            case inmessage of
-                ReplyResource toNodeId fromNodeId resID _ ->
-                    if (mynodeid == toNodeId && mNodeId == fromNodeId) &&
-                       resourceID == resID
-                        then liftIO $ return (serviceMessage inmessage)
-                        else sendResourceRequestToPeer
-                                 nodeListTVar
-                                 resourceID
-                                 mynodeid
-                                 servicemessage
-                Response _ _ responseCode' ->
-                    case responseCode' of
-                        Busy ->
-                            sendResourceRequestToPeer
-                                nodeListTVar
-                                resourceID
-                                mynodeid
-                                servicemessage
-                        Error -> return $ Lazy.fromStrict $ pack " error " -- need to define proper error handling maybe throw an exception
- -- should check to and from
-                _ -> return $ Lazy.fromStrict $ pack " default"
+        Right payload -> do
+            let deserialiseCheck = deserialiseOrFail payload
+            case deserialiseCheck of
+                Left _
+                    -- the to = NodeId should be entered by P2P/Node end point
+                 -> do
+                    let errorMessage =
+                            Response
+                                { to = pack ""
+                                , from = mNodeId
+                                , responseCode = DeserialiseError
+                                }
+                    return $ serialise errorMessage
+                Right (inmessage :: MessageTypeRPC) ->
+                    case inmessage of
+                        ReplyResource toNodeId fromNodeId resID _ ->
+                            if (mynodeid == toNodeId && mNodeId == fromNodeId) &&
+                               resourceID == resID
+                                then liftIO $ return (serviceMessage inmessage)
+                                else sendResourceRequestToPeer
+                                         nodeListTVar
+                                         resourceID
+                                         mynodeid
+                                         servicemessage
+                        Response _ _ responseCode' ->
+                            case responseCode' of
+                                Busy ->
+                                    sendResourceRequestToPeer
+                                        nodeListTVar
+                                        resourceID
+                                        mynodeid
+                                        servicemessage
+                                Error ->
+                                    return $ Lazy.fromStrict $ pack " error " -- need to define proper error handling maybe throw an exception
+                                DeserialiseError ->
+                                    return $
+                                    Lazy.fromStrict $ pack " Deserialise error "
+         -- should check to and from
+                        _ -> return $ Lazy.fromStrict $ pack " default"
 
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
 rpcHandler incomingRequest = do
-    let incomingMessage = deserialise incomingRequest :: MessageTypeRPC
-    case incomingMessage of
-        RequestResource myNodeId mNodeId resourceId requestServiceMessage -> do
-            archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
-            archivedResourceToPeerMap <-
-                liftIO $ readTVarIO archivedResourceToPeerMapTvar
-            transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
-            transientResourceToPeerMap <-
-                liftIO $ readTVarIO transientResourceToPeerMapTVar
-            let entryInArchivedResourceMap =
-                    HM.lookup resourceId archivedResourceToPeerMap
-            let entryInTransientResourceMap =
-                    HM.lookup resourceId transientResourceToPeerMap
-            let entry =
-                    firstJust
-                        entryInArchivedResourceMap
-                        entryInTransientResourceMap
-            if isNothing entry
-                then throw RPCHandlerResourceNotFoundException
-                else do
-                    let resourceHandler = fst $ fromJust entry
-                    let responseServiceMessage =
-                            resourceHandler requestServiceMessage
-                    let replyMessage =
-                            ReplyResource
-                                { to = mNodeId
-                                , from = myNodeId
-                                , rid = resourceId
-                                , serviceMessage = responseServiceMessage
-                                }
-                    let rpcResponse = serialise replyMessage
-                    return rpcResponse
-            -- currently catching everything and returning an empty byte string in future need to define proper error messages
-        _ -> throw (RPCInvalidMessageType incomingMessage)
+    let deserialiseCheck = deserialiseOrFail incomingRequest
+    myId <- getSelfNodeId
+    case deserialiseCheck of
+        Left _
+            -- the to = NodeId should be entered by P2P/Node end point
+         -> do
+            let errorMessage =
+                    Response
+                        { to = pack ""
+                        , from = myId
+                        , responseCode = DeserialiseError
+                        }
+            return $ serialise errorMessage
+        Right (incomingMessage :: MessageTypeRPC) ->
+            case incomingMessage of
+                RequestResource _ mNodeId resourceId requestServiceMessage -> do
+                    archivedResourceToPeerMapTvar <-
+                        getArchivedResourceToPeerMapP2PEnv
+                    archivedResourceToPeerMap <-
+                        liftIO $ readTVarIO archivedResourceToPeerMapTvar
+                    transientResourceToPeerMapTVar <-
+                        getTransientResourceToPeerMap
+                    transientResourceToPeerMap <-
+                        liftIO $ readTVarIO transientResourceToPeerMapTVar
+                    let entryInArchivedResourceMap =
+                            HM.lookup resourceId archivedResourceToPeerMap
+                    let entryInTransientResourceMap =
+                            HM.lookup resourceId transientResourceToPeerMap
+                    let entry =
+                            firstJust
+                                entryInArchivedResourceMap
+                                entryInTransientResourceMap
+                    case entry of
+                        Nothing -> throw RPCHandlerResourceNotFoundException
+                        Just entryMap -> do
+                            let resourceHandler = fst entryMap
+                            let responseServiceMessage =
+                                    resourceHandler requestServiceMessage
+                            let replyMessage =
+                                    ReplyResource
+                                        { to = mNodeId
+                                        , from = myId
+                                        , rid = resourceId
+                                        , serviceMessage =
+                                              responseServiceMessage
+                                        }
+                            let rpcResponse = serialise replyMessage
+                            return rpcResponse
+                    -- currently catching everything and returning an empty byte string in future need to define proper error messages
+                _ -> throw (RPCInvalidMessageType incomingMessage)
 
 -- | add the peers returned by Kademlia to the PeerDetails HashMap
 addPeerFromKademlia ::
@@ -297,8 +330,8 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
                 let newIp = Just (KademliaTypes.nodeIp kadNodeEndPoint)
                 let newUdpPort = Just (KademliaTypes.udpPort kadNodeEndPoint)
                 let newTcpPort = Just (KademliaTypes.tcpPort kadNodeEndPoint)
-                do if isNothing mapEntry
-                       then do
+                do case mapEntry of
+                       Nothing -> do
                            let newDetails =
                                    PeerDetails
                                        { nodeId = mNodeId
@@ -314,8 +347,8 @@ addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
                            let newHashMap =
                                    HM.insert mNodeId newPeerTvar nodeIdPeerMap
                            writeTVar nodeIdPeerMapTVar newHashMap
-                       else do
-                           oldPeerDetails <- readTVar (fromJust mapEntry)
+                       Just value -> do
+                           oldPeerDetails <- readTVar value
                            let newDetails =
                                    oldPeerDetails
                                        { ip = newIp

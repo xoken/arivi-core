@@ -63,6 +63,7 @@ instance Serialise MessageTypeRPC
 data ResponseCode
     = Busy
     | Error
+    | DeserialiseError
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise ResponseCode
