@@ -21,6 +21,7 @@ module Arivi.P2P.Kademlia.Types
     , packFnR
     , packPing
     , packPong
+    , createKbucket
     -- , serialise
     -- , deserialise
     , Peer(..)
@@ -28,24 +29,26 @@ module Arivi.P2P.Kademlia.Types
     , HasKbucket(..)
     ) where
 
-import           Codec.Serialise.Class       (Serialise (..))
+import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-import           Control.Monad.IO.Class      (MonadIO)
-import           Control.Monad.Trans.Control (MonadBaseControl)
+
+-- import           Control.Monad.IO.Class   (MonadIO)
+-- import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.Monad.STM        (atomically)
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519       (PublicKey, Signature, publicKey,
-                                              signature)
-import           Data.ByteArray              (convert)
+import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
+                                           signature)
+import           Data.ByteArray           (convert)
 import           Data.ByteString
-import qualified Data.ByteString.Char8       as C
-import           Data.ByteString.Lazy        ()
+import qualified Data.ByteString.Char8    as C
+import           Data.ByteString.Lazy     ()
 import           Data.Monoid
-import           Data.Time.Clock.POSIX       (POSIXTime, getPOSIXTime)
+import           Data.Time.Clock.POSIX    (POSIXTime, getPOSIXTime)
 import           Data.Word
 import           GHC.Generics
 import           Network.Socket
-import qualified STMContainers.Map           as H
+import qualified STMContainers.Map        as H
 
 -- | Helper function to get timeStamp/ epoch
 getTimeStamp :: IO TimeStamp
@@ -87,10 +90,18 @@ newtype Kbucket k v = Kbucket
     { getKbucket :: H.Map k v
     }
 
-class (MonadIO m, MonadBaseControl IO m) =>
-      HasKbucket m
-    where
+class HasKbucket m where
     getKb :: m (Kbucket Int [Peer])
+
+-- | Creates a new K-bucket which is a mutable hash table, and inserts the local
+-- node with position 0 i.e kb index is zero since the distance of a node
+-- from it's own address is zero. This will help insert the new peers into
+-- kbucket with respect to the local peer
+createKbucket :: Peer -> IO (Kbucket Int [Peer])
+createKbucket localPeer = do
+    m <- atomically H.new
+    atomically $ H.insert [localPeer] 0 m
+    return (Kbucket m)
 
 -- Custom data type to send & receive message
 data MessageBody

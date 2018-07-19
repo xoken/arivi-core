@@ -67,7 +67,7 @@ kademliaMessageHandler payl = do
                 T.append
                     (T.pack "Ping Message Recieved from : ")
                     (T.pack (show rnep))
-            addToKBucket rpeer Active
+            addToKBucket rpeer
             return $ serialise $ packPong lnid lip luport ltport
         FIND_NODE {}
             -- kb'' <- getKb
@@ -80,7 +80,7 @@ kademliaMessageHandler payl = do
                 T.append
                     (T.pack "Find_Node Message Recieved from : ")
                     (T.pack (show rnep))
-            addToKBucket rpeer Active
+            addToKBucket rpeer
             -- liftIO $ do
             --     print "Find_Node recieved and peer added"
             --     i <- atomically $ H.size kb

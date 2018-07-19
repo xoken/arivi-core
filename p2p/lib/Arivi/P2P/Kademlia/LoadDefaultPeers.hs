@@ -88,7 +88,7 @@ issueFindNode rpeer = do
     $(logDebug) $
         T.pack ("Issueing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
     resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
-    addToKBucket rpeer Active
+    addToKBucket rpeer
     let peerl =
             case getPeerListFromPayload resp of
                 Right x -> x
