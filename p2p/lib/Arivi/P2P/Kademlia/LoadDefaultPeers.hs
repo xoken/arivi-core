@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- |
 -- Module      : Arivi.Kademlia.LoadDefaultPeers
@@ -31,6 +32,9 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (deserialise, serialise)
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
+import           Control.Exception                     (displayException)
+import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                     try)
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.STM
@@ -87,25 +91,31 @@ issueFindNode rpeer = do
         fn_msg = packFindMsg lnid lnid lip luport ltport
     $(logDebug) $
         T.pack ("Issueing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
-    addToKBucket rpeer
-    let peerl =
-            case getPeerListFromPayload resp of
-                Right x -> x
-                Left _  -> []
-    $(logDebug) $
-        T.pack
-            ("Received PeerList from " ++
-             show rip ++ ":" ++ show ruport ++ ": " ++ show peerl)
-    peerl2 <- deleteIfPeerExist peerl
-    $(logDebug) $
-        T.pack
-            ("Received PeerList after removing exisiting peers : " ++
-             show peerl2)
-    -- | Deletes nodes from peer list which already exists in k-bucket
-    --   this is important otherwise it will be stuck in a loop where the
-    --   function constantly issue FIND_NODE request forever.
-    alpha <- getKademliaConcurrencyFactor
-    let pl3 = LL.splitAt alpha peerl2
-    mapConcurrently_ issueFindNode $ fst pl3
-    mapConcurrently_ issueFindNode $ snd pl3
+    resp <-
+        Exception.try $
+        sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+    case resp of
+        Left (e :: Exception.SomeException) ->
+            $(logDebug) (T.pack (displayException e))
+        Right resp' -> do
+            addToKBucket rpeer
+            let peerl =
+                    case getPeerListFromPayload resp' of
+                        Right x -> x
+                        Left _  -> []
+            $(logDebug) $
+                T.pack
+                    ("Received PeerList from " ++
+                     show rip ++ ":" ++ show ruport ++ ": " ++ show peerl)
+            peerl2 <- deleteIfPeerExist peerl
+            $(logDebug) $
+                T.pack
+                    ("Received PeerList after removing exisiting peers : " ++
+                     show peerl2)
+            -- | Deletes nodes from peer list which already exists in k-bucket
+            --   this is important otherwise it will be stuck in a loop where the
+            --   function constantly issue FIND_NODE request forever.
+            alpha <- getKademliaConcurrencyFactor
+            let pl3 = LL.splitAt alpha peerl2
+            mapConcurrently_ issueFindNode $ fst pl3
+            mapConcurrently_ issueFindNode $ snd pl3

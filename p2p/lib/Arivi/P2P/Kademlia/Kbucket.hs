@@ -263,3 +263,21 @@ getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
     keyl <- liftIO $ U.randomList 255
     getPeerListFromKeyList k keyl
+-- refreshAndAdd :: [Peer] -> Int -> [Peer]
+-- refreshAndAdd inPl sBound fPl = do
+--     mapM issuePing [Peer]
+-- issuePing :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m()
+-- issuePing peerR = do
+--     p2pInstanceTVar <- getAriviTVarP2PEnv
+--     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
+--     let lnid = selfNodeId p2pInstance
+--         luport = selfUDPPort p2pInstance
+--         lip = selfIP p2pInstance
+--         ltport = selfTCPPort p2pInstance
+--         rnid = fst $ getPeer rpeer
+--         rnep = snd $ getPeer rpeer
+--         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
+--         rip = nodeIp rnep
+--         ping_msg = packPing lnid lip luport ltport
+--     resp <- sendRequestforKademlia rnid Kademlia (serialise ping_msg) ruport rip
+--     liftIO $ print ""
