@@ -18,7 +18,8 @@ import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types                   (ResourceHandler,
                                                         ResourceId)
 import           Arivi.Utils.Logging
-import           Codec.Serialise                       (deserialise, serialise)
+import           Codec.Serialise                       (deserialiseOrFail,
+                                                        serialise)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
@@ -53,11 +54,16 @@ publishTopic messageTopic publishMessage = do
     notifierTableTVar <- getNotifiersTableP2PEnv
     notifierMap <- liftIO $ readTVarIO notifierTableTVar
     let currWatcherListTvarMaybe = HM.lookup messageTopic watcherMap
-    let currNotifierListTvarMaybe = HM.lookup messageTopic notifierMap
     currWatcherSortedList <-
-        liftIO $ readTVarIO $ fromJust currWatcherListTvarMaybe
+        case currWatcherListTvarMaybe of
+            Nothing               -> return $ toSortedList []
+            Just sortedWtListTVar -> liftIO $ readTVarIO sortedWtListTVar
+    let currNotifierListTvarMaybe = HM.lookup messageTopic notifierMap
     currNotifierSortedList <-
-        liftIO $ readTVarIO $ fst $ fromJust currNotifierListTvarMaybe
+        case currNotifierListTvarMaybe of
+            Nothing -> return $ toSortedList []
+            Just sortedNotListTVar ->
+                liftIO $ readTVarIO $ fst sortedNotListTVar
     let currWatcherList = fromSortedList currWatcherSortedList
     let currNotifierList = fromSortedList currNotifierSortedList
     let combinedList = currWatcherList `List.union` currNotifierList
@@ -87,16 +93,18 @@ maintainWatchersHelper ::
 maintainWatchersHelper _ [] = return ()
 maintainWatchersHelper watcherMap (topic:topicIdList) = do
     let currListTvarMaybe = HM.lookup topic watcherMap
-    let currListTvar = fromJust currListTvarMaybe
-    currTime <- liftIO getCurrentTime
-    liftIO $
-        atomically
-            (do currSortedList <- readTVar currListTvar
-                let currList = fromSortedList currSortedList
-                let newList = checkNodeTimers currList currTime
-                let newSortedList = toSortedList newList
-                writeTVar currListTvar newSortedList)
-    maintainWatchersHelper watcherMap topicIdList
+    case currListTvarMaybe of
+        Nothing -> return () -- If topic does not exist return
+        Just currListTvar -> do
+            currTime <- liftIO getCurrentTime
+            liftIO $
+                atomically
+                    (do currSortedList <- readTVar currListTvar
+                        let currList = fromSortedList currSortedList
+                        let newList = checkNodeTimers currList currTime
+                        let newSortedList = toSortedList newList
+                        writeTVar currListTvar newSortedList)
+            maintainWatchersHelper watcherMap topicIdList
 
 -- will take the list of watchers for each topic and check their validity
 checkNodeTimers :: [NodeTimer] -> UTCTime -> [NodeTimer]
@@ -113,28 +121,29 @@ notifyTopic mTopic mTopicMessage = do
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
     let listOfWatchersForTopic = HM.lookup mTopic watcherMap
-    if isNothing listOfWatchersForTopic
-        then return () -- what to do if no watchers are present for a given topic
-        else do
+    case listOfWatchersForTopic of
+        Nothing -> return () -- TODO :: what to do if no watchers are present for a given topic
+        Just currWListTVar -> do
             let notifyMessage =
                     Notify {topicId = mTopic, topicMessage = mTopicMessage}
             let notifyMessageByteString = serialise notifyMessage
-            currWatcherSortedList <-
-                liftIO $ readTVarIO $ fromJust listOfWatchersForTopic
+            currWatcherSortedList <- liftIO $ readTVarIO currWListTVar
             let watcherList = fromSortedList currWatcherSortedList
             let watcherNodeIdList = List.map timerNodeId watcherList
             messageHashMapTvar <- getMessageHashMapP2PEnv
             messageHashMap <- liftIO $ readTVarIO messageHashMapTvar
             let currTuple = HM.lookup mTopicMessage messageHashMap
                     -- need to add an exception for failed sending of pubsub message
-            if isNothing currTuple
+            case currTuple
                              -- there are no nodes for this message in the MessageHashMap so send to all the watchers
-                then sendPubSubMessage watcherNodeIdList notifyMessageByteString
-                else do
-                    messageMapTuple <- liftIO $ readTVarIO $ fromJust currTuple
+                  of
+                Nothing ->
+                    sendPubSubMessage watcherNodeIdList notifyMessageByteString
+                Just valueTuple -> do
+                    messageMapTuple <- liftIO $ readTVarIO valueTuple
                     let messageNodeIdList = snd messageMapTuple
                     let finalListOfWatchers =
-                            watcherNodeIdList List.\\ messageNodeIdList
+                            watcherNodeIdList List.\\ messageNodeIdList -- List.\\ does set difference
                     sendPubSubMessage
                         finalListOfWatchers
                         notifyMessageByteString
@@ -153,8 +162,8 @@ updateDynamicResourceToPeerMap resID resHandler nodeID = do
             (do transientResourceToPeerMap <-
                     readTVar transientResourceToPeerMapTVar
                 let currentEntry = HM.lookup resID transientResourceToPeerMap
-                if isNothing currentEntry
-                    then do
+                case currentEntry of
+                    Nothing -> do
                         newNodeTVar <- newTVar [nodeID]
                         let modifiedMap =
                                 HM.insert
@@ -162,8 +171,8 @@ updateDynamicResourceToPeerMap resID resHandler nodeID = do
                                     (resHandler, newNodeTVar)
                                     transientResourceToPeerMap
                         writeTVar transientResourceToPeerMapTVar modifiedMap
-                    else do
-                        let nodeListTVar = snd $ fromJust currentEntry
+                    Just entryValue -> do
+                        let nodeListTVar = snd entryValue
                         currNodeList <- readTVar nodeListTVar
                         let newNodeList = currNodeList ++ [nodeID]
                         writeTVar nodeListTVar newNodeList)
@@ -210,24 +219,26 @@ maintainNotifiersHelper ::
 maintainNotifiersHelper _ [] = return ()
 maintainNotifiersHelper notifierMap (currTopic:topicList) = do
     let currNotifierListTvar = HM.lookup currTopic notifierMap
-    -- not checking for Nothing since the topic list is a list of keys for the map
-    currTime <- liftIO getCurrentTime
-    expiredNotifs <-
-        liftIO $
-        atomically
-            (do currSortedList <- readTVar $ fst $ fromJust currNotifierListTvar
-                let currNotiferList = fromSortedList currSortedList
-                let nonExpiredNotifiers =
-                        checkNodeTimers currNotiferList currTime
-                let expiredNotifiers =
-                        currNotiferList List.\\ nonExpiredNotifiers
-                writeTVar
-                    (fst $ fromJust currNotifierListTvar)
-                    (toSortedList nonExpiredNotifiers) -- removing the expired notifiers
-                return expiredNotifiers)
-    let expiredNodeIds = List.map timerNodeId expiredNotifs
-    subscribeToMultiplePeers currTopic expiredNodeIds -- there needs to a filtering of expired notifiers based on PeerReputation.
-    maintainNotifiersHelper notifierMap topicList
+    case currNotifierListTvar of
+        Nothing -> return ()
+        Just mapValue -> do
+            currTime <- liftIO getCurrentTime
+            expiredNotifs <-
+                liftIO $
+                atomically
+                    (do currSortedList <- readTVar $ fst mapValue
+                        let currNotiferList = fromSortedList currSortedList
+                        let nonExpiredNotifiers =
+                                checkNodeTimers currNotiferList currTime
+                        let expiredNotifiers =
+                                currNotiferList List.\\ nonExpiredNotifiers
+                        writeTVar
+                            (fst $ fromJust currNotifierListTvar)
+                            (toSortedList nonExpiredNotifiers) -- removing the expired notifiers
+                        return expiredNotifiers)
+            let expiredNodeIds = List.map timerNodeId expiredNotifs
+            subscribeToMultiplePeers currTopic expiredNodeIds -- there needs to a filtering of expired notifiers based on PeerReputation.
+            maintainNotifiersHelper notifierMap topicList
 
 subscribeToMultiplePeers ::
        (HasP2PEnv m, HasLogging m) => Topic -> [NodeId] -> m ()
@@ -242,54 +253,87 @@ sendSubscribeToPeer mTopic notifierNodeId = do
     let serializedSubMessage = serialise subMessage
     currTime <- liftIO getCurrentTime
     response <- sendRequest notifierNodeId PubSub serializedSubMessage -- not exactly RPC, needs to be changed
-    let responseMessage = deserialise response :: MessageTypePubSub
-    case responseMessage of
-        Response mresponseCode mTimer -- the notifier returns the actual time of the subscription
-         -> do
+    let deserialiseCheck = deserialiseOrFail response
+    case deserialiseCheck of
+        Left _ -> return () -- TODO:: reduce reputation if subscribe fails and handle the failure
+        Right (responseMessage :: MessageTypePubSub) -> do
             notifierTableTVar <- getNotifiersTableP2PEnv
-            notifierMap <- liftIO $ readTVarIO notifierTableTVar
-            let currNotifierListTvar = HM.lookup mTopic notifierMap
-            case mresponseCode of
-                Ok ->
-                    liftIO $
-                    atomically
-                        (do currSortedList <-
-                                readTVar $ fst $ fromJust currNotifierListTvar
-                            let currNotiferList = fromSortedList currSortedList
-                            let timeDiff = fromInteger mTimer :: NominalDiffTime
-                            let subscriptionTime = addUTCTime timeDiff currTime
-                            let newNotifier =
-                                    NodeTimer
-                                        { timerNodeId = notifierNodeId
-                                        , timer = subscriptionTime
-                                        }
-                            let updatedList = currNotiferList ++ [newNotifier]
-                            let updatedSortedList = toSortedList updatedList
-                            writeTVar
-                                (fst $ fromJust currNotifierListTvar)
-                                updatedSortedList)
-                Error -> return ()
-        _ -> return () -- need a proper error message
+            liftIO $
+                atomically
+                    (case responseMessage of
+                         Response mresponseCode mTimer -- the notifier returns the actual time of the subscription
+                          -> do
+                             notifierMap <- readTVar notifierTableTVar
+                             let currNotifierListTvar =
+                                     HM.lookup mTopic notifierMap
+                             case mresponseCode of
+                                 Ok -> do
+                                     let timeDiff =
+                                             fromInteger mTimer :: NominalDiffTime
+                                     let subscriptionTime =
+                                             addUTCTime timeDiff currTime
+                                     let newNotifier =
+                                             NodeTimer
+                                                 { timerNodeId = notifierNodeId
+                                                 , timer = subscriptionTime
+                                                 }
+                                     case currNotifierListTvar of
+                                         Nothing -> do
+                                             let newNotif =
+                                                     toSortedList [newNotifier]
+                                             newNotifTvar <- newTVar newNotif
+                                            -- TODO:: read the minimum number of notifs from config instead of hardcoding
+                                             let updatedMap =
+                                                     HM.insert
+                                                         mTopic
+                                                         (newNotifTvar, 5)
+                                                         notifierMap
+                                             writeTVar
+                                                 notifierTableTVar
+                                                 updatedMap
+                                         Just entry -> do
+                                             currSortedList <-
+                                                 readTVar $ fst entry
+                                             let currNotiferList =
+                                                     fromSortedList
+                                                         currSortedList
+                                             let updatedList =
+                                                     currNotiferList ++
+                                                     [newNotifier]
+                                             let updatedSortedList =
+                                                     toSortedList updatedList
+                                             writeTVar
+                                                 (fst entry)
+                                                 updatedSortedList
+                                 Error -> return ()
+                         _ -> return () -- need a proper error message
+                     )
 
 -- might have to write a wrapper above this
 -- need to take nodeID from env
-maintainMinimumCountNotifier ::
-       (HasP2PEnv m, HasLogging m) => Topic -> NodeId -> m ()
-maintainMinimumCountNotifier mTopic currNodeId = do
+maintainMinimumCountNotifier :: (HasP2PEnv m, HasLogging m) => Topic -> m ()
+maintainMinimumCountNotifier mTopic = do
+    currNodeId <- getSelfNodeId
     notifierTableTVar <- getNotifiersTableP2PEnv
     notifierMap <- liftIO $ readTVarIO notifierTableTVar
     let currNotifierListTuple = HM.lookup mTopic notifierMap
-    currSortedList <- liftIO $ readTVarIO $ fst $ fromJust currNotifierListTuple
-    let minNumberOfNotifiers = snd $ fromJust currNotifierListTuple
-    let currNotiferList = fromSortedList currSortedList
-    Control.Monad.when (length currNotiferList - minNumberOfNotifiers < 0) $ do
-        peerRandom <- Kademlia.getKRandomPeers 2
-        res1 <- Exception.try $ Kademlia.getKClosestPeersByNodeid currNodeId 3
-        peersClose <-
-            case res1 of
-                Left (_ :: Exception.SomeException) ->
-                    Kademlia.getKRandomPeers 3
-                Right peers -> return (fromRight peers)
-        let peers = peerRandom ++ peersClose
-        nodeIds <- addPeerFromKademlia peers
-        subscribeToMultiplePeers mTopic nodeIds
+    case currNotifierListTuple of
+        Nothing -> return ()
+        Just entry -> do
+            currSortedList <- liftIO $ readTVarIO $ fst entry
+            let minNumberOfNotifiers = snd $ fromJust currNotifierListTuple
+            let currNotiferList = fromSortedList currSortedList
+            Control.Monad.when
+                (length currNotiferList - minNumberOfNotifiers < 0) $ do
+                peerRandom <- Kademlia.getKRandomPeers 2
+                res1 <-
+                    Exception.try $
+                    Kademlia.getKClosestPeersByNodeid currNodeId 3
+                peersClose <-
+                    case res1 of
+                        Left (_ :: Exception.SomeException) ->
+                            Kademlia.getKRandomPeers 3
+                        Right peers -> return (fromRight peers)
+                let peers = peerRandom ++ peersClose
+                nodeIds <- addPeerFromKademlia peers
+                subscribeToMultiplePeers mTopic nodeIds

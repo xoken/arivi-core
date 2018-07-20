@@ -18,10 +18,10 @@ data AriviP2PException
     | RPCResourceNotFoundException
     | RPCHandlerResourceNotFoundException
     | RPCEmptyNodeListException
-    | RPCInvalidMessageType { mTypeRPC :: MessageTypeRPC }
+    | RPCInvalidMessageType MessageTypeRPC
     | SendOptionsFailedException
-    | OptionsInvalidMessageType { mTypeOpt :: MessageTypeRPC }
-    | OptionsHandlerInvalidMessageType { mTypeOptH :: MessageTypeRPC }
+    | OptionsInvalidMessageType MessageTypeRPC
+    | OptionsHandlerInvalidMessageType MessageTypeRPC
     | KademliaDeserialiseFailure
     deriving (Show)
 
