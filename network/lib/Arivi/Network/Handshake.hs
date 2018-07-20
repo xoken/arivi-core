@@ -9,10 +9,10 @@ import           Arivi.Network.Connection     as Conn (CompleteConnection,
                                                        connectionId,
                                                        remoteNodeId,
                                                        sharedSecret)
+import           Arivi.Network.Exception
 import           Arivi.Network.HandshakeUtils
 import           Arivi.Network.Types          (HandshakeInitMasked (..),
                                                Parcel (..))
-import           Arivi.Utils.Exception        (AriviException (AriviSignatureVerificationFailedException))
 import           Codec.Serialise
 import           Control.Exception            (throw)
 import qualified Crypto.PubKey.Ed25519        as Ed25519
@@ -57,7 +57,7 @@ recipientHandshake sk conn parcel
                     (sharedSecret updatedConn')
                     ephemeralPublicKey
         return (serialise hsRespParcel, updatedConn')
-    | otherwise = throw AriviSignatureVerificationFailedException
+    | otherwise = throw NetworkSignatureVerificationFailedException
   where
     (hsInitMsg, senderEphemeralPublicKey) = readHandshakeMsg sk parcel
 

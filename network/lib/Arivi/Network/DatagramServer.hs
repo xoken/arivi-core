@@ -18,20 +18,28 @@ module Arivi.Network.DatagramServer
     ) where
 
 import           Arivi.Env
-import           Arivi.Logging
 import           Arivi.Network.Connection        as Conn
-import           Arivi.Network.ConnectionHandler (establishSecureConnection, sendUdpMessage, readUdpSock, closeConnection)
-import           Arivi.Network.Types             (ConnectionHandle (..), deserialise)
+import           Arivi.Network.ConnectionHandler (closeConnection,
+                                                  establishSecureConnection,
+                                                  readUdpSock, sendUdpMessage)
+import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
+                                                  TransportType,
+                                                  deserialiseOrFail)
+                                                --   Parcel,
+
+import           Arivi.Network.Exception
+import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
+import           Control.Exception.Lifted        (finally, throw)
 import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
 import           Data.ByteString                 (ByteString)
 import           Data.ByteString.Lazy            (fromStrict)
-import           Data.Function                   ((&))
-import           Network.Socket                  hiding (recvFrom, send, recv, close)
+import qualified Data.Text                       as T
+import           Network.Socket                  hiding (close, recv, recvFrom,
+                                                  send)
+import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
-
-
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
     let hint =
@@ -48,40 +56,43 @@ makeSocket portNumber socketType = do
     return sock
 
 runUdpServer ::
-       ( HasSecretKey m
-       , HasLogging m
-       )
+       (HasSecretKey m, HasLogging m)
     => ServiceName
-    -> (ConnectionHandle -> m ())
+    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 runUdpServer portNumber handler =
     $(withLoggingTH) (LogNetworkStatement "UDP Server started...") LevelDebug $ do
         mSocket <- liftIO $ makeSocket portNumber Datagram
-        forever $ do
-            (msg, peerSockAddr) <- liftIO $ recvFrom mSocket 4096
-            mSocket' <- liftIO $ makeSocket portNumber Datagram
-            liftIO $ connect mSocket' peerSockAddr
-            async (newUdpConnection msg mSocket' handler)
+        finally
+            (forever $ do
+                 (msg, peerSockAddr) <- liftIO $ recvFrom mSocket 4096
+                 mSocket' <- liftIO $ makeSocket portNumber Datagram
+                 liftIO $ connect mSocket' peerSockAddr
+                 async (newUdpConnection msg mSocket' handler))
+            (liftIO
+                 (print ("So long and thanks for all the fish." :: String) >>
+                  Network.Socket.close mSocket))
 
 newUdpConnection ::
-       ( HasSecretKey m
-       , HasLogging m
-       )
+       (HasSecretKey m, HasLogging m)
     => ByteString
     -> Socket
-    -> (ConnectionHandle -> m ())
+    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
-    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $ do
-        liftIO $ print hsInitMsg
-        sk <- getSecretKey
-        conn <-
-            liftIO $
-            deserialise (fromStrict hsInitMsg) &
-            establishSecureConnection sk sock id
-        handler
-            ConnectionHandle
-            { send = sendUdpMessage conn
-            , recv = readUdpSock conn
-            , close = closeConnection (Conn.socket conn)
-            }
+    liftIO (getPeerName sock) >>= \addr ->
+    $(withLoggingTH) (LogNetworkStatement $ T.append (T.pack "newUdpConnection latest: ") (T.pack (show addr))) LevelDebug $
+    either
+        (throw . NetworkDeserialiseException)
+        (\hsInitParcel -> do
+             sk <- getSecretKey
+             conn <- liftIO $ establishSecureConnection sk sock id hsInitParcel
+             handler
+                 (Conn.remoteNodeId conn)
+                 (Conn.transportType conn)
+                 ConnectionHandle
+                 { send = sendUdpMessage conn
+                 , recv = readUdpSock conn
+                 , close = closeConnection (Conn.socket conn)
+                 })
+        (deserialiseOrFail (fromStrict hsInitMsg))

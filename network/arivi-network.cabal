@@ -37,6 +37,7 @@ library
                     ,  cryptonite >= 0.23
                     ,  exceptions
                     ,  hashtables <= 1.2.6.1
+                    ,  interpolatedstring-perl6
                     ,  lifted-base
                     ,  lifted-async
                     ,  memory >= 0.14.11
@@ -53,15 +54,16 @@ library
                     ,  arivi-crypto
                     ,  arivi-utils
 
-  ghc-options:         -Wall -fno-defer-type-errors -O1 -fno-defer-out-of-scope-variables
-  exposed-modules:     
+  ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  default-extensions:          FlexibleContexts
+  exposed-modules:
                        Arivi.Env
-                       Arivi.Logging
                        Arivi.Network
                        Arivi.Network.Types
   other-modules:
                        Arivi.Network.Connection
                        Arivi.Network.DatagramServer
+                       Arivi.Network.Exception
                        Arivi.Network.Fragmenter
                        Arivi.Network.ConnectionHandler
                        Arivi.Network.Handshake
@@ -72,7 +74,7 @@ library
                        Arivi.Network.StreamClient
                        Arivi.Network.StreamServer
                        Arivi.Network.Utils
-                      
+
   default-language:    Haskell2010
 
 test-suite arivi-network-test
@@ -84,8 +86,11 @@ test-suite arivi-network-test
     build-depends:     async
                     ,  base >=4.9 && <4.11
                     ,  bytestring
+                    ,  exceptions
                     ,  hashtables <= 1.2.6.1
+                    ,  hspec
                     ,  lifted-async
+                    ,  monad-control
                     ,  monad-logger
                     ,  mtl
                     ,  stm >= 2.4.4.1

@@ -19,11 +19,8 @@ module Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Crypto.Cipher.ChaChaPoly1305
 import qualified Arivi.Crypto.Utils.PublicKey.Encryption as Encryption
 import qualified Arivi.Crypto.Utils.PublicKey.Signature  as Signature
-import           Arivi.Utils.Exception                   (AriviException (AriviCryptoException))
-import           Control.Exception                       (throw, try)
 import           Crypto.ECC                              (SharedSecret)
-import           Crypto.Error                            (CryptoError (..),
-                                                          eitherCryptoError)
+import           Crypto.Error                            (throwCryptoError)
 import qualified Crypto.PubKey.Curve25519                as Curve25519
 import qualified Crypto.PubKey.Ed25519                   as Ed25519
 import qualified Data.Binary                             as Binary (encode)
@@ -40,10 +37,7 @@ getSignaturePublicKeyFromNodeId :: ByteString -> Ed25519.PublicKey
 getSignaturePublicKeyFromNodeId nodeId = pk where
     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
     pkBs = fst pkPair
-    pkOrFail = eitherCryptoError $ Ed25519.publicKey pkBs
-    pk = case pkOrFail of
-            Left e       -> throw $ AriviCryptoException e -- do something with e
-            Right pubkey -> pubkey
+    pk = throwCryptoError $ Ed25519.publicKey pkBs
 
 -- | Wrapper function for signing a message given just the sk and msg
 signMsg :: Ed25519.SecretKey -> ByteString -> Ed25519.Signature
@@ -71,19 +65,13 @@ getEncryptionPublicKeyFromNodeId :: ByteString -> Curve25519.PublicKey
 getEncryptionPublicKeyFromNodeId nodeId = pk where
     pkPair = Data.ByteString.Char8.splitAt 32 nodeId
     pkBs = snd pkPair
-    pkOrFail = eitherCryptoError $ Curve25519.publicKey pkBs
-    pk = case pkOrFail of
-            Left e       -> throw $ AriviCryptoException e
-            Right pubkey -> pubkey
+    pk = throwCryptoError $ Curve25519.publicKey pkBs
 
 -- | Takes the secret key (signSK) and the nodeId of remote and calls the Encryption.createSharedSecretKey with appropriate arguements
 createSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
 createSharedSecretKey remotePubKey signSK = finalssk where
         encryptSK = getEncryptionSecretKey signSK
-        skOrFail = eitherCryptoError $ Encryption.createSharedSecretKey encryptSK remotePubKey
-        finalssk = case skOrFail of
-                    Left e    -> throw $ AriviCryptoException e
-                    Right ssk -> ssk
+        finalssk = throwCryptoError $ Encryption.createSharedSecretKey encryptSK remotePubKey
 
         -- encryptPK = getEncryptionPublicKeyFromNodeId remoteNodeId
 
@@ -91,17 +79,10 @@ createSharedSecretKey remotePubKey signSK = finalssk where
 deriveSharedSecretKey :: Curve25519.PublicKey -> Ed25519.SecretKey -> SharedSecret
 deriveSharedSecretKey remotePubKey signSK =  finalssk where
         encryptSK = getEncryptionSecretKey signSK
-        skOrFail = eitherCryptoError $ Encryption.derivedSharedSecretKey remotePubKey encryptSK
-        finalssk = case skOrFail of
-            Left e    -> throw $ AriviCryptoException e
-            Right ssk -> ssk
+        finalssk = throwCryptoError $ Encryption.derivedSharedSecretKey remotePubKey encryptSK
 
 generateSigningKeyPair :: IO (Ed25519.SecretKey, Ed25519.PublicKey)
-generateSigningKeyPair = do
-    res <- try Signature.generateKeyPair :: IO (Either CryptoError (Ed25519.SecretKey, Ed25519.PublicKey))
-    case res of
-        Left ex       -> throw $ AriviCryptoException ex -- Make use of ex
-        Right (sk,pk) -> return (sk, pk)
+generateSigningKeyPair = Signature.generateKeyPair
 
 
 generateNodeId :: Ed25519.SecretKey -> ByteString
@@ -114,17 +95,12 @@ encryptMsg :: Int64 -> SharedSecret -> ByteString -> ByteString -> ByteString
 encryptMsg aeadnonce ssk header msg = ciphertext where
         sskBS = Encryption.sharedSecretToByteString ssk
         aeadBS = L.toStrict $ Binary.encode aeadnonce
-        errOrEncrypted = eitherCryptoError $ chachaEncrypt aeadBS sskBS header msg
-        ciphertext = case errOrEncrypted of
-                Left e   -> throw $ AriviCryptoException e
-                Right ct -> ct
+        ciphertext = throwCryptoError $ chachaEncrypt aeadBS sskBS header msg
 
 -- | Simple wrapper over chacha decryption
 decryptMsg :: Int64 -> SharedSecret -> ByteString -> ByteString -> ByteString -> ByteString
 decryptMsg aeadnonce ssk header tag ct = plaintext where
         sskBS = Encryption.sharedSecretToByteString ssk
         aeadBS = L.toStrict $ Binary.encode aeadnonce
-        errOrDecrypted = eitherCryptoError $ chachaDecrypt aeadBS sskBS header tag ct
-        plaintext = case errOrDecrypted of
-                        Left e   -> throw $ AriviCryptoException e
-                        Right pt -> pt
+        plaintext = throwCryptoError $ chachaDecrypt aeadBS sskBS header tag ct
+

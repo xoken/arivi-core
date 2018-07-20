@@ -17,3 +17,8 @@ cabal.sandbox.config
 .vscode/
 learn/*
 *.DS_Store
+*.idea/
+*.iml
+*.DS_Store 
+p2p/test/config*
+p2p/test/*.log  

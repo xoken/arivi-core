@@ -2,9 +2,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Arivi.Network.Types
-    ( ConnectionHandle (..)
+    ( ConnectionHandle(..)
     , Header(..)
     , Payload(..)
     , Parcel(..)
@@ -42,7 +43,7 @@ module Arivi.Network.Types
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
-import           Arivi.Logging (HasLogging)
+import           Arivi.Utils.Logging                (HasLogging)
 import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
@@ -126,7 +127,7 @@ data Header
     | DataHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
                  , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                 , totalFragments    :: FragmentNumber -- ^ Total fragments in
+                 , totalFragments     :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                  , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
@@ -143,7 +144,7 @@ data Header
     | ErrorHeader { messageId          :: MessageId -- ^ Unique Message
                                                       --   Identifier
                   , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                  , totalFragments    :: FragmentNumber -- ^ Total fragments in
+                  , totalFragments     :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                   , descriptor         :: Descriptor -- ^ Shows type of error
                                                     --   and other fields
@@ -152,7 +153,7 @@ data Header
                                                       --   connection
                    }
     | ByeHeader { fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                , totalFragments    :: FragmentNumber -- ^ Total fragments in
+                , totalFragments     :: FragmentNumber -- ^ Total fragments in
                                                       --   current Message
                 , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
                                                       --   for particular
@@ -269,9 +270,11 @@ decodeSignature = do
             (decode :: Decoder s ByteString)
         _ -> fail "invalid Signature encoding"
 
-
 data ConnectionHandle = ConnectionHandle
-    { send :: forall m. (HasLogging m) => BSL.ByteString -> m ()
-    , recv :: forall m. (HasLogging m) => m BSL.ByteString
-    , close :: forall m. (HasLogging m) => m ()
+    { send :: forall m. (HasLogging m) =>
+                            BSL.ByteString -> m ()
+    , recv :: forall m. (HasLogging m) =>
+                            m BSL.ByteString
+    , close :: forall m. (HasLogging m) =>
+                             m ()
     }

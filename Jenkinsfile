@@ -5,6 +5,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building..'
+                sh 'stack clean'
                 sh 'stack build'
             }
         }
@@ -22,6 +23,9 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying....'
+                sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
+                sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
+                sh 'cd scripts/Deployment-Tools; python fabfile.py Main;rm Main'
             }
         }
     }

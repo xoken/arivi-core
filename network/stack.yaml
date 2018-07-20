@@ -11,3 +11,6 @@ extra-deps:
 - serialise-0.2.0.0
 - cborg-0.2.0.0
 - timers-updatable-0.2.0.2
+- statsd-client-0.3.0.0
+- time-units-1.0.0
+- digest-pure-0.0.3

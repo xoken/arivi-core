@@ -1,5 +1,4 @@
 {-# LANGUAGE ViewPatterns #-}
-
 module Arivi.Network.Fragmenter
     ( processPayload
     ) where
