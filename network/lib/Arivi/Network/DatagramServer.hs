@@ -23,22 +23,23 @@ import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readUdpSock, sendUdpMessage)
 import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType, deserialise)
+                                                  TransportType,
+                                                  deserialiseOrFail)
                                                 --   Parcel,
 
+import           Arivi.Network.Exception
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
-import           Control.Exception.Lifted        (finally)
+import           Control.Exception.Lifted        (finally, throw)
 import           Control.Monad                   (forever)
 import           Control.Monad.IO.Class
 import           Data.ByteString                 (ByteString)
 import           Data.ByteString.Lazy            (fromStrict)
-import           Data.Function                   ((&))
+import qualified Data.Text                       as T
 import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
 import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
-
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
     let hint =
@@ -79,19 +80,19 @@ newUdpConnection ::
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
-    $(withLoggingTH) (LogNetworkStatement "newUdpConnection: ") LevelDebug $
-        -- liftIO $ print (deserialise (fromStrict hsInitMsg) :: Parcel)
-     do
-        sk <- getSecretKey
-        conn <-
-            liftIO $
-            deserialise (fromStrict hsInitMsg) &
-            establishSecureConnection sk sock id
-        handler
-            (Conn.remoteNodeId conn)
-            (Conn.transportType conn)
-            ConnectionHandle
-                { send = sendUdpMessage conn
-                , recv = readUdpSock conn
-                , close = closeConnection (Conn.socket conn)
-                }
+    liftIO (getPeerName sock) >>= \addr ->
+    $(withLoggingTH) (LogNetworkStatement $ T.append (T.pack "newUdpConnection latest: ") (T.pack (show addr))) LevelDebug $
+    either
+        (throw . NetworkDeserialiseException)
+        (\hsInitParcel -> do
+             sk <- getSecretKey
+             conn <- liftIO $ establishSecureConnection sk sock id hsInitParcel
+             handler
+                 (Conn.remoteNodeId conn)
+                 (Conn.transportType conn)
+                 ConnectionHandle
+                 { send = sendUdpMessage conn
+                 , recv = readUdpSock conn
+                 , close = closeConnection (Conn.socket conn)
+                 })
+        (deserialiseOrFail (fromStrict hsInitMsg))

@@ -1,5 +1,8 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
 
 module Arivi.Network.Instance
     ( openConnection
@@ -22,6 +25,7 @@ import           Control.Monad.Reader
 import           Crypto.PubKey.Ed25519           (SecretKey)
 import           Data.HashMap.Strict             as HM
 import           Data.IORef
+import           Text.InterpolatedString.Perl6
 import           Network.Socket
 
 doEncryptedHandshake ::
@@ -52,15 +56,18 @@ openConnection ::
     -> TransportType
     -> NodeId
     -> m (Either AriviNetworkException ConnectionHandle)
-openConnection host portNum tt rnId = do
-    let cId = makeConnectionId host portNum tt
-    sock <- liftIO $ createSocket host (read (show portNum)) tt
-    conn <-
-        liftIO $
-        mkIncompleteConnection cId rnId host portNum tt INITIATOR sock 2
-    case tt of
-        TCP -> openTcpConnection conn
-        UDP -> openUdpConnection conn
+openConnection host portNum tt rnId =
+    $(withLoggingTH)
+        (LogNetworkStatement ([qc|Opening Connection to host {host} |]))
+        LevelDebug $ do
+        let cId = makeConnectionId host portNum tt
+        sock <- liftIO $ createSocket host (read (show portNum)) tt
+        conn <-
+            liftIO $
+            mkIncompleteConnection cId rnId host portNum tt INITIATOR sock 2
+        case tt of
+            TCP -> openTcpConnection conn
+            UDP -> openUdpConnection conn
 
 openTcpConnection ::
        forall m. (MonadIO m, HasLogging m, HasSecretKey m)

@@ -31,6 +31,7 @@ library
                     ,  serialise
                     ,  cryptonite
                     ,  exceptions
+                    ,  interpolatedstring-perl6
                     ,  text
                     ,  lifted-base
                     ,  monad-control
@@ -41,6 +42,7 @@ library
                     ,  stm >= 2.4.4.1
                     ,  template-haskell
                     ,  time-units >= 1.0.0
+                    ,  time
                     ,  network
   ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:

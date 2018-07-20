@@ -27,7 +27,6 @@ module Arivi.P2P.Kademlia.Types
     , Peer(..)
     , Kbucket(..)
     , HasKbucket(..)
-    , PeerStatus(..)
     ) where
 
 import           Codec.Serialise.Class    (Serialise (..))
@@ -83,11 +82,6 @@ newtype Peer = Peer
     { getPeer :: (NodeId, NodeEndPoint)
     } deriving (Show, Generic)
 
-data PeerStatus
-    = Active
-    | Stale
-    deriving (Show)
-
 instance Eq Peer where
     Peer (x, _) == Peer (a, _) = a == x
 
@@ -97,16 +91,16 @@ newtype Kbucket k v = Kbucket
     }
 
 class HasKbucket m where
-    getKb :: m (Kbucket Int [(Peer, PeerStatus)])
+    getKb :: m (Kbucket Int [Peer])
 
 -- | Creates a new K-bucket which is a mutable hash table, and inserts the local
 -- node with position 0 i.e kb index is zero since the distance of a node
 -- from it's own address is zero. This will help insert the new peers into
 -- kbucket with respect to the local peer
-createKbucket :: Peer -> IO (Kbucket Int [(Peer, PeerStatus)])
+createKbucket :: Peer -> IO (Kbucket Int [Peer])
 createKbucket localPeer = do
     m <- atomically H.new
-    atomically $ H.insert [(localPeer, Active)] 0 m
+    atomically $ H.insert [localPeer] 0 m
     return (Kbucket m)
 
 -- Custom data type to send & receive message

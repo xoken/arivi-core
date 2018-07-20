@@ -65,7 +65,7 @@ getDefaultNodeId = do
     let localPeer = fromMaybe [] lp
     if Prelude.null localPeer
         then return $ Left KademliaDefaultPeerDoesNotExists
-        else return $ Right $ fst $ getPeer $ fst $ Prelude.head localPeer
+        else return $ Right $ fst $ getPeer $ Prelude.head localPeer
 
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 --   given peer with respect to the default peer or local peer for which
@@ -86,7 +86,7 @@ getPeerList peerR = do
                 kbDistance = getKbIndex localPeer peer
             pl <-
                 liftIO $ atomically $ H.lookup kbDistance (getKbucket kbucket'')
-            let mPeerList = fmap fst (fromMaybe [] pl)
+            let mPeerList = fromMaybe [] pl
             return $ Right mPeerList
         Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
 
@@ -96,7 +96,7 @@ getPeerListByKIndex ::
 getPeerListByKIndex kbi = do
     kb' <- getKb
     peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kb')
-    let pl = fmap fst (fromMaybe [] peerl)
+    let pl = fromMaybe [] peerl
     case pl of
         [] -> return $ Left KademliaKbIndexDoesNotExist
         _  -> return $ Right pl
@@ -116,9 +116,8 @@ ifPeerExist peer = do
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
-addToKBucket ::
-       (HasP2PEnv m, MonadIO m, HasLogging m) => Peer -> PeerStatus -> m ()
-addToKBucket peerR status = do
+addToKBucket :: (HasP2PEnv m, MonadIO m, HasLogging m) => Peer -> m ()
+addToKBucket peerR = do
     kb'' <- getKb
     lp <- getDefaultNodeId
     case lp of
@@ -129,38 +128,33 @@ addToKBucket peerR status = do
             liftIO $
                 atomically $ do
                     mPeerList <- H.lookup kbDistance kb
-                    let orgPl = fromMaybe [] mPeerList
-                        mPeerList2 = fmap fst orgPl
-                    case mPeerList2 of
-                        pl ->
+                    case mPeerList of
+                        Just pl ->
                             if peerR `elem` pl
                                 then do
                                     let pl2 =
                                             L.deleteBy
                                                 (\p1 p2 ->
-                                                     fst (getPeer $ fst p1) ==
-                                                     fst (getPeer $ fst p2))
-                                                (peerR, status)
-                                                orgPl
-                                    H.insert
-                                        (pl2 ++ [(peerR, status)])
-                                        kbDistance
-                                        kb
-                                else H.insert
-                                         (orgPl ++ [(peerR, status)])
-                                         kbDistance
-                                         kb
-                        -- _ -> H.insert [(peerR,Active)] kbDistance kb
+                                                     fst (getPeer p1) ==
+                                                     fst (getPeer p2))
+                                                peerR
+                                                pl
+                                    H.insert (pl2 ++ [peerR]) kbDistance kb
+                                else H.insert (pl ++ [peerR]) kbDistance kb
+                        Nothing -> H.insert [peerR] kbDistance kb
             -- Logs the Kbucket
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
-            $(logDebug) $ T.append (T.pack "Kbucket : ") (T.pack (show kvList))
-            counter "Kbucket" 1
+            $(logDebug) $
+                T.append
+                    (T.pack "Kbucket after adding : ")
+                    (T.pack (show kvList))
+            incrementCounter "KbucketSize"
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
-removePeer :: (HasP2PEnv m, MonadIO m) => NodeId -> m ()
+removePeer :: (HasP2PEnv m, MonadIO m, HasLogging m) => NodeId -> m ()
 removePeer peerR = do
     kbb' <- getKb
     lp <- getDefaultNodeId
@@ -173,24 +167,29 @@ removePeer peerR = do
                         kbDistance = getKbIndex localPeer peerR
                     if peerR `elem` pl2
                         then liftIO $
-                             atomically $ do
-                                 tempL <- H.lookup kbDistance kb
-                                 let orgPl = fromMaybe [] tempL
-                                 H.insert
-                                     (L.deleteBy
-                                          (\p1 p2 ->
-                                               fst (getPeer $ fst p1) ==
-                                               fst (getPeer $ fst p2))
-                                          (fp, Active)
-                                          orgPl)
-                                     kbDistance
-                                     kb
-                        else liftIO $ atomically $ return ()
-                    where fnep = NodeEndPoint "" 0 0
+                             atomically $
+                             H.insert
+                                 (L.deleteBy
+                                      (\p1 p2 ->
+                                           fst (getPeer p1) == fst (getPeer p2))
+                                      fp
+                                      pl)
+                                 kbDistance
+                                 kb
+                        else liftIO $ atomically $ H.insert pl kbDistance kb
+                    where pl2 = fmap (fst . getPeer) pl
+                          fnep = NodeEndPoint "" 0 0
                           fp = Peer (peerR, fnep)
-                          pl2 = fmap (fst . getPeer) pl
                 Left _ -> return ()
-            counter "Kbucket" (-1)
+            -- Logging
+            let kbm2 = getKbucket kbb'
+                kbtemp = H.stream kbm2
+            kvList <- liftIO $ atomically $ toList kbtemp
+            $(logDebug) $
+                T.append
+                    (T.pack "Kbucket after deleting : ")
+                    (T.pack (show kvList))
+            decrementCounter "KbucketSize"
         Left _ -> return ()
 
 -- Gives a peer list given a list of keys
@@ -200,7 +199,7 @@ getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
     kbb'' <- getKb
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
-    let mPeerList = fmap fst (fromMaybe [] pl)
+    let mPeerList = fromMaybe [] pl
         ple = fst $ L.splitAt k mPeerList
     if L.length ple >= k
         then return ple
@@ -264,3 +263,21 @@ getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
     keyl <- liftIO $ U.randomList 255
     getPeerListFromKeyList k keyl
+-- refreshAndAdd :: [Peer] -> Int -> [Peer]
+-- refreshAndAdd inPl sBound fPl = do
+--     mapM issuePing [Peer]
+-- issuePing :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m()
+-- issuePing peerR = do
+--     p2pInstanceTVar <- getAriviTVarP2PEnv
+--     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
+--     let lnid = selfNodeId p2pInstance
+--         luport = selfUDPPort p2pInstance
+--         lip = selfIP p2pInstance
+--         ltport = selfTCPPort p2pInstance
+--         rnid = fst $ getPeer rpeer
+--         rnep = snd $ getPeer rpeer
+--         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
+--         rip = nodeIp rnep
+--         ping_msg = packPing lnid lip luport ltport
+--     resp <- sendRequestforKademlia rnid Kademlia (serialise ping_msg) ruport rip
+--     liftIO $ print ""
