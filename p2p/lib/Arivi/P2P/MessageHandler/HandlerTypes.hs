@@ -99,7 +99,7 @@ type MessageInfo = (P2PUUID, P2PPayload)
 data Handle
     = NotConnected
     | Pending
-    | Connected { connId :: ConnectionHandle }
+    | Connected ConnectionHandle
 
 instance Eq Handle where
     NotConnected == NotConnected = True
@@ -109,13 +109,16 @@ instance Eq Handle where
 
 data PeerDetails = PeerDetails
     { nodeId         :: NodeId
-    , rep            :: Double -- Can have a fixed default value
-    , ip             :: IP     -- Should always have a value
+    , rep            :: Maybe Int -- Can have a fixed default value
+    , ip             :: Maybe IP     -- Should always have a value
+    , rep'           :: Double -- Can have a fixed default value
+    , ip'            :: IP     -- Should always have a value
     , udpPort        :: Maybe PortNumber
     , tcpPort        :: Maybe PortNumber
     , streamHandle   :: Handle
     , datagramHandle :: Handle
     , uuidMap        :: UUIDMap
+    , tvarUUIDMap    :: TVar UUIDMap
     }
 
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
