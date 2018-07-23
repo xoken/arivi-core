@@ -109,8 +109,8 @@ instance Eq Handle where
 
 data PeerDetails = PeerDetails
     { nodeId         :: NodeId
-    , rep            :: Maybe Int
-    , ip             :: Maybe IP
+    , rep            :: Double -- Can have a fixed default value
+    , ip             :: IP     -- Should always have a value
     , udpPort        :: Maybe PortNumber
     , tcpPort        :: Maybe PortNumber
     , streamHandle   :: Handle
