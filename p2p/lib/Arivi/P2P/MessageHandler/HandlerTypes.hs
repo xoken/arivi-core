@@ -115,7 +115,7 @@ data PeerDetails = PeerDetails
     , tcpPort        :: Maybe PortNumber
     , streamHandle   :: Handle
     , datagramHandle :: Handle
-    , tvarUUIDMap    :: TVar UUIDMap
+    , uuidMap        :: UUIDMap
     }
 
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
