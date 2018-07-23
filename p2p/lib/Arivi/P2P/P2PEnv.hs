@@ -41,6 +41,7 @@ data P2PEnv = P2PEnv
     , tvarMessageHashMap :: TVar MessageHashMap
     , ariviNetworkEnv :: AriviEnv
     , kademliaConcurrencyFactor :: Int
+    , kademliaSoftBound :: Int
     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
     , tvPeerReputationHashTable :: TVar PeerReputationHistoryTable
     , tvServicesReputationHashMap :: TVar ServicesReputationHashMap
@@ -63,6 +64,7 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getKademliaConcurrencyFactor :: m Int
+    getKademliaSoftBound :: m Int
     getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
     getPeerReputationHistoryTableTVar :: m (TVar PeerReputationHistoryTable)
     getServicesReputationHashMapTVar :: m (TVar ServicesReputationHashMap)
@@ -71,8 +73,8 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getKClosestVsRandomTVar :: m (TVar Rational)
 
 makeP2PEnvironment ::
-       String -> T.NodeId -> PortNumber -> PortNumber -> Int -> IO P2PEnv
-makeP2PEnvironment nIp nId tPort uPort alpha = do
+       String -> T.NodeId -> PortNumber -> PortNumber -> Int -> Int -> IO P2PEnv
+makeP2PEnvironment nIp nId tPort uPort alpha sbound = do
     nmap <- newTVarIO HM.empty
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
@@ -88,7 +90,6 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
     reputedVsOtherTVar <- newTVarIO (1 % 1 :: Rational)
     kClosestVsRandomTVar <- newTVarIO (1 % 1 :: Rational)
     return
-        P2PEnv
         { selfNId = nId
         , tvarNodeIdPeerMap = nmap
         , tvarArchivedResourceToPeerMap = r2pmap
@@ -100,9 +101,11 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
         , tvarDynamicResourceToPeerMap = dr2pmap
         , kbucket = kb
         , kademliaConcurrencyFactor = alpha
+        , kademliaSoftBound = sbound
         , tvPeerReputationHashTable = peerReputationHashTable
         , tvServicesReputationHashMap = servicesReputationHashMapTVar
         , tvP2PReputationHashMap = p2pReputationHashMapTVar
         , tvReputedVsOther = reputedVsOtherTVar
         , tvKClosestVsRandom = kClosestVsRandomTVar
         }
+
