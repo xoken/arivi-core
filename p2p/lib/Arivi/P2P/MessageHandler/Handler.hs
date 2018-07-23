@@ -139,7 +139,9 @@ readRequestThread ::
 readRequestThread connHandle uuidMapTVar messageTypeMap =
     $(withLoggingTH) (LogP2PStatement "readRequestThread: ") LevelDebug $ do
         eitherByteMessage <- Exception.try $ recv connHandle
-        case eitherByteMessage of
+        case eitherByteMessage
+            -- match some concrete network exception and do something
+              of
             Left (e :: Exception.SomeException) -> do
                 $(logDebug) (T.pack (displayException e))
                 return ()
@@ -168,18 +170,22 @@ newIncomingConnection mNodeId transportType connHandle = do
     liftIO $
         addPeerFromConnection mNodeId transportType connHandle nodeIdMapTVar
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    -- please staahhhhppp
     peerDetails <- liftIO $ readTVarIO (fromJust (HM.lookup mNodeId nodeIdMap))
     let uuidMapTVar = tvarUUIDMap peerDetails
     _ <- LAsync.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
     return ()
 
+-- Please be in STM..Pretty please :(
 cleanConnection ::
        (HasP2PEnv m, HasLogging m) => NodeId -> TransportType -> m ()
 cleanConnection mNodeId transportType = do
     $(logDebug) "Cleaned ConnectionHandle"
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    -- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
     let peerDetailsTVar = fromJust (HM.lookup mNodeId nodeIdMap)
+    -- please use modifyTVar
     liftIO $
         atomically
             (do peerDetails <- readTVar peerDetailsTVar
@@ -210,10 +216,13 @@ processIncomingMessage ::
     -> Lazy.ByteString
     -> m ()
 processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage =
-    $(withLoggingTH) (LogP2PStatement "processIncomingMessage: ") LevelInfo $ do
+    $(withLoggingTH) (LogP2PStatement "processIncomingMessage: ") LevelInfo $
+        -- why check for deserialisation failure?! ¯\_(ツ)_/¯
+     do
         let networkMessage = deserialise byteMessage :: P2PMessage
         uuidMap <- liftIO $ atomically (readTVar uuidMapTVar)
         let temp = HM.lookup (uuid networkMessage) uuidMap
+        -- use case
         if isNothing temp
             then do
                 $(logDebug) "incoming request recieved"
@@ -223,7 +232,9 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage =
                 -- response <- Exception.try $ fnc (payload networkMessage) :: m (Either AriviP2PException P2PPayload)
                 response <-
                     Exception.try (fnc (payload networkMessage)) :: m (Either AriviP2PException P2PPayload)
-                case response of
+                case response
+                    -- what kind of generalized assumption is that the exception is a deserialiseFailure?! ¯\_(ツ)_/¯
+                      of
                     Left e ->
                         $(logDebug) $
                         T.append
@@ -236,11 +247,12 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage =
                                     (messageType networkMessage)
                                     response'
                                     (uuid networkMessage)
+                        -- Why call a function processIncomingMessage and also use it to send stuff over the network. Why not launch some missile here too ¯\_(ツ)_/¯
                         res <-
                             Exception.try $
                             send connHandle (serialise p2pResponse)
                         case res of
-                            Left (e :: Exception.SomeException) --TODO: ExceptionHadnling
+                            Left (e :: Exception.SomeException) --TODO: ExceptionHadnling >> Ek din aayega..tuu handle hoyega..aaaaaaaaaaaaaaaaaaaaaaaaaa
                              -> do
                                 $(logDebug) (T.pack (displayException e))
                                 return ()
@@ -251,8 +263,8 @@ processIncomingMessage connHandle uuidMapTVar messageTypeMap byteMessage =
                 return ()
 
 {-Support Functions===========================================================-}
--- | atomically checks for existing handle which is returned if it exists or else its status is changed to pending. then a new connection is established and it is stored as well as returned.
---
+-- Which function are you talking about?! :'( | atomically checks for existing handle which is returned if it exists or else its status is changed to pending. then a new connection is established and it is stored as well as returned.
+-- Why you no be in STM?! :'(
 cleanPeer :: NodeId -> TVar NodeIdPeerMap -> IO ()
 cleanPeer mNodeId nodeIdMapTVar =
     atomically
@@ -261,8 +273,10 @@ cleanPeer mNodeId nodeIdMapTVar =
             case maybePeer of
                 Just peerDetailsTVar -> do
                     peerDetails <- readTVar peerDetailsTVar
-                    case peerDetails of
-                        PeerDetails _ Nothing Nothing Nothing Nothing NotConnected NotConnected _ -> do
+                    case peerDetails
+                        -- what kind of stupid case is this?!
+                          of
+                        PeerDetails _ Nothing Nothing _ _ Nothing Nothing NotConnected NotConnected _ _ -> do
                             let newnodeIdMap = HM.delete mNodeId nodeIdMap
                             writeTVar nodeIdMapTVar newnodeIdMap
                             return ()
@@ -331,7 +345,9 @@ getConnectionHandle peerDetailsTVar transportType = do
 
 -- | if connhandle is NotConnected then change it to Pending. Should be done atomically
 changeConnectionStatus :: TVar PeerDetails -> TransportType -> STM Bool
-changeConnectionStatus peerDetailsTVar transportType = do
+changeConnectionStatus peerDetailsTVar transportType
+    -- Use modifyTVar
+ = do
     peerDetails <- readTVar peerDetailsTVar
     let connCheck =
             if transportType == TCP
@@ -363,6 +379,7 @@ getConnHandleFromNodeID ::
     -> m (ConnectionHandle, Bool)
 getConnHandleFromNodeID node nodeIdMapTVar mType = do
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
+    -- Again rampant uncheked use of fromJust
     let peerDetailsTVar = fromJust (HM.lookup node nodeIdMap)
     getConnectionHandle
         peerDetailsTVar
@@ -384,10 +401,11 @@ addPeerFromConnection ::
     -> TransportType
     -> ConnectionHandle
     -> TVar NodeIdPeerMap
-    -> IO ()
+    -> IO () -- Can be in STM
 addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
     uuidMapTVar <- newTVarIO HM.empty
     atomically
+    -- consider using modifyTVar
         (do nodeIdPeerMap <- readTVar nodeIdPeerMapTVar
             let mapEntry = HM.lookup node nodeIdPeerMap
             peerDetails <-
@@ -407,6 +425,7 @@ addPeerFromConnection node transportType connHandle nodeIdPeerMapTVar = do
                         readTVar peerTVar)
                     readTVar
                     mapEntry
+            -- Adds in the default case of maybe too. Will have a peer details record with everything as Nothing and either stream handle or datagram handle populated. openConnection with such a PeerDetails record would fail
             let newPeerDetails =
                     if transportType == TCP
                         then peerDetails
