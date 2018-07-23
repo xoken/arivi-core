@@ -31,28 +31,38 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKClosestPeersByPeer
     , getKClosestPeersByNodeid
     , getKRandomPeers
+    , issuePing
     ) where
 
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Types
-import qualified Arivi.P2P.Kademlia.Utils       as U
+import qualified Arivi.P2P.Kademlia.Utils              as U
 import           Arivi.P2P.Kademlia.XorDistance
+import           Arivi.P2P.MessageHandler.Handler
+import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
+import           Arivi.P2P.P2PEnv                      (HasP2PEnv,
+                                                        getAriviTVarP2PEnv)
+import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-import           Control.Exception
-import           Control.Monad                  ()
-import           Control.Monad.IO.Class         (MonadIO, liftIO)
-import           Control.Monad.Reader           ()
-import           Control.Monad.STM
-import qualified Data.List                      as L
-import           Data.Maybe
-
--- import           GHC.Stack
-import           Arivi.P2P.P2PEnv               (HasP2PEnv)
 import           Arivi.Utils.Statsd
-import           Control.Monad.Logger           (logDebug)
-import qualified Data.Text                      as T
+import           Codec.Serialise                       (DeserialiseFailure,
+                                                        deserialiseOrFail,
+                                                        serialise)
+import           Control.Concurrent.Async.Lifted
+import           Control.Concurrent.STM.TVar           (readTVar)
+import           Control.Exception
+import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                     try)
+import           Control.Monad                         ()
+import           Control.Monad.IO.Class                (MonadIO, liftIO)
+import           Control.Monad.Logger                  (logDebug)
+import           Control.Monad.Reader                  ()
+import           Control.Monad.STM
+import qualified Data.List                             as L
+import           Data.Maybe
+import qualified Data.Text                             as T
 import           ListT
-import qualified STMContainers.Map              as H
+import qualified STMContainers.Map                     as H
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
@@ -263,21 +273,81 @@ getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
     keyl <- liftIO $ U.randomList 255
     getPeerListFromKeyList k keyl
--- refreshAndAdd :: [Peer] -> Int -> [Peer]
--- refreshAndAdd inPl sBound fPl = do
---     mapM issuePing [Peer]
--- issuePing :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m()
--- issuePing peerR = do
---     p2pInstanceTVar <- getAriviTVarP2PEnv
---     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
---     let lnid = selfNodeId p2pInstance
---         luport = selfUDPPort p2pInstance
---         lip = selfIP p2pInstance
---         ltport = selfTCPPort p2pInstance
---         rnid = fst $ getPeer rpeer
---         rnep = snd $ getPeer rpeer
---         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
---         rip = nodeIp rnep
---         ping_msg = packPing lnid lip luport ltport
---     resp <- sendRequestforKademlia rnid Kademlia (serialise ping_msg) ruport rip
---     liftIO $ print ""
+
+combineList :: [[a]] -> [[a]] -> [[a]]
+combineList [] [] = []
+combineList l1 l2 =
+    [L.head l1 ++ L.head l2, L.head (L.tail l1) ++ L.head (L.tail l2)]
+
+addToNewList :: [Bool] -> [Peer] -> [[Peer]]
+addToNewList bl [] = [[], []]
+addToNewList bl pl
+    | L.null bl = [[], []]
+    | length bl == 1 =
+        if L.head bl
+            then combineList [[L.head pl], []] (addToNewList [] [])
+            else combineList [[], [L.head pl]] (addToNewList [] [])
+    | otherwise =
+        if L.head bl
+            then combineList
+                     [[L.head pl], []]
+                     (addToNewList (L.tail bl) (L.tail pl))
+            else combineList
+                     [[], [L.head pl]]
+                     (addToNewList (L.tail bl) (L.tail pl))
+
+refreshKbucket ::
+       (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> [Peer] -> m [Peer]
+refreshKbucket peerR pl = do
+    $(logDebug) $
+        T.append
+            (T.pack "Issueing ping to refresh kbucke, no of req sent :")
+            (T.pack (show $ length pl))
+    resp <- mapConcurrently issuePing pl
+    $(logDebug) $
+        T.append
+            (T.pack "Pong response recieved : len : ")
+            (T.pack (show $ length resp))
+    let temp = addToNewList resp pl
+        newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp)
+    return newpl
+
+issuePing ::
+       forall m. (HasP2PEnv m, HasLogging m, MonadIO m)
+    => Peer
+    -> m Bool
+issuePing rpeer = do
+    p2pInstanceTVar <- getAriviTVarP2PEnv
+    p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
+    let lnid = selfNodeId p2pInstance
+        luport = selfUDPPort p2pInstance
+        lip = selfIP p2pInstance
+        ltport = selfTCPPort p2pInstance
+        rnid = fst $ getPeer rpeer
+        rnep = snd $ getPeer rpeer
+        ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
+        rip = nodeIp rnep
+        ping_msg = packPing lnid lip luport ltport
+    resp <-
+        Exception.try $
+        sendRequestforKademlia rnid HT.Kademlia (serialise ping_msg) ruport rip
+    case resp of
+        Left (e :: Exception.SomeException) -> do
+            $(logDebug) (T.pack (displayException e))
+            return False
+        Right resp' -> do
+            let resp'' =
+                    deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
+            case resp'' of
+                Left e -> do
+                    $(logDebug) $
+                        T.append
+                            (T.pack "Deserilization failure: ")
+                            (T.pack (displayException e))
+                    return False
+                Right rl -> do
+                    let msg = message rl
+                        msgb = messageBody msg
+                    case msgb of
+                        PONG _ _ -> return True
+                        _        -> return False

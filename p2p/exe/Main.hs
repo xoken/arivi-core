@@ -54,6 +54,7 @@ instance HasP2PEnv AppM where
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
     getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
+    getKademliaSoftBound = kademliaSoftBound <$> getP2PEnv
     getArchivedResourceToPeerMapP2PEnv =
         tvarArchivedResourceToPeerMap <$> getP2PEnv
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
@@ -75,7 +76,6 @@ writeConfigs path = do
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
 -}
-
 defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
@@ -105,6 +105,7 @@ runNode configPath = do
             "Xoken"
             (Config.secretKey config)
             3
+            10
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
@@ -148,6 +149,7 @@ runBSNode configPath = do
             "Xoken"
             (Config.secretKey config)
             3
+            10
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
