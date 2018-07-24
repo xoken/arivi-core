@@ -53,7 +53,6 @@ instance HasP2PEnv AppM where
     getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
-    getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
     getArchivedResourceToPeerMapP2PEnv =
         tvarArchivedResourceToPeerMap <$> getP2PEnv
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
@@ -103,8 +102,9 @@ runNode configPath = do
             8125
             "Xoken"
             (Config.secretKey config)
-            3
             10
+            5
+            3
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
@@ -147,8 +147,9 @@ runBSNode configPath = do
             8125
             "Xoken"
             (Config.secretKey config)
-            3
             10
+            5
+            3
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
