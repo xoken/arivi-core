@@ -54,7 +54,6 @@ instance HasP2PEnv AppM where
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
     getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
-    getKademliaSoftBound = kademliaSoftBound <$> getP2PEnv
     getArchivedResourceToPeerMapP2PEnv =
         tvarArchivedResourceToPeerMap <$> getP2PEnv
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
