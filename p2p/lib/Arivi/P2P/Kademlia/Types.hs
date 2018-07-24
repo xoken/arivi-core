@@ -86,8 +86,9 @@ instance Eq Peer where
     Peer (x, _) == Peer (a, _) = a == x
 
 -- | K-bucket to store peers
-newtype Kbucket k v = Kbucket
-    { getKbucket :: H.Map k v
+data Kbucket k v = Kbucket
+    { getKbucket        :: H.Map k v
+    , kademliaSoftBound :: Int
     }
 
 class HasKbucket m where
@@ -97,11 +98,11 @@ class HasKbucket m where
 -- node with position 0 i.e kb index is zero since the distance of a node
 -- from it's own address is zero. This will help insert the new peers into
 -- kbucket with respect to the local peer
-createKbucket :: Peer -> IO (Kbucket Int [Peer])
-createKbucket localPeer = do
+createKbucket :: Peer -> Int -> IO (Kbucket Int [Peer])
+createKbucket localPeer sbound = do
     m <- atomically H.new
     atomically $ H.insert [localPeer] 0 m
-    return (Kbucket m)
+    return (Kbucket m sbound)
 
 -- Custom data type to send & receive message
 data MessageBody

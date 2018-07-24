@@ -39,7 +39,6 @@ data P2PEnv = P2PEnv
     , tvarMessageHashMap :: TVar MessageHashMap
     , ariviNetworkEnv :: AriviEnv
     , kademliaConcurrencyFactor :: Int
-    , kademliaSoftBound :: Int
     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
     }
 
@@ -57,7 +56,6 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getKademliaConcurrencyFactor :: m Int
-    getKademliaSoftBound :: m Int
     getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
 
 makeP2PEnvironment ::
@@ -66,7 +64,7 @@ makeP2PEnvironment nIp nId tPort uPort alpha sbound = do
     nmap <- newTVarIO HM.empty
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
-    kb <- createKbucket (T.Peer (nId, T.NodeEndPoint nIp tPort uPort))
+    kb <- createKbucket (T.Peer (nId, T.NodeEndPoint nIp tPort uPort)) sbound
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty
@@ -85,5 +83,4 @@ makeP2PEnvironment nIp nId tPort uPort alpha sbound = do
             , tvarDynamicResourceToPeerMap = dr2pmap
             , kbucket = kb
             , kademliaConcurrencyFactor = alpha
-            , kademliaSoftBound = sbound
             }
