@@ -1,18 +1,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Arivi.P2P.PubSub.Types
-    ( Topic
-    , Notifier
-    , Watcher
-    , TopicMessage
-    , TopicHandler
-    , ResponseCode(..)
+    ( MessageHashMap
     , MessageTypePubSub(..)
     , NodeTimer(..)
-    , WatchersTable
+    , Notifier
     , NotifiersTable
+    , ResponseCode(..)
+    , Topic
+    , TopicHandler
     , TopicHandlerMap
-    , MessageHashMap
+    , TopicMessage
+    , Watcher
+    , WatchersTable
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -23,6 +23,21 @@ import           Data.HashMap.Strict                   as HM
 import           Data.SortedList
 import           Data.Time.Clock
 import           GHC.Generics                          (Generic)
+
+data NodeTimer = NodeTimer
+    { timerNodeId :: NodeId
+    , timer       :: UTCTime -- ^ Time here is current time added with the
+                             -- ^ nominal difftime in the message
+    }
+
+instance Ord NodeTimer where
+    x <= y = timer x <= timer y
+    x > y = timer x > timer y
+    x < y = timer x < timer y
+    x >= y = timer x >= timer y
+
+instance Eq NodeTimer where
+    x == y = timerNodeId x == timerNodeId y
 
 type Topic = String
 
@@ -41,7 +56,8 @@ data ResponseCode
 
 instance Serialise ResponseCode
 
--- convert the pico passed to diff time in functions, diff time is not serialisable
+-- | Convert the pico passed to diff time in functions, diff time is not
+--  serialisable
 data MessageTypePubSub
     = Subscribe { topicId      :: Topic
                 , messageTimer :: Integer }
@@ -50,33 +66,20 @@ data MessageTypePubSub
     | Publish { topicId      :: Topic
               , topicMessage :: TopicMessage }
     | Response { responseCode :: ResponseCode
-               , messageTimer :: Integer -- specify time duration as seconds
+               , messageTimer :: Integer -- ^ Specify time duration as seconds
                 }
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypePubSub
 
-data NodeTimer = NodeTimer
-    { timerNodeId :: NodeId
-    , timer       :: UTCTime -- time here is current time added with the nominaldifftime in the message
-    }
-
-instance Ord NodeTimer where
-    x <= y = timer x <= timer y
-    x > y = timer x > timer y
-    x < y = timer x < timer y
-    x >= y = timer x >= timer y
-
-instance Eq NodeTimer where
-    x == y = timerNodeId x == timerNodeId y
-
 type WatchersTable = HM.HashMap Topic (TVar (SortedList Watcher))
 
-type NotifiersTable
-     = HM.HashMap Topic (TVar (SortedList Notifier), Int) -- might contain min no of peers
-                                                -- and handler function here so dont use fst and snd in functions
+-- | Might contain min no of peers and handler function here so dont use fst
+-- and snd in functions
+type NotifiersTable = HM.HashMap Topic (TVar (SortedList Notifier), Int)
 
-type TopicHandlerMap --maps topic to the respective TopicHandler
-     = HM.HashMap Topic TopicHandler
+-- | Maps topic to the respective TopicHandler
+type TopicHandlerMap = HM.HashMap Topic TopicHandler
 
-type MessageHashMap = HM.HashMap TopicMessage (TVar (Bool, [NodeId])) -- murmur hash of the TOpicMessage
+-- | Murmur hash of the TOpicMessage
+type MessageHashMap = HM.HashMap TopicMessage (TVar (Bool, [NodeId]))
