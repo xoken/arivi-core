@@ -128,6 +128,7 @@ ifPeerExist peer = do
 --  kbindex based on the XOR Distance.
 addToKBucket :: (HasP2PEnv m, MonadIO m, HasLogging m) => Peer -> m ()
 addToKBucket peerR = do
+    $(logDebug) $ T.pack "Add to kbucket called "
     kb'' <- getKb
     lp <- getDefaultNodeId
     case lp of
@@ -135,23 +136,12 @@ addToKBucket peerR = do
             let nid = fst $ getPeer peerR
                 kbDistance = getKbIndex localPeer nid
                 kb = getKbucket kb''
-            liftIO $
-                atomically $ do
-                    mPeerList <- H.lookup kbDistance kb
-                    case mPeerList of
-                        Just pl ->
-                            if peerR `elem` pl
-                                then do
-                                    let pl2 =
-                                            L.deleteBy
-                                                (\p1 p2 ->
-                                                     fst (getPeer p1) ==
-                                                     fst (getPeer p2))
-                                                peerR
-                                                pl
-                                    H.insert (pl2 ++ [peerR]) kbDistance kb
-                                else H.insert (pl ++ [peerR]) kbDistance kb
-                        Nothing -> H.insert [peerR] kbDistance kb
+            mPeerList <- liftIO $ atomically $ H.lookup kbDistance kb
+            case mPeerList of
+                Just pl -> do
+                    tempp <- refreshKbucket peerR pl
+                    liftIO $ atomically $ H.insert tempp kbDistance kb
+                Nothing -> liftIO $ atomically $ H.insert [peerR] kbDistance kb
             -- Logs the Kbucket
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
@@ -209,7 +199,8 @@ getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
     kbb'' <- getKb
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
-    let mPeerList = fromMaybe [] pl
+    sb <- getKb
+    let mPeerList = fst $ L.splitAt (kademliaSoftBound sb) $ fromMaybe [] pl
         ple = fst $ L.splitAt k mPeerList
     if L.length ple >= k
         then return ple
@@ -280,7 +271,7 @@ combineList l1 l2 =
     [L.head l1 ++ L.head l2, L.head (L.tail l1) ++ L.head (L.tail l2)]
 
 addToNewList :: [Bool] -> [Peer] -> [[Peer]]
-addToNewList bl [] = [[], []]
+addToNewList _ [] = [[], []]
 addToNewList bl pl
     | L.null bl = [[], []]
     | length bl == 1 =
@@ -299,17 +290,26 @@ addToNewList bl pl
 refreshKbucket ::
        (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> [Peer] -> m [Peer]
 refreshKbucket peerR pl = do
+    sb <- getKb
+    let pl2 =
+            if peerR `elem` pl
+                then L.deleteBy
+                         (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))
+                         peerR
+                         pl
+                else pl
+    let sl = L.splitAt (kademliaSoftBound sb) pl2
     $(logDebug) $
         T.append
-            (T.pack "Issueing ping to refresh kbucke, no of req sent :")
-            (T.pack (show $ length pl))
-    resp <- mapConcurrently issuePing pl
+            (T.pack "Issueing ping to refresh kbucket no of req sent :")
+            (T.pack (show $ length (fst sl)))
+    resp <- mapConcurrently issuePing (fst sl)
     $(logDebug) $
         T.append
             (T.pack "Pong response recieved : len : ")
             (T.pack (show $ length resp))
-    let temp = addToNewList resp pl
-        newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp)
+    let temp = addToNewList resp (fst sl)
+        newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
     return newpl
 
 issuePing ::
@@ -328,9 +328,13 @@ issuePing rpeer = do
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
         ping_msg = packPing lnid lip luport ltport
+    $(logDebug) $
+        T.pack ("Issueing ping request to : " ++ show rip ++ show ruport)
     resp <-
         Exception.try $
         sendRequestforKademlia rnid HT.Kademlia (serialise ping_msg) ruport rip
+    $(logDebug) $
+        T.pack ("Response for ping from : " ++ show rip ++ show ruport)
     case resp of
         Left (e :: Exception.SomeException) -> do
             $(logDebug) (T.pack (displayException e))
@@ -342,7 +346,7 @@ issuePing rpeer = do
                 Left e -> do
                     $(logDebug) $
                         T.append
-                            (T.pack "Deserilization failure: ")
+                            (T.pack "Deserilization failure while pong: ")
                             (T.pack (displayException e))
                     return False
                 Right rl -> do
@@ -351,3 +355,12 @@ issuePing rpeer = do
                     case msgb of
                         PONG _ _ -> return True
                         _        -> return False
+-- runKademliaAction :: forall m. (HasP2PEnv m, HasLogging m, MonadIO m,a) =>
+--                         (a -> m a)
+--                         -> [a]
+--                         -> m()
+-- runKademliaAction fn il = do
+--     sb <-  getKademliaSoftBound
+--     let ls = L.splitAt sb il
+--     temp <- mapConcurrenlty fn (fst ls)
+--     temp ++ runAlphaConcurrenlty fn (snd ls)
