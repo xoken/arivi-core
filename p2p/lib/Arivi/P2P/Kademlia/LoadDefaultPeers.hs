@@ -101,10 +101,7 @@ issueFindNode rpeer = do
         sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
     case resp of
         Left (e :: Exception.SomeException) ->
-            $(logDebug) $
-            T.append
-                (T.pack "Couldn't send message : ")
-                (T.pack (displayException e))
+            $(logDebug) $ T.pack (displayException e)
         Right resp' -> do
             addToKBucket rpeer
             case getPeerListFromPayload resp' of
@@ -112,7 +109,8 @@ issueFindNode rpeer = do
                     $(logDebug) $
                     T.append
                         (T.pack
-                             "Couldn't deserialise message while recieving fn_resp : ")
+                             ("Couldn't deserialise message while recieving fn_resp from : " ++
+                              show rip ++ ":" ++ show ruport))
                         (T.pack (displayException e))
                 Right peerl -> do
                     $(logDebug) $

@@ -141,8 +141,10 @@ addToKBucket peerR = do
                 Just pl -> do
                     tempp <- refreshKbucket peerR pl
                     liftIO $ atomically $ H.insert tempp kbDistance kb
-                Nothing -> liftIO $ atomically $ H.insert [peerR] kbDistance kb
-            -- Logs the Kbucket
+                Nothing -> do
+                    liftIO $ atomically $ H.insert [peerR] kbDistance kb
+                    $(logDebug) $ T.pack "First_Element in respective kbucket"
+            -- Logs the Kbucket and sends pushes statsd metric
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
@@ -199,8 +201,7 @@ getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
     kbb'' <- getKb
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
-    sb <- getKb
-    let mPeerList = fst $ L.splitAt (kademliaSoftBound sb) $ fromMaybe [] pl
+    let mPeerList = fst $ L.splitAt (kademliaSoftBound kbb'') $ fromMaybe [] pl
         ple = fst $ L.splitAt k mPeerList
     if L.length ple >= k
         then return ple
@@ -302,12 +303,10 @@ refreshKbucket peerR pl = do
     $(logDebug) $
         T.append
             (T.pack "Issueing ping to refresh kbucket no of req sent :")
-            (T.pack (show $ length (fst sl)))
+            (T.pack (show (fst sl)))
     resp <- mapConcurrently issuePing (fst sl)
     $(logDebug) $
-        T.append
-            (T.pack "Pong response recieved : len : ")
-            (T.pack (show $ length resp))
+        T.append (T.pack "Pong response recieved ") (T.pack (show resp))
     let temp = addToNewList resp (fst sl)
         newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
     return newpl
@@ -329,12 +328,12 @@ issuePing rpeer = do
         rip = nodeIp rnep
         ping_msg = packPing lnid lip luport ltport
     $(logDebug) $
-        T.pack ("Issueing ping request to : " ++ show rip ++ show ruport)
+        T.pack ("Issueing ping request to : " ++ show rip ++ ":" ++ show ruport)
     resp <-
         Exception.try $
         sendRequestforKademlia rnid HT.Kademlia (serialise ping_msg) ruport rip
     $(logDebug) $
-        T.pack ("Response for ping from : " ++ show rip ++ show ruport)
+        T.pack ("Response for ping from : " ++ show rip ++ ":" ++ show ruport)
     case resp of
         Left (e :: Exception.SomeException) -> do
             $(logDebug) (T.pack (displayException e))
