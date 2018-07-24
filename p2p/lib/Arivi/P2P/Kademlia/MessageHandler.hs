@@ -70,7 +70,6 @@ kademliaMessageHandler payl = do
                         T.append
                             (T.pack "Ping Message Recieved from : ")
                             (T.pack (show rnep))
-                    addToKBucket rpeer
                     return $ serialise $ packPong lnid lip luport ltport
                 FIND_NODE {} -> do
                     $(logDebug) $
@@ -82,7 +81,7 @@ kademliaMessageHandler payl = do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
                     --     print ("Kbucket size after mH " ++ show i)
-                    pl <- getKClosestPeersByNodeid rnid 10
+                    pl <- getKClosestPeersByNodeid rnid 5
                     case pl of
                         Right pl2 ->
                             return $
