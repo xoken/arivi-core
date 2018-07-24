@@ -40,7 +40,6 @@ data P2PEnv = P2PEnv
     , tvarTopicHandlerMap :: TVar TopicHandlerMap
     , tvarMessageHashMap :: TVar MessageHashMap
     , ariviNetworkEnv :: AriviEnv
-    , kademliaConcurrencyFactor :: Int
     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
     , tvPeerReputationHashTable :: TVar PeerReputationHistoryTable
     , tvServicesReputationHashMap :: TVar ServicesReputationHashMap
@@ -62,7 +61,6 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getNotifiersTableP2PEnv :: m (TVar NotifiersTable)
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
-    getKademliaConcurrencyFactor :: m Int
     getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
     getPeerReputationHistoryTableTVar :: m (TVar PeerReputationHistoryTable)
     getServicesReputationHashMapTVar :: m (TVar ServicesReputationHashMap)
@@ -71,12 +69,24 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getKClosestVsRandomTVar :: m (TVar Rational)
 
 makeP2PEnvironment ::
-       String -> T.NodeId -> PortNumber -> PortNumber -> Int -> Int -> IO P2PEnv
-makeP2PEnvironment nIp nId tPort uPort alpha sbound = do
+       String
+    -> T.NodeId
+    -> PortNumber
+    -> PortNumber
+    -> Int
+    -> Int
+    -> Int
+    -> IO P2PEnv
+makeP2PEnvironment nIp nId tPort uPort sbound pingThreshold kademliaConcurrencyFactor = do
     nmap <- newTVarIO HM.empty
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
-    kb <- createKbucket (T.Peer (nId, T.NodeEndPoint nIp tPort uPort)) sbound
+    kb <-
+        createKbucket
+            (T.Peer (nId, T.NodeEndPoint nIp tPort uPort))
+            sbound
+            pingThreshold
+            kademliaConcurrencyFactor
     let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty

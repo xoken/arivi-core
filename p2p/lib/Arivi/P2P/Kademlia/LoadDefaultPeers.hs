@@ -84,6 +84,7 @@ deleteIfPeerExist (x:xs) = do
 issueFindNode :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m ()
 issueFindNode rpeer = do
     p2pInstanceTVar <- getAriviTVarP2PEnv
+    kb' <- getKb
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
         luport = selfUDPPort p2pInstance
@@ -127,7 +128,7 @@ issueFindNode rpeer = do
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
                     --   FIND_NODE request forever.
-                    alpha <- getKademliaConcurrencyFactor
-                    let pl3 = LL.splitAt alpha peerl2
+                    let alpha = kademliaConcurrencyFactor kb'
+                        pl3 = LL.splitAt alpha peerl2
                     mapConcurrently_ issueFindNode $ fst pl3
                     mapConcurrently_ issueFindNode $ snd pl3
