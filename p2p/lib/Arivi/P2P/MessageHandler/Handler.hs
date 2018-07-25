@@ -275,7 +275,7 @@ cleanPeer mNodeId nodeIdMapTVar =
                     peerDetails <- readTVar peerDetailsTVar
                     case peerDetails of
                         -- what kind of stupid case is this?!
-                        PeerDetails _ Nothing Nothing _ _ Nothing Nothing NotConnected NotConnected _ _ -> do
+                        PeerDetails _ Nothing Nothing _ _ Nothing Nothing NotConnected NotConnected _ _ _ -> do
                             let newnodeIdMap = HM.delete mNodeId nodeIdMap
                             writeTVar nodeIdMapTVar newnodeIdMap
                             return ()
