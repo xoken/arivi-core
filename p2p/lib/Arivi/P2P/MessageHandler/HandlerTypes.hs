@@ -25,17 +25,18 @@ import           Control.Concurrent.MVar
 {-
 
 -}
-import           Arivi.Network               (ConnectionHandle (..),
-                                              TransportType (..))
-import           Codec.Serialise             (Serialise)
+import           Arivi.Network                (ConnectionHandle (..),
+                                               TransportType (..))
+import           Codec.Serialise              (Serialise)
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar ()
-import           Data.ByteString             as N (ByteString)
-import           Data.ByteString.Lazy        as Lazy (ByteString)
+import           Control.Concurrent.STM.TMVar
+import           Control.Concurrent.STM.TVar  ()
+import           Data.ByteString              as N (ByteString)
+import           Data.ByteString.Lazy         as Lazy (ByteString)
 import           Data.Hashable
-import           Data.HashMap.Strict         as HM
-import           GHC.Generics                (Generic)
-import           Network.Socket              (PortNumber)
+import           Data.HashMap.Strict          as HM
+import           GHC.Generics                 (Generic)
+import           Network.Socket               (PortNumber)
 
 --import           Arivi.Network.Types            (TransportType(..))
 --import Arivi.P2P.Types
@@ -119,6 +120,7 @@ data PeerDetails = PeerDetails
     , datagramHandle :: Handle
     , uuidMap        :: UUIDMap
     , tvarUUIDMap    :: TVar UUIDMap
+    , connectionLock :: TMVar Bool
     }
 
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
