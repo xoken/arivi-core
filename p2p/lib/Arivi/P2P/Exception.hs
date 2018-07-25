@@ -2,6 +2,7 @@ module Arivi.P2P.Exception
     ( AriviP2PException(..)
     ) where
 
+import           Arivi.Network       (AriviNetworkException)
 import           Arivi.P2P.RPC.Types (MessageTypeRPC)
 import           Control.Exception
 
@@ -12,7 +13,11 @@ data AriviP2PException
     | HandlerSendMessageTimeout
     | HandlerOpenConnectionError
     | HandlerNotRequest
+    | HandlerUuidNotFound
     | HandlerConnectionBroken
+    | P2PDeserialisationException
+    | HandlerConnectionDetailsNotFound
+    | HandlerNetworkException AriviNetworkException
     | KademliaInvalidRequest
     | KademliaInvalidResponse
     | RPCResourceNotFoundException
