@@ -81,7 +81,7 @@ kademliaMessageHandler payl = do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
                     --     print ("Kbucket size after mH " ++ show i)
-                    pl <- getKClosestPeersByNodeid rnid 5
+                    pl <- getKClosestPeersByNodeid rnid 20
                     case pl of
                         Right pl2 ->
                             return $

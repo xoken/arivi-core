@@ -102,8 +102,8 @@ runNode configPath = do
             8125
             "Xoken"
             (Config.secretKey config)
+            20
             10
-            5
             3
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
@@ -147,8 +147,8 @@ runBSNode configPath = do
             8125
             "Xoken"
             (Config.secretKey config)
+            20
             10
-            5
             3
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
