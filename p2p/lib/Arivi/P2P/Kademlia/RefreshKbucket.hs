@@ -76,17 +76,20 @@ refreshKbucket peerR pl = do
                          peerR
                          pl
                 else pl
-    let sl = L.splitAt (kademliaSoftBound sb) pl2
-    $(logDebug) $
-        T.append
-            (T.pack "Issueing ping to refresh kbucket no of req sent :")
-            (T.pack (show (fst sl)))
-    resp <- mapConcurrently issuePing (fst sl)
-    $(logDebug) $
-        T.append (T.pack "Pong response recieved ") (T.pack (show resp))
-    let temp = addToNewList resp (fst sl)
-        newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
-    return newpl
+    if L.length pl2 > pingThreshold sb
+        then do
+            let sl = L.splitAt (kademliaSoftBound sb) pl2
+            $(logDebug) $
+                T.append
+                    (T.pack "Issueing ping to refresh kbucket no of req sent :")
+                    (T.pack (show (fst sl)))
+            resp <- mapConcurrently issuePing (fst sl)
+            $(logDebug) $
+                T.append (T.pack "Pong response recieved ") (T.pack (show resp))
+            let temp = addToNewList resp (fst sl)
+                newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
+            return newpl
+        else return (pl2 ++ [peerR])
 
 issuePing ::
        forall m. (HasP2PEnv m, HasLogging m, MonadIO m)
