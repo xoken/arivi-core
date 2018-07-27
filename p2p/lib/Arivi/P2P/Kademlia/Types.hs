@@ -27,6 +27,7 @@ module Arivi.P2P.Kademlia.Types
     , Peer(..)
     , Kbucket(..)
     , HasKbucket(..)
+    , NodeStatus(..)
     ) where
 
 import           Codec.Serialise.Class    (Serialise (..))
@@ -87,6 +88,7 @@ instance Eq Peer where
 -- | K-bucket to store peers
 data Kbucket k v = Kbucket
     { getKbucket                :: H.Map k v
+    , nodeStatusTable           :: H.Map NodeId NodeStatus
     , kademliaSoftBound         :: Int
     , pingThreshold             :: Int
     , kademliaConcurrencyFactor :: Int
@@ -102,8 +104,10 @@ class HasKbucket m where
 createKbucket :: Peer -> Int -> Int -> Int -> IO (Kbucket Int [Peer])
 createKbucket localPeer sbound pingThreshold' kademliaConcurrencyFactor' = do
     m <- atomically H.new
+    n <- atomically H.new
     atomically $ H.insert [localPeer] 0 m
-    return (Kbucket m sbound pingThreshold' kademliaConcurrencyFactor')
+    atomically $ H.insert Verified (fst $ getPeer localPeer) n
+    return (Kbucket m n sbound pingThreshold' kademliaConcurrencyFactor')
 
 -- Custom data type to send & receive message
 data MessageBody
@@ -133,6 +137,11 @@ data Message = Message
 data PayLoad = PayLoad
     { message :: Message
     } deriving (Show, Generic)
+
+data NodeStatus
+    = Verified
+    | UnVerified
+    deriving (Show)
 
 -- Helper functions to create messages
 packPing :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
