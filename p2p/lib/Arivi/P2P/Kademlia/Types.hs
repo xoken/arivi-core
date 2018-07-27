@@ -22,6 +22,8 @@ module Arivi.P2P.Kademlia.Types
     , packPing
     , packPong
     , createKbucket
+    , packVnR
+    , packVerifyMsg
     -- , serialise
     -- , deserialise
     , Peer(..)
@@ -75,6 +77,8 @@ data MessageType
     | MSG02
     | MSG03
     | MSG04
+    | MSG05
+    | MSG06
     deriving (Show, Generic)
 
 -- | Peer information encapsulated in a single structure
@@ -118,6 +122,12 @@ data MessageBody
     | FN_RESP { nodeId       :: NodeId
               , peerList     :: [Peer]
               , fromEndPoint :: NodeEndPoint }
+    | VERIFY_NODE { nodeId       :: NodeId
+                  , targetNodeId :: NodeId
+                  , fromEndPoint :: NodeEndPoint }
+    | VN_RESP { nodeId       :: NodeId
+              , peerList     :: [Peer]
+              , fromEndPoint :: NodeEndPoint }
     deriving (Generic, Show)
 
 data Message = Message
@@ -158,6 +168,21 @@ packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
     fromep = NodeEndPoint hostNamea udpPorta tcpPorta
     msgBody = FN_RESP nId mPeerList fromep
     msg = Message MSG04 msgBody
+
+packVerifyMsg ::
+       NodeId -> NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
+packVerifyMsg nId targetNode hostName' udpPort'' tcpPort'' = PayLoad msg
+  where
+    fromep = NodeEndPoint hostName' udpPort'' tcpPort''
+    msgBody = VERIFY_NODE nId targetNode fromep
+    msg = Message MSG05 msgBody
+
+packVnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
+packVnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
+  where
+    fromep = NodeEndPoint hostNamea udpPorta tcpPorta
+    msgBody = VN_RESP nId mPeerList fromep
+    msg = Message MSG06 msgBody
 
 -- Serialise instance of different custom types so that they can be encoded
 -- and decoded using serialize library which further allows these types
@@ -266,6 +291,12 @@ encodeMessageBody (FIND_NODE pnodeId ptargetNodeId pnodeEndPoint) =
 encodeMessageBody (FN_RESP pnodeId ppeerList pnodeEndPoint) =
     encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList <>
     encode pnodeEndPoint
+encodeMessageBody (VERIFY_NODE pnodeId ptargetNodeId pnodeEndPoint) =
+    encodeListLen 4 <> encodeWord 2 <> encode pnodeId <> encode ptargetNodeId <>
+    encode pnodeEndPoint
+encodeMessageBody (VN_RESP pnodeId ppeerList pnodeEndPoint) =
+    encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList <>
+    encode pnodeEndPoint
 
 decodeMessageBody :: Decoder s MessageBody
 decodeMessageBody = do
@@ -276,4 +307,6 @@ decodeMessageBody = do
         (3, 1) -> PONG <$> decode <*> decode
         (4, 2) -> FIND_NODE <$> decode <*> decode <*> decode
         (4, 3) -> FN_RESP <$> decode <*> decode <*> decode
+        (4, 4) -> VERIFY_NODE <$> decode <*> decode <*> decode
+        (4, 5) -> VN_RESP <$> decode <*> decode <*> decode
         _      -> fail "Invalid MessageBody encoding"
