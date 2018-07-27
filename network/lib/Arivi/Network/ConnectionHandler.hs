@@ -54,7 +54,7 @@ import           Data.Int
 import           Data.IORef
 import           Network.Socket                 hiding (send)
 import qualified Network.Socket.ByteString.Lazy as N (recv)
-import           System.Timeout
+-- import           System.Timeout
 import           Text.InterpolatedString.Perl6
 
 establishSecureConnection ::
@@ -255,10 +255,10 @@ processParcel parcel connection fragmentsHM =
 getDatagramWithTimeout ::
        Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getDatagramWithTimeout sock microseconds = do
-    datagramOrNothing <- timeout microseconds (try (N.recv sock 5100))
+    datagramOrNothing <- Async.race (threadDelay microseconds) (try $ mapIOException (\(_ :: SomeException) -> NetworkSocketException) (N.recv sock 5100))
     case datagramOrNothing of
-        Nothing -> return $ Left NetworkTimeoutException
-        Just datagramEither ->
+        Left _ -> return $ Left NetworkTimeoutException
+        Right datagramEither ->
             case datagramEither of
                 Left e -> return (Left e)
                 Right datagram ->
