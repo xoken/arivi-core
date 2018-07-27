@@ -75,6 +75,7 @@ library
                        Arivi.P2P.MessageHandler.Handler
                        Arivi.P2P.MessageHandler.NodeEndpoint
                        Arivi.P2P.MessageHandler.HandlerTypes
+                       Arivi.P2P.MessageHandler.Utils
                        Arivi.P2P.Kademlia.Types
                        Arivi.P2P.Kademlia.XorDistance
                        Arivi.P2P.Kademlia.Utils
