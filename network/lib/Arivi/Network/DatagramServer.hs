@@ -58,7 +58,7 @@ makeSocket portNumber socketType = do
 runUdpServer ::
        (HasSecretKey m, HasLogging m)
     => ServiceName
-    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
+    -> (NodeId -> HostName -> PortNumber -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 runUdpServer portNumber handler =
     $(withLoggingTH) (LogNetworkStatement "UDP Server started...") LevelDebug $ do
@@ -77,7 +77,7 @@ newUdpConnection ::
        (HasSecretKey m, HasLogging m)
     => ByteString
     -> Socket
-    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
+    -> (NodeId -> HostName -> PortNumber -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
     liftIO (getPeerName sock) >>= \addr ->
@@ -89,6 +89,8 @@ newUdpConnection hsInitMsg sock handler =
              conn <- liftIO $ establishSecureConnection sk sock id hsInitParcel
              handler
                  (Conn.remoteNodeId conn)
+                 (Conn.ipAddress conn)
+                 (Conn.port conn)
                  (Conn.transportType conn)
                  ConnectionHandle
                  { send = sendUdpMessage conn

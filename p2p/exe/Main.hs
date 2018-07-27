@@ -16,9 +16,7 @@ import           Arivi.Network
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.ServiceRegistry
 
-import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import           Arivi.P2P.Kademlia.VerifyPeer          (initBootStrap)
-import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
+import           Arivi.P2P.MessageHandler.NodeEndpoint  (newIncomingConnectionHandler)
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad                          (mapM_)
 import           Control.Monad.IO.Class                 (liftIO)
@@ -118,8 +116,7 @@ runNode configPath = do
                     async
                         (runUdpServer
                              (show (Config.udpPort config))
-                             newIncomingConnection)
-                mapM_ initBootStrap (Config.trustedPeers config)
+                             newIncomingConnectionHandler)
                 loadDefaultPeers (Config.trustedPeers config)
                 wait tid
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
@@ -159,7 +156,7 @@ runBSNode configPath = do
     -- runStdoutLoggingT $
         runAppM
             env
-            (runUdpServer (show (Config.tcpPort config)) newIncomingConnection
+            (runUdpServer (show (Config.tcpPort config)) newIncomingConnectionHandler
             --async (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
             -- return ()
              )
