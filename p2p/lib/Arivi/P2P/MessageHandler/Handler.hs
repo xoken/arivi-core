@@ -170,7 +170,6 @@ newIncomingConnection mNodeId transportType connHandle = do
     liftIO $
         addPeerFromConnection mNodeId transportType connHandle nodeIdMapTVar
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
-    -- please staahhhhppp
     peerDetails <- liftIO $ readTVarIO (fromJust (HM.lookup mNodeId nodeIdMap))
     let uuidMapTVar = tvarUUIDMap peerDetails
     _ <- LAsync.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
