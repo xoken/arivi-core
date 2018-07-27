@@ -24,8 +24,6 @@ module Arivi.P2P.Kademlia.Types
     , createKbucket
     , packVnR
     , packVerifyMsg
-    -- , serialise
-    -- , deserialise
     , Peer(..)
     , Kbucket(..)
     , HasKbucket(..)
@@ -34,9 +32,6 @@ module Arivi.P2P.Kademlia.Types
 import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-
--- import           Control.Monad.IO.Class   (MonadIO)
--- import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.STM        (atomically)
 import           Crypto.Error
 import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
