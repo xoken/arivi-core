@@ -171,7 +171,6 @@ newIncomingConnection mNodeId transportType connHandle = do
     liftIO $
         addPeerFromConnection mNodeId transportType connHandle nodeIdMapTVar
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
-    -- please staahhhhppp
     peerDetails <- liftIO $ readTVarIO (fromJust (HM.lookup mNodeId nodeIdMap))
     let uuidMapTVar = tvarUUIDMap peerDetails
     _ <- LAsync.async (readRequestThread connHandle uuidMapTVar messageTypeMap)
@@ -275,7 +274,7 @@ cleanPeer mNodeId nodeIdMapTVar =
                     peerDetails <- readTVar peerDetailsTVar
                     case peerDetails of
                         -- what kind of stupid case is this?!
-                        PeerDetails _ Nothing Nothing _ _ Nothing Nothing NotConnected NotConnected _ _ _ -> do
+                        PeerDetails {} -> do
                             let newnodeIdMap = HM.delete mNodeId nodeIdMap
                             writeTVar nodeIdMapTVar newnodeIdMap
                             return ()
