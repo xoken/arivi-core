@@ -27,6 +27,7 @@ import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.Kademlia.VerifyPeer
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
@@ -100,8 +101,8 @@ issueFindNode rpeer = do
         T.pack ("Issueing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
     resp <-
         Exception.try $
-        sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
-    _ <- async $ verifyPeer rpeer
+        -- sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+        issueKademliaRequest rnid rip ruport (serialise fn_msg)
     case resp of
         Left (e :: Exception.SomeException) ->
             $(logDebug) $ T.pack (displayException e)
@@ -137,4 +138,3 @@ issueFindNode rpeer = do
                         pl3 = LL.splitAt alpha peerl2
                     mapConcurrently_ issueFindNode $ fst pl3
                     mapConcurrently_ issueFindNode $ snd pl3
-
