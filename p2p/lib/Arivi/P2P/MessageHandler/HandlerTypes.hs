@@ -114,7 +114,9 @@ data PeerDetails = PeerDetails
     , ip             :: Maybe IP     -- Should always have a value
     , rep'           :: Double -- Can have a fixed default value
     , ip'            :: IP     -- Should always have a value
+    , udpPort'       :: PortNumber
     , udpPort        :: Maybe PortNumber
+    , tcpPort'       :: PortNumber
     , tcpPort        :: Maybe PortNumber
     , streamHandle   :: Handle
     , datagramHandle :: Handle
