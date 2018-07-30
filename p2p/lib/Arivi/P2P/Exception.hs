@@ -23,6 +23,10 @@ data AriviP2PException
     | OptionsInvalidMessageType MessageTypeRPC
     | OptionsHandlerInvalidMessageType MessageTypeRPC
     | KademliaDeserialiseFailure
+    | PubSubInvalidNotifierException
+    | PubSubInvalidPublisherException
+    | PubSubTopicNotRegisteredException
+    | PubSubDuplicateMessageException
     deriving (Show)
 
 instance Exception AriviP2PException

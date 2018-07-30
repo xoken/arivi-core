@@ -52,18 +52,20 @@ type TopicHandler = (TopicMessage -> TopicMessage)
 data ResponseCode
     = Error
     | Ok
+    | DeserialiseError
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise ResponseCode
 
--- | Convert the pico passed to diff time in functions, diff time is not
---  serialisable
 data MessageTypePubSub
-    = Subscribe { topicId      :: Topic
+    = Subscribe { nodeId       :: NodeId
+                , topicId      :: Topic
                 , messageTimer :: Integer }
-    | Notify { topicId      :: Topic
+    | Notify { nodeId       :: NodeId
+             , topicId      :: Topic
              , topicMessage :: TopicMessage }
-    | Publish { topicId      :: Topic
+    | Publish { nodeId       :: NodeId
+              , topicId      :: Topic
               , topicMessage :: TopicMessage }
     | Response { responseCode :: ResponseCode
                , messageTimer :: Integer -- ^ Specify time duration as seconds
@@ -82,4 +84,4 @@ type NotifiersTable = HM.HashMap Topic (TVar (SortedList Notifier), Int)
 type TopicHandlerMap = HM.HashMap Topic TopicHandler
 
 -- | Murmur hash of the TOpicMessage
-type MessageHashMap = HM.HashMap TopicMessage (TVar (Bool, [NodeId]))
+type MessageHashMap = HM.HashMap TopicMessage (TVar [NodeId])
