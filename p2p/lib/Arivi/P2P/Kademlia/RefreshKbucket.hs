@@ -43,11 +43,13 @@ import           Control.Monad.STM
 import qualified Data.List                             as L
 import qualified Data.Text                             as T
 
+-- | Helper function to combine to lists
 combineList :: [[a]] -> [[a]] -> [[a]]
 combineList [] [] = []
 combineList l1 l2 =
     [L.head l1 ++ L.head l2, L.head (L.tail l1) ++ L.head (L.tail l2)]
 
+-- | creates a new list by combining two lists
 addToNewList :: [Bool] -> [Peer] -> [[Peer]]
 addToNewList _ [] = [[], []]
 addToNewList bl pl
@@ -65,32 +67,8 @@ addToNewList bl pl
                      [[], [L.head pl]]
                      (addToNewList (L.tail bl) (L.tail pl))
 
-refreshKbucket ::
-       (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> [Peer] -> m [Peer]
-refreshKbucket peerR pl = do
-    sb <- getKb
-    let pl2 =
-            if peerR `elem` pl
-                then L.deleteBy
-                         (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))
-                         peerR
-                         pl
-                else pl
-    if L.length pl2 > pingThreshold sb
-        then do
-            let sl = L.splitAt (kademliaSoftBound sb) pl2
-            $(logDebug) $
-                T.append
-                    (T.pack "Issueing ping to refresh kbucket no of req sent :")
-                    (T.pack (show (fst sl)))
-            resp <- mapConcurrently issuePing (fst sl)
-            $(logDebug) $
-                T.append (T.pack "Pong response recieved ") (T.pack (show resp))
-            let temp = addToNewList resp (fst sl)
-                newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
-            return newpl
-        else return (pl2 ++ [peerR])
-
+-- | Issues a ping command and waits for the response and if the response is
+--   is valid returns True else False
 issuePing ::
        forall m. (HasP2PEnv m, HasLogging m, MonadIO m)
     => Peer
@@ -134,6 +112,33 @@ issuePing rpeer = do
                     case msgb of
                         PONG _ _ -> return True
                         _        -> return False
+
+-- | creates a new list from an existing one by issuing a ping command
+refreshKbucket ::
+       (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> [Peer] -> m [Peer]
+refreshKbucket peerR pl = do
+    sb <- getKb
+    let pl2 =
+            if peerR `elem` pl
+                then L.deleteBy
+                         (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))
+                         peerR
+                         pl
+                else pl
+    if L.length pl2 > pingThreshold sb
+        then do
+            let sl = L.splitAt (kademliaSoftBound sb) pl2
+            $(logDebug) $
+                T.append
+                    (T.pack "Issueing ping to refresh kbucket no of req sent :")
+                    (T.pack (show (fst sl)))
+            resp <- mapConcurrently issuePing (fst sl)
+            $(logDebug) $
+                T.append (T.pack "Pong response recieved ") (T.pack (show resp))
+            let temp = addToNewList resp (fst sl)
+                newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
+            return newpl
+        else return (pl2 ++ [peerR])
 -- runKademliaAction :: forall m. (HasP2PEnv m, HasLogging m, MonadIO m,a) =>
 --                         (a -> m a)
 --                         -> [a]
