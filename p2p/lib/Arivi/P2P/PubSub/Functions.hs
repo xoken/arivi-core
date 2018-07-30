@@ -12,11 +12,17 @@ module Arivi.P2P.PubSub.Functions
     ) where
 
 import           Arivi.P2P.Exception
+import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (getKClosestPeersByNodeid,
+                                                                    getKRandomPeers)
+import           Arivi.P2P.Kademlia.Utils              (extractFirst,
+                                                        extractSecond,
+                                                        extractThird)
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         NodeId, P2PPayload)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
+import           Arivi.P2P.RPC.Functions               (addPeerFromKademlia)
 import           Arivi.P2P.RPC.Types                   (ResourceHandler,
                                                         ResourceId)
 import           Arivi.Utils.Logging
@@ -25,18 +31,11 @@ import           Codec.Serialise                       (deserialiseOrFail,
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
-import           Control.Monad.IO.Class                (liftIO)
-import           Control.Monad.STM
-
-import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (getKClosestPeersByNodeid,
-                                                                    getKRandomPeers)
-import           Arivi.P2P.Kademlia.Utils              (extractFirst,
-                                                        extractSecond,
-                                                        extractThird)
-import           Arivi.P2P.RPC.Functions               (addPeerFromKademlia)
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
-import           Control.Monad                         (when)
+import           Control.Monad                         (unless, when)
+import           Control.Monad.IO.Class                (liftIO)
+import           Control.Monad.STM
 import           Data.ByteString.Char8                 as Char8 (pack)
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString,
                                                                 fromStrict)
@@ -72,10 +71,10 @@ publishTopic messageTopic publishMessage = do
     let nodeIdList = List.map timerNodeId combinedList
     let message =
             Publish
-                { nodeId = mNodeId
-                , topicId = messageTopic
-                , topicMessage = publishMessage
-                }
+            { nodeId = mNodeId
+            , topicId = messageTopic
+            , topicMessage = publishMessage
+            }
     let serializedMessage = serialise message
     sendPubSubMessage nodeIdList serializedMessage
 
@@ -133,10 +132,10 @@ notifyTopic mTopic mTopicMessage = do
         Just currWListTVar -> do
             let notifyMessage =
                     Notify
-                        { nodeId = mNodeId
-                        , topicId = mTopic
-                        , topicMessage = mTopicMessage
-                        }
+                    { nodeId = mNodeId
+                    , topicId = mTopic
+                    , topicMessage = mTopicMessage
+                    }
             let notifyMessageByteString = serialise notifyMessage
             currWatcherSortedList <- liftIO $ readTVarIO currWListTVar
             let watcherList = fromSortedList currWatcherSortedList
@@ -286,9 +285,9 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                              addUTCTime timeDiff currTime
                                      let newNotifier =
                                              NodeTimer
-                                                 { timerNodeId = notifierNodeId
-                                                 , timer = subscriptionTime
-                                                 }
+                                             { timerNodeId = notifierNodeId
+                                             , timer = subscriptionTime
+                                             }
                                      case currNotifierListTvar of
                                          Nothing -> do
                                              let newNotif =
@@ -364,9 +363,9 @@ pubsubHandler incomingRequest
          -> do
             let errorMessage =
                     Response
-                        { responseCode = DeserialiseError
-                        , messageTimer = 0 -- Error Message, setting timer as 0
-                        }
+                    { responseCode = DeserialiseError
+                    , messageTimer = 0 -- Error Message, setting timer as 0
+                    }
             return $ serialise errorMessage
         Right (incomingMessage :: MessageTypePubSub) ->
             case incomingMessage of
@@ -393,6 +392,8 @@ pubsubHandler incomingRequest
                         mTopicId
                         mMessageTimer
                         watcherMapTVar
+                -- TODO handlenon-exhaustive  Patterns
+                _ -> undefined
 
 notifyMessageHandler ::
        (HasP2PEnv m, HasLogging m)
@@ -494,7 +495,7 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
                     Just valueInMap -> do
                         nodeIdList <- readTVar valueInMap
                         let temp = recvNodeId `elem` nodeIdList
-                        Control.Monad.when (unless temp) $ do
+                        unless temp $ do
                             let updatedNodeIdList = nodeIdList ++ [recvNodeId]
                             writeTVar valueInMap updatedNodeIdList
                         let flag0 = 0 :: Integer
@@ -525,11 +526,13 @@ subscribeMessageHandler mNodeId mTopic mTime watcherTableTVar = do
     let subscriptionTime = addUTCTime timeDiff currTime
     let watcher = NodeTimer {timerNodeId = mNodeId, timer = subscriptionTime}
     case entry of
-        Nothing -> do
-            let temp = toSortedList [watcher]
-            watcherSortedList <- newTVar temp
-            let newMap = HM.insert mTopic watcherSortedList watcherMap
-            writeTVar watcherTableTVar newMap
+        Nothing ->
+            liftIO $
+            atomically $ do
+                let temp = toSortedList [watcher]
+                watcherSortedList <- newTVar temp
+                let newMap = HM.insert mTopic watcherSortedList watcherMap
+                writeTVar watcherTableTVar newMap
         Just watcherTVar ->
             liftIO $
             atomically
