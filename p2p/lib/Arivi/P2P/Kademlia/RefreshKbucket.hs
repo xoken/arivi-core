@@ -13,12 +13,14 @@
 -- peers are prioritised, this module do that by issuing the PING request
 -- to the k-bucket entries and shuffle the list based on the response
 --
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
 module Arivi.P2P.Kademlia.RefreshKbucket
     ( refreshKbucket
+    , issuePing
     ) where
 
 import           Arivi.P2P.Kademlia.Types
@@ -139,12 +141,15 @@ refreshKbucket peerR pl = do
                 newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
             return newpl
         else return (pl2 ++ [peerR])
--- runKademliaAction :: forall m. (HasP2PEnv m, HasLogging m, MonadIO m,a) =>
---                         (a -> m a)
+-- runKademliaConcurrently :: forall a b m. (HasP2PEnv m, HasLogging m, MonadIO m)
+--                         => (a -> m b)
 --                         -> [a]
---                         -> m()
--- runKademliaAction fn il = do
---     sb <-  getKademliaSoftBound
+--                         -> [b]
+-- runKademliaConcurrently fn il = do
+--     kb <-  getKb
+--     let sb    = kademliaSoftBound kb
+--         alpha = kademliaConcurrencyFactor kb
 --     let ls = L.splitAt sb il
---     temp <- mapConcurrenlty fn (fst ls)
---     temp ++ runAlphaConcurrenlty fn (snd ls)
+--     temp <- mapConcurrently fn (fst ls)
+--     temp2 <- runKademliaConcurrently fn (snd ls)
+--     temp ++ temp2
