@@ -121,9 +121,10 @@ data MessageBody
     | FN_RESP { nodeId       :: NodeId
               , peerList     :: [Peer]
               , fromEndPoint :: NodeEndPoint }
-    | VERIFY_NODE { nodeId       :: NodeId
-                  , targetNodeId :: NodeId
-                  , fromEndPoint :: NodeEndPoint }
+    | VERIFY_NODE { nodeId         :: NodeId
+                  , targetNodeId   :: NodeId
+                  , targetEndPoint :: NodeEndPoint
+                  , fromEndPoint   :: NodeEndPoint }
     | VN_RESP { nodeId       :: NodeId
               , peerList     :: [Peer]
               , fromEndPoint :: NodeEndPoint }
@@ -174,11 +175,21 @@ packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
     msg = Message MSG04 msgBody
 
 packVerifyMsg ::
-       NodeId -> NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packVerifyMsg nId targetNode hostName' udpPort'' tcpPort'' = PayLoad msg
+       NodeId
+    -> NodeId
+    -> HostName
+    -> PortNumber
+    -> PortNumber
+    -> HostName
+    -> PortNumber
+    -> PortNumber
+    -> PayLoad
+packVerifyMsg nId targetNode hostName' udpPort'' tcpPort'' thostName tudpPort ttcpPort =
+    PayLoad msg
   where
     fromep = NodeEndPoint hostName' udpPort'' tcpPort''
-    msgBody = VERIFY_NODE nId targetNode fromep
+    targetep = NodeEndPoint thostName tudpPort ttcpPort
+    msgBody = VERIFY_NODE nId targetNode targetep fromep
     msg = Message MSG05 msgBody
 
 packVnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
@@ -295,11 +306,12 @@ encodeMessageBody (FIND_NODE pnodeId ptargetNodeId pnodeEndPoint) =
 encodeMessageBody (FN_RESP pnodeId ppeerList pnodeEndPoint) =
     encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList <>
     encode pnodeEndPoint
-encodeMessageBody (VERIFY_NODE pnodeId ptargetNodeId pnodeEndPoint) =
-    encodeListLen 4 <> encodeWord 2 <> encode pnodeId <> encode ptargetNodeId <>
+encodeMessageBody (VERIFY_NODE pnodeId ptargetNodeId tnodeEndPoint pnodeEndPoint) =
+    encodeListLen 5 <> encodeWord 4 <> encode pnodeId <> encode ptargetNodeId <>
+    encode tnodeEndPoint <>
     encode pnodeEndPoint
 encodeMessageBody (VN_RESP pnodeId ppeerList pnodeEndPoint) =
-    encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList <>
+    encodeListLen 4 <> encodeWord 5 <> encode pnodeId <> encode ppeerList <>
     encode pnodeEndPoint
 
 decodeMessageBody :: Decoder s MessageBody
@@ -311,6 +323,6 @@ decodeMessageBody = do
         (3, 1) -> PONG <$> decode <*> decode
         (4, 2) -> FIND_NODE <$> decode <*> decode <*> decode
         (4, 3) -> FN_RESP <$> decode <*> decode <*> decode
-        (4, 4) -> VERIFY_NODE <$> decode <*> decode <*> decode
+        (5, 4) -> VERIFY_NODE <$> decode <*> decode <*> decode <*> decode
         (4, 5) -> VN_RESP <$> decode <*> decode <*> decode
         _      -> fail "Invalid MessageBody encoding"
