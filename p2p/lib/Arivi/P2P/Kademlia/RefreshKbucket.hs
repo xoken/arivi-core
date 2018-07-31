@@ -21,6 +21,7 @@
 module Arivi.P2P.Kademlia.RefreshKbucket
     ( refreshKbucket
     , issuePing
+    , runKademliaConcurrently
     ) where
 
 import           Arivi.P2P.Kademlia.Types
@@ -141,15 +142,16 @@ refreshKbucket peerR pl = do
                 newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
             return newpl
         else return (pl2 ++ [peerR])
--- runKademliaConcurrently :: forall a b m. (HasP2PEnv m, HasLogging m, MonadIO m)
---                         => (a -> m b)
---                         -> [a]
---                         -> [b]
--- runKademliaConcurrently fn il = do
---     kb <-  getKb
---     let sb    = kademliaSoftBound kb
---         alpha = kademliaConcurrencyFactor kb
---     let ls = L.splitAt sb il
---     temp <- mapConcurrently fn (fst ls)
---     temp2 <- runKademliaConcurrently fn (snd ls)
---     temp ++ temp2
+
+runKademliaConcurrently ::
+       forall a b m. (HasP2PEnv m, HasLogging m, MonadIO m)
+    => (a -> m b)
+    -> [a]
+    -> m [b]
+runKademliaConcurrently fn il = do
+    kb <- getKb
+    let alpha = kademliaConcurrencyFactor kb
+        ls = L.splitAt alpha il
+    temp <- mapConcurrently fn (fst ls)
+    temp2 <- runKademliaConcurrently fn (snd ls)
+    return $ temp ++ temp2
