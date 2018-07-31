@@ -252,5 +252,5 @@ getKClosestPeersByNodeid nid k = do
 --   case peers returned will not be closest peers
 getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
-    keyl <- liftIO $ U.randomList 255
+    keyl <- liftIO $ U.randomList 512
     getPeerListFromKeyList k keyl
