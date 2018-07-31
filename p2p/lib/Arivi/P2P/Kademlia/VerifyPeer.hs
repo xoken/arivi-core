@@ -161,4 +161,4 @@ issueVerifyNode peerV peerT = do
             $(logDebug) $ T.pack (displayException e)
             return False
             -- TODO isue verifyNode once more just to be sure
-        Right resp' -> return True
+        Right _ -> return True
