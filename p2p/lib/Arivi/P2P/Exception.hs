@@ -27,6 +27,7 @@ data AriviP2PException
     | PubSubInvalidPublisherException
     | PubSubTopicNotRegisteredException
     | PubSubDuplicateMessageException
+    | PubSubInvalidResponseException
     deriving (Show)
 
 instance Exception AriviP2PException
