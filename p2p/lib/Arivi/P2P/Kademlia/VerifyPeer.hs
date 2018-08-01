@@ -23,7 +23,8 @@ module Arivi.P2P.Kademlia.VerifyPeer
     ( isVerified
     , issueVerifyNode
     , getPeerListFromPayLoad
-    , isNodeValid
+    , isVNRESPValid
+    , getRandomVerifiedPeer
     ) where
 
 import           Arivi.P2P.Exception
@@ -41,18 +42,25 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
+
+-- import           Control.Concurrent                    (ThreadId, forkIO,
+--                                                         threadDelay)
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
+
+-- import           Control.Monad                         (filterM)
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger                  (logDebug)
 import           Control.Monad.STM                     (atomically)
 import qualified Data.ByteString.Char8                 as C
 import qualified Data.ByteString.Lazy                  as L
 import qualified Data.Text                             as T
+import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
+import           System.Random                         (randomRIO)
 
 -- | Simple function to check the status of a Peer
 isVerified ::
@@ -74,8 +82,36 @@ isVerified peer = do
 -- getVerifiedNodes peerR k = do
 --     let nid = fst $ getPeer peerR
 --     kb <- getKb
---     plt <- getKClosestPeersByNodeid nid k
---     L.deleteBy () plt
+--     -- Todo think about below point
+--     -- ? Should this multiplier factor exist (2*k)
+--     plt <- getKClosestPeersByNodeid nid (2*k)
+--     case plt of
+--         Right pl -> do
+--             vPeers <- filterM (\x -> do
+--                                     st <- isVerified x
+--                                     case st of
+--                                         Right Verified -> return True
+--                                         _              -> return False
+--                                 ) pl
+--             return vPeers
+--         Left e   -> throw e
+getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => m Peer
+getRandomVerifiedPeer = do
+    kb <- getKb
+    let vt = nodeStatusTable kb
+        st = H.stream vt
+    kvList <- liftIO $ atomically $ toList st
+    let vPeers =
+            filter
+                (\x ->
+                     case snd x of
+                         Verified -> True
+                         _        -> False)
+                kvList
+    rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers)
+    let rp = fst $ vPeers !! rIndex
+    getPeerByNodeId rp
+
 -- | Get k-random verified peers
 -- getRandomVerifiedNodes :: (HasKbucket m,MonadIO m) => Int -> m [Peer]
 -- getRandomVerifiedNodes k = do
@@ -83,9 +119,14 @@ isVerified peer = do
 --     let vt = nodeStatusTable  kb
 --     rps <- getKRandomPeers k
 --     mapM isVerified rps
--- verifyPeer :: (HasKbucket m) => Peer -> m [Peer]
--- verifyPeer peer = do
---     kb <- getKb
+-- verifyPeer :: (HasP2PEnv m,MonadIO m, HasLogging m) => Peer -> m ThreadId
+-- verifyPeer peerT = forkIO $ do
+--     rt <- liftIO $ randomRIO (6e+7,3e+8)
+--     threadDelay rt
+--     peerV <- getRandomVerifiedPeer
+--     resp <- issueVerifyNode peerV peerT
+--     case resp of
+--         True -> do
 getPeerListFromPayLoad :: L.ByteString -> Either AriviP2PException [Peer]
 getPeerListFromPayLoad payl = do
     let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
@@ -98,9 +139,9 @@ getPeerListFromPayLoad payl = do
                 VN_RESP _ pl _ -> Right pl
                 _              -> Left KademliaInvalidResponse
 
-isNodeValid ::
+isVNRESPValid ::
        (HasP2PEnv m, MonadIO m, HasLogging m) => [Peer] -> Peer -> m Bool
-isNodeValid peerL peerR = do
+isVNRESPValid peerL peerR = do
     dPeer <- getDefaultNodeId
     case dPeer of
         Right dnid -> do
