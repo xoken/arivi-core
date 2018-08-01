@@ -31,6 +31,7 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKClosestPeersByPeer
     , getKClosestPeersByNodeid
     , getKRandomPeers
+    , getPeerByNodeId
     ) where
 
 import           Arivi.P2P.Exception
@@ -50,7 +51,7 @@ import           Control.Monad.STM
 import qualified Data.List                         as L
 import           Data.Maybe
 import qualified Data.Text                         as T
-import           ListT
+import           ListT                             (toList)
 import qualified STMContainers.Map                 as H
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
@@ -254,3 +255,16 @@ getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
     keyl <- liftIO $ U.randomList 512
     getPeerListFromKeyList k keyl
+
+getPeerByNodeId :: (HasKbucket m, MonadIO m) => NodeId -> m Peer
+getPeerByNodeId nid = do
+    lp <- getDefaultNodeId
+    case lp of
+        Right localPeer -> do
+            let kbi = getKbIndex localPeer nid
+            temp <- getPeerListByKIndex kbi
+            case temp of
+                Right pl ->
+                    return $ head $ filter (\x -> fst (getPeer x) == nid) pl
+                Left e -> throw e
+        Left e -> throw e
