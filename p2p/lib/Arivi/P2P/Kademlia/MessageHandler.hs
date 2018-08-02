@@ -92,12 +92,12 @@ kademliaMessageHandler payl = do
                             return $
                             serialise $ packFnR lnid pl2 lip luport ltport
                         Left _ -> throw KademliaInvalidPeer
-                VERIFY_NODE _ tnid tnep _ -> do
+                VERIFY_NODE _ tnid refnid tnep _ -> do
                     $(logDebug) $
                         T.append
                             (T.pack "Verify_Node Message Recieved from : ")
                             (T.pack (show rnep))
-                    let findNodeMsg = packFindMsg lnid tnid lip luport ltport
+                    let findNodeMsg = packFindMsg lnid refnid lip luport ltport
                     resp <-
                         Exception.try $
                         sendRequestforKademlia
