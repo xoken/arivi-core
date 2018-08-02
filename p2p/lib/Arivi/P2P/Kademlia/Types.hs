@@ -123,6 +123,7 @@ data MessageBody
               , fromEndPoint :: NodeEndPoint }
     | VERIFY_NODE { nodeId         :: NodeId
                   , targetNodeId   :: NodeId
+                  , refNodeId      :: NodeId
                   , targetEndPoint :: NodeEndPoint
                   , fromEndPoint   :: NodeEndPoint }
     | VN_RESP { nodeId       :: NodeId
@@ -177,6 +178,7 @@ packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
 packVerifyMsg ::
        NodeId
     -> NodeId
+    -> NodeId
     -> HostName
     -> PortNumber
     -> PortNumber
@@ -184,12 +186,12 @@ packVerifyMsg ::
     -> PortNumber
     -> PortNumber
     -> PayLoad
-packVerifyMsg nId targetNode hostName' udpPort'' tcpPort'' thostName tudpPort ttcpPort =
+packVerifyMsg nId targetNode refNode hostName' udpPort'' tcpPort'' thostName tudpPort ttcpPort =
     PayLoad msg
   where
     fromep = NodeEndPoint hostName' udpPort'' tcpPort''
     targetep = NodeEndPoint thostName tudpPort ttcpPort
-    msgBody = VERIFY_NODE nId targetNode targetep fromep
+    msgBody = VERIFY_NODE nId targetNode refNode targetep fromep
     msg = Message MSG05 msgBody
 
 packVnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
@@ -306,8 +308,9 @@ encodeMessageBody (FIND_NODE pnodeId ptargetNodeId pnodeEndPoint) =
 encodeMessageBody (FN_RESP pnodeId ppeerList pnodeEndPoint) =
     encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList <>
     encode pnodeEndPoint
-encodeMessageBody (VERIFY_NODE pnodeId ptargetNodeId tnodeEndPoint pnodeEndPoint) =
-    encodeListLen 5 <> encodeWord 4 <> encode pnodeId <> encode ptargetNodeId <>
+encodeMessageBody (VERIFY_NODE pnodeId ptargetNodeId prefNodeId tnodeEndPoint pnodeEndPoint) =
+    encodeListLen 6 <> encodeWord 4 <> encode pnodeId <> encode ptargetNodeId <>
+    encode prefNodeId <>
     encode tnodeEndPoint <>
     encode pnodeEndPoint
 encodeMessageBody (VN_RESP pnodeId ppeerList pnodeEndPoint) =
@@ -323,6 +326,7 @@ decodeMessageBody = do
         (3, 1) -> PONG <$> decode <*> decode
         (4, 2) -> FIND_NODE <$> decode <*> decode <*> decode
         (4, 3) -> FN_RESP <$> decode <*> decode <*> decode
-        (5, 4) -> VERIFY_NODE <$> decode <*> decode <*> decode <*> decode
+        (6, 4) ->
+            VERIFY_NODE <$> decode <*> decode <*> decode <*> decode <*> decode
         (4, 5) -> VN_RESP <$> decode <*> decode <*> decode
-        _      -> fail "Invalid MessageBody encoding"
+        _ -> fail "Invalid MessageBody encoding"
