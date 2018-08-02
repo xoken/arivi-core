@@ -50,7 +50,7 @@ library
                     ,  arivi-crypto
                     ,  arivi-utils
 
-  ghc-options:        -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  ghc-options:        -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:          FlexibleContexts
   exposed-modules:
                        Arivi.Env

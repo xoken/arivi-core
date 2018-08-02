@@ -110,18 +110,13 @@ instance Eq Handle where
 
 data PeerDetails = PeerDetails
     { nodeId         :: NodeId
-    , rep            :: Maybe Int -- Can have a fixed default value
-    , ip             :: Maybe IP     -- Should always have a value
     , rep'           :: Double -- Can have a fixed default value
     , ip'            :: IP     -- Should always have a value
     , udpPort'       :: PortNumber
-    , udpPort        :: Maybe PortNumber
     , tcpPort'       :: PortNumber
-    , tcpPort        :: Maybe PortNumber
     , streamHandle   :: Handle
     , datagramHandle :: Handle
     , uuidMap        :: UUIDMap
-    , tvarUUIDMap    :: TVar UUIDMap
     , connectionLock :: TMVar Bool
     }
 
