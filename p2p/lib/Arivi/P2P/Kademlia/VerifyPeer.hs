@@ -14,17 +14,16 @@
 -- to update it's status.
 --
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 
 module Arivi.P2P.Kademlia.VerifyPeer
-    ( isVerified
-    , issueVerifyNode
-    , getPeerListFromPayLoad
-    , isVNRESPValid
-    , getRandomVerifiedPeer
+    ( verifyPeer
+    -- ,   getVerifiedNodes
+    , isVerified
     ) where
 
 import           Arivi.P2P.Exception
@@ -42,21 +41,22 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
-
--- import           Control.Concurrent                    (ThreadId, forkIO,
---                                                         threadDelay)
+import           Control.Concurrent                    (ThreadId)
 import           Control.Concurrent.Async.Lifted
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 
+import qualified Control.Concurrent.Lifted             as CL (fork, threadDelay)
+
 -- import           Control.Monad                         (filterM)
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger                  (logDebug)
 import           Control.Monad.STM                     (atomically)
 import qualified Data.ByteString.Char8                 as C
-import qualified Data.ByteString.Lazy                  as L
+
+-- import qualified Data.ByteString.Lazy                  as L
 import qualified Data.Text                             as T
 import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
@@ -86,14 +86,12 @@ isVerified peer = do
 --     -- ? Should this multiplier factor exist (2*k)
 --     plt <- getKClosestPeersByNodeid nid (2*k)
 --     case plt of
---         Right pl -> do
---             vPeers <- filterM (\x -> do
+--         Right pl -> filterM (\x -> do
 --                                     st <- isVerified x
 --                                     case st of
 --                                         Right Verified -> return True
 --                                         _              -> return False
---                                 ) pl
---             return vPeers
+--                             ) pl
 --         Left e   -> throw e
 getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => m Peer
 getRandomVerifiedPeer = do
@@ -119,28 +117,18 @@ getRandomVerifiedPeer = do
 --     let vt = nodeStatusTable  kb
 --     rps <- getKRandomPeers k
 --     mapM isVerified rps
--- verifyPeer :: (HasP2PEnv m,MonadIO m, HasLogging m) => Peer -> m ThreadId
--- verifyPeer peerT = forkIO $ do
---     rt <- liftIO $ randomRIO (6e+7,3e+8)
---     threadDelay rt
---     peerV <- getRandomVerifiedPeer
---     resp <- issueVerifyNode peerV peerT
---     case resp of
---         True -> do
-getPeerListFromPayLoad :: L.ByteString -> Either AriviP2PException [Peer]
-getPeerListFromPayLoad payl = do
-    let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
-    case payl' of
-        Left _ -> Left KademliaDeserialiseFailure
-        Right payl'' -> do
-            let msg = message payl''
-                msgb = messageBody msg
-            case msgb of
-                VN_RESP _ pl _ -> Right pl
-                _              -> Left KademliaInvalidResponse
-
-isVNRESPValid ::
-       (HasP2PEnv m, MonadIO m, HasLogging m) => [Peer] -> Peer -> m Bool
+-- getPeerListFromPayLoad :: L.ByteString -> Either AriviP2PException [Peer]
+-- getPeerListFromPayLoad payl = do
+--     let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
+--     case payl' of
+--         Left _ -> Left KademliaDeserialiseFailure
+--         Right payl'' -> do
+--             let msg = message payl''
+--                 msgb = messageBody msg
+--             case msgb of
+--                 VN_RESP _ pl _ -> Right pl
+--                 _              -> Left KademliaInvalidResponse
+isVNRESPValid :: (HasP2PEnv m, HasLogging m) => [Peer] -> Peer -> m Bool
 isVNRESPValid peerL peerR = do
     dPeer <- getDefaultNodeId
     case dPeer of
@@ -166,14 +154,15 @@ isVNRESPValid peerL peerR = do
                 -- TODO add to kbucket env
             where minPeerResponded = 3
                   minClosePeer = 3
-        Left _ -> throw KademliaInvalidPeer
+        Left _ -> throw KademliaDefaultPeerDoesNotExists
 
 issueVerifyNode ::
        forall m. (HasP2PEnv m, HasLogging m, MonadIO m)
     => Peer
     -> Peer
-    -> m Bool
-issueVerifyNode peerV peerT = do
+    -> Peer
+    -> m [Peer]
+issueVerifyNode peerV peerT peerR = do
     p2pInstanceTVar <- getAriviTVarP2PEnv
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
@@ -190,7 +179,17 @@ issueVerifyNode peerV peerT = do
         tuport = Arivi.P2P.Kademlia.Types.udpPort tnep
         ttport = Arivi.P2P.Kademlia.Types.tcpPort tnep
         tip = nodeIp tnep
-        vmsg = packVerifyMsg lnid tnid lip luport ltport tip tuport ttport
+        vmsg =
+            packVerifyMsg
+                lnid
+                tnid
+                (fst $ getPeer peerR)
+                lip
+                luport
+                ltport
+                tip
+                tuport
+                ttport
     $(logDebug) $
         T.pack ("Issueing Verify_Node to : " ++ show tip ++ ":" ++ show tuport)
     resp <-
@@ -198,8 +197,48 @@ issueVerifyNode peerV peerT = do
         sendRequestforKademlia vnid HT.Kademlia (serialise vmsg) vuport vip
     $(logDebug) $ T.pack "VN_RESP rescieved : "
     case resp of
-        Left (e :: Exception.SomeException) -> do
-            $(logDebug) $ T.pack (displayException e)
-            return False
+        Left (e :: Exception.SomeException) -> throw e
             -- TODO isue verifyNode once more just to be sure
-        Right _ -> return True
+        Right resp' -> do
+            let resp'' =
+                    deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
+            case resp'' of
+                Right pl' -> return (peerList $ messageBody $ message pl')
+                Left e    -> throw e
+
+verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m ThreadId
+verifyPeer peerT =
+    CL.fork $ do
+        dn <- getDefaultNodeId
+        kb <- getKb
+        case dn of
+            Right dnid
+            -- rt <- liftIO $ randomRIO (1,32)
+             -> do
+                CL.threadDelay 1000
+                peerV <- getRandomVerifiedPeer
+                peerR <- getKClosestPeersByNodeid dnid 1
+                case peerR of
+                    Right rp -> do
+                        resp <-
+                            Exception.try $
+                            issueVerifyNode peerV peerT (head rp)
+                        case resp of
+                            Right pl -> do
+                                rl <- isVNRESPValid pl (head rp)
+                                if rl
+                                    then liftIO $
+                                         atomically $
+                                         H.insert
+                                             Verified
+                                             (fst $ getPeer peerT)
+                                             (nodeStatusTable kb)
+                                    else liftIO $
+                                         atomically $
+                                         H.insert
+                                             UnVerified
+                                             (fst $ getPeer peerT)
+                                             (nodeStatusTable kb)
+                            Left (e :: Exception.SomeException) -> throw e
+                    Left e -> throw e
+            Left e -> throw e
