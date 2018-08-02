@@ -1,14 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Arivi.P2P.PubSub.Functions
-    ( publishTopic
+    ( maintainMinimumCountNotifier -- exporting right now to not have warnings
+                                   -- should be removed later
+    , maintainNotifiers
     , maintainWatchers
     , notifyTopic
-    , registerTopic
-    , maintainNotifiers
-    , updateTransientResourceToPeerMap
-    , maintainMinimumCountNotifier -- exporting right now to not have warnings should be removed later
+    , publishTopic
     , pubsubHandler
+    , registerTopic
+    , updateTransientResourceToPeerMap
     ) where
 
 import           Arivi.P2P.Exception
@@ -74,7 +75,8 @@ registerTopic topicTuple = do
                             notifierTable
                 writeTVar notifierTVar updatedNotifierHashMap)
 
--- | called by a service when some content created by it needs to be broad-casted to the network i.e. notifiers as well as subscribers
+-- | Called by a service when some content created by it needs to be
+-- broadcasted to the network i.e. notifiers as well as subscribers
 publishTopic :: (HasP2PEnv m, HasLogging m) => Topic -> TopicMessage -> m ()
 publishTopic messageTopic publishMessage = do
     mNodeId <- getSelfNodeId
@@ -99,30 +101,33 @@ publishTopic messageTopic publishMessage = do
     let nodeIdList = List.map timerNodeId combinedList
     let message =
             Publish
-                { nodeId = mNodeId
-                , topicId = messageTopic
-                , topicMessage = publishMessage
-                }
+            { nodeId = mNodeId
+            , topicId = messageTopic
+            , topicMessage = publishMessage
+            }
     let serializedMessage = serialise message
     sendMultiplePubSubMessage nodeIdList serializedMessage
 
--- | called by a service after it has verified a previously read TopicMessage to broadcast it further to the subscribers.
--- Only sent to Subscribers minus nodes in MessageHashMap
+-- | Called by a service after it has verified a previously read TopicMessage
+-- to broadcast it further to the subscribers. Only sent to Subscribers minus
+--  nodes in MessageHashMap
 notifyTopic :: (HasP2PEnv m, HasLogging m) => Topic -> TopicMessage -> m ()
 notifyTopic mTopic mTopicMessage = do
     mNodeId <- getSelfNodeId
     watcherTableTVar <- getWatcherTableP2PEnv
     watcherMap <- liftIO $ readTVarIO watcherTableTVar
     let listOfWatchersForTopic = HM.lookup mTopic watcherMap
-    case listOfWatchersForTopic of
-        Nothing -> return () -- TODO :: what to do if no watchers are present for a given topic
+    case listOfWatchersForTopic
+        -- TODO :: what to do if no watchers are present for a given topic
+          of
+        Nothing -> return ()
         Just currWListTVar -> do
             let notifyMessage =
                     Notify
-                        { nodeId = mNodeId
-                        , topicId = mTopic
-                        , topicMessage = mTopicMessage
-                        }
+                    { nodeId = mNodeId
+                    , topicId = mTopic
+                    , topicMessage = mTopicMessage
+                    }
             let notifyMessageByteString = serialise notifyMessage
             currWatcherSortedList <- liftIO $ readTVarIO currWListTVar
             let watcherList = fromSortedList currWatcherSortedList
@@ -130,9 +135,10 @@ notifyTopic mTopic mTopicMessage = do
             messageHashMapTvar <- getMessageHashMapP2PEnv
             messageHashMap <- liftIO $ readTVarIO messageHashMapTvar
             let currTuple = HM.lookup mTopicMessage messageHashMap
-                    -- need to add an exception for failed sending of pubsub message
+            -- need to add an exception for failed sending of pubsub message
             case currTuple
-                             -- there are no nodes for this message in the MessageHashMap so send to all the watchers
+                -- there are no nodes for this message in the MessageHashMap
+                -- so send to all the watchers
                   of
                 Nothing ->
                     sendMultiplePubSubMessage
@@ -140,8 +146,9 @@ notifyTopic mTopic mTopicMessage = do
                         notifyMessageByteString
                 Just valueTuple -> do
                     messageNodeIdList <- liftIO $ readTVarIO valueTuple
+                    -- List.\\ does set difference
                     let finalListOfWatchers =
-                            watcherNodeIdList List.\\ messageNodeIdList -- List.\\ does set difference
+                            watcherNodeIdList List.\\ messageNodeIdList
                     sendMultiplePubSubMessage
                         finalListOfWatchers
                         notifyMessageByteString
@@ -162,15 +169,17 @@ sendSubscribeToPeer mTopic notifierNodeId = do
     currTime <- liftIO getCurrentTime
     response <- sendRequest notifierNodeId PubSub serializedSubMessage
     let deserialiseCheck = deserialiseOrFail response
-    case deserialiseCheck of
-        Left _ -> return () -- TODO:: reduce reputation if subscribe fails and handle the failure
+    case deserialiseCheck
+        -- TODO:: reduce reputation if subscribe fails and handle the failure
+          of
+        Left _ -> return ()
         Right (responseMessage :: MessageTypePubSub) -> do
             notifierTableTVar <- getNotifiersTableP2PEnv
+             -- the notifier returns the actual time of the subscription
             liftIO $
                 atomically
                     (case responseMessage of
-                         Response mresponseCode mTimer -- the notifier returns the actual time of the subscription
-                          -> do
+                         Response mresponseCode mTimer -> do
                              notifierMap <- readTVar notifierTableTVar
                              let currNotifierListTvar =
                                      HM.lookup mTopic notifierMap
@@ -182,9 +191,9 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                              addUTCTime timeDiff currTime
                                      let newNotifier =
                                              NodeTimer
-                                                 { timerNodeId = notifierNodeId
-                                                 , timer = subscriptionTime
-                                                 }
+                                             { timerNodeId = notifierNodeId
+                                             , timer = subscriptionTime
+                                             }
                                      case currNotifierListTvar of
                                          Nothing -> do
                                              let newNotif =
@@ -219,11 +228,14 @@ sendSubscribeToPeer mTopic notifierNodeId = do
 sendMultiplePubSubMessage ::
        (HasP2PEnv m, HasLogging m) => [NodeId] -> Lazy.ByteString -> m ()
 sendMultiplePubSubMessage [] _ = return ()
-sendMultiplePubSubMessage (recievingPeerNodeId:peerList) message = do
-    _ <- LAsync.async (sendRequest recievingPeerNodeId PubSub message) -- need to handle errors
+sendMultiplePubSubMessage (recievingPeerNodeId:peerList) message
+    -- need to handle errors
+ = do
+    _ <- LAsync.async (sendRequest recievingPeerNodeId PubSub message)
     sendMultiplePubSubMessage peerList message
 
--- | used by pubsub to update the dynamic resource to peer mapping when it receives a notify message for a particular dynamic resource
+-- | Used by pubsub to update the dynamic resource to peer mapping when it
+-- receives a notify message for a particular dynamic resource
 updateTransientResourceToPeerMap ::
        (HasP2PEnv m, HasLogging m)
     => ResourceId
@@ -265,8 +277,10 @@ maintainWatchersHelper ::
 maintainWatchersHelper _ [] = return ()
 maintainWatchersHelper watcherMap (topic:topicIdList) = do
     let currListTvarMaybe = HM.lookup topic watcherMap
-    case currListTvarMaybe of
-        Nothing -> return () -- If topic does not exist return
+    case currListTvarMaybe
+        -- If topic does not exist return
+          of
+        Nothing -> return ()
         Just currListTvar -> do
             currTime <- liftIO getCurrentTime
             liftIO $
@@ -278,7 +292,7 @@ maintainWatchersHelper watcherMap (topic:topicIdList) = do
                         writeTVar currListTvar newSortedList)
             maintainWatchersHelper watcherMap topicIdList
 
--- will take the list of watchers for each topic and check their validity
+-- | Will take the list of watchers for each topic and check their validity
 checkNodeTimers :: [NodeTimer] -> UTCTime -> [NodeTimer]
 checkNodeTimers [] _ = []
 checkNodeTimers (currNodeTimer:nodeTimerList) currentTime =
@@ -286,7 +300,10 @@ checkNodeTimers (currNodeTimer:nodeTimerList) currentTime =
         then [] ++ checkNodeTimers nodeTimerList currentTime
         else currNodeTimer : nodeTimerList
 
--- | spawns a thread with the parameter TVar TopicMap and checks expired notifiers and possible resubscribe to the peer based on rep. also checks if min number if satisfied and add more peers accordingly by calling send options which takes peer from kad
+-- | Spawns a thread with the parameter TVar TopicMap and checks expired
+-- notifiers and possible resubscribe to the peer based on rep. also checks
+-- if min number if satisfied and add more peers accordingly by calling send
+-- options which takes peer from kad
 maintainNotifiers :: (HasP2PEnv m, HasLogging m) => m ()
 maintainNotifiers = do
     notifierTableTVar <- getNotifiersTableP2PEnv
@@ -313,15 +330,17 @@ maintainNotifiersHelper notifierMap (currTopic:topicList) = do
                                 checkNodeTimers currNotiferList currTime
                         let expiredNotifiers =
                                 currNotiferList List.\\ nonExpiredNotifiers
+                        -- removing the expired notifiers
                         writeTVar
                             (fst $ fromJust currNotifierListTvar)
-                            (toSortedList nonExpiredNotifiers) -- removing the expired notifiers
+                            (toSortedList nonExpiredNotifiers)
                         return expiredNotifiers)
             let expiredNodeIds = List.map timerNodeId expiredNotifs
-            subscribeToMultiplePeers currTopic expiredNodeIds -- there needs to a filtering of expired notifiers based on PeerReputation.
+            -- there needs to a filtering of expired notifiers based on PeerReputation.
+            subscribeToMultiplePeers currTopic expiredNodeIds
             maintainNotifiersHelper notifierMap topicList
 
--- TODO :: call this function in the correct context
+-- | TODO :: call this function in the correct context
 maintainMinimumCountNotifier :: (HasP2PEnv m, HasLogging m) => Topic -> m ()
 maintainMinimumCountNotifier mTopic = do
     currNodeId <- getSelfNodeId
@@ -350,7 +369,8 @@ maintainMinimumCountNotifier mTopic = do
                 subscribeToMultiplePeers mTopic nodeIds
 
 -- | handler function for incoming pubsub messages
--- TODO :: Incoming response messages are not handled currently since an error message will reduce the Reputation etc.
+-- TODO :: Incoming response messages are not handled currently since an error
+-- message will reduce the Reputation etc.
 pubsubHandler :: (HasP2PEnv m, HasLogging m) => P2PPayload -> m P2PPayload
 pubsubHandler incomingRequest = do
     messageMapTVar <- getMessageHashMapP2PEnv
@@ -358,14 +378,15 @@ pubsubHandler incomingRequest = do
     topicHandlerTVar <- getTopicHandlerMapP2PEnv
     watcherMapTVar <- getWatcherTableP2PEnv
     let deserialiseCheck = deserialiseOrFail incomingRequest
-    case deserialiseCheck of
-        Left _ -- the to = NodeId should be entered by P2P/Node end point
-         -> do
+    case deserialiseCheck
+         -- the to = NodeId should be entered by P2P/Node end point
+          of
+        Left _ -> do
             let errorMessage =
                     Response
-                        { responseCode = DeserialiseError
-                        , messageTimer = 0 -- Error Message, setting timer as 0
-                        }
+                    { responseCode = DeserialiseError
+                    , messageTimer = 0 -- Error Message, setting timer as 0
+                    }
             return $ serialise errorMessage
         Right (incomingMessage :: MessageTypePubSub) ->
             case incomingMessage of
@@ -406,9 +427,8 @@ notifyMessageHandler ::
 notifyMessageHandler recvNodeId mTopicId mTopicMessage messageMapTVar notifierTableTVar topicHandlerTVar = do
     notifierTable <- liftIO $ readTVarIO notifierTableTVar
     let entry = HM.lookup mTopicId notifierTable
-    case entry
-        -- check if the notify message came from a valid notifier
-          of
+    -- check if the notify message came from a valid notifier
+    case entry of
         Nothing -> return $ Lazy.fromStrict $ pack "Topic does not exist"
         Just notifierListTuple -> do
             notifierSortedList <- liftIO $ readTVarIO $ fst notifierListTuple
@@ -459,7 +479,8 @@ publishMessageHandler recvNodeId mTopicId mTopicMessage messageMapTVar notifierT
                  topicHandlerTVar
         else throw PubSubInvalidPublisherException
 
--- | used by notifyHandler and PublishHandler to verify the incoming message or add to message map if the message has already been received
+-- | Used by notifyHandler and PublishHandler to verify the incoming message or
+-- add to message map if the message has already been received
 verifyIncomingMessage ::
        (HasP2PEnv m, HasLogging m)
     => NodeId
@@ -506,8 +527,9 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
             return $ serialise mTopicMessage
         else throw PubSubDuplicateMessageException
 
--- | Handler for incoming subscribe message, If the node is the first subscriber create a list for the topic and add the node
--- if the topic already exists then add the node to the list of watchers
+-- | Handler for incoming subscribe message, If the node is the first subscriber
+-- create a list for the topic and add the node if the topic already exists
+-- then add the node to the list of watchers
 -- TODO :: Set the timer specifically depending upon some metric
 subscribeMessageHandler ::
        (HasP2PEnv m, HasLogging m)
@@ -542,7 +564,8 @@ subscribeMessageHandler mNodeId mTopic mTime watcherTableTVar = do
                     writeTVar watcherTVar newList)
     sendRequest mNodeId PubSub serializedMessage
 
--- | Dummy handler for the incoming response message needs to increment or decrement the Reputation
+-- | Dummy handler for the incoming response message needs to increment or
+-- decrement the Reputation
 responseMessageHandler ::
        (HasP2PEnv m, HasLogging m) => ResponseCode -> m P2PPayload
 responseMessageHandler rCode =
