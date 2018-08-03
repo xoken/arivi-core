@@ -16,20 +16,22 @@ import           Arivi.Network
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.ServiceRegistry
 
+import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
+import           Arivi.P2P.Kademlia.VerifyPeer          (initBootStrap)
+import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
 import           Control.Concurrent.Async.Lifted        (async, wait)
+import           Control.Monad                          (mapM_)
+import           Control.Monad.IO.Class                 (liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
+import qualified CreateConfig                           as Config
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
-import           System.Environment                     (getArgs)
-
-import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
-import qualified CreateConfig                           as Config
 import           Data.Monoid                            ((<>))
 import           Data.String.Conv
 import           Data.Text
 import           System.Directory                       (doesPathExist)
+import           System.Environment                     (getArgs)
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -120,6 +122,7 @@ runNode configPath = do
                         (runUdpServer
                              (show (Config.udpPort config))
                              newIncomingConnection)
+                mapM_ initBootStrap (Config.trustedPeers config)
                 loadDefaultPeers (Config.trustedPeers config)
                 wait tid
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
