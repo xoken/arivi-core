@@ -24,6 +24,7 @@ module Arivi.P2P.Kademlia.VerifyPeer
     ( verifyPeer
     , getVerifiedNodes
     , isVerified
+    , initBootStrap
     ) where
 
 import           Arivi.P2P.Exception
@@ -42,8 +43,7 @@ import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
 import           Control.Concurrent                    (threadDelay)
-import           Control.Concurrent.Async.Lifted       (Async, async,
-                                                        mapConcurrently)
+import           Control.Concurrent.Async.Lifted       (mapConcurrently)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
@@ -52,7 +52,8 @@ import           Control.Monad                         (filterM)
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger                  (logDebug)
 import           Control.Monad.STM                     (atomically)
-import           Control.Monad.Trans.Control           (StM)
+
+-- import           Control.Monad.Trans.Control           (StM)
 import qualified Data.ByteString.Char8                 as C
 
 -- import qualified Data.ByteString.Lazy                  as L
@@ -60,6 +61,12 @@ import qualified Data.Text                             as T
 import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
 import           System.Random                         (randomRIO)
+
+initBootStrap :: (HasKbucket m, MonadIO m) => Peer -> m ()
+initBootStrap peer = do
+    kb <- getKb
+    liftIO $
+        atomically $ H.insert Verified (fst $ getPeer peer) (nodeStatusTable kb)
 
 -- | Simple function to check the status of a Peer
 isVerified ::
@@ -175,6 +182,7 @@ issueVerifyNode peerV peerT peerR = do
         Right resp' -> do
             let resp'' =
                     deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
+            $(logDebug) $ T.append (T.pack "Casuing_err") (T.pack $ show resp'')
             case resp'' of
                 Right pl' -> return (peerList $ messageBody $ message pl')
                 Left e    -> throw e
@@ -192,44 +200,42 @@ getRandomVerifiedPeer = do
                          Verified -> True
                          _        -> False)
                 kvList
-    rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers)
+    rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers - 1)
     let rp = fst $ vPeers !! rIndex
     getPeerByNodeId rp
 
-verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m (Async (StM m ()))
-verifyPeer peerT =
-    async $ do
-        dn <- getDefaultNodeId
-        kb <- getKb
-        case dn of
-            Right dnid -> do
-                rt <- liftIO $ randomRIO (1, 32)
-                liftIO $ threadDelay rt
-                peerV <- getRandomVerifiedPeer
-                peerR <- getKClosestPeersByNodeid dnid 1
-                case peerR of
-                    Right rp -> do
-                        resp <-
-                            Exception.try $
-                            issueVerifyNode peerV peerT (head rp)
-                        case resp of
-                            Right pl -> do
-                                rl <- isVNRESPValid pl (head rp)
-                                if rl
-                                    then liftIO $
-                                         atomically $
-                                         H.insert
-                                             Verified
-                                             (fst $ getPeer peerT)
-                                             (nodeStatusTable kb)
-                                    else do
-                                        moveToHardBound peerT
-                                        liftIO $
-                                            atomically $
-                                            H.insert
-                                                UnVerified
-                                                (fst $ getPeer peerT)
-                                                (nodeStatusTable kb)
-                            Left (e :: Exception.SomeException) -> throw e
-                    Left e -> throw e
-            Left e -> throw e
+verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m ()
+verifyPeer peerT = do
+    dn <- getDefaultNodeId
+    kb <- getKb
+    case dn of
+        Right dnid -> do
+            rt <- liftIO $ randomRIO (1, 32)
+            liftIO $ threadDelay rt
+            peerV <- getRandomVerifiedPeer
+            peerR <- getKClosestPeersByNodeid dnid 1
+            case peerR of
+                Right rp -> do
+                    resp <-
+                        Exception.try $ issueVerifyNode peerV peerT (head rp)
+                    case resp of
+                        Right pl -> do
+                            rl <- isVNRESPValid pl (head rp)
+                            if rl
+                                then liftIO $
+                                     atomically $
+                                     H.insert
+                                         Verified
+                                         (fst $ getPeer peerT)
+                                         (nodeStatusTable kb)
+                                else do
+                                    moveToHardBound peerT
+                                    liftIO $
+                                        atomically $
+                                        H.insert
+                                            UnVerified
+                                            (fst $ getPeer peerT)
+                                            (nodeStatusTable kb)
+                        Left (e :: Exception.SomeException) -> throw e
+                Left _ -> return ()
+        Left _ -> return ()
