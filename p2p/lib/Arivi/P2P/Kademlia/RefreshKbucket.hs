@@ -135,7 +135,14 @@ refreshKbucket peerR pl = do
                 T.append
                     (T.pack "Issueing ping to refresh kbucket no of req sent :")
                     (T.pack (show (fst sl)))
-            resp <- mapConcurrently issuePing (fst sl)
+            resp <-
+                mapConcurrently
+                    (\x -> do
+                         resp' <- Exception.try $ issuePing x
+                         case resp' of
+                             Left (_ :: Exception.SomeException) -> return False
+                             Right x' -> return x')
+                    (fst sl)
             $(logDebug) $
                 T.append (T.pack "Pong response recieved ") (T.pack (show resp))
             let temp = addToNewList resp (fst sl)
