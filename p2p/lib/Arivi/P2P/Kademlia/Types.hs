@@ -106,7 +106,7 @@ createKbucket localPeer sbound pingThreshold' kademliaConcurrencyFactor' = do
     m <- atomically H.new
     n <- atomically H.new
     atomically $ H.insert [localPeer] 0 m
-    atomically $ H.insert Verified (fst $ getPeer localPeer) n
+    -- atomically $ H.insert Verified (fst $ getPeer localPeer) n
     return (Kbucket m n sbound pingThreshold' kademliaConcurrencyFactor')
 
 -- Custom data type to send & receive message
