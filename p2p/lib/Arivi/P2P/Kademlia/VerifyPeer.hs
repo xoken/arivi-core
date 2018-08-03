@@ -22,7 +22,7 @@
 
 module Arivi.P2P.Kademlia.VerifyPeer
     ( verifyPeer
-    -- ,   getVerifiedNodes
+    , getVerifiedNodes
     , isVerified
     ) where
 
@@ -41,19 +41,18 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
-import           Control.Concurrent                    (ThreadId)
-import           Control.Concurrent.Async.Lifted
+import           Control.Concurrent                    (threadDelay)
+import           Control.Concurrent.Async.Lifted       (Async, async,
+                                                        mapConcurrently)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
-
-import qualified Control.Concurrent.Lifted             as CL (fork, threadDelay)
-
--- import           Control.Monad                         (filterM)
+import           Control.Monad                         (filterM)
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger                  (logDebug)
 import           Control.Monad.STM                     (atomically)
+import           Control.Monad.Trans.Control           (StM)
 import qualified Data.ByteString.Char8                 as C
 
 -- import qualified Data.ByteString.Lazy                  as L
@@ -76,39 +75,23 @@ isVerified peer = do
         Just st' -> return $ Right st'
         Nothing  -> return $ Left KademliaInvalidPeer
 
--- getVerifiedNodes :: (HasKbucket m,MonadIO m) => Peer
---                                              -> Int
---                                              -> m [Peer]
--- getVerifiedNodes peerR k = do
---     let nid = fst $ getPeer peerR
---     kb <- getKb
---     -- Todo think about below point
---     -- ? Should this multiplier factor exist (2*k)
---     plt <- getKClosestPeersByNodeid nid (2*k)
---     case plt of
---         Right pl -> filterM (\x -> do
---                                     st <- isVerified x
---                                     case st of
---                                         Right Verified -> return True
---                                         _              -> return False
---                             ) pl
---         Left e   -> throw e
-getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => m Peer
-getRandomVerifiedPeer = do
-    kb <- getKb
-    let vt = nodeStatusTable kb
-        st = H.stream vt
-    kvList <- liftIO $ atomically $ toList st
-    let vPeers =
-            filter
-                (\x ->
-                     case snd x of
-                         Verified -> True
-                         _        -> False)
-                kvList
-    rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers)
-    let rp = fst $ vPeers !! rIndex
-    getPeerByNodeId rp
+getVerifiedNodes :: (HasKbucket m, MonadIO m) => Peer -> Int -> m [Peer]
+getVerifiedNodes peerR k = do
+    let nid = fst $ getPeer peerR
+    -- kb <- getKb
+    -- Todo think about below point
+    -- ? Should this multiplier factor exist (2*k)
+    plt <- getKClosestPeersByNodeid nid k
+    case plt of
+        Right pl ->
+            filterM
+                (\x -> do
+                     st <- isVerified x
+                     case st of
+                         Right Verified -> return True
+                         _              -> return False)
+                pl
+        Left e -> throw e
 
 -- | Get k-random verified peers
 -- getRandomVerifiedNodes :: (HasKbucket m,MonadIO m) => Int -> m [Peer]
@@ -117,17 +100,6 @@ getRandomVerifiedPeer = do
 --     let vt = nodeStatusTable  kb
 --     rps <- getKRandomPeers k
 --     mapM isVerified rps
--- getPeerListFromPayLoad :: L.ByteString -> Either AriviP2PException [Peer]
--- getPeerListFromPayLoad payl = do
---     let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
---     case payl' of
---         Left _ -> Left KademliaDeserialiseFailure
---         Right payl'' -> do
---             let msg = message payl''
---                 msgb = messageBody msg
---             case msgb of
---                 VN_RESP _ pl _ -> Right pl
---                 _              -> Left KademliaInvalidResponse
 isVNRESPValid :: (HasP2PEnv m, HasLogging m) => [Peer] -> Peer -> m Bool
 isVNRESPValid peerL peerR = do
     dPeer <- getDefaultNodeId
@@ -145,6 +117,7 @@ isVNRESPValid peerL peerR = do
                                  (C.unpack $ fst $ getPeer x))
                         peerL
                 temp = filter (< rXor) pXor
+                -- TODO address conditions when (In) is retruned or not
             if Prelude.length temp > minClosePeer
                 then do
                     bl <- mapConcurrently issuePing peerL
@@ -206,16 +179,32 @@ issueVerifyNode peerV peerT peerR = do
                 Right pl' -> return (peerList $ messageBody $ message pl')
                 Left e    -> throw e
 
-verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m ThreadId
+getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => m Peer
+getRandomVerifiedPeer = do
+    kb <- getKb
+    let vt = nodeStatusTable kb
+        st = H.stream vt
+    kvList <- liftIO $ atomically $ toList st
+    let vPeers =
+            filter
+                (\x ->
+                     case snd x of
+                         Verified -> True
+                         _        -> False)
+                kvList
+    rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers)
+    let rp = fst $ vPeers !! rIndex
+    getPeerByNodeId rp
+
+verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m (Async (StM m ()))
 verifyPeer peerT =
-    CL.fork $ do
+    async $ do
         dn <- getDefaultNodeId
         kb <- getKb
         case dn of
-            Right dnid
-            -- rt <- liftIO $ randomRIO (1,32)
-             -> do
-                CL.threadDelay 1000
+            Right dnid -> do
+                rt <- liftIO $ randomRIO (1, 32)
+                liftIO $ threadDelay rt
                 peerV <- getRandomVerifiedPeer
                 peerR <- getKClosestPeersByNodeid dnid 1
                 case peerR of
