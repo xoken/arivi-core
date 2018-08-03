@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANgUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor, DeriveTraversable, DeriveAnyClass #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, TypeSynonymInstances #-}
 
 -- |
@@ -35,9 +36,13 @@ data NetworkConfig = NetworkConfig
     , _tcpPort :: PortNumber
     } deriving (Eq, Ord, Show, Generic)
 
-data Rpc r msg  = RpcRequest r msg
-                | RpcResponse r msg
+data Rpc msg r  = RpcRequest msg r
+                | RpcResponse msg r
                 deriving (Eq, Ord, Show, Generic)
+
+deriving instance Functor (Rpc msg)
+deriving instance Foldable (Rpc msg)
+deriving instance Traversable (Rpc msg)
 
 instance (Serialise r, Serialise msg) => Serialise (Rpc r msg)
 
@@ -48,11 +53,15 @@ data Response
 
 instance Serialise Response
 
-data PubSub t msg = Subscribe t UTCTime
-                  | Notify t msg
-                  | Publish t msg
-                  | PubSubResponse t Response UTCTime
+data PubSub msg t = Subscribe UTCTime t
+                  | Notify msg t
+                  | Publish msg t
+                  | PubSubResponse Response UTCTime t
                   deriving (Eq, Ord, Show, Generic)
+
+deriving instance Functor (PubSub msg)
+deriving instance Foldable (PubSub msg)
+deriving instance Traversable (PubSub msg)
 
 instance (Serialise t, Serialise msg) => Serialise (PubSub t msg)
 
@@ -62,12 +71,6 @@ data Supported r t = Request
 
 instance (Serialise r, Serialise t) => Serialise (Supported r t)
 
-getResource :: (Message msg) => k -> Map k [NodeId] -> -> Map NodeId Peer -> msg -> IO msg
-getResource = do
-  return ()
-
-getResourceFromNodeId :: (Message msg) -> NodeId -> Map NodeId Peer -> msg -> IO msg
-getResourceFromNodeId = do
-  return ()
+newtype Handler msg m = Handler { runHandler :: (Monad m) => msg -> m msg }
 
 makeLensesWith classUnderscoreNoPrefixFields ''NetworkConfig
