@@ -24,6 +24,7 @@ module Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
+import           Arivi.P2P.Kademlia.VerifyPeer
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
@@ -119,7 +120,16 @@ issueFindNode rpeer = do
                             ("Received PeerList from " ++
                              show rip ++
                              ":" ++ show ruport ++ ": " ++ show peerl)
+                    -- Verification
+                    -- TODO Rethink about handling exceptions
                     peerl2 <- deleteIfPeerExist peerl
+                    isV <- isVerified rpeer
+                    case isV of
+                        Left _ -> return ()
+                        Right vs ->
+                            case vs of
+                                Verified -> return ()
+                                UnVerified -> mapConcurrently_ verifyPeer peerl2
                     $(logDebug) $
                         T.pack
                             ("Received PeerList after removing exisiting peers : " ++
