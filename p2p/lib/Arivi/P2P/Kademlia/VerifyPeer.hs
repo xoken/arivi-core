@@ -222,12 +222,14 @@ verifyPeer peerT =
                                              Verified
                                              (fst $ getPeer peerT)
                                              (nodeStatusTable kb)
-                                    else liftIO $
-                                         atomically $
-                                         H.insert
-                                             UnVerified
-                                             (fst $ getPeer peerT)
-                                             (nodeStatusTable kb)
+                                    else do
+                                        moveToHardBound peerT
+                                        liftIO $
+                                            atomically $
+                                            H.insert
+                                                UnVerified
+                                                (fst $ getPeer peerT)
+                                                (nodeStatusTable kb)
                             Left (e :: Exception.SomeException) -> throw e
                     Left e -> throw e
             Left e -> throw e
