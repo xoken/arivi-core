@@ -32,6 +32,7 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKClosestPeersByNodeid
     , getKRandomPeers
     , getPeerByNodeId
+    , moveToHardBound
     ) where
 
 import           Arivi.P2P.Exception
@@ -266,5 +267,25 @@ getPeerByNodeId nid = do
             case temp of
                 Right pl ->
                     return $ head $ filter (\x -> fst (getPeer x) == nid) pl
+                Left e -> throw e
+        Left e -> throw e
+
+moveToHardBound :: (HasKbucket m, MonadIO m, HasLogging m) => Peer -> m ()
+moveToHardBound peer = do
+    kb <- getKb
+    pl <- getPeerList (fst $ getPeer peer)
+    lp <- getDefaultNodeId
+    case lp of
+        Right lp' ->
+            case pl of
+                Right pl' ->
+                    liftIO $
+                    atomically $ do
+                        let pl'' = L.delete peer pl'
+                            tpl = L.splitAt (kademliaSoftBound kb) pl''
+                            hb = peer : snd tpl
+                            fpl = fst tpl ++ hb
+                            kbd = getKbIndex lp' (fst $ getPeer peer)
+                        H.insert fpl kbd (getKbucket kb)
                 Left e -> throw e
         Left e -> throw e
