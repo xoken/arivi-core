@@ -221,7 +221,7 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                                 , from = mNodeId
                                 , responseCode = DeserialiseError
                                 }
-                    return $ serialise errorMessage
+                    return $ ServiceMessage $ serialise errorMessage
                 Right (inmessage :: MessageTypeRPC) ->
                     case inmessage of
                         ReplyResource toNodeId fromNodeId resID _ ->
@@ -242,12 +242,23 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                                         mynodeid
                                         servicemessage
                                 Error ->
-                                    return $ Lazy.fromStrict $ pack " error " -- need to define proper error handling maybe throw an exception
-                                DeserialiseError ->
                                     return $
-                                    Lazy.fromStrict $ pack " Deserialise error "
+                                    ServiceMessage $
+                                    Lazy.fromStrict $ pack " error " -- need to define proper error handling maybe throw an exception
+                                DeserialiseError -> do
+                                    let errorMessage =
+                                            Response
+                                                { to = pack ""
+                                                , from = mNodeId
+                                                , responseCode =
+                                                      DeserialiseError
+                                                }
+                                    return $
+                                        ServiceMessage $ serialise errorMessage
          -- should check to and from
-                        _ -> return $ Lazy.fromStrict $ pack " default"
+                        _ ->
+                            return $
+                            ServiceMessage $ Lazy.fromStrict $ pack " default"
 
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload

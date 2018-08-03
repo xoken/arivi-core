@@ -99,14 +99,17 @@ publishTopic messageTopic publishMessage = do
     let currNotifierList = fromSortedList currNotifierSortedList
     let combinedList = currWatcherList `List.union` currNotifierList
     let nodeIdList = List.map timerNodeId combinedList
-    let message =
-            Publish
-            { nodeId = mNodeId
-            , topicId = messageTopic
-            , topicMessage = publishMessage
-            }
-    let serializedMessage = serialise message
-    sendMultiplePubSubMessage nodeIdList serializedMessage
+    if null nodeIdList
+        then throw PubSubNoWatcherOrNotifierException
+        else do
+            let message =
+                    Publish
+                        { nodeId = mNodeId
+                        , topicId = messageTopic
+                        , topicMessage = publishMessage
+                        }
+            let serializedMessage = serialise message
+            sendMultiplePubSubMessage nodeIdList serializedMessage
 
 -- | Called by a service after it has verified a previously read TopicMessage
 -- to broadcast it further to the subscribers. Only sent to Subscribers minus
@@ -124,10 +127,10 @@ notifyTopic mTopic mTopicMessage = do
         Just currWListTVar -> do
             let notifyMessage =
                     Notify
-                    { nodeId = mNodeId
-                    , topicId = mTopic
-                    , topicMessage = mTopicMessage
-                    }
+                        { nodeId = mNodeId
+                        , topicId = mTopic
+                        , topicMessage = mTopicMessage
+                        }
             let notifyMessageByteString = serialise notifyMessage
             currWatcherSortedList <- liftIO $ readTVarIO currWListTVar
             let watcherList = fromSortedList currWatcherSortedList
@@ -191,9 +194,9 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                              addUTCTime timeDiff currTime
                                      let newNotifier =
                                              NodeTimer
-                                             { timerNodeId = notifierNodeId
-                                             , timer = subscriptionTime
-                                             }
+                                                 { timerNodeId = notifierNodeId
+                                                 , timer = subscriptionTime
+                                                 }
                                      case currNotifierListTvar of
                                          Nothing -> do
                                              let newNotif =
@@ -384,9 +387,9 @@ pubsubHandler incomingRequest = do
         Left _ -> do
             let errorMessage =
                     Response
-                    { responseCode = DeserialiseError
-                    , messageTimer = 0 -- Error Message, setting timer as 0
-                    }
+                        { responseCode = DeserialiseError
+                        , messageTimer = 0 -- Error Message, setting timer as 0
+                        }
             return $ serialise errorMessage
         Right (incomingMessage :: MessageTypePubSub) ->
             case incomingMessage of
@@ -518,7 +521,7 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
                             let updatedNodeIdList = nodeIdList ++ [recvNodeId]
                             writeTVar valueInMap updatedNodeIdList
                         let flag0 = 0 :: Integer
-                        return (flag0, pack "Duplicate Message"))
+                        return (flag0, TopicMessage $ pack "Duplicate Message"))
     let checkReturn = fst returnMessage
     -- let messageAfterVerif = snd returnMessage
     if checkReturn == 1

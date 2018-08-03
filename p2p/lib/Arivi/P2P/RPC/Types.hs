@@ -1,8 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Arivi.P2P.RPC.Types
-    ( ServiceId
-    , ResourceHandlerList
+    ( ResourceHandlerList
     , ArchivedResourceToPeerMap
     , ResourceId
     , MessageTypeRPC(..)
@@ -10,26 +9,35 @@ module Arivi.P2P.RPC.Types
     , P2PUUID
     , ServicePayload(..)
     , P2Pinfo(..)
-    , ServiceMessage
+    , ServiceMessage(..)
     , ResourceHandler
     , ResponseCode(..)
     , TransientResourceToPeerMap
     , ResourceType(..)
     ) where
 
-import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
+import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId, P2PUUID)
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
+import           Data.Hashable
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
 
-type ResourceId = String
+newtype ResourceId =
+    ResourceId String
+    deriving (Eq, Ord, Show, Generic)
 
-type ServiceId = String
+instance Serialise ResourceId
 
-type ServiceMessage = Lazy.ByteString
+instance Hashable ResourceId
+
+newtype ServiceMessage =
+    ServiceMessage Lazy.ByteString
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise ServiceMessage
 
 type ResourceHandlerList = [(ResourceId, ResourceHandler)]
 
@@ -81,8 +89,6 @@ data MessageRC = RequestRC{
   ,serviceMessage :: String
 }deriving(Eq,Ord,Show,Generic)
 -}
-type P2PUUID = String
-
 -- assort the extra things in a tuple
 data P2Pinfo = P2Pinfo
     { uuid :: P2PUUID

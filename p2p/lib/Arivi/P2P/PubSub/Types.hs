@@ -10,7 +10,7 @@ module Arivi.P2P.PubSub.Types
     , Topic
     , TopicHandler
     , TopicHandlerMap
-    , TopicMessage
+    , TopicMessage(..)
     , Watcher
     , WatchersTable
     ) where
@@ -19,6 +19,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
 import           Data.ByteString.Char8                 as Char8 (ByteString)
+import           Data.Hashable
 import           Data.HashMap.Strict                   as HM
 import           Data.SortedList
 import           Data.Time.Clock
@@ -39,13 +40,25 @@ instance Ord NodeTimer where
 instance Eq NodeTimer where
     x == y = timerNodeId x == timerNodeId y
 
-type Topic = String
+newtype Topic =
+    Topic ByteString
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise Topic
+
+instance Hashable Topic
 
 type Notifier = NodeTimer
 
 type Watcher = NodeTimer
 
-type TopicMessage = ByteString
+newtype TopicMessage =
+    TopicMessage ByteString
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise TopicMessage
+
+instance Hashable TopicMessage
 
 type TopicHandler = (TopicMessage -> TopicMessage)
 
