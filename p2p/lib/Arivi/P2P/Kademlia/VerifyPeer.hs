@@ -246,8 +246,9 @@ verifyPeer peerT = do
                                             UnVerified
                                             (fst $ getPeer peerT)
                                             (nodeStatusTable kb)
-                                Left e -> throw e
-                        Left (e :: Exception.SomeException) -> throw e
+                                Left e -> $(logDebug) (T.pack (show e))
+                        Left (e :: Exception.SomeException) ->
+                            $(logDebug) (T.pack (show e))
                 Left _ -> return ()
             -- Logs the NodeStatus Table
             let kbm2 = nodeStatusTable kb
