@@ -1,7 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANgUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor, DeriveTraversable, DeriveAnyClass #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor,
+  DeriveTraversable, DeriveAnyClass #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
+  FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE GADTs, DataKinds, KindSignatures #-}
 
 -- |
 -- Module      :  Arivi.P2P.Types
@@ -13,9 +15,7 @@
 --
 -- This module provides different data types that are used in the P2P layer
 --
-module Arivi.P2P.Types
-    ( NetworkConfig(..)
-    ) where
+module Arivi.P2P.Types where
 
 import           Arivi.Network.Types (NodeId)
 
@@ -25,7 +25,6 @@ import           GHC.Generics        (Generic)
 import           Network.Socket      (HostName, PortNumber)
 import           Control.Lens.TH
 import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as Map
 
 type Map = HashMap
 
@@ -36,27 +35,35 @@ data NetworkConfig = NetworkConfig
     , _tcpPort :: PortNumber
     } deriving (Eq, Ord, Show, Generic)
 
-data Rpc msg r  = RpcRequest msg r
-                | RpcResponse msg r
-                deriving (Eq, Ord, Show, Generic)
+data RpcRequest msg r  = RpcRequest msg r  deriving (Eq, Ord, Show, Generic)
+data RpcResponse msg r =  RpcResponse msg r deriving (Eq, Ord, Show, Generic)
 
-deriving instance Functor (Rpc msg)
-deriving instance Foldable (Rpc msg)
-deriving instance Traversable (Rpc msg)
+data MessageType = Rpc
+                 | Options
+                 deriving (Eq, Show, Ord, Generic)
 
-instance (Serialise r, Serialise msg) => Serialise (Rpc r msg)
+data Request (i :: MessageType)  where
+  RpcRequestG :: (Serialise m, Serialise r) => RpcRequest m r -> Request 'Rpc
+  OptionsRequestG :: SRequest -> Request 'Options
 
-data Response
+data Response (i :: MessageType) where
+  RpcResponseG :: RpcResponse m r -> Response 'Rpc
+  OptionsResponseG :: SResponse r -> Response 'Options
+
+instance (Serialise r, Serialise msg) => Serialise (RpcRequest r msg)
+instance (Serialise r, Serialise msg) => Serialise (RpcResponse r msg)
+
+data ResponseCode
     = Error
     | Ok
     deriving (Eq, Ord, Show, Generic)
 
-instance Serialise Response
+instance Serialise ResponseCode
 
 data PubSub msg t = Subscribe UTCTime t
                   | Notify msg t
                   | Publish msg t
-                  | PubSubResponse Response UTCTime t
+                  | PubSubResponse ResponseCode UTCTime t
                   deriving (Eq, Ord, Show, Generic)
 
 deriving instance Functor (PubSub msg)
@@ -65,12 +72,9 @@ deriving instance Traversable (PubSub msg)
 
 instance (Serialise t, Serialise msg) => Serialise (PubSub t msg)
 
-data Supported r t = Request
-                   | Response r t
-                   deriving (Eq, Ord, Show, Generic)
+data SRequest = SRequest deriving (Eq, Ord, Show, Generic, Serialise)
+data SResponse r = SResponse r deriving (Eq, Ord, Show, Generic, Serialise)
 
-instance (Serialise r, Serialise t) => Serialise (Supported r t)
-
-newtype Handler msg m = Handler { runHandler :: (Monad m) => msg -> m msg }
+newtype Handler i o m = Handler { runHandler :: i -> m o }
 
 makeLensesWith classUnderscoreNoPrefixFields ''NetworkConfig
