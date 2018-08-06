@@ -57,16 +57,18 @@ import           Control.Monad.STM                     (atomically)
 import qualified Data.ByteString.Char8                 as C
 
 -- import qualified Data.ByteString.Lazy                  as L
+import qualified Data.ByteString.Base16                as BS (encode)
 import qualified Data.Text                             as T
 import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
 import           System.Random                         (randomRIO)
 
-initBootStrap :: (HasKbucket m, MonadIO m) => Peer -> m ()
+initBootStrap :: (HasKbucket m, MonadIO m, HasLogging m) => Peer -> m ()
 initBootStrap peer = do
     kb <- getKb
     liftIO $
         atomically $ H.insert Verified (fst $ getPeer peer) (nodeStatusTable kb)
+    $(logDebug) "BootStrap Node marked as Verified"
 
 -- | Simple function to check the status of a Peer
 isVerified ::
@@ -81,6 +83,7 @@ isVerified peer = do
     case st of
         Just st' -> return $ Right st'
         Nothing  -> return $ Left KademliaInvalidPeer
+        -- TODO add a new exception for peerDoesNotExit
 
 getVerifiedNodes :: (HasKbucket m, MonadIO m) => Peer -> Int -> m [Peer]
 getVerifiedNodes peerR k = do
@@ -107,21 +110,25 @@ getVerifiedNodes peerR k = do
 --     let vt = nodeStatusTable  kb
 --     rps <- getKRandomPeers k
 --     mapM isVerified rps
-isVNRESPValid :: (HasP2PEnv m, HasLogging m) => [Peer] -> Peer -> m Bool
+isVNRESPValid ::
+       (HasP2PEnv m, HasLogging m)
+    => [Peer]
+    -> Peer
+    -> m (Either AriviP2PException Bool)
 isVNRESPValid peerL peerR = do
     dPeer <- getDefaultNodeId
     case dPeer of
         Right dnid -> do
             let rXor =
                     getXorDistance
-                        (C.unpack $ fst $ getPeer peerR)
-                        (C.unpack dnid)
+                        (C.unpack $ BS.encode $ fst $ getPeer peerR)
+                        (C.unpack $ BS.encode dnid)
                 pXor =
                     fmap
                         (\x ->
                              getXorDistance
-                                 (C.unpack $ fst $ getPeer peerR)
-                                 (C.unpack $ fst $ getPeer x))
+                                 (C.unpack $ BS.encode dnid)
+                                 (C.unpack $ BS.encode $ fst $ getPeer x))
                         peerL
                 temp = filter (< rXor) pXor
                 -- TODO address conditions when (In) is retruned or not
@@ -129,12 +136,12 @@ isVNRESPValid peerL peerR = do
                 then do
                     bl <- mapConcurrently issuePing peerL
                     let liveNodes = count' True bl
-                    return $ (>) liveNodes minPeerResponded
-                else return False
+                    return $ Right $ (>) liveNodes minPeerResponded
+                else return $ Right False
                 -- TODO add to kbucket env
             where minPeerResponded = 3
                   minClosePeer = 3
-        Left _ -> throw KademliaDefaultPeerDoesNotExists
+        Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
 
 issueVerifyNode ::
        forall m. (HasP2PEnv m, HasLogging m, MonadIO m)
@@ -182,7 +189,8 @@ issueVerifyNode peerV peerT peerR = do
         Right resp' -> do
             let resp'' =
                     deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
-            $(logDebug) $ T.append (T.pack "Casuing_err") (T.pack $ show resp'')
+            $(logDebug) $
+                T.append (T.pack "VN_RESP MSG : ") (T.pack $ show resp'')
             case resp'' of
                 Right pl' -> return (peerList $ messageBody $ message pl')
                 Left e    -> throw e
@@ -206,11 +214,12 @@ getRandomVerifiedPeer = do
 
 verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m ()
 verifyPeer peerT = do
+    $(logDebug) $ T.pack "Verification Started"
     dn <- getDefaultNodeId
     kb <- getKb
     case dn of
         Right dnid -> do
-            rt <- liftIO $ randomRIO (1, 32)
+            rt <- liftIO $ randomRIO (100, 200)
             liftIO $ threadDelay rt
             peerV <- getRandomVerifiedPeer
             peerR <- getKClosestPeersByNodeid dnid 1
@@ -221,14 +230,15 @@ verifyPeer peerT = do
                     case resp of
                         Right pl -> do
                             rl <- isVNRESPValid pl (head rp)
-                            if rl
-                                then liftIO $
-                                     atomically $
-                                     H.insert
-                                         Verified
-                                         (fst $ getPeer peerT)
-                                         (nodeStatusTable kb)
-                                else do
+                            case rl of
+                                Right True ->
+                                    liftIO $
+                                    atomically $
+                                    H.insert
+                                        Verified
+                                        (fst $ getPeer peerT)
+                                        (nodeStatusTable kb)
+                                Right False -> do
                                     moveToHardBound peerT
                                     liftIO $
                                         atomically $
@@ -236,6 +246,15 @@ verifyPeer peerT = do
                                             UnVerified
                                             (fst $ getPeer peerT)
                                             (nodeStatusTable kb)
+                                Left e -> throw e
                         Left (e :: Exception.SomeException) -> throw e
                 Left _ -> return ()
+            -- Logs the NodeStatus Table
+            let kbm2 = nodeStatusTable kb
+                kbtemp = H.stream kbm2
+            kvList <- liftIO $ atomically $ toList kbtemp
+            $(logDebug) $
+                T.append
+                    (T.pack "NodeStatusTable after adding : ")
+                    (T.pack (show kvList))
         Left _ -> return ()
