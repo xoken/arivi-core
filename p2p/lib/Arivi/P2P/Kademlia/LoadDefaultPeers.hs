@@ -123,17 +123,21 @@ issueFindNode rpeer = do
                     -- Verification
                     -- TODO Rethink about handling exceptions
                     peerl2 <- deleteIfPeerExist peerl
-                    isV <- isVerified rpeer
-                    case isV of
-                        Left _ -> return ()
-                        Right vs ->
-                            case vs of
-                                Verified -> return ()
-                                UnVerified -> mapConcurrently_ verifyPeer peerl2
                     $(logDebug) $
                         T.pack
                             ("Received PeerList after removing exisiting peers : " ++
                              show peerl2)
+                    isV <- isVerified rpeer
+                    case isV of
+                        Left _ -> do
+                            t <- async $ verifyPeer rpeer
+                            wait t
+                        Right vs ->
+                            case vs of
+                                Verified -> return ()
+                                UnVerified -> do
+                                    t <- async $ verifyPeer rpeer
+                                    wait t
                     -- | Deletes nodes from peer list which already exists in
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue

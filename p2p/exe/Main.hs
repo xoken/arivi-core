@@ -70,8 +70,10 @@ writeConfigs path = do
     (skNode2, _) <- ACUPS.generateKeyPair
     let bootstrapPort = 8080
         bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] (generateNodeId skBootstrap) (Data.Text.pack path <> "/bootstrapNode.log")
-        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode1) (Data.Text.pack path <> "/node1.log")
-        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode2) (Data.Text.pack path <> "/node2.log")
+        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap,
+NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode1) (Data.Text.pack path <> "/node1.log")
+        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap,
+NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode2) (Data.Text.pack path <> "/node2.log")
     Config.makeConfig bootstrapConfig (path <> "/bootstrapConfig.yaml")
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
