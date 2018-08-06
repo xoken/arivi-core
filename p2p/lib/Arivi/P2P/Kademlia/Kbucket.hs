@@ -135,7 +135,7 @@ addToKBucket peerR = do
                 Nothing -> do
                     liftIO $ atomically $ H.insert [peerR] kbDistance kb
                     $(logDebug) $ T.pack "First_Element in respective kbucket"
-            -- Logs the Kbucket and sends pushes statsd metric
+            -- Logs the Kbucket and pushes statsd metric to collectd server
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
