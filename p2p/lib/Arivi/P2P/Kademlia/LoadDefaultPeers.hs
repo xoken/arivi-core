@@ -123,9 +123,15 @@ issueFindNode rpeer = do
                     -- Verification
                     -- TODO Rethink about handling exceptions
                     peerl2 <- deleteIfPeerExist peerl
+                    $(logDebug) $
+                        T.pack
+                            ("Received PeerList after removing exisiting peers : " ++
+                             show peerl2)
                     isV <- isVerified rpeer
                     case isV of
-                        Left _ -> return ()
+                        Left _ -> do
+                            t <- async $ verifyPeer rpeer
+                            wait t
                         Right vs ->
                             case vs of
                                 Verified -> return ()
