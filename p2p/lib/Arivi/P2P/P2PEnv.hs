@@ -26,7 +26,7 @@ import           Network.Socket                        (PortNumber)
 
 data P2PEnv = P2PEnv
     { selfNId :: T.NodeId
-    , tvarAriviP2PInstance :: TVar AriviP2PInstance
+    , tvarAriviP2PInstance :: TVar NetworkConfig
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket :: T.Kbucket Int [T.Peer]
@@ -46,7 +46,7 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     where
     getP2PEnv :: m P2PEnv
     getSelfNodeId :: m T.NodeId
-    getAriviTVarP2PEnv :: m (TVar AriviP2PInstance)
+    getAriviTVarP2PEnv :: m (TVar NetworkConfig)
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getArchivedResourceToPeerMapP2PEnv :: m (TVar ArchivedResourceToPeerMap)
     getMessageTypeMapP2PEnv :: m (MessageTypeMap m)
