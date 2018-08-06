@@ -3,7 +3,7 @@ import pandas as pd
 import sys
 
 src = "./"
-dst = "/home/xkn/"
+dst = "/home/xkn/fluentdRun/"
 remoteConfigFile = "config1.yaml"
 configFileName = "ServerConfig.xls"
 
