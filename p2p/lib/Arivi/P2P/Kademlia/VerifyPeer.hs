@@ -230,6 +230,29 @@ getRandomVerifiedPeer = do
     let rp = fst $ vPeers !! rIndex
     getPeerByNodeId rp
 
+
+responseHandler :: (HasLogging m, HasP2PEnv m) => Either SomeException [Peer]
+                                               -> Peer -> Peer -> m ()
+responseHandler resp peerR peerT = case resp of
+    Right pl -> do
+        kb <- getKb
+        rl <- isVNRESPValid pl peerR
+        case rl of
+            Right True -> liftIO $ atomically $ H.insert Verified
+                    (fst $ getPeer peerT) (nodeStatusTable kb)
+            Right False -> do
+                moveToHardBound peerT
+                liftIO $ atomically $ H.insert UnVerified
+                    (fst $ getPeer peerT) (nodeStatusTable kb)
+            Left e -> $(logDebug) (T.pack (show e))
+
+    Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
+
+sendVNMsg :: (HasLogging m, HasP2PEnv m) => Peer -> Peer -> Peer -> m ()
+sendVNMsg peerT peerV peerR = do
+        resp <- Exception.try $ issueVerifyNode peerV peerT peerR
+        responseHandler resp peerR peerT
+
 verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m ()
 verifyPeer peerT = do
     isV <- isVerified peerT
@@ -245,33 +268,9 @@ verifyPeer peerT = do
                     peerV <- getRandomVerifiedPeer
                     peerR <- getKClosestPeersByNodeid dnid 1
                     case peerR of
-                        Right rp -> do
-                            resp <-
-                                Exception.try $
-                                issueVerifyNode peerV peerT (head rp)
-                            case resp of
-                                Right pl -> do
-                                    rl <- isVNRESPValid pl (head rp)
-                                    case rl of
-                                        Right True ->
-                                            liftIO $
-                                            atomically $
-                                            H.insert
-                                                Verified
-                                                (fst $ getPeer peerT)
-                                                (nodeStatusTable kb)
-                                        Right False -> do
-                                            moveToHardBound peerT
-                                            liftIO $
-                                                atomically $
-                                                H.insert
-                                                    UnVerified
-                                                    (fst $ getPeer peerT)
-                                                    (nodeStatusTable kb)
-                                        Left e -> $(logDebug) (T.pack (show e))
-                                Left (e :: Exception.SomeException) ->
-                                    $(logDebug) (T.pack (show e))
-                        Left _ -> return ()
+                        Right peer -> sendVNMsg peerT peerV (head peer)
+                        Left e     -> $(logDebug) (T.pack (show e))
+
                     -- Logs the NodeStatus Table
                     let kbm2 = nodeStatusTable kb
                         kbtemp = H.stream kbm2
