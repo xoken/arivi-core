@@ -21,6 +21,7 @@ module Arivi.P2P.Kademlia.MessageHandler
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
+import           Arivi.P2P.Kademlia.VerifyPeer
 import           Arivi.P2P.MessageHandler.Handler
 import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
 import           Arivi.P2P.P2PEnv
@@ -29,6 +30,7 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
+import           Control.Concurrent.Async.Lifted       (async, wait)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
@@ -82,6 +84,9 @@ kademliaMessageHandler payl = do
                             (T.pack "Find_Node Message Recieved from : ")
                             (T.pack (show rnep))
                     addToKBucket rpeer
+                     -- Initiates the verification process
+                    t <- async $ verifyPeer rpeer
+                    _ <- liftIO $ wait t
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
