@@ -128,8 +128,7 @@ issueFindNode rpeer = do
                             ("Received PeerList after removing exisiting peers : " ++
                              show peerl2)
                      -- Initiates the verification process
-                    t <- async $ verifyPeer rpeer
-                    _ <- liftIO $ wait t
+                    _ <- async $ verifyPeer rpeer
                     -- | Deletes nodes from peer list which already exists in
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
@@ -138,3 +137,4 @@ issueFindNode rpeer = do
                         pl3 = LL.splitAt alpha peerl2
                     mapConcurrently_ issueFindNode $ fst pl3
                     mapConcurrently_ issueFindNode $ snd pl3
+

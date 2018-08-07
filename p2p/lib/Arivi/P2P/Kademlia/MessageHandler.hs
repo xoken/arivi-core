@@ -30,7 +30,7 @@ import           Arivi.Utils.Logging
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
-import           Control.Concurrent.Async.Lifted       (async, wait)
+import           Control.Concurrent.Async.Lifted       (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
@@ -85,8 +85,8 @@ kademliaMessageHandler payl = do
                             (T.pack (show rnep))
                     addToKBucket rpeer
                      -- Initiates the verification process
-                    t <- async $ verifyPeer rpeer
-                    _ <- liftIO $ wait t
+                    _ <- async $ verifyPeer rpeer
+
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
