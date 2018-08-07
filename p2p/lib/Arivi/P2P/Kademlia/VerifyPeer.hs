@@ -63,6 +63,16 @@ import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
 import           System.Random                         (randomRIO)
 
+
+deleteVerifiedPeers :: (HasKbucket m,MonadIO m,HasLogging m) => [Peer] -> m [Peer]
+deleteVerifiedPeers = filterM (\x -> do
+        isV <- isVerified x
+        case isV of
+            Right Verified   -> return False
+            Right UnVerified -> return True
+            Left _           -> return True
+        )
+
 initBootStrap :: (HasKbucket m, MonadIO m, HasLogging m) => Peer -> m ()
 initBootStrap peer = do
     kb <- getKb
@@ -140,7 +150,8 @@ isVNRESPValid peerL peerR = do
             if result
                 then do
                     $(logDebug) $ T.pack (show "Issueing Ping for Verification")
-                    bl <- mapConcurrently issuePing peerL
+                    peerL' <- deleteVerifiedPeers peerL
+                    bl <- mapConcurrently issuePing peerL'
                     let liveNodes = fromIntegral $ count' True bl
                     return $ Right $ (>) liveNodes minPeerResponded
                 else return $ Right False
