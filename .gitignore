@@ -22,3 +22,6 @@ learn/*
 *.DS_Store 
 p2p/test/config*
 p2p/test/*.log  
+p2p/exe/config*
+p2p/exe/*.log  
+p2p/exe/logs/* 
