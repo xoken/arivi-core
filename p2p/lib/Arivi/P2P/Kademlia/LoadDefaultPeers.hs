@@ -127,17 +127,9 @@ issueFindNode rpeer = do
                         T.pack
                             ("Received PeerList after removing exisiting peers : " ++
                              show peerl2)
-                    isV <- isVerified rpeer
-                    case isV of
-                        Left _ -> do
-                            t <- async $ verifyPeer rpeer
-                            wait t
-                        Right vs ->
-                            case vs of
-                                Verified -> return ()
-                                UnVerified -> do
-                                    t <- async $ verifyPeer rpeer
-                                    wait t
+                     -- Initiates the verification process
+                    t <- async $ verifyPeer rpeer
+                    _ <- liftIO $ wait t
                     -- | Deletes nodes from peer list which already exists in
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
