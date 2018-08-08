@@ -165,3 +165,4 @@ def deployAll(configFileName,slpTime):
         print("Done for " + serverIp + "\n")
     dumpLogsOnLogServer(logServerUser,logServerIp)
 deployAll(configFileName, str(sys.argv[2]))
+
