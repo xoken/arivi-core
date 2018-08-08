@@ -4,20 +4,15 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                echo 'Building..'
+                echo 'Building and testing..'
                 sh 'stack clean'
-                sh 'stack build'
+                sh './packcheck.sh stack GHC_OPTIONS="-Werror" PATH=/bin:/usr/bin:/usr/local/bin'
             }
         }
         stage('Lint Checking') {
             steps {
-                echo 'Checking lint..'
-                sh 'hlint --extension=hs .'
-            }
-        }
-        stage('Test') {
-            steps {
-                echo 'Testing..'
+                sh 'echo "Running hlint in `pwd`.."'
+                sh './packcheck.sh stack HLINT_COMMANDS="hlint lint ." PATH=/bin:/usr/bin:/usr/local/bin'
             }
         }
         stage('Deploy') {
