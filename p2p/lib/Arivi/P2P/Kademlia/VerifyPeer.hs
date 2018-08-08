@@ -150,7 +150,11 @@ isVNRESPValid peerL peerR = do
             if result
                 then do
                     $(logDebug) $ T.pack (show "Issueing Ping for Verification")
+                    $(logDebug) $ T.append (T.pack "recieved vn_resp : ")
+                                (T.pack $ show peerL)
                     peerL' <- deleteVerifiedPeers peerL
+                    $(logDebug) $ T.append (T.pack "Issueing ping to : ")
+                                (T.pack $ show peerL')
                     bl <- mapConcurrently issuePing peerL'
                     let liveNodes = fromIntegral $ count' True bl
                     return $ Right $ (>) liveNodes minPeerResponded
@@ -263,7 +267,7 @@ verifyPeer peerT = do
             kb <- getKb
             case dn of
                 Right dnid -> do
-                    rt <- liftIO $ randomRIO (100, 200)
+                    rt <- liftIO $ randomRIO (0, 180000000)
                     liftIO $ threadDelay rt
                     peerV <- getRandomVerifiedPeer
                     peerR <- getKClosestPeersByNodeid dnid 1
