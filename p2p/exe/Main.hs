@@ -116,7 +116,7 @@ runNode configPath = do
             -- (runTcpServer (show (Config.tcpPort config))  newIncomingConnection)
             (do tid <-
                     async
-                        (runUdpServer
+                        (runTcpServer
                              (show (Config.udpPort config))
                              newIncomingConnection)
                 mapM_ initBootStrap (Config.trustedPeers config)
@@ -159,7 +159,7 @@ runBSNode configPath = do
     -- runStdoutLoggingT $
         runAppM
             env
-            (runUdpServer (show (Config.tcpPort config)) newIncomingConnection
+            (runTcpServer (show (Config.tcpPort config)) newIncomingConnection
             --async (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
             -- return ()
              )

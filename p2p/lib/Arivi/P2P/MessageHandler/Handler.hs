@@ -108,7 +108,7 @@ sendRequestforKademlia node mType p2pPayload port mIP
     let maybePeer = HM.lookup node nodeIdMap
     if isNothing maybePeer -- concurrency issues might arise here need to check
         then do
-            res <- openConnection mIP port UDP node
+            res <- openConnection mIP port TCP node
             case res of
                 Left e -> do
                     $(logDebug) (T.pack (displayException e))
@@ -120,7 +120,7 @@ sendRequestforKademlia node mType p2pPayload port mIP
                     $(logDebug) (toS $ show mIP)
                     $(logDebug) "Connectionhandle made"
                     liftIO $
-                        addPeerFromConnection node UDP connHandle nodeIdMapTVar
+                        addPeerFromConnection node TCP connHandle nodeIdMapTVar
                     newNodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar
                     let peer = fromJust (HM.lookup node newNodeIdMap)
                     peerDetails <- liftIO $ readTVarIO peer
@@ -368,7 +368,7 @@ getConnHandleFromNodeID node nodeIdMapTVar mType = do
     let peerDetailsTVar = fromJust (HM.lookup node nodeIdMap)
     getConnectionHandle
         peerDetailsTVar
-        (if mType == RPC
+        (if mType == RPC || mType == Kademlia
              then TCP
              else UDP)
 
