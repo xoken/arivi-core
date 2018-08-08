@@ -27,7 +27,7 @@ source-repository head
   location: https://github.com/xoken/arivi/
 
 library
-  build-depends:       base
+  build-depends:       base < 5
                     ,  serialise
                     ,  cryptonite
                     ,  exceptions
@@ -44,7 +44,7 @@ library
                     ,  time-units >= 1.0.0
                     ,  time
                     ,  network
-  ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  ghc-options:        -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.Utils.Logging
                        Arivi.Utils.Statsd

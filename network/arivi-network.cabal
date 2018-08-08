@@ -54,7 +54,7 @@ library
                     ,  arivi-crypto
                     ,  arivi-utils
 
-  ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  ghc-options:        -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:          FlexibleContexts
   exposed-modules:
                        Arivi.Env
@@ -82,7 +82,7 @@ test-suite arivi-network-test
     main-is: Main.hs
     hs-source-dirs: test
     default-language: Haskell2010
-    ghc-options:      -threaded -O1 +RTS -N -RTS
+    ghc-options:      -threaded +RTS -N -RTS
     build-depends:     async
                     ,  base >=4.9 && <4.11
                     ,  bytestring
