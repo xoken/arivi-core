@@ -13,7 +13,6 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar
 
 import           Arivi.Utils.Logging
 import           Control.Monad.Logger
@@ -22,7 +21,7 @@ import           Data.String.Conv
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
 import           Network.Socket                        (PortNumber)
-
+import           Control.Lens
 
 
 logWithNodeId :: (HasLogging m) => NodeId -> String -> m ()
@@ -30,33 +29,34 @@ logWithNodeId peerNodeId logLine = $(logDebug) $ toS $ logLine ++ show peerNodeI
 
 getNodeId :: TVar PeerDetails -> IO NodeId
 getNodeId peerDetailsTVar =
-    nodeId <$> readTVarIO peerDetailsTVar
+    _nodeId <$> readTVarIO peerDetailsTVar
 
--- | wraps the payload with message type { Kademlia | RPC | PubSub} and UUID
+-- | wraps the payload with message type { Kademlia | Rpc | PubSub} and UUID
 generateP2PMessage :: P2PUUID -> MessageType -> P2PPayload -> P2PMessage
 generateP2PMessage = P2PMessage
 
 insertToUUIDMap :: P2PUUID -> MVar P2PMessage -> PeerDetails -> PeerDetails
-insertToUUIDMap uuid mvar peerDetails = peerDetails {uuidMap = HM.insert uuid mvar (uuidMap peerDetails)}
+insertToUUIDMap uuid mvar peerDetails = peerDetails & uuidMap.at uuid ?~ mvar
 
 deleteFromUUIDMap :: P2PUUID -> PeerDetails -> PeerDetails
-deleteFromUUIDMap uuid peerDetails = peerDetails {uuidMap = HM.delete uuid (uuidMap peerDetails)}
+deleteFromUUIDMap uuid peerDetails = peerDetails & uuidMap %~ (HM.delete uuid)
 
 getHandlerByMessageType :: PeerDetails -> MessageType -> Handle
-getHandlerByMessageType peerDetails RPC =  streamHandle peerDetails
-getHandlerByMessageType peerDetails _   =  datagramHandle peerDetails
+getHandlerByMessageType peerDetails Rpc =  peerDetails ^. streamHandle
+getHandlerByMessageType peerDetails _   =  peerDetails ^. datagramHandle
 
 getTransportType :: MessageType -> TransportType
-getTransportType msgType | msgType == RPC = TCP
-                                      | otherwise = UDP
+getTransportType msgType
+    | msgType == Rpc = TCP
+    | otherwise = UDP
 
 -- | Wrapper around openConnection
 openConnectionToPeer :: (HasP2PEnv m, HasLogging m) => IP -> PortNumber -> TransportType -> NodeId -> m (Either AriviNetworkException ConnectionHandle)
 openConnectionToPeer = openConnection
 
 checkConnection :: PeerDetails -> TransportType -> Handle
-checkConnection peerDetails TCP = streamHandle peerDetails
-checkConnection peerDetails UDP = datagramHandle peerDetails
+checkConnection peerDetails TCP = peerDetails ^. streamHandle
+checkConnection peerDetails UDP = peerDetails ^. datagramHandle
 
 -- | Get a random unique id
 getUUID :: IO P2PUUID
@@ -69,26 +69,23 @@ doesPeerExist nodeIdPeerTVar peerNodeId =
 mkPeer :: NodeId -> IP -> PortNumber -> TransportType -> Handle -> STM (TVar PeerDetails)
 mkPeer peerNodeId peerIp peerPort transportType connHandle = do
     lock <- newTMVar True
-    tvar <- newTVar HM.empty
-    let peerDetails = PeerDetails {
-                    nodeId = peerNodeId
-                , rep' = 0.0 -- needs to be a float. Not a Maybe Int
-                , rep = Nothing
-                , ip' = peerIp
-                , ip = Nothing
-                , udpPort' = peerPort
-                , tcpPort' = peerPort
-                , udpPort = Just peerPort
-                , tcpPort = Just peerPort
-                , streamHandle = case transportType of
-                                    TCP -> connHandle
-                                    UDP -> NotConnected
-                , datagramHandle = case transportType of
-                                        UDP -> connHandle
-                                        TCP -> NotConnected
-                , uuidMap = HM.empty
-                , tvarUUIDMap = tvar
-                , connectionLock = lock
+    let peerDetails =
+            PeerDetails
+            { _nodeId = peerNodeId
+            , _rep = 0.0 -- needs to be a float. Not a Maybe Int
+            , _ip = peerIp
+            , _udpPort = peerPort
+            , _tcpPort = peerPort
+            , _streamHandle =
+                  case transportType of
+                      TCP -> connHandle
+                      UDP -> NotConnected
+            , _datagramHandle =
+                  case transportType of
+                      UDP -> connHandle
+                      TCP -> NotConnected
+            , _uuidMap = HM.empty
+            , _connectionLock = lock
             }
     newTVar peerDetails
 
@@ -116,5 +113,5 @@ updatePeer transportType connHandle peerDetailsTVar =
     where
         updateConnHandle peerDetails =
             if transportType == TCP then
-                peerDetails {streamHandle = connHandle}
-            else peerDetails {datagramHandle = connHandle}
+                peerDetails & streamHandle .~ connHandle
+            else peerDetails & datagramHandle .~ connHandle
