@@ -60,12 +60,17 @@ instance Serialise TopicMessage
 
 instance Hashable TopicMessage
 
-type TopicHandler = (TopicMessage -> TopicMessage)
+type TopicHandler = (TopicMessage -> Either ResponseCode TopicMessage)
 
 data ResponseCode
     = Error
     | Ok
     | DeserialiseError
+    | InvalidTopicError
+    | DuplicateMessage
+    | TopicHandlerNotRegistered
+    | InvalidNotifierError
+    | InvalidResponseError
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise ResponseCode
