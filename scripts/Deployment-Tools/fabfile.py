@@ -123,7 +123,7 @@ def dumpLogs(remoteUserName,serverIp):
         print("Can not dump logs")
 
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
-    killPrevious(dstPath,remoteUserName,serverIp,executableName)
+    # killPrevious(dstPath,remoteUserName,serverIp,executableName)
     copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
     #generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
     deleteOldLogs(dstPath,remoteUserName,serverIp,executableName)
@@ -136,11 +136,19 @@ def deployAll(configFileName,slpTime):
     remoteUserNameList = getRemoteUserNameList(configFileName)
     rowNo = 0
     executableName = str(sys.argv[1])
+    for (remoteUserName, serverIp) in zip(remoteUserNameList, hostList):
+        killPrevious(dst,remoteUserName,serverIp,executableName)
+        rowNo = rowNo + 1
+        print("Done for " + serverIp + "\n")
     for (remoteUserName,serverIp) in zip(remoteUserNameList,hostList):
         deploy(src, dst, remoteUserName, serverIp, rowNo,executableName)
         rowNo = rowNo + 1
         print("Done for " + serverIp + "\n")
     time.sleep(float(slpTime))
+    for (remoteUserName, serverIp) in zip(remoteUserNameList, hostList):
+        killPrevious(dst,remoteUserName,serverIp,executableName)
+        rowNo = rowNo + 1
+        print("Done for " + serverIp + "\n")
 
     for (remoteUserName,serverIp) in zip(remoteUserNameList,hostList):
         dumpLogs(remoteUserName, serverIp)
