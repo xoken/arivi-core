@@ -1,5 +1,8 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
+  FlexibleInstances, TypeSynonymInstances #-}
 
 module Arivi.P2P.MessageHandler.HandlerTypes
     ( MessageType(..)
@@ -18,6 +21,11 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , Handle(..)
     , MessageTypeMap
     , MessageTypeHandler
+    , uuidMap
+    , streamHandle
+    , datagramHandle
+    , connectionLock
+    , rep
     ) where
 
 import           Control.Concurrent.MVar
@@ -27,16 +35,16 @@ import           Control.Concurrent.MVar
 -}
 import           Arivi.Network                (ConnectionHandle (..),
                                                TransportType (..))
+import           Arivi.P2P.Types
 import           Codec.Serialise              (Serialise)
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TMVar
 import           Control.Concurrent.STM.TVar  ()
 import           Data.ByteString              as N (ByteString)
 import           Data.ByteString.Lazy         as Lazy (ByteString)
-import           Data.Hashable
 import           Data.HashMap.Strict          as HM
 import           GHC.Generics                 (Generic)
 import           Network.Socket               (PortNumber)
+import           Control.Lens.TH
 
 --import           Arivi.Network.Types            (TransportType(..))
 --import Arivi.P2P.Types
@@ -57,17 +65,6 @@ data P2PMessage = P2PMessage
     } deriving (Eq, Ord, Show, Generic)
 
 instance Serialise P2PMessage
-
-data MessageType
-    = Kademlia
-    | RPC
-    | PubSub
-    | Option
-    deriving (Eq, Ord, Show, Generic)
-
-instance Serialise MessageType
-
-instance Hashable MessageType
 
 -- data Peer = Peer
 --     { nodeId  :: NodeId
@@ -92,7 +89,7 @@ P2PMessage = {
 --final message to be sent to network layer
 
 --KademTchan
---RPCTchan
+--RpcTchan
 --PubSubTchan
 -}
 type MessageInfo = (P2PUUID, P2PPayload)
@@ -108,19 +105,21 @@ instance Eq Handle where
     Connected _ == Connected _ = True
     _ == _ = False
 
+type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
+
 data PeerDetails = PeerDetails
-    { nodeId         :: NodeId
-    , rep'           :: Double -- Can have a fixed default value
-    , ip'            :: IP     -- Should always have a value
-    , udpPort'       :: PortNumber
-    , tcpPort'       :: PortNumber
-    , streamHandle   :: Handle
-    , datagramHandle :: Handle
-    , uuidMap        :: UUIDMap
-    , connectionLock :: TMVar Bool
+    { _nodeId         :: NodeId
+    , _rep           :: Double -- Can have a fixed default value
+    , _ip            :: IP     -- Should always have a value
+    , _udpPort       :: PortNumber
+    , _tcpPort       :: PortNumber
+    , _streamHandle   :: Handle
+    , _datagramHandle :: Handle
+    , _uuidMap        :: UUIDMap
+    , _connectionLock :: TMVar Bool
     }
 
-type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
+makeLensesWith classUnderscoreNoPrefixFields ''PeerDetails
 
 type NodeIdPeerMap = HM.HashMap NodeId (TVar PeerDetails)
 

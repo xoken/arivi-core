@@ -1,6 +1,6 @@
 {-# language DeriveGeneric, DeriveAnyClass, Rank2Types, ScopedTypeVariables  #-}
 {-# language GADTs, DataKinds, KindSignatures, TypeFamilies #-}
-{-# language PartialTypeSignatures #-}
+{-# language PartialTypeSignatures, ApplicativeDo #-}
 
 module Arivi.P2P where
 
@@ -164,6 +164,71 @@ invoke bs m = do
 
 mainIncoming :: IO ()
 mainIncoming = do
+  let rpcMessage = serialise (RpcRequest (serialise "abc") BlockResource)
+  a <- invoke rpcMessage handlerMap :: IO (RpcResponse ByteString Resource)
+  print "In main"
+  print a
+
+join' :: (Functor m) => m (m a) -> m a
+join' m = bind m id
+
+bind :: (Functor m) => m a -> (a -> m b) -> m b
+bind m f = join' (fmap f m)
+
+newtype Req a = Req a deriving (Show, Eq, Ord, Generic, Serialise)
+newtype Resp a = Resp a deriving (Show, Eq, Ord, Generic, Serialise)
+
+data MType = MRpc deriving (Show, Eq, Ord, Generic, Serialise)
+
+class Message a where
+  msgType :: a -> MType
+
+class Rpc a where
+  resource :: a -> String
+
+instance (Message a) => Message (Req a) where
+  msgType (Req a) = msgType a
+
+instance (Message a) => Message (Resp a) where
+  msgType (Resp a) = msgType a
+
+instance Rpc a => Rpc (Req a) where
+   resource (Req a) = resource a
+
+issueRequest' :: forall i. (Message i, Serialise i)
+    => Map NodeId PeerDetails
+    -> Handler (NodeId, Req i) (NodeId, Resp i) IO
+issueRequest' _ =
+    Handler $ \(nId, req) -> do
+        let mt = msgType req
+        let s = serialise req
+        undefined
+{-
+        case req of
+          Req (RpcRequest msg r) -> do
+            print (serialise msg)
+            print (serialise r)
+            return (nId, Resp (RpcResponse msg BlockResource))
+          Req SRequest -> do
+            return (nId, Resp (SResponse BlockResource))
+-}
+
+invoke' ::
+       forall o i.
+       (Serialise i, Eq i, Hashable i, Show i, Rpc i)
+    => ByteString
+    -> Map i (Handler (Req i) (Resp o) IO)
+    -> IO (Resp o)
+invoke' bs m = do
+    let rr@(Req i) = deserialise bs :: (Req i)
+    print "In invoke "
+    print rr
+    case Map.lookup i m of
+        Just h -> runHandler h rr
+        Nothing -> error "Cover has blown"
+
+mainIncoming' :: IO ()
+mainIncoming' = do
   let rpcMessage = serialise (RpcRequest (serialise "abc") BlockResource)
   a <- invoke rpcMessage handlerMap :: IO (RpcResponse ByteString Resource)
   print "In main"
