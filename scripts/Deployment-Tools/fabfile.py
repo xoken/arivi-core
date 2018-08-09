@@ -79,8 +79,9 @@ def copyFile(srcPath, dstPath, remoteUserName, serverIp, executableName):
 def killPrevious(dstPath,remoteUserName,serverIp,executableName):
     try:
         print("Killing previous executable  if any " + dstPath + executableName)
-        Connection(remoteUserName + "@" + serverIp).run("pkill -f \"" + dstPath + \
-                                                + executableName + " .\"")
+        Connection(remoteUserName + "@" + serverIp).run("pkill -f \""\
+                     + dstPath + executableName + " .\"")
+        print("pkill -f \"" + dstPath + executableName + " .\"")
     except:
         print("No previous process to kill")
 
