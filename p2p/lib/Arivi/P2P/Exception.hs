@@ -25,6 +25,7 @@ data AriviP2PException
     | KademliaDeserialiseFailure
     | PubSubInvalidResponseException
     | PubSubNoWatcherOrNotifierException
+    | KademliaNoVerifiedPeer
     deriving (Show)
 
 instance Exception AriviP2PException
