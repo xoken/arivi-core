@@ -31,7 +31,6 @@ library
                     ,  serialise
                     ,  cryptonite
                     ,  exceptions
-                    ,  interpolatedstring-perl6
                     ,  text
                     ,  lifted-base
                     ,  monad-control

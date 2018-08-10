@@ -103,24 +103,23 @@ executable Main
   ghc-options:      -threaded +RTS -N -RTS
   default-extensions:          FlexibleContexts
   build-depends:     async
-                  ,  base >=4.9 && <4.11
-                  ,  directory
-                  ,  bytestring
-                  ,  hashtables <= 1.2.6.1
-                  ,  lifted-async
-                  ,  monad-logger
-                  ,  mtl
-                  ,  stm >= 2.4.4.1
-                  ,  time
-                  ,  arivi-crypto
-                  ,  arivi-utils
-                  ,  arivi-network
-                  ,  network
-                  ,  arivi-p2p
+                  , base >=4.9 && <4.11
+                  , directory
+                  , bytestring
+                  , hashtables <= 1.2.6.1
+                  , lifted-async
+                  , monad-logger
+                  , mtl
+                  , stm >= 2.4.4.1
+                  , time
+                  , arivi-crypto
+                  , arivi-utils
+                  , arivi-network
+                  , network
+                  , arivi-p2p
                   , text
                   , yaml
                   , cryptonite
                   , memory
                   , string-conv
   other-modules: CreateConfig
-

@@ -33,10 +33,8 @@ library
                     ,  base16-bytestring
                     ,  binary >= 0.8.3.0
                     ,  bytestring
-                    ,  containers
                     ,  cryptonite >= 0.23
                     ,  exceptions
-                    ,  hashtables <= 1.2.6.1
                     ,  interpolatedstring-perl6
                     ,  lifted-base
                     ,  lifted-async
@@ -47,9 +45,7 @@ library
                     ,  network
                     ,  serialise
                     ,  stm >= 2.4.4.1
-                    ,  template-haskell
                     ,  text
-                    ,  timers-updatable <= 0.2.0.2
                     ,  unordered-containers <= 0.2.9.0
                     ,  arivi-crypto
                     ,  arivi-utils
@@ -87,14 +83,12 @@ test-suite arivi-network-test
                     ,  base >=4.9 && <4.11
                     ,  bytestring
                     ,  exceptions
-                    ,  hashtables <= 1.2.6.1
                     ,  hspec
                     ,  lifted-async
                     ,  monad-control
                     ,  monad-logger
                     ,  mtl
                     ,  stm >= 2.4.4.1
-                    ,  time
                     ,  arivi-crypto
                     ,  arivi-utils
                     ,  arivi-network
