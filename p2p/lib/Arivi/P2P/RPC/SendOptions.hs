@@ -10,9 +10,10 @@ module Arivi.P2P.RPC.SendOptions
 --                                                         extractSecond,
 --                                                         extractThird)
 import           Arivi.P2P.Exception
-import           Arivi.P2P.MessageHandler.Handler
-import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
+import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType(..),
                                                         P2PPayload)
+
+import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging

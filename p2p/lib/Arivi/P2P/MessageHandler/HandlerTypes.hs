@@ -21,6 +21,7 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , Handle(..)
     , MessageTypeMap
     , MessageTypeHandler
+    , networkConfig
     , uuidMap
     , streamHandle
     , datagramHandle
@@ -108,11 +109,8 @@ instance Eq Handle where
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 
 data PeerDetails = PeerDetails
-    { _nodeId         :: NodeId
+    { _networkConfig :: NetworkConfig
     , _rep           :: Double -- Can have a fixed default value
-    , _ip            :: IP     -- Should always have a value
-    , _udpPort       :: PortNumber
-    , _tcpPort       :: PortNumber
     , _streamHandle   :: Handle
     , _datagramHandle :: Handle
     , _uuidMap        :: UUIDMap
