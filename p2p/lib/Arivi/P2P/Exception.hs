@@ -23,6 +23,7 @@ data AriviP2PException
     | OptionsInvalidMessageType MessageTypeRPC
     | OptionsHandlerInvalidMessageType MessageTypeRPC
     | KademliaDeserialiseFailure
+    | KademliaNoVerifiedPeer
     deriving (Show)
 
 instance Exception AriviP2PException

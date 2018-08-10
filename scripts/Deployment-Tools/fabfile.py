@@ -1,11 +1,14 @@
 from fabric import Connection
 import pandas as pd
 import sys
+import time
 
 src = "./"
 dst = "/home/xkn/"
 remoteConfigFile = "config1.yaml"
 configFileName = "ServerConfig.xls"
+logServerIp = "198.23.153.233"
+logServerUser = "xkn"
 
 def getHostNameList(configFileName):
     xls = pd.ExcelFile(configFileName)
@@ -76,8 +79,9 @@ def copyFile(srcPath, dstPath, remoteUserName, serverIp, executableName):
 def killPrevious(dstPath,remoteUserName,serverIp,executableName):
     try:
         print("Killing previous executable  if any " + dstPath + executableName)
-        Connection(remoteUserName + "@" + serverIp).run("pkill -f " + dstPath + \
-                                                + executableName)
+        Connection(remoteUserName + "@" + serverIp).run("pkill -f \""\
+                     + dstPath + executableName + " .\"")
+        print("pkill -f \"" + dstPath + executableName + " .\"")
     except:
         print("No previous process to kill")
 
@@ -94,24 +98,61 @@ def executeProgram(dstPath,remoteUserName,serverIp,executableName):
         # Connection(remoteUserName + "@" + serverIp).run("nohup " \
         #         + executablePath +  " > nohup.out 2> nohup.err < /dev/null &")
         # Connection(remoteUserName + "@" + serverIp).run("exec 1>&2; " + executablePath + " & disown ")
-        Connection(remoteUserName + "@" + serverIp).run(executablePath)
+        # Connection(remoteUserName + "@" + serverIp).run(executablePath)
+        Connection(remoteUserName + "@" + serverIp).run("(nohup "\
+          + executablePath + " . " +  "> nohup.out 2> nohup.err < /dev/null &) && sleep 1",pty=False)
+        # Connection(remoteUserName + "@" + serverIp).run('nohup Main . > nohup.log 2>&1 &', pty=False)
+        print("(nohup bash `"\
+          + executablePath + " . ` &  " +  "> nohup.out 2> nohup.err < /dev/null &) && sleep 1")
     except:
         print("Can not execute file")
+def deleteOldLogs(dstPath,remoteUserName,serverIp,executableName):
+    try:
+        print("Deleting old logs  rm -rf " + dstPath + "*.log")
+        Connection(remoteUserName + "@" + serverIp).run("rm -rf  " \
+                                        + dstPath + "*.log")
+        print("Logs deleted successfully")
+    except:
+        print("Can not old logs")
+
+def dumpLogs(remoteUserName,serverIp):
+    try:
+        print("Dumping logs")
+        Connection(remoteUserName + "@" + serverIp).run("dump-log")
+        print("Logs dumped successfully")
+    except:
+        print("Can not dump logs")
+
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
-    #killPrevious(dstPath,remoteUserName,serverIp,executableName)
+    # killPrevious(dstPath,remoteUserName,serverIp,executableName)
     copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
     #generateConfigFile(srcPath,dstPath,remoteUserName,serverIp,rowNo)
-    #executeProgram(dstPath,remoteUserName,serverIp,executableName)
+    deleteOldLogs(dstPath,remoteUserName,serverIp,executableName)
+    executeProgram(dstPath, remoteUserName, serverIp, executableName)
 
 
-def deployAll(configFileName):
+
+def deployAll(configFileName,slpTime):
     hostList = getHostNameList(configFileName)
     remoteUserNameList = getRemoteUserNameList(configFileName)
     rowNo = 0
     executableName = str(sys.argv[1])
+    for (remoteUserName, serverIp) in zip(remoteUserNameList, hostList):
+        killPrevious(dst,remoteUserName,serverIp,executableName)
+        rowNo = rowNo + 1
+        print("Done for " + serverIp + "\n")
     for (remoteUserName,serverIp) in zip(remoteUserNameList,hostList):
         deploy(src, dst, remoteUserName, serverIp, rowNo,executableName)
         rowNo = rowNo + 1
         print("Done for " + serverIp + "\n")
+    time.sleep(float(slpTime))
+    for (remoteUserName, serverIp) in zip(remoteUserNameList, hostList):
+        killPrevious(dst,remoteUserName,serverIp,executableName)
+        rowNo = rowNo + 1
+        print("Done for " + serverIp + "\n")
 
-deployAll(configFileName)
+    for (remoteUserName,serverIp) in zip(remoteUserNameList,hostList):
+        dumpLogs(remoteUserName, serverIp)
+        rowNo = rowNo + 1
+        print("Done for " + serverIp + "\n")
+deployAll(configFileName, str(sys.argv[2]))

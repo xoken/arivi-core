@@ -43,7 +43,8 @@ import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
 import           Control.Concurrent                    (threadDelay)
-import           Control.Concurrent.Async.Lifted       (mapConcurrently)
+import           Control.Concurrent.Async.Lifted       (async, mapConcurrently,
+                                                        wait)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
@@ -52,12 +53,8 @@ import           Control.Monad                         (filterM)
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger                  (logDebug)
 import           Control.Monad.STM                     (atomically)
-
--- import           Control.Monad.Trans.Control           (StM)
-import qualified Data.ByteString.Char8                 as C
-
--- import qualified Data.ByteString.Lazy                  as L
 import qualified Data.ByteString.Base16                as BS (encode)
+import qualified Data.ByteString.Char8                 as C
 import qualified Data.Text                             as T
 import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
@@ -129,11 +126,12 @@ isVNRESPValid peerL peerR = do
     dPeer <- getDefaultNodeId
     case dPeer of
         Right dnid -> do
+
             let rXor =
                     getXorDistance
                         (C.unpack $ BS.encode $ fst $ getPeer peerR)
                         (C.unpack $ BS.encode dnid)
-                temp =
+            let temp =
                     filter
                         (\x ->
                              rXor >=
@@ -141,12 +139,14 @@ isVNRESPValid peerL peerR = do
                                  (C.unpack $ BS.encode dnid)
                                  (C.unpack $ BS.encode $ fst $ getPeer x))
                         peerL
+
                 -- TODO address conditions when (In) is retruned or not
             let result
                     | Peer (dnid, undefined) `elem` temp = True
-                    | fromIntegral (Prelude.length temp) > minLessPeer = True
+                    | fromIntegral (Prelude.length temp) >= minLessPeer = True
                     | Prelude.null temp = False
                     | otherwise = False
+            $(logDebug) $ T.append (T.pack "First Check : ") (T.pack $ show result)
             if result
                 then do
                     $(logDebug) $ T.pack (show "Issueing Ping for Verification")
@@ -157,7 +157,7 @@ isVNRESPValid peerL peerR = do
                                 (T.pack $ show peerL')
                     bl <- mapConcurrently issuePing peerL'
                     let liveNodes = fromIntegral $ count' True bl
-                    return $ Right $ (>) liveNodes minPeerResponded
+                    return $ Right $ (>=) liveNodes minPeerResponded
                 else return $ Right False
                 -- TODO add to kbucket env
             where minPeerResponded =
@@ -204,7 +204,8 @@ issueVerifyNode peerV peerT peerR = do
     resp <-
         Exception.try $
         sendRequestforKademlia vnid HT.Kademlia (serialise vmsg) vuport vip
-    $(logDebug) $ T.pack "VN_RESP rescieved : "
+    $(logDebug) $
+        T.pack ("Recieved Verify_Resp for : " ++ show tip ++ ":" ++ show tuport)
     case resp of
         Left (e :: Exception.SomeException) -> throw e
             -- TODO isue verifyNode once more just to be sure
@@ -213,26 +214,36 @@ issueVerifyNode peerV peerT peerR = do
                     deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
             $(logDebug) $
                 T.append (T.pack "VN_RESP MSG : ") (T.pack $ show resp'')
+
             case resp'' of
-                Right pl' -> return (peerList $ messageBody $ message pl')
-                Left e    -> throw e
+                Left e -> throw e
+                Right rp -> case messageBody $ message rp of
+                    VN_RESP _ pl' _ -> return pl'
+                    _               -> throw KademliaInvalidResponse
 
 getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => m Peer
 getRandomVerifiedPeer = do
     kb <- getKb
     let vt = nodeStatusTable kb
         st = H.stream vt
-    kvList <- liftIO $ atomically $ toList st
-    let vPeers =
-            filter
-                (\x ->
-                     case snd x of
-                         Verified -> True
-                         _        -> False)
-                kvList
-    rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers - 1)
-    let rp = fst $ vPeers !! rIndex
-    getPeerByNodeId rp
+    dnid <- getDefaultNodeId
+    case dnid of
+        Right dnid' -> do
+            kvList <- liftIO $ atomically $ toList st
+            let kvList' = filter (\x -> fst x /= dnid') kvList
+            let vPeers =
+                    filter
+                        (\x ->
+                            case snd x of
+                                Verified -> True
+                                _        -> False)
+                        kvList'
+
+            rIndex <- liftIO $ randomRIO (0, Prelude.length vPeers - 1)
+            let rp = fst $ vPeers !! rIndex
+            getPeerByNodeId rp
+
+        Left _ -> throw KademliaNoVerifiedPeer
 
 
 responseHandler :: (HasLogging m, HasP2PEnv m) => Either SomeException [Peer]
@@ -250,12 +261,25 @@ responseHandler resp peerR peerT = case resp of
                     (fst $ getPeer peerT) (nodeStatusTable kb)
             Left e -> $(logDebug) (T.pack (show e))
 
-    Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
+         -- Logs the NodeStatus Table
+        let kbm2 = nodeStatusTable kb
+            kbtemp = H.stream kbm2
+        kvList <- liftIO $ atomically $ toList kbtemp
+        $(logDebug) $
+            T.append
+                (T.pack "NodeStatusTable after adding : ")
+                (T.pack (show kvList))
+        -- liftIO $ print "RH Done"
+
+    Left (e :: Exception.SomeException) -> $( logDebug ) (T.pack (show e))
 
 sendVNMsg :: (HasLogging m, HasP2PEnv m) => Peer -> Peer -> Peer -> m ()
 sendVNMsg peerT peerV peerR = do
         resp <- Exception.try $ issueVerifyNode peerV peerT peerR
-        responseHandler resp peerR peerT
+        t <- async $ responseHandler resp peerR peerT
+        wait t
+
+
 
 verifyPeer :: (HasP2PEnv m, HasLogging m) => Peer -> m ()
 verifyPeer peerT = do
@@ -264,24 +288,16 @@ verifyPeer peerT = do
         Left _ -> do
             $(logDebug) $ T.pack "Verification Started"
             dn <- getDefaultNodeId
-            kb <- getKb
             case dn of
                 Right dnid -> do
-                    rt <- liftIO $ randomRIO (0, 180000000)
+                    rt <- liftIO $ randomRIO (0,180)
                     liftIO $ threadDelay rt
                     peerV <- getRandomVerifiedPeer
                     peerR <- getKClosestPeersByNodeid dnid 1
                     case peerR of
                         Right peer -> sendVNMsg peerT peerV (head peer)
-                        Left e     -> $(logDebug) (T.pack (show e))
+                            -- liftIO $ print "sendVNMSG done"
+                        Left e     -> $( logDebug ) (T.pack (show e))
 
-                    -- Logs the NodeStatus Table
-                    let kbm2 = nodeStatusTable kb
-                        kbtemp = H.stream kbm2
-                    kvList <- liftIO $ atomically $ toList kbtemp
-                    $(logDebug) $
-                        T.append
-                            (T.pack "NodeStatusTable after adding : ")
-                            (T.pack (show kvList))
                 Left _ -> return ()
         Right _ -> return ()
