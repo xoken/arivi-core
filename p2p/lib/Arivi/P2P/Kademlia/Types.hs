@@ -22,19 +22,17 @@ module Arivi.P2P.Kademlia.Types
     , packPing
     , packPong
     , createKbucket
-    -- , serialise
-    -- , deserialise
+    , packVnR
+    , packVerifyMsg
     , Peer(..)
     , Kbucket(..)
     , HasKbucket(..)
+    , NodeStatus(..)
     ) where
 
 import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-
--- import           Control.Monad.IO.Class   (MonadIO)
--- import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.STM        (atomically)
 import           Crypto.Error
 import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
@@ -75,6 +73,8 @@ data MessageType
     | MSG02
     | MSG03
     | MSG04
+    | MSG05
+    | MSG06
     deriving (Show, Generic)
 
 -- | Peer information encapsulated in a single structure
@@ -86,8 +86,12 @@ instance Eq Peer where
     Peer (x, _) == Peer (a, _) = a == x
 
 -- | K-bucket to store peers
-newtype Kbucket k v = Kbucket
-    { getKbucket :: H.Map k v
+data Kbucket k v = Kbucket
+    { getKbucket                :: H.Map k v
+    , nodeStatusTable           :: H.Map NodeId NodeStatus
+    , kademliaSoftBound         :: Int
+    , pingThreshold             :: Int
+    , kademliaConcurrencyFactor :: Int
     }
 
 class HasKbucket m where
@@ -97,11 +101,13 @@ class HasKbucket m where
 -- node with position 0 i.e kb index is zero since the distance of a node
 -- from it's own address is zero. This will help insert the new peers into
 -- kbucket with respect to the local peer
-createKbucket :: Peer -> IO (Kbucket Int [Peer])
-createKbucket localPeer = do
+createKbucket :: Peer -> Int -> Int -> Int -> IO (Kbucket Int [Peer])
+createKbucket localPeer sbound pingThreshold' kademliaConcurrencyFactor' = do
     m <- atomically H.new
+    n <- atomically H.new
     atomically $ H.insert [localPeer] 0 m
-    return (Kbucket m)
+    atomically $ H.insert Verified (fst $ getPeer localPeer) n
+    return (Kbucket m n sbound pingThreshold' kademliaConcurrencyFactor')
 
 -- Custom data type to send & receive message
 data MessageBody
@@ -115,6 +121,14 @@ data MessageBody
     | FN_RESP { nodeId       :: NodeId
               , peerList     :: [Peer]
               , fromEndPoint :: NodeEndPoint }
+    | VERIFY_NODE { nodeId         :: NodeId
+                  , targetNodeId   :: NodeId
+                  , refNodeId      :: NodeId
+                  , targetEndPoint :: NodeEndPoint
+                  , fromEndPoint   :: NodeEndPoint }
+    | VN_RESP { nodeId       :: NodeId
+              , peerList     :: [Peer]
+              , fromEndPoint :: NodeEndPoint }
     deriving (Generic, Show)
 
 data Message = Message
@@ -125,6 +139,11 @@ data Message = Message
 data PayLoad = PayLoad
     { message :: Message
     } deriving (Show, Generic)
+
+data NodeStatus
+    = Verified
+    | UnVerified
+    deriving (Show)
 
 -- Helper functions to create messages
 packPing :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
@@ -155,6 +174,32 @@ packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
     fromep = NodeEndPoint hostNamea udpPorta tcpPorta
     msgBody = FN_RESP nId mPeerList fromep
     msg = Message MSG04 msgBody
+
+packVerifyMsg ::
+       NodeId
+    -> NodeId
+    -> NodeId
+    -> HostName
+    -> PortNumber
+    -> PortNumber
+    -> HostName
+    -> PortNumber
+    -> PortNumber
+    -> PayLoad
+packVerifyMsg nId targetNode refNode hostName' udpPort'' tcpPort'' thostName tudpPort ttcpPort =
+    PayLoad msg
+  where
+    fromep = NodeEndPoint hostName' udpPort'' tcpPort''
+    targetep = NodeEndPoint thostName tudpPort ttcpPort
+    msgBody = VERIFY_NODE nId targetNode refNode targetep fromep
+    msg = Message MSG05 msgBody
+
+packVnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
+packVnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
+  where
+    fromep = NodeEndPoint hostNamea udpPorta tcpPorta
+    msgBody = VN_RESP nId mPeerList fromep
+    msg = Message MSG06 msgBody
 
 -- Serialise instance of different custom types so that they can be encoded
 -- and decoded using serialize library which further allows these types
@@ -263,6 +308,14 @@ encodeMessageBody (FIND_NODE pnodeId ptargetNodeId pnodeEndPoint) =
 encodeMessageBody (FN_RESP pnodeId ppeerList pnodeEndPoint) =
     encodeListLen 4 <> encodeWord 3 <> encode pnodeId <> encode ppeerList <>
     encode pnodeEndPoint
+encodeMessageBody (VERIFY_NODE pnodeId ptargetNodeId prefNodeId tnodeEndPoint pnodeEndPoint) =
+    encodeListLen 6 <> encodeWord 4 <> encode pnodeId <> encode ptargetNodeId <>
+    encode prefNodeId <>
+    encode tnodeEndPoint <>
+    encode pnodeEndPoint
+encodeMessageBody (VN_RESP pnodeId ppeerList pnodeEndPoint) =
+    encodeListLen 4 <> encodeWord 5 <> encode pnodeId <> encode ppeerList <>
+    encode pnodeEndPoint
 
 decodeMessageBody :: Decoder s MessageBody
 decodeMessageBody = do
@@ -273,4 +326,7 @@ decodeMessageBody = do
         (3, 1) -> PONG <$> decode <*> decode
         (4, 2) -> FIND_NODE <$> decode <*> decode <*> decode
         (4, 3) -> FN_RESP <$> decode <*> decode <*> decode
-        _      -> fail "Invalid MessageBody encoding"
+        (6, 4) ->
+            VERIFY_NODE <$> decode <*> decode <*> decode <*> decode <*> decode
+        (4, 5) -> VN_RESP <$> decode <*> decode <*> decode
+        _ -> fail "Invalid MessageBody encoding"

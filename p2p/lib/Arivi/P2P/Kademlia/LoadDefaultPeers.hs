@@ -24,6 +24,7 @@ module Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
+import           Arivi.P2P.Kademlia.VerifyPeer
 import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
@@ -84,6 +85,7 @@ deleteIfPeerExist (x:xs) = do
 issueFindNode :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m ()
 issueFindNode rpeer = do
     p2pInstanceTVar <- getAriviTVarP2PEnv
+    kb' <- getKb
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
     let lnid = selfNodeId p2pInstance
         luport = selfUDPPort p2pInstance
@@ -99,12 +101,10 @@ issueFindNode rpeer = do
     resp <-
         Exception.try $
         sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+    _ <- async $ verifyPeer rpeer
     case resp of
         Left (e :: Exception.SomeException) ->
-            $(logDebug) $
-            T.append
-                (T.pack "Couldn't send message : ")
-                (T.pack (displayException e))
+            $(logDebug) $ T.pack (displayException e)
         Right resp' -> do
             addToKBucket rpeer
             case getPeerListFromPayload resp' of
@@ -112,7 +112,8 @@ issueFindNode rpeer = do
                     $(logDebug) $
                     T.append
                         (T.pack
-                             "Couldn't deserialise message while recieving fn_resp : ")
+                             ("Couldn't deserialise message while recieving fn_resp from : " ++
+                              show rip ++ ":" ++ show ruport))
                         (T.pack (displayException e))
                 Right peerl -> do
                     $(logDebug) $
@@ -120,16 +121,22 @@ issueFindNode rpeer = do
                             ("Received PeerList from " ++
                              show rip ++
                              ":" ++ show ruport ++ ": " ++ show peerl)
+                    -- Verification
+                    -- TODO Rethink about handling exceptions
                     peerl2 <- deleteIfPeerExist peerl
                     $(logDebug) $
                         T.pack
                             ("Received PeerList after removing exisiting peers : " ++
                              show peerl2)
+                     -- Initiates the verification process
+
+
                     -- | Deletes nodes from peer list which already exists in
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
                     --   FIND_NODE request forever.
-                    alpha <- getKademliaConcurrencyFactor
-                    let pl3 = LL.splitAt alpha peerl2
+                    let alpha = kademliaConcurrencyFactor kb'
+                        pl3 = LL.splitAt alpha peerl2
                     mapConcurrently_ issueFindNode $ fst pl3
                     mapConcurrently_ issueFindNode $ snd pl3
+

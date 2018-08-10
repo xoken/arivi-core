@@ -21,18 +21,25 @@ module Arivi.P2P.Kademlia.MessageHandler
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
+import           Arivi.P2P.Kademlia.VerifyPeer
+import           Arivi.P2P.MessageHandler.Handler
+import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-import           Codec.Serialise             (DeserialiseFailure,
-                                              deserialiseOrFail, serialise)
+import           Codec.Serialise                       (DeserialiseFailure,
+                                                        deserialiseOrFail,
+                                                        serialise)
+import           Control.Concurrent.Async.Lifted       (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
+import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                     try)
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.STM
-import qualified Data.ByteString.Lazy        as L
-import qualified Data.Text                   as T
+import qualified Data.ByteString.Lazy                  as L
+import qualified Data.Text                             as T
 
 -- import qualified STMContainers.Map           as H
 -- | Handler function to process incoming kademlia requests, requires a
@@ -70,7 +77,6 @@ kademliaMessageHandler payl = do
                         T.append
                             (T.pack "Ping Message Recieved from : ")
                             (T.pack (show rnep))
-                    addToKBucket rpeer
                     return $ serialise $ packPong lnid lip luport ltport
                 FIND_NODE {} -> do
                     $(logDebug) $
@@ -78,14 +84,45 @@ kademliaMessageHandler payl = do
                             (T.pack "Find_Node Message Recieved from : ")
                             (T.pack (show rnep))
                     addToKBucket rpeer
+                     -- Initiates the verification process
+                    _ <- async $ verifyPeer rpeer
+
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
                     --     print ("Kbucket size after mH " ++ show i)
-                    pl <- getKClosestPeersByNodeid rnid 10
+                    pl <- getKClosestPeersByNodeid rnid 20
                     case pl of
                         Right pl2 ->
                             return $
                             serialise $ packFnR lnid pl2 lip luport ltport
                         Left _ -> throw KademliaInvalidPeer
+                VERIFY_NODE _ tnid refnid tnep _ -> do
+                    $(logDebug) $
+                        T.append
+                            (T.pack "Verify_Node Message Recieved from : ")
+                            (T.pack (show rnep))
+                    let findNodeMsg = packFindMsg lnid refnid lip luport ltport
+                    resp <-
+                        Exception.try $
+                        sendRequestforKademlia
+                            tnid
+                            HT.Kademlia
+                            (serialise findNodeMsg)
+                            (udpPort tnep)
+                            (nodeIp tnep)
+                    case resp of
+                        Left (e :: Exception.SomeException) -> throw e
+                        Right resp' -> do
+                            let resp'' =
+                                    deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
+                            case resp'' of
+                                Left e -> throw e
+                                Right rl ->
+                                    case messageBody $ message rl of
+                                        FN_RESP _ pl _ ->
+                                            return $
+                                            serialise $
+                                            packVnR lnid pl lip luport ltport
+                                        _ -> throw KademliaInvalidResponse
                 _ -> throw KademliaInvalidRequest
