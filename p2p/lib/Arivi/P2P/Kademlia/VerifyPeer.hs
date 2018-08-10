@@ -271,8 +271,7 @@ responseHandler resp peerR peerT = case resp of
                 (T.pack (show kvList))
         -- liftIO $ print "RH Done"
 
-    Left (e :: Exception.SomeException) -> do
-        $(logDebug) (T.pack (show e))
+    Left (e :: Exception.SomeException) -> $( logDebug ) (T.pack (show e))
 
 sendVNMsg :: (HasLogging m, HasP2PEnv m) => Peer -> Peer -> Peer -> m ()
 sendVNMsg peerT peerV peerR = do
@@ -296,12 +295,9 @@ verifyPeer peerT = do
                     peerV <- getRandomVerifiedPeer
                     peerR <- getKClosestPeersByNodeid dnid 1
                     case peerR of
-                        Right peer -> do
-                            sendVNMsg peerT peerV (head peer)
+                        Right peer -> sendVNMsg peerT peerV (head peer)
                             -- liftIO $ print "sendVNMSG done"
-                        Left e     -> do
-                            -- liftIO $ print "VP Left"
-                            $(logDebug) (T.pack (show e))
+                        Left e     -> $( logDebug ) (T.pack (show e))
 
                 Left _ -> return ()
         Right _ -> return ()
