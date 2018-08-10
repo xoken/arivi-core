@@ -1,8 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor,
   DeriveTraversable, DeriveAnyClass, ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
-  FlexibleInstances, TypeSynonymInstances #-}
 {-# LANGUAGE GADTs, DataKinds, KindSignatures #-}
 
 -- |
@@ -15,26 +13,16 @@
 --
 -- This module provides different data types that are used in the P2P layer
 --
-module Arivi.P2P.Types where
+module Arivi.P2P.Types (module Arivi.P2P.Types, NetworkConfig(..)) where
 
-import           Arivi.Network.Types (NodeId)
-
+import           Arivi.Network.Types (NetworkConfig(..))
 import           Codec.Serialise
 import           GHC.Generics        (Generic)
-import           Network.Socket      (HostName, PortNumber)
-import           Control.Lens.TH
 import           Data.HashMap.Strict (HashMap)
 import           Data.Hashable
 import           Data.Proxy
 
 type Map = HashMap
-
-data NetworkConfig = NetworkConfig
-    { _nodeId  :: NodeId
-    , _ip      :: HostName
-    , _udpPort :: PortNumber
-    , _tcpPort :: PortNumber
-    } deriving (Eq, Ord, Show, Generic)
 
 data RpcRequest msg r  = RpcRequest msg r  deriving (Eq, Ord, Show, Generic)
 data RpcResponse msg r =  RpcResponse msg r deriving (Eq, Ord, Show, Generic)
@@ -107,4 +95,3 @@ instance Msg Rpc where
 instance Msg Kademlia where
   msgType _ = Kademlia
 
-makeLensesWith classUnderscoreNoPrefixFields ''NetworkConfig

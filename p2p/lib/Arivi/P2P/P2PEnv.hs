@@ -10,15 +10,14 @@ module Arivi.P2P.P2PEnv
     , HasStatsdClient(..)
     , T.HasKbucket(..)
     ) where
-
 import           Arivi.Env
+import           Arivi.P2P.Types (NetworkConfig)
 import           Arivi.P2P.Kademlia.Types              (createKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PRT.Types
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
-import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, newTVarIO)

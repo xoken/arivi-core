@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Arivi.P2P.MessageHandler.Utils where
 
@@ -11,16 +12,16 @@ import           Arivi.Network                         (AriviNetworkException (.
                                                         openConnection)
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
+import           Arivi.P2P.Types
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-
+import           Arivi.Network.Types                   hiding (NodeId)
 import           Arivi.Utils.Logging
 import           Control.Monad.Logger
 import           Data.HashMap.Strict                   as HM
 import           Data.String.Conv
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
-import           Network.Socket                        (PortNumber)
 import           Control.Lens
 
 
@@ -29,7 +30,7 @@ logWithNodeId peerNodeId logLine = $(logDebug) $ toS $ logLine ++ show peerNodeI
 
 getNodeId :: TVar PeerDetails -> IO NodeId
 getNodeId peerDetailsTVar =
-    _nodeId <$> readTVarIO peerDetailsTVar
+    (^.networkConfig.nodeId) <$> readTVarIO peerDetailsTVar
 
 -- | wraps the payload with message type { Kademlia | Rpc | PubSub} and UUID
 generateP2PMessage :: P2PUUID -> MessageType -> P2PPayload -> P2PMessage
@@ -51,7 +52,7 @@ getTransportType msgType
     | otherwise = UDP
 
 -- | Wrapper around openConnection
-openConnectionToPeer :: (HasP2PEnv m, HasLogging m) => IP -> PortNumber -> TransportType -> NodeId -> m (Either AriviNetworkException ConnectionHandle)
+openConnectionToPeer :: (HasP2PEnv m, HasLogging m) => NetworkConfig ->TransportType ->m (Either AriviNetworkException ConnectionHandle)
 openConnectionToPeer = openConnection
 
 checkConnection :: PeerDetails -> TransportType -> Handle
@@ -66,16 +67,13 @@ doesPeerExist :: TVar NodeIdPeerMap -> NodeId -> IO Bool
 doesPeerExist nodeIdPeerTVar peerNodeId =
     HM.member peerNodeId <$> readTVarIO nodeIdPeerTVar
 
-mkPeer :: NodeId -> IP -> PortNumber -> TransportType -> Handle -> STM (TVar PeerDetails)
-mkPeer peerNodeId peerIp peerPort transportType connHandle = do
+mkPeer :: NetworkConfig -> TransportType -> Handle -> STM (TVar PeerDetails)
+mkPeer nc transportType connHandle = do
     lock <- newTMVar True
     let peerDetails =
             PeerDetails
-            { _nodeId = peerNodeId
+            { _networkConfig = nc
             , _rep = 0.0 -- needs to be a float. Not a Maybe Int
-            , _ip = peerIp
-            , _udpPort = peerPort
-            , _tcpPort = peerPort
             , _streamHandle =
                   case transportType of
                       TCP -> connHandle
