@@ -20,6 +20,12 @@
 # Utility functions
 #------------------------------------------------------------------------------
 
+PACKCHECK_VERSION=0.3.1
+
+show_version() {
+  echo "packcheck version $PACKCHECK_VERSION"
+}
+
 # $1: varname
 show_var() {
   echo "$1=$(eval \"echo \$$1\")"
@@ -192,6 +198,7 @@ SAFE_ENVVARS="\
   CABAL_USE_STACK_SDIST \
   CABAL_CONFIGURE_OPTIONS \
   CABAL_NEWBUILD_OPTIONS \
+  CABAL_NEWBUILD_TARGETS \
   COVERAGE \
   COVERALLS_OPTIONS \
   HLINT_COMMANDS \
@@ -285,13 +292,15 @@ show_help() {
   show_step1 "Usage"
   short_help
 
-  show_step1 "Commands"
-  help_cmd stack "build using stack"
+  show_step1 "Commands and flags"
+  help_cmd cabal-new "build using cabal new-build (GHCVER >= 8.2.2)"
   help_cmd cabal "build using cabal"
-  help_cmd cabal-new "build using cabal new-build"
+  help_cmd stack "build using stack"
+  # TODO add hlint as a tool
   help_cmd clean "remove the .packcheck directory"
   help_cmd cleanall "remove .packcheck, .stack-work, .cabal-sandbox directories"
-  help_cmd help "show this help message"
+  help_cmd "help | --help | -h" "show this help message"
+  help_cmd "--version" "show packcheck version"
 
   show_step1 "Selecting tool versions"
   help_envvar GHCVER "[a.b.c] GHC version prefix (may not be enforced when using stack)"
@@ -305,6 +314,9 @@ show_help() {
   help_envvar TOOLS_DIR "[dir] Find ghc|cabal by version as in TOOLS_DIR/ghc/8.4.1/bin"
 
   show_step1 "Specifying common tool options"
+  # TODO
+  # help_envvar TOOL_OPTIONS "Specify the tool specific (stack or cabal) options to use."
+  # help_envvar BUILD_OPTIONS "Specify the tool specific build (stack build or cabal new-build) options to use."
   help_envvar GHC_OPTIONS "Specify GHC options to use"
   help_envvar SDIST_OPTIONS "Arguments to stack/cabal sdist command"
   # XXX this applies to both stack and cabal builds
@@ -326,6 +338,7 @@ show_help() {
   show_step1 "cabal options"
   #help_envvar CABAL_USE_STACK_SDIST "[y] Use stack sdist (to use --pvp-bounds)"
   help_envvar CABAL_NEWBUILD_OPTIONS "ADDITIONAL cabal new-build options to append"
+  help_envvar CABAL_NEWBUILD_TARGETS "cabal new-build targets, default is 'all'"
   help_envvar CABAL_CONFIGURE_OPTIONS "ADDITIONAL cabal old style configure options to append"
   help_envvar CABAL_CHECK_RELAX "[y] Do not fail if cabal check fails on the package."
   # The sandbox mode is a bit expensive because a sandbox is used and
@@ -504,12 +517,14 @@ EOF
 EOF
 )
   else
-    CABAL_DEP_OPTIONS="--only-dependencies"
-    test -n "$DISABLE_TEST" || \
-      CABAL_DEP_OPTIONS="$CABAL_DEP_OPTIONS --enable-tests"
-    test -n "$DISABLE_BENCH" || \
-      CABAL_DEP_OPTIONS="$CABAL_DEP_OPTIONS --enable-benchmarks"
+    #CABAL_DEP_OPTIONS="--only-dependencies"
+    #test -n "$DISABLE_TEST" || \
+    #  CABAL_DEP_OPTIONS="$CABAL_DEP_OPTIONS --enable-tests"
+    #test -n "$DISABLE_BENCH" || \
+    #  CABAL_DEP_OPTIONS="$CABAL_DEP_OPTIONS --enable-benchmarks"
+    #CABAL_DEP_OPTIONS="$CABAL_DEP_OPTIONS $CABAL_NEWBUILD_OPTIONS"
 
+    test -n "$CABAL_NEWBUILD_TARGETS" || CABAL_NEWBUILD_TARGETS=all
     CABAL_NEWBUILD_OPTIONS=$(cat << EOF
       $(test -n "$DISABLE_TEST" || echo "--enable-tests")
       $(test -n "$DISABLE_BENCH" || echo "--enable-benchmarks")
@@ -537,6 +552,7 @@ EOF
       cabal_only_var CABAL_CHECK_RELAX
       cabal_only_var CABAL_CONFIGURE_OPTIONS
       cabal_only_var CABAL_NEWBUILD_OPTIONS
+      cabal_only_var CABAL_NEWBUILD_TARGETS
       cabal_only_var CABAL_NO_SANDBOX
       cabal_only_var CABAL_HACKAGE_MIRROR
     fi
@@ -918,6 +934,7 @@ get_pkg_full_name() {
 }
 
 determine_build_type() {
+  MULTI_PACKAGE_PROJECT=false
   local name=$(echo *.cabal)
   if test "$name" = "*.cabal"
   then
@@ -930,12 +947,25 @@ determine_build_type() {
     else
       if test $BUILD = "stack" -a -f "stack.yaml"
       then
-        echo "No cabal file found but a stack.yaml found, assuming a multipackage project."
-        echo "Setting DISABLE_SDIST_BUILD=y and clearing ENABLE_INSTALL"
+        echo "No cabal file found but a stack.yaml file found, assuming a multipackage project."
+        echo "Setting DISABLE_SDIST_BUILD=y and clearing DISABLE_DIST_CHECKS and ENABLE_INSTALL"
+        MULTI_PACKAGE_PROJECT=true
         DISABLE_SDIST_BUILD=y
+        DISABLE_DIST_CHECKS=y
         ENABLE_INSTALL=
       else
-        die "No cabal file found."
+        if test $BUILD = "cabal-new" -a -f "cabal.project"
+        then
+          echo "No cabal file found but a cabal.project file found, assuming a multipackage project."
+          echo "Setting DISABLE_SDIST_BUILD=y and clearing DISABLE_DIST_CHECKS and ENABLE_INSTALL"
+          MULTI_PACKAGE_PROJECT=true
+          DISABLE_SDIST_BUILD=y
+          DISABLE_DIST_CHECKS=y
+          ENABLE_INSTALL=
+        else
+          echo "No valid build config file cabal/cabal.project/package.yaml/stack.yaml found."
+          die "Make sure you are using BUILD=cabal-new if you are using a cabal.project file"
+        fi
       fi
     fi
   else
@@ -959,10 +989,10 @@ ensure_cabal_config() {
   fi
 
   # cabal 1.22 and earlier do not support this command
-  # We rely on the cabal info command to create the config above.
+  # We rely on the cabal info command to create the config.
   if test ! -e $cfg
   then
-    run_verbose cabal user-config init || true
+    run_verbose cabal user-config init || cabal info . > /dev/null || true
   fi
 
   if test "$BUILD" = cabal -o "$BUILD" = "cabal-new"
@@ -1077,7 +1107,7 @@ create_and_unpack_pkg_dist() {
 install_deps() {
   case "$BUILD" in
     stack) run_verbose_errexit $STACKCMD build $STACK_DEP_OPTIONS ;;
-    cabal-new) run_verbose_errexit cabal new-build $CABAL_DEP_OPTIONS ;;
+    cabal-new) echo "No install dep step" ;;
     cabal) install_cabal_deps ;;
   esac
 }
@@ -1086,11 +1116,11 @@ build_and_test() {
   case "$BUILD" in
     stack) run_verbose_errexit $STACKCMD build $STACK_BUILD_OPTIONS ;;
     cabal-new)
-      run_verbose_errexit cabal new-build $CABAL_NEWBUILD_OPTIONS
+      run_verbose_errexit cabal new-build $CABAL_NEWBUILD_OPTIONS $CABAL_NEWBUILD_TARGETS
       echo
-      test -n "$DISABLE_DOCS" || run_verbose_errexit cabal new-haddock
+      test -n "$DISABLE_DOCS" || run_verbose_errexit cabal new-haddock $CABAL_NEWBUILD_OPTIONS $CABAL_NEWBUILD_TARGETS
       echo
-      test -n "$DISABLE_TEST" || run_verbose_errexit cabal new-test --enable-tests ;;
+      test -n "$DISABLE_TEST" || run_verbose_errexit cabal new-test $CABAL_NEWBUILD_OPTIONS $CABAL_NEWBUILD_TARGETS ;;
     cabal)
       cabal_configure
       echo
@@ -1200,7 +1230,7 @@ build_compile () {
   # ---------Create dist, unpack, install deps, test--------
   show_step "Build tools: package level and global configuration"
   dont_need_cabal || ensure_cabal_config
-  dont_need_cabal || determine_package_full_name
+  dont_need_cabal || $MULTI_PACKAGE_PROJECT || determine_package_full_name
   test -z "$(need_stack)" || ensure_stack_yaml
 
   if test -z "$DISABLE_SDIST_BUILD"
@@ -1310,6 +1340,7 @@ case $1 in
     fi
     exit;;
   -h | --help | help) show_help; exit;;
+  --version) show_version; exit;;
   *) short_help; exit 1 ;;
 esac
 
