@@ -727,17 +727,19 @@ find_binary () {
   do
     if test -z "$2" || check_version $binary $2
     then
+      PATH=$PATH$removed_path
       return 0
     else
       # remove it from the path and search again
       echo "Mismatching $1 version found at [$(dirname $binary)], removing it from PATH and trying again"
-      removed_path=$removed_path:$1
+      removed_path=$removed_path:$(dirname $binary)
       path_remove $(dirname $binary)
       binary="$(which_cmd $1)"
     fi
   done
 
-  PATH=$PATH$removed_path
+  # If we did not find the binary, restore the PATH for better error reporting
+  PATH=$path
 
   test -n "$TOOLS_DIR" || return 0
 
@@ -764,8 +766,6 @@ find_binary () {
       return 0
     fi
   fi
-  # If we did not find the binary, restore the PATH for better error reporting
-  PATH=$path
   # This command never fails even if we could not find the binary.
   return 0
 }
