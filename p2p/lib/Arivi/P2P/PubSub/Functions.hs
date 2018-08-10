@@ -181,7 +181,7 @@ sendSubscribeToPeer mTopic notifierNodeId = do
         Left _ -> do
             let errorMessage =
                     Response
-                        { responseCode = DeserialiseError
+                        { responseCode = Error {errCode = DeserialiseError}
                         , messageTimer = 0 -- Error Message, setting timer as 0
                         }
             return $ serialise errorMessage
@@ -249,14 +249,19 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                  _ -> do
                                      let errorMessage =
                                              Response
-                                                 { responseCode = Error
+                                                 { responseCode =
+                                                       Error {errCode = Unknown}
                                                  , messageTimer = 0
                                                  }
                                      return $ serialise errorMessage
                          _ -> do
                              let errorMessage =
                                      Response
-                                         { responseCode = InvalidResponseError
+                                         { responseCode =
+                                               Error
+                                                   { errCode =
+                                                         InvalidResponseError
+                                                   }
                                          , messageTimer = 0
                                          }
                              return $ serialise errorMessage)
@@ -420,7 +425,7 @@ pubsubHandler incomingRequest = do
         Left _ -> do
             let errorMessage =
                     Response
-                        { responseCode = DeserialiseError
+                        { responseCode = Error {errCode = DeserialiseError}
                         , messageTimer = 0 -- Error Message, setting timer as 0
                         }
             return $ serialise errorMessage
@@ -466,7 +471,9 @@ notifyMessageHandler recvNodeId mTopicId mTopicMessage messageMapTVar notifierTa
         Nothing -> do
             let errMessage =
                     Response
-                        {responseCode = InvalidTopicError, messageTimer = 0}
+                        { responseCode = Error {errCode = InvalidTopicError}
+                        , messageTimer = 0
+                        }
             return $ serialise errMessage
         Just notifierListTuple -> do
             notifierSortedList <- liftIO $ readTVarIO $ fst notifierListTuple
@@ -481,7 +488,8 @@ notifyMessageHandler recvNodeId mTopicId mTopicMessage messageMapTVar notifierTa
                 else do
                     let errMessage =
                             Response
-                                { responseCode = InvalidNotifierError
+                                { responseCode =
+                                      Error {errCode = InvalidNotifierError}
                                 , messageTimer = 0
                                 }
                     return $ serialise errMessage
@@ -512,13 +520,14 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
                         case entryTopicMap of
                             Nothing ->
                                 return
-                                    (TopicHandlerNotRegistered, mTopicMessage)
+                                    ( Error
+                                          {errCode = TopicHandlerNotRegistered}
+                                    , mTopicMessage)
                             Just topicHandler -> do
                                 let returnTemp = topicHandler mTopicMessage
                                 case returnTemp of
-                                    Left errCode ->
-                                        return (errCode, mTopicMessage)
-                            -- TODO :: check validity
+                                    Left errCodeRet ->
+                                        return (errCodeRet, mTopicMessage)
                             -- TODO :: To add resource in transient resource map need the handler.
                                     Right verifiedMessage ->
                                         return (Ok, verifiedMessage)
@@ -529,7 +538,8 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
                         unless temp $ do
                             let updatedNodeIdList = nodeIdList ++ [recvNodeId]
                             writeTVar valueInMap updatedNodeIdList
-                        return (DuplicateMessage, mTopicMessage) -- Duplicate message -> Don't verify and pass back the original
+                        return
+                            (Error {errCode = DuplicateMessage}, mTopicMessage) -- Duplicate message -> Don't verify and pass back the original
              )
     let checkReturn = fst returnMessage
     -- let messageAfterVerif = snd returnMessage
@@ -537,20 +547,13 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
         Ok -> do
             notifyTopic mTopicId (snd returnMessage)
             return $ serialise mTopicMessage
-        DuplicateMessage -> do
-            let errMessage =
-                    Response {responseCode = DuplicateMessage, messageTimer = 0}
-            return $ serialise errMessage
-        TopicHandlerNotRegistered -> do
-            let errMessage =
+        Error code -> do
+            let errorMessage =
                     Response
-                        { responseCode = TopicHandlerNotRegistered
+                        { responseCode = Error {errCode = code}
                         , messageTimer = 0
                         }
-            return $ serialise errMessage
-        _ -> do
-            let errMessage = Response {responseCode = Error, messageTimer = 0}
-            return $ serialise errMessage
+            return $ serialise errorMessage
 
 -- | Handler for incoming subscribe message, If the node is the first subscriber
 -- create a list for the topic and add the node if the topic already exists

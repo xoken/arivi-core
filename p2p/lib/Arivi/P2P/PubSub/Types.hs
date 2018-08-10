@@ -13,6 +13,7 @@ module Arivi.P2P.PubSub.Types
     , TopicMessage(..)
     , Watcher
     , WatchersTable
+    , ErrorType(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -63,17 +64,23 @@ instance Hashable TopicMessage
 type TopicHandler = (TopicMessage -> Either ResponseCode TopicMessage)
 
 data ResponseCode
-    = Error
+    = Error { errCode :: ErrorType }
     | Ok
-    | DeserialiseError
+    deriving (Eq, Ord, Show, Generic)
+
+instance Serialise ResponseCode
+
+data ErrorType
+    = DeserialiseError
     | InvalidTopicError
     | DuplicateMessage
     | TopicHandlerNotRegistered
     | InvalidNotifierError
     | InvalidResponseError
+    | Unknown
     deriving (Eq, Ord, Show, Generic)
 
-instance Serialise ResponseCode
+instance Serialise ErrorType
 
 data MessageTypePubSub
     = Subscribe { nodeId       :: NodeId
