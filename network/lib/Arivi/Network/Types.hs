@@ -3,6 +3,9 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
+  FlexibleInstances, TypeSynonymInstances #-}
 
 module Arivi.Network.Types
     ( ConnectionHandle(..)
@@ -32,6 +35,10 @@ module Arivi.Network.Types
     , ConnectionId
     , SequenceNum
     , FragmentNumber
+    , tcpPort
+    , udpPort
+    , ip
+    , nodeId
     -- FragmentCount,
     , HandshakeInitMasked(..)
     , HandshakeRespMasked(..)
@@ -40,6 +47,7 @@ module Arivi.Network.Types
     , makeDataParcel
     , deserialise
     , serialise
+    , NetworkConfig(..)
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
@@ -60,6 +68,7 @@ import           Data.Int                           (Int32, Int64, Int8)
 import           Data.Monoid
 import           GHC.Generics
 import           Network.Socket                     as Network
+import           Control.Lens.TH
 
 type ConnectionId = ByteString
 
@@ -278,3 +287,13 @@ data ConnectionHandle = ConnectionHandle
     , close :: forall m. (HasLogging m) =>
                              m ()
     }
+
+data NetworkConfig = NetworkConfig
+    { _nodeId  :: NodeId
+    , _ip      :: HostName
+    , _udpPort :: PortNumber
+    , _tcpPort :: PortNumber
+    } deriving (Eq, Ord, Show, Generic)
+
+
+makeLensesWith classUnderscoreNoPrefixFields ''NetworkConfig

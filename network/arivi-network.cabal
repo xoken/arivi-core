@@ -36,6 +36,7 @@ library
                     ,  cryptonite >= 0.23
                     ,  exceptions
                     ,  interpolatedstring-perl6
+                    ,  lens 
                     ,  lifted-base
                     ,  lifted-async
                     ,  memory >= 0.14.11

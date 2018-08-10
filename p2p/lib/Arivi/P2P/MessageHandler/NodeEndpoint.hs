@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 module Arivi.P2P.MessageHandler.NodeEndpoint (
       issueRequest
@@ -19,7 +20,7 @@ import           Arivi.P2P.MessageHandler.Utils
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-
+import           Arivi.Network.Types                   hiding(NodeId)
 import           Codec.Serialise
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async              as Async (race)
@@ -33,7 +34,6 @@ import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Logger
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe                            (fromJust)
-import           Network.Socket                        (PortNumber)
 import           Control.Lens
 import           Data.Proxy
 
@@ -102,20 +102,18 @@ receiveResponse _ uuid peerDetailsTVar = do
 
 -- | Called by kademlia. Adds a default PeerDetails record into hashmap before calling generic issueRequest
 issueKademliaRequest :: (HasP2PEnv m, HasLogging m, Serialise msg)
-    => NodeId
-    -> IP
-    -> PortNumber
+    => NetworkConfig
     -> Request Kademlia msg
     -> m (Response Kademlia msg)
-issueKademliaRequest peerNodeId peerIp peerPort payload = do
+issueKademliaRequest nc payload = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    peerExists <- liftIO $ doesPeerExist nodeIdMapTVar peerNodeId
+    peerExists <- liftIO $ doesPeerExist nodeIdMapTVar (nc ^. nodeId)
     case peerExists of
-        True -> issueRequest peerNodeId payload
+        True -> issueRequest (nc ^. nodeId) payload
         False -> do
-            peerDetailsTVar <- liftIO $ atomically $ mkPeer peerNodeId peerIp peerPort UDP NotConnected
-            liftIO $ atomically $ addNewPeer peerNodeId peerDetailsTVar nodeIdMapTVar
-            issueRequest peerNodeId payload
+            peerDetailsTVar <- liftIO $ atomically $ mkPeer nc UDP NotConnected
+            liftIO $ atomically $ addNewPeer (nc ^. nodeId) peerDetailsTVar nodeIdMapTVar
+            issueRequest (nc ^. nodeId) payload
 
 
 
@@ -205,12 +203,12 @@ createConnection peerDetailsTVar _ transportType = do
             NotConnected ->
                 case transportType of
                     TCP -> do
-                        res <- openConnectionToPeer (peerDetails ^. ip) (peerDetails ^. tcpPort) transportType (peerDetails ^. nodeId)
+                        res <- openConnectionToPeer (peerDetails ^. networkConfig) transportType
                         case res of
                             Left e -> liftIO $ atomically $ putTMVar (peerDetails ^. connectionLock) lock >> throw (HandlerNetworkException e)
                             Right connHandle -> return (peerDetails & streamHandle .~ (Connected connHandle), connHandle)
                     UDP -> do
-                        res <- openConnectionToPeer (peerDetails ^. ip) (peerDetails ^. udpPort) transportType (peerDetails ^. nodeId)
+                        res <- openConnectionToPeer (peerDetails ^. networkConfig) transportType
                         case res of
                             Left e -> liftIO $ atomically $ putTMVar (peerDetails ^. connectionLock) lock >> throw (HandlerNetworkException e)
                             Right connHandle -> return (peerDetails & streamHandle .~ Connected connHandle, connHandle)
@@ -224,24 +222,22 @@ createConnection peerDetailsTVar _ transportType = do
 
 
 newIncomingConnectionHandler :: (HasP2PEnv m, HasLogging m)
-    => NodeId
-    -> IP
-    -> PortNumber
+    => NetworkConfig
     -> TransportType
     -> ConnectionHandle
     -> m ()
-newIncomingConnectionHandler peerNodeId peerIP portNum transportType connHandle = do
+newIncomingConnectionHandler nc transportType connHandle = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     msgTypeMap <- getMessageTypeMapP2PEnv
     nodeIdPeerMap <- liftIO $ atomically $ readTVar nodeIdMapTVar
     -- lock <- liftIO $ atomically $ newTMVar True
-    case HM.lookup peerNodeId nodeIdPeerMap of
+    case HM.lookup (nc ^. nodeId) nodeIdPeerMap of
         Nothing -> do
-            peerDetailsTVar <- liftIO $ atomically $ mkPeer peerNodeId peerIP portNum transportType (Connected connHandle)
-            liftIO $ atomically $ addNewPeer peerNodeId peerDetailsTVar nodeIdMapTVar
+            peerDetailsTVar <- liftIO $ atomically $ mkPeer nc transportType (Connected connHandle)
+            liftIO $ atomically $ addNewPeer (nc ^. nodeId) peerDetailsTVar nodeIdMapTVar
         Just peerDetailsTVar -> liftIO $ atomically $ updatePeer transportType (Connected connHandle) peerDetailsTVar
     -- fromJust might be justified since we just added the entry in addPeer function above before fetching it
     nodeIdPeerMap' <- liftIO $ atomically $ readTVar nodeIdMapTVar
-    let peerDetailsTVar = fromJust (HM.lookup peerNodeId nodeIdPeerMap')
+    let peerDetailsTVar = fromJust (HM.lookup (nc ^. nodeId) nodeIdPeerMap')
     _ <- LA.async (readIncomingMessage connHandle peerDetailsTVar msgTypeMap)
     return ()

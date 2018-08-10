@@ -35,7 +35,7 @@ import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.Reassembler
 import           Arivi.Network.StreamClient
-import           Arivi.Network.Types
+import           Arivi.Network.Types            hiding (ip)
 import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
 import           Arivi.Utils.Logging
 import           Control.Concurrent             (MVar, newMVar, threadDelay)
