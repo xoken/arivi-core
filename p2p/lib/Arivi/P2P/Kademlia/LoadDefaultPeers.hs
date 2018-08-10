@@ -101,6 +101,7 @@ issueFindNode rpeer = do
     resp <-
         Exception.try $
         sendRequestforKademlia rnid Kademlia (serialise fn_msg) ruport rip
+    _ <- async $ verifyPeer rpeer
     case resp of
         Left (e :: Exception.SomeException) ->
             $(logDebug) $ T.pack (displayException e)
@@ -128,7 +129,8 @@ issueFindNode rpeer = do
                             ("Received PeerList after removing exisiting peers : " ++
                              show peerl2)
                      -- Initiates the verification process
-                    _ <- async $ verifyPeer rpeer
+
+
                     -- | Deletes nodes from peer list which already exists in
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
