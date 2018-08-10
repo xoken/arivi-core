@@ -7,7 +7,7 @@ pipeline {
                 echo 'Building and testing..'
                 sh 'stack clean'
                 sh './packcheck.sh stack GHC_OPTIONS="-Werror" PATH=/bin:/usr/bin:/usr/local/bin'
-                sh './packcheck.sh cabal-new CABAL_NEWBUILD_OPTIONS="--allow-newer=base,Cabal" DISABLE_TEST=y PATH=/bin:/usr/bin:/usr/local/bin'
+                sh './packcheck.sh cabal-new GHCVER=8.2.2 CABAL_NEWBUILD_OPTIONS="--allow-newer=base,Cabal" DISABLE_TEST=y PATH=/bin:/usr/bin:/usr/local/bin'
             }
         }
         stage('Lint Checking') {
