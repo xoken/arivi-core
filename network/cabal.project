@@ -1,2 +1,2 @@
 packages: . ../utils/arivi-utils.cabal ../crypto/arivi-crypto.cabal
-allow-newer: statsd-client-0.3.0.0:base interpolatedstring-perl6-1.0.0:Cabal
+allow-newer: statsd-client-0.3.0.0:base, interpolatedstring-perl6-1.0.0:Cabal
