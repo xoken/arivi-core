@@ -1,2 +1,2 @@
 packages: crypto, network, p2p, utils
---allow-newer: statsd-client:base, interpolatedstring-perl6:Cabal
+allow-newer: base, Cabal
