@@ -7,13 +7,13 @@ pipeline {
                 echo 'Building and testing..'
                 sh 'stack clean'
                 sh './packcheck.sh stack GHC_OPTIONS="-Werror" PATH=/bin:/usr/bin:/usr/local/bin'
-                sh './packcheck.sh cabal-new GHCVER=8.2.2 DISABLE_TEST=y PATH=/bin:/usr/bin:/usr/local/bin'
+                sh './packcheck.sh cabal-new GHCVER=8.2.2 PATH=/bin:/usr/bin:/usr/local/bin'
             }
         }
         stage('Lint Checking') {
             steps {
                 sh 'echo "Running hlint in `pwd`.."'
-                sh './packcheck.sh stack HLINT_COMMANDS="hlint lint ." PATH=/bin:/usr/bin:/usr/local/bin'
+                sh './packcheck.sh stack HLINT_COMMANDS="hlint lint ." PATH=/bin:/usr/bin:/usr/local/bin || true'
             }
         }
         stage('Deploy') {

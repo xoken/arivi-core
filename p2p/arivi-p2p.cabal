@@ -34,14 +34,9 @@ library
                     ,  binary >= 0.8.3.0
                     ,  bytes
                     ,  bytestring
-                    ,  configurator >= 0.3.0.0
                     ,  containers
-                    ,  crypto-api
                     ,  cryptonite >= 0.23
                     ,  exceptions
-                    ,  fast-logger
-                    ,  hashtables <= 1.2.6.1
-                    ,  integer-gmp
                     ,  lifted-base
                     ,  lifted-async <= 0.10.0.2
                     ,  memory >= 0.14.11
@@ -49,26 +44,23 @@ library
                     ,  monad-logger
                     ,  mtl
                     ,  network
-                    ,  raaz >= 0.1.1
                     ,  random
                     ,  serialise
                     ,  split
                     ,  stm >= 2.4.5
-                    ,  template-haskell
                     ,  text
                     ,  time
-                    ,  timers-updatable <= 0.2.0.2
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
-                    ,  arivi-network
-                    ,  arivi-crypto
-                    ,  arivi-utils
                     ,  hashable
                     ,  stm-containers >= 0.2.16 && < 1
                     ,  list-t >= 1.0.0.1
                     ,  either-unwrap >= 1.1
                     ,  sorted-list
                     ,  string-conv
+                    ,  arivi-network
+                    ,  arivi-crypto
+                    ,  arivi-utils
   ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
