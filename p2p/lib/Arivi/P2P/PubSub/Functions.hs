@@ -10,9 +10,9 @@ module Arivi.P2P.PubSub.Functions
     , maintainMinimumCountNotifier -- exporting right now to not have warnings should be removed later
     ) where
 
-import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
                                                         NodeId)
+import           Arivi.P2P.MessageHandler.NodeEndpoint (issueRequest)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types                   (ResourceHandler,
@@ -77,7 +77,7 @@ sendPubSubMessage ::
        (HasP2PEnv m, HasLogging m) => [NodeId] -> Lazy.ByteString -> m ()
 sendPubSubMessage [] _ = return ()
 sendPubSubMessage (recievingPeerNodeId:peerList) message = do
-    _ <- LAsync.async (sendRequest recievingPeerNodeId PubSub message) -- need to handle errors
+    _ <- LAsync.async (issueRequest recievingPeerNodeId PubSub message) -- need to handle errors
     sendPubSubMessage peerList message
 
 maintainWatchers :: (HasP2PEnv m, HasLogging m) => m ()
@@ -252,7 +252,7 @@ sendSubscribeToPeer mTopic notifierNodeId = do
     let subMessage = Subscribe {topicId = mTopic, messageTimer = 30}
     let serializedSubMessage = serialise subMessage
     currTime <- liftIO getCurrentTime
-    response <- sendRequest notifierNodeId PubSub serializedSubMessage -- not exactly RPC, needs to be changed
+    response <- issueRequest notifierNodeId PubSub serializedSubMessage -- not exactly RPC, needs to be changed
     let deserialiseCheck = deserialiseOrFail response
     case deserialiseCheck of
         Left _ -> return () -- TODO:: reduce reputation if subscribe fails and handle the failure
