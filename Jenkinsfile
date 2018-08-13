@@ -4,24 +4,33 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                echo 'Building and testing..'
+                echo 'Building..'
                 sh 'stack clean'
-                sh './packcheck.sh stack GHC_OPTIONS="-Werror" PATH=/bin:/usr/bin:/usr/local/bin'
-                sh './packcheck.sh cabal-new GHCVER=8.2.2 PATH=/bin:/usr/bin:/usr/local/bin'
+                sh 'stack build'
             }
         }
         stage('Lint Checking') {
             steps {
-                sh 'echo "Running hlint in `pwd`.."'
-                sh './packcheck.sh stack HLINT_COMMANDS="hlint lint ." PATH=/bin:/usr/bin:/usr/local/bin || true'
+                echo 'Checking lint..'
+                sh 'hlint --extension=hs .'
             }
         }
-        stage('Deploy') {
+        stage('Test') {
+            steps {
+                echo 'Testing..'
+            }
+        }
+       stage('Deploy') {
+            when {
+              expression {
+                env.DEPLOY_BRANCH ==  env.GIT_BRANCH
+              }
+            }
             steps {
                 echo 'Deploying....'
                 sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
                 sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
-                sh 'cd scripts/Deployment-Tools; python fabfile.py Main;rm Main'
+                sh 'cd scripts/Deployment-Tools; python fabfile.py Main 180;rm Main'
             }
         }
     }
