@@ -21,6 +21,11 @@ pipeline {
             }
         }
         stage('Deploy') {
+            when {
+              expression {
+                env.DEPLOY_BRANCH ==  env.GIT_BRANCH
+              }
+            }
             steps {
                 echo 'Deploying....'
                 sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
