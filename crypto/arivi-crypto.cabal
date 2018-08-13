@@ -27,37 +27,15 @@ source-repository head
   location: https://github.com/xoken/arivi/
 
 library
-  build-depends:       async
-                    ,  base >=4.9 && <4.11
+  build-depends:       base >=4.9 && <4.11
                     ,  base16-bytestring
                     ,  binary >= 0.8.3.0
-                    ,  bytes
                     ,  bytestring
-                    ,  configurator >= 0.3.0.0
-                    ,  containers
-                    ,  crypto-api
                     ,  cryptonite >= 0.23
-                    ,  exceptions
-                    ,  fast-logger
-                    ,  hashtables <= 1.2.6.1
-                    ,  integer-gmp
                     ,  memory >= 0.14.11
-                    ,  monad-logger
-                    ,  mtl
-                    ,  network
                     ,  raaz >= 0.1.1
-                    ,  random
-                    ,  serialise
-                    ,  split
-                    ,  stm >= 2.4.4.1
-                    ,  template-haskell
-                    ,  text
-                    ,  time
-                    ,  timers-updatable <= 0.2.0.2
-                    ,  unordered-containers <= 0.2.9.0
-                    ,  uuid
-                    , arivi-utils
-  ghc-options:        -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+
+  ghc-options:        -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
                        Arivi.Crypto.Cipher.AES256

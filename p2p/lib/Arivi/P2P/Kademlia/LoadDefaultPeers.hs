@@ -128,10 +128,8 @@ issueFindNode rpeer = do
                         T.pack
                             ("Received PeerList after removing exisiting peers : " ++
                              show peerl2)
-                     -- Initiates the verification process
-
-
-                    -- | Deletes nodes from peer list which already exists in
+                    -- Initiates the verification process
+                    --   Deletes nodes from peer list which already exists in
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
                     --   FIND_NODE request forever.
