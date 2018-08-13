@@ -4,7 +4,7 @@ import sys
 import time
 
 src = "./"
-dst = "/home/xkn/fluentdRun/"
+dst = "/home/xkn/"
 remoteConfigFile = "config1.yaml"
 configFileName = "ServerConfig.xls"
 logServerIp = "198.23.153.233"
@@ -118,7 +118,7 @@ def deleteOldLogs(dstPath,remoteUserName,serverIp,executableName):
 def dumpLogs(remoteUserName,serverIp):
     try:
         print("Dumping logs")
-        Connection(remoteUserName + "@" + serverIp).run("dump-log-fluentdRun")
+        Connection(remoteUserName + "@" + serverIp).run("dump-log")
         print("Logs dumped successfully")
     except:
         print("Can not dump logs")
@@ -154,10 +154,10 @@ def deployAll(configFileName,slpTime):
         rowNo = rowNo + 1
         print("Done for " + serverIp + "\n")
     time.sleep(float(slpTime))
-    # for (remoteUserName, serverIp) in zip(remoteUserNameList, hostList):
-    #     killPrevious(dst,remoteUserName,serverIp,executableName)
-    #     rowNo = rowNo + 1
-    #     print("Done for " + serverIp + "\n")
+    for (remoteUserName, serverIp) in zip(remoteUserNameList, hostList):
+        killPrevious(dst,remoteUserName,serverIp,executableName)
+        rowNo = rowNo + 1
+        print("Done for " + serverIp + "\n")
 
     for (remoteUserName,serverIp) in zip(remoteUserNameList,hostList):
         dumpLogs(remoteUserName, serverIp)
