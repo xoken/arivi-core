@@ -123,6 +123,14 @@ def dumpLogs(remoteUserName,serverIp):
     except:
         print("Can not dump logs")
 
+def dumpLogsOnLogServer(logServerUser,logServerIp):
+    try:
+        print("Preparing logs on log server")
+        Connection(logServerUser + "@" + logServerIp).run("dump-log")
+        print("Logs dumped successfully")
+    except:
+        print("Can not dump logs")
+
 def deploy(srcPath,dstPath,remoteUserName,serverIp,rowNo,executableName):
     # killPrevious(dstPath,remoteUserName,serverIp,executableName)
     copyFile(srcPath,dstPath,remoteUserName,serverIp,executableName)
@@ -155,4 +163,5 @@ def deployAll(configFileName,slpTime):
         dumpLogs(remoteUserName, serverIp)
         rowNo = rowNo + 1
         print("Done for " + serverIp + "\n")
+    dumpLogsOnLogServer(logServerUser,logServerIp)
 deployAll(configFileName, str(sys.argv[2]))
