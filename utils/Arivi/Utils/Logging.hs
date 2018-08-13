@@ -80,7 +80,7 @@ logToF ::
     -> m a
 logToF lf rf ls action = do
     currentTime <- liftIO getCurrentTime
-    rf $ (T.pack $ show currentTime) <>  toText ls
+    rf $ T.pack (show currentTime) <>  toText ls
     (_, result) <- timeIt action
     case result of
         Left (e :: SomeException) -> do
