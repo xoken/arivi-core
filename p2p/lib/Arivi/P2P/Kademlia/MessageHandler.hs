@@ -22,8 +22,8 @@ import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.Kademlia.VerifyPeer
-import           Arivi.P2P.MessageHandler.Handler
 import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
+import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
@@ -105,7 +105,7 @@ kademliaMessageHandler payl = do
                     let findNodeMsg = packFindMsg lnid refnid lip luport ltport
                     resp <-
                         Exception.try $
-                        sendRequestforKademlia
+                        issueKademliaRequest
                             tnid
                             HT.Kademlia
                             (serialise findNodeMsg)

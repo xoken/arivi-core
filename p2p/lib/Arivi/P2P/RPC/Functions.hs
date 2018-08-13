@@ -14,12 +14,12 @@ import           Arivi.P2P.Exception
 import qualified Arivi.P2P.Kademlia.Kbucket            as Kademlia (Peer (..), getKClosestPeersByNodeid,
                                                                     getKRandomPeers)
 import qualified Arivi.P2P.Kademlia.Types              as KademliaTypes (NodeEndPoint (..))
-import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes (Handle (..),
                                                         MessageType (..),
                                                         NodeIdPeerMap,
                                                         P2PPayload,
                                                         PeerDetails (..))
+import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
@@ -199,7 +199,7 @@ sendResourceRequestToPeer nodeListTVar resourceID mynodeid servicemessage = do
                 , serviceMessage = servicemessage
                 }
     let mMessage = serialise requestMessage
-    res1 <- Exception.try $ sendRequest mNodeId RPC mMessage
+    res1 <- Exception.try $ issueRequest mNodeId RPC mMessage
     case res1 of
         Left (_ :: Exception.SomeException)
             -- removeNode mNodeId nodeList will be used when we take random nodes and not the head

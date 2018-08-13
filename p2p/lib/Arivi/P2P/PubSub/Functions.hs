@@ -20,7 +20,8 @@ import           Arivi.P2P.Kademlia.Utils              (extractFirst,
                                                         extractThird)
 import           Arivi.P2P.MessageHandler.Handler      (sendRequest)
 import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
-                                                        NodeId, P2PPayload)
+                                                        NodeId)
+import           Arivi.P2P.MessageHandler.NodeEndpoint (issueRequest)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Functions               (addPeerFromKademlia)
@@ -100,18 +101,51 @@ publishTopic messageTopic publishMessage = do
     let currNotifierList = fromSortedList currNotifierSortedList
     let combinedList = currWatcherList `List.union` currNotifierList
     let nodeIdList = List.map timerNodeId combinedList
-    if null nodeIdList
-        then return $ Left PubSubNoWatcherOrNotifierException
-        else do
-            let message =
-                    Publish
-                        { nodeId = mNodeId
-                        , topicId = messageTopic
-                        , topicMessage = publishMessage
-                        }
-            let serializedMessage = serialise message
-            sendMultiplePubSubMessage nodeIdList serializedMessage
-            return $ Right ()
+    let message =
+            Publish {topicId = messageTopic, topicMessage = publishMessage}
+    let serializedMessage = serialise message
+    sendPubSubMessage nodeIdList serializedMessage
+
+sendPubSubMessage ::
+       (HasP2PEnv m, HasLogging m) => [NodeId] -> Lazy.ByteString -> m ()
+sendPubSubMessage [] _ = return ()
+sendPubSubMessage (recievingPeerNodeId:peerList) message = do
+    _ <- LAsync.async (issueRequest recievingPeerNodeId PubSub message) -- need to handle errors
+    sendPubSubMessage peerList message
+
+maintainWatchers :: (HasP2PEnv m, HasLogging m) => m ()
+maintainWatchers = do
+    watcherTableTVar <- getWatcherTableP2PEnv
+    watcherMap <- liftIO $ readTVarIO watcherTableTVar
+    let topicIds = HM.keys watcherMap
+    _ <- LAsync.async (maintainWatchersHelper watcherMap topicIds)
+    return ()
+
+maintainWatchersHelper ::
+       (HasP2PEnv m, HasLogging m) => WatchersTable -> [Topic] -> m ()
+maintainWatchersHelper _ [] = return ()
+maintainWatchersHelper watcherMap (topic:topicIdList) = do
+    let currListTvarMaybe = HM.lookup topic watcherMap
+    case currListTvarMaybe of
+        Nothing -> return () -- If topic does not exist return
+        Just currListTvar -> do
+            currTime <- liftIO getCurrentTime
+            liftIO $
+                atomically
+                    (do currSortedList <- readTVar currListTvar
+                        let currList = fromSortedList currSortedList
+                        let newList = checkNodeTimers currList currTime
+                        let newSortedList = toSortedList newList
+                        writeTVar currListTvar newSortedList)
+            maintainWatchersHelper watcherMap topicIdList
+
+-- will take the list of watchers for each topic and check their validity
+checkNodeTimers :: [NodeTimer] -> UTCTime -> [NodeTimer]
+checkNodeTimers [] _ = []
+checkNodeTimers (currNodeTimer:nodeTimerList) currentTime =
+    if timer currNodeTimer < currentTime
+        then [] ++ checkNodeTimers nodeTimerList currentTime
+        else currNodeTimer : nodeTimerList
 
 -- | Called by a service after it has verified a previously read TopicMessage
 -- to broadcast it further to the subscribers. Only sent to Subscribers minus
@@ -129,10 +163,10 @@ notifyTopic mTopic mTopicMessage = do
         Just currWListTVar -> do
             let notifyMessage =
                     Notify
-                        { nodeId = mNodeId
-                        , topicId = mTopic
-                        , topicMessage = mTopicMessage
-                        }
+                    { nodeId = mNodeId
+                    , topicId = mTopic
+                    , topicMessage = mTopicMessage
+                    }
             let notifyMessageByteString = serialise notifyMessage
             currWatcherSortedList <- liftIO $ readTVarIO currWListTVar
             let watcherList = fromSortedList currWatcherSortedList
@@ -181,9 +215,9 @@ sendSubscribeToPeer mTopic notifierNodeId = do
         Left _ -> do
             let errorMessage =
                     Response
-                        { responseCode = Error {errCode = DeserialiseError}
-                        , messageTimer = 0 -- Error Message, setting timer as 0
-                        }
+                    { responseCode = Error {errCode = DeserialiseError}
+                    , messageTimer = 0 -- Error Message, setting timer as 0
+                    }
             return $ serialise errorMessage
         Right (responseMessage :: MessageTypePubSub) -> do
             notifierTableTVar <- getNotifiersTableP2PEnv
@@ -203,9 +237,9 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                              addUTCTime timeDiff currTime
                                      let newNotifier =
                                              NodeTimer
-                                                 { timerNodeId = notifierNodeId
-                                                 , timer = subscriptionTime
-                                                 }
+                                             { timerNodeId = notifierNodeId
+                                             , timer = subscriptionTime
+                                             }
                                      case currNotifierListTvar of
                                          Nothing -> do
                                              let newNotif =
@@ -222,9 +256,9 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                                  updatedMap
                                              let errorMessage =
                                                      Response
-                                                         { responseCode = Ok
-                                                         , messageTimer = 0
-                                                         }
+                                                     { responseCode = Ok
+                                                     , messageTimer = 0
+                                                     }
                                              return $ serialise errorMessage
                                          Just entry -> do
                                              currSortedList <-
@@ -242,28 +276,26 @@ sendSubscribeToPeer mTopic notifierNodeId = do
                                                  updatedSortedList
                                              let errorMessage =
                                                      Response
-                                                         { responseCode = Ok
-                                                         , messageTimer = 0
-                                                         }
+                                                     { responseCode = Ok
+                                                     , messageTimer = 0
+                                                     }
                                              return $ serialise errorMessage
                                  _ -> do
                                      let errorMessage =
                                              Response
-                                                 { responseCode =
-                                                       Error {errCode = Unknown}
-                                                 , messageTimer = 0
-                                                 }
+                                             { responseCode =
+                                                   Error {errCode = Unknown}
+                                             , messageTimer = 0
+                                             }
                                      return $ serialise errorMessage
                          _ -> do
                              let errorMessage =
                                      Response
-                                         { responseCode =
-                                               Error
-                                                   { errCode =
-                                                         InvalidResponseError
-                                                   }
-                                         , messageTimer = 0
-                                         }
+                                     { responseCode =
+                                           Error
+                                           {errCode = InvalidResponseError}
+                                     , messageTimer = 0
+                                     }
                              return $ serialise errorMessage)
 
 sendMultiplePubSubMessage ::
@@ -381,7 +413,77 @@ maintainNotifiersHelper notifierMap (currTopic:topicList) = do
             subscribeToMultiplePeers currTopic expiredNodeIds
             maintainNotifiersHelper notifierMap topicList
 
--- | TODO :: call this function in the correct context
+subscribeToMultiplePeers ::
+       (HasP2PEnv m, HasLogging m) => Topic -> [NodeId] -> m ()
+subscribeToMultiplePeers _ [] = return ()
+subscribeToMultiplePeers mTopic (peer:peerList) = do
+    _ <- LAsync.async (sendSubscribeToPeer mTopic peer)
+    subscribeToMultiplePeers mTopic peerList
+
+sendSubscribeToPeer :: (HasP2PEnv m, HasLogging m) => Topic -> NodeId -> m ()
+sendSubscribeToPeer mTopic notifierNodeId = do
+    let subMessage = Subscribe {topicId = mTopic, messageTimer = 30}
+    let serializedSubMessage = serialise subMessage
+    currTime <- liftIO getCurrentTime
+    response <- issueRequest notifierNodeId PubSub serializedSubMessage -- not exactly RPC, needs to be changed
+    let deserialiseCheck = deserialiseOrFail response
+    case deserialiseCheck of
+        Left _ -> return () -- TODO:: reduce reputation if subscribe fails and handle the failure
+        Right (responseMessage :: MessageTypePubSub) -> do
+            notifierTableTVar <- getNotifiersTableP2PEnv
+            liftIO $
+                atomically
+                    (case responseMessage of
+                         Response mresponseCode mTimer -- the notifier returns the actual time of the subscription
+                          -> do
+                             notifierMap <- readTVar notifierTableTVar
+                             let currNotifierListTvar =
+                                     HM.lookup mTopic notifierMap
+                             case mresponseCode of
+                                 Ok -> do
+                                     let timeDiff =
+                                             fromInteger mTimer :: NominalDiffTime
+                                     let subscriptionTime =
+                                             addUTCTime timeDiff currTime
+                                     let newNotifier =
+                                             NodeTimer
+                                             { timerNodeId = notifierNodeId
+                                             , timer = subscriptionTime
+                                             }
+                                     case currNotifierListTvar of
+                                         Nothing -> do
+                                             let newNotif =
+                                                     toSortedList [newNotifier]
+                                             newNotifTvar <- newTVar newNotif
+                                            -- TODO:: read the minimum number of notifs from config instead of hardcoding
+                                             let updatedMap =
+                                                     HM.insert
+                                                         mTopic
+                                                         (newNotifTvar, 5)
+                                                         notifierMap
+                                             writeTVar
+                                                 notifierTableTVar
+                                                 updatedMap
+                                         Just entry -> do
+                                             currSortedList <-
+                                                 readTVar $ fst entry
+                                             let currNotiferList =
+                                                     fromSortedList
+                                                         currSortedList
+                                             let updatedList =
+                                                     currNotiferList ++
+                                                     [newNotifier]
+                                             let updatedSortedList =
+                                                     toSortedList updatedList
+                                             writeTVar
+                                                 (fst entry)
+                                                 updatedSortedList
+                                 Error -> return ()
+                         _ -> return () -- need a proper error message
+                     )
+
+-- might have to write a wrapper above this
+-- need to take nodeID from env
 maintainMinimumCountNotifier :: (HasP2PEnv m, HasLogging m) => Topic -> m ()
 maintainMinimumCountNotifier mTopic = do
     currNodeId <- getSelfNodeId
@@ -425,9 +527,9 @@ pubsubHandler incomingRequest = do
         Left _ -> do
             let errorMessage =
                     Response
-                        { responseCode = Error {errCode = DeserialiseError}
-                        , messageTimer = 0 -- Error Message, setting timer as 0
-                        }
+                    { responseCode = Error {errCode = DeserialiseError}
+                    , messageTimer = 0 -- Error Message, setting timer as 0
+                    }
             return $ serialise errorMessage
         Right (incomingMessage :: MessageTypePubSub) ->
             case incomingMessage of
@@ -471,9 +573,9 @@ notifyMessageHandler recvNodeId mTopicId mTopicMessage messageMapTVar notifierTa
         Nothing -> do
             let errMessage =
                     Response
-                        { responseCode = Error {errCode = InvalidTopicError}
-                        , messageTimer = 0
-                        }
+                    { responseCode = Error {errCode = InvalidTopicError}
+                    , messageTimer = 0
+                    }
             return $ serialise errMessage
         Just notifierListTuple -> do
             notifierSortedList <- liftIO $ readTVarIO $ fst notifierListTuple
@@ -488,10 +590,10 @@ notifyMessageHandler recvNodeId mTopicId mTopicMessage messageMapTVar notifierTa
                 else do
                     let errMessage =
                             Response
-                                { responseCode =
-                                      Error {errCode = InvalidNotifierError}
-                                , messageTimer = 0
-                                }
+                            { responseCode =
+                                  Error {errCode = InvalidNotifierError}
+                            , messageTimer = 0
+                            }
                     return $ serialise errMessage
 
 -- | Used by notifyHandler and PublishHandler to verify the incoming message or
@@ -521,7 +623,7 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
                             Nothing ->
                                 return
                                     ( Error
-                                          {errCode = TopicHandlerNotRegistered}
+                                      {errCode = TopicHandlerNotRegistered}
                                     , mTopicMessage)
                             Just topicHandler -> do
                                 let returnTemp = topicHandler mTopicMessage
@@ -550,9 +652,7 @@ verifyIncomingMessage recvNodeId mTopicId mTopicMessage messageMapTVar topicHand
         Error code -> do
             let errorMessage =
                     Response
-                        { responseCode = Error {errCode = code}
-                        , messageTimer = 0
-                        }
+                    {responseCode = Error {errCode = code}, messageTimer = 0}
             return $ serialise errorMessage
 
 -- | Handler for incoming subscribe message, If the node is the first subscriber
