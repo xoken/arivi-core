@@ -19,7 +19,7 @@ pipeline {
             steps {
                 echo 'Testing..'
             }
-        } logdumpFabFile.py
+        } 
        stage('Deploy') {
             when {
               expression {
