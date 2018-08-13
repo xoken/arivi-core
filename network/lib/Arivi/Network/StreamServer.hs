@@ -1,30 +1,39 @@
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Arivi.Network.StreamServer
     ( runTcpServer
     ) where
 
-import           Arivi.Env
-import qualified Arivi.Network.Connection        as Conn (remoteNodeId, socket,
-                                                          transportType)
-import           Arivi.Network.ConnectionHandler (closeConnection,
-                                                  establishSecureConnection,
-                                                  readHandshakeInitSock,
-                                                  readTcpSock, sendTcpMessage)
-import           Arivi.Network.StreamClient      (createFrame)
-import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType)
-import           Arivi.Utils.Logging
-import           Control.Concurrent.Async.Lifted (async)
-import           Control.Exception.Lifted        (finally)
-import           Control.Monad                   (forever)
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Control
-import           Data.HashMap.Strict             as HM (empty)
-import           Data.IORef                      (newIORef)
-import           Network.Socket
+import Arivi.Env
+import qualified Arivi.Network.Connection as Conn
+    ( remoteNodeId
+    , socket
+    , transportType
+    )
+import Arivi.Network.ConnectionHandler
+    ( closeConnection
+    , establishSecureConnection
+    , readHandshakeInitSock
+    , readTcpSock
+    , sendTcpMessage
+    )
+import Arivi.Network.StreamClient (createFrame)
+import Arivi.Network.Types (ConnectionHandle(..), NodeId, TransportType)
+import Arivi.Utils.Logging
+import Arivi.Utils.Statsd
+import Control.Concurrent.Async.Lifted (async)
+import Control.Exception.Lifted (finally)
+import Control.Monad (forever)
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Control
+import Data.HashMap.Strict as HM (empty)
+import Data.IORef (newIORef)
+import Data.Time.Clock
+import Data.Time.Units
+import Network.Socket
 
 -- Functions for Server
 -- | Lifts the `withSocketDo` to a `MonadBaseControl IO m`
@@ -33,7 +42,7 @@ liftWithSocketsDo f = control $ \runInIO -> withSocketsDo (runInIO f)
 
 -- | Creates server Thread that spawns new thread for listening.
 runTcpServer ::
-       (HasSecretKey m, HasLogging m)
+       (HasSecretKey m, HasLogging m, HasStatsdClient m)
     => ServiceName
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
@@ -58,7 +67,7 @@ runTcpServer port handler =
 -- | Server Thread that spawns new thread to
 -- | listen to client and put it to inboundTChan
 acceptIncomingSocket ::
-       (HasSecretKey m, HasLogging m)
+       (HasSecretKey m, HasLogging m, HasStatsdClient m)
     => Socket
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
@@ -70,7 +79,7 @@ acceptIncomingSocket sock handler =
 
 -- TODO: Use rec MonadFix
 handleInboundConnection ::
-       (HasSecretKey m, HasLogging m)
+       forall m. (HasSecretKey m, HasLogging m, HasStatsdClient m)
     => Socket
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
@@ -78,15 +87,26 @@ handleInboundConnection sock handler =
     $(withLoggingTH)
         (LogNetworkStatement "handleInboundConnection: ")
         LevelDebug $ do
+        incrementCounter "Incoming connection attempted"
+        initTime <- liftIO getCurrentTime
         sk <- getSecretKey
         conn <-
             liftIO $
             readHandshakeInitSock sock >>=
             establishSecureConnection sk sock createFrame
         fragmentsHM <- liftIO $ newIORef HM.empty
-        handler (Conn.remoteNodeId conn) (Conn.transportType conn)
+        handler
+            (Conn.remoteNodeId conn)
+            (Conn.transportType conn)
             ConnectionHandle
-            { Arivi.Network.Types.send = sendTcpMessage conn
-            , Arivi.Network.Types.recv = readTcpSock conn fragmentsHM
-            , Arivi.Network.Types.close = closeConnection (Conn.socket conn)
-            }
+                { Arivi.Network.Types.send = sendTcpMessage conn
+                , Arivi.Network.Types.recv = readTcpSock conn fragmentsHM
+                , Arivi.Network.Types.close = closeConnection (Conn.socket conn)
+                }
+        finalTime <- liftIO getCurrentTime
+        time
+            "Connection establishment time"
+            (convertUnit
+                 (read (show (diffUTCTime finalTime initTime)) :: Second) :: Millisecond)
+        incrementCounter "Connection Established"
+        incrementCounter "Incoming connection succeeded"

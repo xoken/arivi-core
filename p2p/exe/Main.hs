@@ -1,35 +1,35 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Main
     ( module Main
     ) where
 
-import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
-import           Arivi.Crypto.Utils.PublicKey.Utils
-import           Arivi.Env
-import           Arivi.Network
-import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.ServiceRegistry
+import Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
+import Arivi.Crypto.Utils.PublicKey.Utils
+import Arivi.Env
+import Arivi.Network
+import Arivi.P2P.P2PEnv
+import Arivi.P2P.ServiceRegistry
 
-import           Control.Concurrent.Async.Lifted        (async, wait)
-import           Control.Monad.Logger
-import           Control.Monad.Reader
-import           Data.ByteString.Lazy                   as BSL (ByteString)
-import           Data.ByteString.Lazy.Char8             as BSLC (pack)
-import           System.Environment                     (getArgs)
+import Control.Concurrent.Async.Lifted (async, wait)
+import Control.Monad.Logger
+import Control.Monad.Reader
+import Data.ByteString.Lazy as BSL (ByteString)
+import Data.ByteString.Lazy.Char8 as BSLC (pack)
+import System.Environment (getArgs)
 
-import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
-import qualified CreateConfig                           as Config
-import           Data.Monoid                            ((<>))
-import           Data.String.Conv
-import           Data.Text
-import           System.Directory                       (doesPathExist)
+import Arivi.P2P.Kademlia.LoadDefaultPeers (loadDefaultPeers)
+import Arivi.P2P.MessageHandler.Handler (newIncomingConnection)
+import qualified CreateConfig as Config
+import Data.Monoid ((<>))
+import Data.String.Conv
+import Data.Text
+import System.Directory (doesPathExist)
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -75,7 +75,6 @@ writeConfigs path = do
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
 -}
-
 defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
@@ -179,5 +178,8 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler ::
+       (HasLogging m, HasSecretKey m, HasStatsdClient m)
+    => ConnectionHandle
+    -> m ()
 myAmazingHandler h = forever $ recv h >>= send h

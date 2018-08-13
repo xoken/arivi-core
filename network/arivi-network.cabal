@@ -49,6 +49,8 @@ library
                     ,  stm >= 2.4.4.1
                     ,  template-haskell
                     ,  text
+                    ,  time >= 1.9.1
+                    ,  time-units >= 1.0.0
                     ,  timers-updatable <= 0.2.0.2
                     ,  unordered-containers <= 0.2.9.0
                     ,  arivi-crypto
@@ -94,7 +96,7 @@ test-suite arivi-network-test
                     ,  monad-logger
                     ,  mtl
                     ,  stm >= 2.4.4.1
-                    ,  time
+                    ,  time >= 1.9
                     ,  arivi-crypto
                     ,  arivi-utils
                     ,  arivi-network

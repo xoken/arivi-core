@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Arivi.Network.ConnectionHandler
@@ -29,33 +29,34 @@ module Arivi.Network.ConnectionHandler
     , closeConnection
     ) where
 
-import           Arivi.Network.Connection       as Conn
-import           Arivi.Network.Exception
-import           Arivi.Network.Fragmenter
-import           Arivi.Network.Handshake
-import           Arivi.Network.Reassembler
-import           Arivi.Network.StreamClient
-import           Arivi.Network.Types
-import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
-import           Arivi.Utils.Logging
-import           Control.Concurrent             (MVar, newMVar, threadDelay)
-import qualified Control.Concurrent.Async       as Async (race)
-import           Control.Concurrent.STM         (atomically, newTChan)
-import           Control.Concurrent.STM.TVar
-import           Control.Exception              (try)
-import           Control.Exception.Base
-import           Control.Monad.IO.Class
-import           Data.Bifunctor
-import           Data.Binary
-import qualified Data.ByteString.Lazy           as BSL
-import qualified Data.ByteString.Lazy.Char8     as BSLC
-import           Data.HashMap.Strict            as HM
-import           Data.Int
-import           Data.IORef
-import           Network.Socket                 hiding (send)
+import Arivi.Network.Connection as Conn
+import Arivi.Network.Exception
+import Arivi.Network.Fragmenter
+import Arivi.Network.Handshake
+import Arivi.Network.Reassembler
+import Arivi.Network.StreamClient
+import Arivi.Network.Types
+import Arivi.Network.Utils (getIPAddress, getPortNumber)
+import Arivi.Utils.Logging
+import Arivi.Utils.Statsd
+import Control.Concurrent (MVar, newMVar, threadDelay)
+import qualified Control.Concurrent.Async as Async (race)
+import Control.Concurrent.STM (atomically, newTChan)
+import Control.Concurrent.STM.TVar
+import Control.Exception (try)
+import Control.Exception.Base
+import Control.Monad.IO.Class
+import Data.Bifunctor
+import Data.Binary
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.HashMap.Strict as HM
+import Data.IORef
+import Data.Int
+import Network.Socket hiding (send)
 import qualified Network.Socket.ByteString.Lazy as N (recv)
-import           System.Timeout
-import           Text.InterpolatedString.Perl6
+import System.Timeout
+import Text.InterpolatedString.Perl6
 
 establishSecureConnection ::
        SecretKey
@@ -103,7 +104,7 @@ establishSecureConnection sk sock framer hsInitParcel = do
 -- | Given `Socket` retrieves `TransportType`
 getTransportType :: Socket -> TransportType
 getTransportType (MkSocket _ _ Stream _ _) = TCP
-getTransportType _                         = UDP
+getTransportType _ = UDP
 
 -- | Converts length in byteString to Num
 getFrameLength :: BSL.ByteString -> Int64
@@ -151,14 +152,13 @@ sendPong writeLock sock framer =
      in sendFrame writeLock sock pongFrame
 
 sendTcpMessage ::
-       forall m. (MonadIO m, HasLogging m)
+       forall m. (MonadIO m, HasLogging m, HasStatsdClient m)
     => Conn.CompleteConnection
     -> BSLC.ByteString
     -> m ()
-sendTcpMessage conn msg =
+sendTcpMessage conn msg = do
     $(withLoggingTH)
-        (LogNetworkStatement
-             ([qc|sendTcpMessage: Host: {Conn.ipAddress conn} |]))
+        (LogNetworkStatement [qc|sendTcpMessage: Host: {Conn.ipAddress conn} |])
         LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
@@ -172,20 +172,20 @@ sendTcpMessage conn msg =
                          throw NetworkSocketException
                      Right _ -> return ())
             fragments
+    incrementCounter "Message Sent"
 
 sendUdpMessage ::
-       forall m. (MonadIO m, HasLogging m)
+       forall m. (MonadIO m, HasLogging m, HasStatsdClient m)
     => Conn.CompleteConnection
     -> BSLC.ByteString
     -> m ()
-sendUdpMessage conn msg =
+sendUdpMessage conn msg = do
     $(withLoggingTH)
         (LogNetworkStatement
-             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}: MsgLength: {BSLC.length msg}|]))
+             [qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}: MsgLength: {BSLC.length msg}|])
         LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
-
         fragments <- liftIO $ processPayload 4096 (Payload msg) conn
         mapM_
             (\frame ->
@@ -194,12 +194,18 @@ sendUdpMessage conn msg =
                          liftIO (print e) >> closeConnection sock >> throw e
                      Right _ -> return ())
             fragments
+    incrementCounter "Message Sent"
 
-closeConnection :: (HasLogging m) => Socket -> m ()
-closeConnection sock = liftIO $ Network.Socket.close sock
+closeConnection ::
+       forall m. (HasLogging m, HasStatsdClient m)
+    => Socket
+    -> m ()
+closeConnection sock = do
+    liftIO $ Network.Socket.close sock
+    incrementCounter "Connection Terminated"
 
 readTcpSock ::
-       (HasLogging m)
+       (HasLogging m, HasStatsdClient m)
     => Conn.CompleteConnection
     -> IORef (HM.HashMap MessageId BSL.ByteString)
     -> m BSL.ByteString
@@ -220,12 +226,16 @@ readTcpSock connection fragmentsHM =
                     Right parcel ->
                         processParcel parcel connection fragmentsHM >>= \case
                             Nothing -> readTcpSock connection fragmentsHM
-                            Just p2pMsg -> return p2pMsg
+                            Just p2pMsg -> do
+                                incrementCounter "Message Recieved"
+                                return p2pMsg
             Left e -> throw e
             Right parcel ->
                 processParcel parcel connection fragmentsHM >>= \case
                     Nothing -> readTcpSock connection fragmentsHM
-                    Just p2pMsg -> return p2pMsg
+                    Just p2pMsg -> do
+                        incrementCounter "Message Recieved"
+                        return p2pMsg
 
 processParcel ::
        (HasLogging m)
@@ -256,7 +266,13 @@ processParcel parcel connection fragmentsHM =
 getDatagramWithTimeout ::
        Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getDatagramWithTimeout sock microseconds = do
-    datagramOrNothing <- timeout microseconds (try $ mapIOException (\(_ :: SomeException) -> NetworkSocketException) (N.recv sock 5100))
+    datagramOrNothing <-
+        timeout
+            microseconds
+            (try $
+             mapIOException
+                 (\(_ :: SomeException) -> NetworkSocketException)
+                 (N.recv sock 5100))
     case datagramOrNothing of
         Nothing -> return $ Left NetworkTimeoutException
         Just datagramEither ->
@@ -267,7 +283,10 @@ getDatagramWithTimeout sock microseconds = do
                     first NetworkDeserialiseException $
                     deserialiseOrFail datagram
 
-readUdpSock :: (HasLogging m) => Conn.CompleteConnection -> m BSL.ByteString
+readUdpSock ::
+       (HasLogging m, HasStatsdClient m)
+    => Conn.CompleteConnection
+    -> m BSL.ByteString
 readUdpSock connection =
     $(withLoggingTH) (LogNetworkStatement "readUdpSock: ") LevelInfo $ do
         let sock = Conn.socket connection
@@ -285,12 +304,16 @@ readUdpSock connection =
                     Right parcel ->
                         processDatagram connection parcel >>= \case
                             Nothing -> readUdpSock connection
-                            Just p2pMsg -> return p2pMsg
+                            Just p2pMsg -> do
+                                incrementCounter "Message Recieved"
+                                return p2pMsg
             Left e -> throw e
             Right parcel ->
                 processDatagram connection parcel >>= \case
                     Nothing -> readUdpSock connection
-                    Just p2pMsg -> return p2pMsg
+                    Just p2pMsg -> do
+                        incrementCounter "Message Recieved"
+                        return p2pMsg
 
 processDatagram ::
        (HasLogging m)

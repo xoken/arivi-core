@@ -15,6 +15,7 @@ import Arivi.Network
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.ServiceRegistry
 import Arivi.Utils.Logging
+import Arivi.Utils.Statsd
 import Service.HelloWorld
 
 import Control.Concurrent (threadDelay)
@@ -94,7 +95,7 @@ runNode configPath = do
             ha
             (Config.tcpPort config)
             (Config.udpPort config)
-            "89.98.98.98"
+            "127.0.0.1"
             8089
             "ad"
             (Config.secretKey config)
@@ -115,13 +116,17 @@ runNode configPath = do
                 liftIO $ threadDelay 1000000
                 async (loadDefaultPeers (Config.trustedPeers config))
                 liftIO $ threadDelay 5000000
-                registerHelloWorld
-                liftIO $ threadDelay 3000000
-                getHelloWorld
-                liftIO $ threadDelay 3000000
-                getHelloWorld
+                async forinc
+                -- registerHelloWorld
+                -- liftIO $ threadDelay 3000000
+                -- getHelloWorld
+                -- liftIO $ threadDelay 3000000
+                -- getHelloWorld
                 wait tid
                 wait tid')
+
+forinc :: (HasStatsdClient m) => m ()
+forinc = forever $ incrementCounter "test-count"
 
 main :: IO ()
 main = do
@@ -133,5 +138,8 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler ::
+       (HasLogging m, HasSecretKey m, HasStatsdClient m)
+    => ConnectionHandle
+    -> m ()
 myAmazingHandler h = forever $ recv h >>= send h

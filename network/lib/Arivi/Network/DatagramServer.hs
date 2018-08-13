@@ -1,7 +1,7 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Arivi.Network.StreamDatagram
@@ -17,29 +17,38 @@ module Arivi.Network.DatagramServer
     ( runUdpServer
     ) where
 
-import           Arivi.Env
-import           Arivi.Network.Connection        as Conn
-import           Arivi.Network.ConnectionHandler (closeConnection,
-                                                  establishSecureConnection,
-                                                  readUdpSock, sendUdpMessage)
-import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType,
-                                                  deserialiseOrFail)
+import Arivi.Env
+import Arivi.Network.Connection as Conn
+import Arivi.Network.ConnectionHandler
+    ( closeConnection
+    , establishSecureConnection
+    , readUdpSock
+    , sendUdpMessage
+    )
+import Arivi.Network.Types
+    ( ConnectionHandle(..)
+    , NodeId
+    , TransportType
+    , deserialiseOrFail
+    )
                                                 --   Parcel,
 
-import           Arivi.Network.Exception
-import           Arivi.Utils.Logging
-import           Control.Concurrent.Async.Lifted (async)
-import           Control.Exception.Lifted        (finally, throw)
-import           Control.Monad                   (forever)
-import           Control.Monad.IO.Class
-import           Data.ByteString                 (ByteString)
-import           Data.ByteString.Lazy            (fromStrict)
-import qualified Data.Text                       as T
-import           Network.Socket                  hiding (close, recv, recvFrom,
-                                                  send)
+import Arivi.Network.Exception
+import Arivi.Utils.Logging
+import Arivi.Utils.Statsd
+import Control.Concurrent.Async.Lifted (async)
+import Control.Exception.Lifted (finally, throw)
+import Control.Monad (forever)
+import Control.Monad.IO.Class
+import Data.ByteString (ByteString)
+import Data.ByteString.Lazy (fromStrict)
+import qualified Data.Text as T
+import Data.Time.Clock
+import Data.Time.Units
+import Network.Socket hiding (close, recv, recvFrom, send)
 import qualified Network.Socket
-import           Network.Socket.ByteString       hiding (recv, send)
+import Network.Socket.ByteString hiding (recv, send)
+
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
     let hint =
@@ -56,7 +65,7 @@ makeSocket portNumber socketType = do
     return sock
 
 runUdpServer ::
-       (HasSecretKey m, HasLogging m)
+       (HasSecretKey m, HasLogging m, HasStatsdClient m)
     => ServiceName
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
@@ -74,25 +83,38 @@ runUdpServer portNumber handler =
                   Network.Socket.close mSocket))
 
 newUdpConnection ::
-       (HasSecretKey m, HasLogging m)
+       forall m. (HasSecretKey m, HasLogging m, HasStatsdClient m)
     => ByteString
     -> Socket
     -> (NodeId -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
     liftIO (getPeerName sock) >>= \addr ->
-    $(withLoggingTH) (LogNetworkStatement $ T.append (T.pack "newUdpConnection latest: ") (T.pack (show addr))) LevelDebug $
-    either
-        (throw . NetworkDeserialiseException)
-        (\hsInitParcel -> do
-             sk <- getSecretKey
-             conn <- liftIO $ establishSecureConnection sk sock id hsInitParcel
-             handler
-                 (Conn.remoteNodeId conn)
-                 (Conn.transportType conn)
-                 ConnectionHandle
-                 { send = sendUdpMessage conn
-                 , recv = readUdpSock conn
-                 , close = closeConnection (Conn.socket conn)
-                 })
-        (deserialiseOrFail (fromStrict hsInitMsg))
+        $(withLoggingTH)
+            (LogNetworkStatement $
+             T.append (T.pack "newUdpConnection latest: ") (T.pack (show addr)))
+            LevelDebug $
+        either
+            (throw . NetworkDeserialiseException)
+            (\hsInitParcel -> do
+                 incrementCounter "Incoming connection attempted"
+                 initTime <- liftIO getCurrentTime
+                 sk <- getSecretKey
+                 conn <-
+                     liftIO $ establishSecureConnection sk sock id hsInitParcel
+                 handler
+                     (Conn.remoteNodeId conn)
+                     (Conn.transportType conn)
+                     ConnectionHandle
+                         { send = sendUdpMessage conn
+                         , recv = readUdpSock conn
+                         , close = closeConnection (Conn.socket conn)
+                         }
+                 finalTime <- liftIO getCurrentTime
+                 time
+                     "Connection establishment time"
+                     (convertUnit
+                          (read (show (diffUTCTime finalTime initTime)) :: Second) :: Millisecond)
+                 incrementCounter "Connection Established"
+                 incrementCounter "Incoming connection succeeded")
+            (deserialiseOrFail (fromStrict hsInitMsg))
