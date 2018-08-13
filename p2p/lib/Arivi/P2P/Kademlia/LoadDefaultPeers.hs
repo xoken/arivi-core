@@ -25,7 +25,6 @@ import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.Kademlia.VerifyPeer
-import           Arivi.P2P.MessageHandler.Handler
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv

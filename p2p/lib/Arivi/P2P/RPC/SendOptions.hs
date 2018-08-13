@@ -57,7 +57,7 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     let mMessage = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
     let byteStringMessage = serialise mMessage
     res1 <-
-        Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
+        Exception.try $ issueRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
         Left (_ :: Exception.SomeException) -> throw SendOptionsFailedException
         Right returnMessage -> do

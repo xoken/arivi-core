@@ -25,7 +25,6 @@ module Arivi.P2P.Kademlia.RefreshKbucket
     ) where
 
 import           Arivi.P2P.Kademlia.Types
-import           Arivi.P2P.MessageHandler.Handler
 import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
 import           Arivi.P2P.P2PEnv                      (HasP2PEnv,
                                                         getAriviTVarP2PEnv)
