@@ -1,0 +1,2 @@
+packages: crypto, network, p2p, utils
+allow-newer: base, Cabal
