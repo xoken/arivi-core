@@ -193,15 +193,15 @@ main = hspec $ do
         it "sends and recvs 2 4k strings concurrently" $
             sendAndRecvString (sendManyConcurrent 2) (generateString 4096) 2
 
-        it "sends and recvs 100 small strings serially" $
+        it "sends and recvs 10 small strings serially" $
             sendAndRecvString (sendManySerial 100) "hello" 100
-        it "sends and recvs 100 4K strings serially" $
-            sendAndRecvString (sendManySerial 100) (generateString 4096) 100
+        it "sends and recvs 10 4K strings serially" $
+            sendAndRecvString (sendManySerial 10) (generateString 4096) 10
 
-        it "sends and recvs 100 small strings concurrently" $
-            sendAndRecvString (sendManyConcurrent 100) "hello" 100
-        it "sends and recvs 100 4k strings concurrently" $
-            sendAndRecvString (sendManyConcurrent 100) (generateString 4096) 100
+        it "sends and recvs 10 small strings concurrently" $
+            sendAndRecvString (sendManyConcurrent 10) "hello" 10
+        it "sends and recvs 10 4k strings concurrently" $
+            sendAndRecvString (sendManyConcurrent 10) (generateString 4096) 10
 
     describe "TCP send and recv" $ do
         it "sends and recvs a single char" $ sendAndRecvStringTCP send "a" 1
