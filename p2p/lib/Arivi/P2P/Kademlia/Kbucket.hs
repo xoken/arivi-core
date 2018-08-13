@@ -31,28 +31,29 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKClosestPeersByPeer
     , getKClosestPeersByNodeid
     , getKRandomPeers
+    , getPeerByNodeId
+    , moveToHardBound
     ) where
 
 import           Arivi.P2P.Exception
+import           Arivi.P2P.Kademlia.RefreshKbucket
 import           Arivi.P2P.Kademlia.Types
-import qualified Arivi.P2P.Kademlia.Utils       as U
+import qualified Arivi.P2P.Kademlia.Utils          as U
 import           Arivi.P2P.Kademlia.XorDistance
+import           Arivi.P2P.P2PEnv                  (HasP2PEnv)
 import           Arivi.Utils.Logging
-import           Control.Exception
-import           Control.Monad                  ()
-import           Control.Monad.IO.Class         (MonadIO, liftIO)
-import           Control.Monad.Reader           ()
-import           Control.Monad.STM
-import qualified Data.List                      as L
-import           Data.Maybe
-
--- import           GHC.Stack
-import           Arivi.P2P.P2PEnv               (HasP2PEnv)
 import           Arivi.Utils.Statsd
-import           Control.Monad.Logger           (logDebug)
-import qualified Data.Text                      as T
-import           ListT
-import qualified STMContainers.Map              as H
+import           Control.Exception
+import           Control.Monad                     ()
+import           Control.Monad.IO.Class            (MonadIO, liftIO)
+import           Control.Monad.Logger              (logDebug)
+import           Control.Monad.Reader              ()
+import           Control.Monad.STM
+import qualified Data.List                         as L
+import           Data.Maybe
+import qualified Data.Text                         as T
+import           ListT                             (toList)
+import qualified STMContainers.Map                 as H
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
@@ -118,6 +119,7 @@ ifPeerExist peer = do
 --  kbindex based on the XOR Distance.
 addToKBucket :: (HasP2PEnv m, MonadIO m, HasLogging m) => Peer -> m ()
 addToKBucket peerR = do
+    $(logDebug) $ T.pack "Add to kbucket called "
     kb'' <- getKb
     lp <- getDefaultNodeId
     case lp of
@@ -125,24 +127,15 @@ addToKBucket peerR = do
             let nid = fst $ getPeer peerR
                 kbDistance = getKbIndex localPeer nid
                 kb = getKbucket kb''
-            liftIO $
-                atomically $ do
-                    mPeerList <- H.lookup kbDistance kb
-                    case mPeerList of
-                        Just pl ->
-                            if peerR `elem` pl
-                                then do
-                                    let pl2 =
-                                            L.deleteBy
-                                                (\p1 p2 ->
-                                                     fst (getPeer p1) ==
-                                                     fst (getPeer p2))
-                                                peerR
-                                                pl
-                                    H.insert (pl2 ++ [peerR]) kbDistance kb
-                                else H.insert (pl ++ [peerR]) kbDistance kb
-                        Nothing -> H.insert [peerR] kbDistance kb
-            -- Logs the Kbucket
+            mPeerList <- liftIO $ atomically $ H.lookup kbDistance kb
+            case mPeerList of
+                Just pl -> do
+                    tempp <- refreshKbucket peerR pl
+                    liftIO $ atomically $ H.insert tempp kbDistance kb
+                Nothing -> do
+                    liftIO $ atomically $ H.insert [peerR] kbDistance kb
+                    $(logDebug) $ T.pack "First_Element in respective kbucket"
+            -- Logs the Kbucket and pushes statsd metric to collectd server
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
@@ -199,7 +192,7 @@ getPeerListFromKeyList 0 _ = return []
 getPeerListFromKeyList k (x:xs) = do
     kbb'' <- getKb
     pl <- liftIO $ atomically $ H.lookup x (getKbucket kbb'')
-    let mPeerList = fromMaybe [] pl
+    let mPeerList = fst $ L.splitAt (kademliaSoftBound kbb'') $ fromMaybe [] pl
         ple = fst $ L.splitAt k mPeerList
     if L.length ple >= k
         then return ple
@@ -261,23 +254,38 @@ getKClosestPeersByNodeid nid k = do
 --   case peers returned will not be closest peers
 getKRandomPeers :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 getKRandomPeers k = do
-    keyl <- liftIO $ U.randomList 255
+    keyl <- liftIO $ U.randomList 512
     getPeerListFromKeyList k keyl
--- refreshAndAdd :: [Peer] -> Int -> [Peer]
--- refreshAndAdd inPl sBound fPl = do
---     mapM issuePing [Peer]
--- issuePing :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m()
--- issuePing peerR = do
---     p2pInstanceTVar <- getAriviTVarP2PEnv
---     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
---     let lnid = selfNodeId p2pInstance
---         luport = selfUDPPort p2pInstance
---         lip = selfIP p2pInstance
---         ltport = selfTCPPort p2pInstance
---         rnid = fst $ getPeer rpeer
---         rnep = snd $ getPeer rpeer
---         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
---         rip = nodeIp rnep
---         ping_msg = packPing lnid lip luport ltport
---     resp <- sendRequestforKademlia rnid Kademlia (serialise ping_msg) ruport rip
---     liftIO $ print ""
+
+getPeerByNodeId :: (HasKbucket m, MonadIO m) => NodeId -> m Peer
+getPeerByNodeId nid = do
+    lp <- getDefaultNodeId
+    case lp of
+        Right localPeer -> do
+            let kbi = getKbIndex localPeer nid
+            temp <- getPeerListByKIndex kbi
+            case temp of
+                Right pl ->
+                    return $ head $ filter (\x -> fst (getPeer x) == nid) pl
+                Left e -> throw e
+        Left e -> throw e
+
+moveToHardBound :: (HasKbucket m, MonadIO m, HasLogging m) => Peer -> m ()
+moveToHardBound peer = do
+    kb <- getKb
+    pl <- getPeerList (fst $ getPeer peer)
+    lp <- getDefaultNodeId
+    case lp of
+        Right lp' ->
+            case pl of
+                Right pl' ->
+                    liftIO $
+                    atomically $ do
+                        let pl'' = L.delete peer pl'
+                            tpl = L.splitAt (kademliaSoftBound kb) pl''
+                            hb = peer : snd tpl
+                            fpl = fst tpl ++ hb
+                            kbd = getKbIndex lp' (fst $ getPeer peer)
+                        H.insert fpl kbd (getKbucket kb)
+                Left e -> throw e
+        Left e -> throw e

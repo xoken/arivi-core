@@ -101,7 +101,7 @@ sendRequestforKademlia ::
     -> IP
     -> m P2PPayload
 sendRequestforKademlia node mType p2pPayload port mIP
-    -- $(logDebug) (toS $ show p2pPayload)
+    -- \$(logDebug) (toS $ show p2pPayload)
  = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdMap <- liftIO $ readTVarIO nodeIdMapTVar

@@ -16,20 +16,22 @@ import           Arivi.Network
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.ServiceRegistry
 
+import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
+import           Arivi.P2P.Kademlia.VerifyPeer          (initBootStrap)
+import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
 import           Control.Concurrent.Async.Lifted        (async, wait)
+import           Control.Monad                          (mapM_)
+import           Control.Monad.IO.Class                 (liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
+import qualified CreateConfig                           as Config
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
-import           System.Environment                     (getArgs)
-
-import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
-import qualified CreateConfig                           as Config
 import           Data.Monoid                            ((<>))
 import           Data.String.Conv
 import           Data.Text
 import           System.Directory                       (doesPathExist)
+import           System.Environment                     (getArgs)
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -53,7 +55,6 @@ instance HasP2PEnv AppM where
     getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
-    getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
     getArchivedResourceToPeerMapP2PEnv =
         tvarArchivedResourceToPeerMap <$> getP2PEnv
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
@@ -69,13 +70,14 @@ writeConfigs path = do
     (skNode2, _) <- ACUPS.generateKeyPair
     let bootstrapPort = 8080
         bootstrapConfig = Config.Config bootstrapPort bootstrapPort skBootstrap [] (generateNodeId skBootstrap) (Data.Text.pack path <> "/bootstrapNode.log")
-        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode1) (Data.Text.pack path <> "/node1.log")
-        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap, NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode2) (Data.Text.pack path <> "/node2.log")
+        config1 = Config.Config 8081 8081 skNode1 [Peer (generateNodeId skBootstrap,
+NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode1) (Data.Text.pack path <> "/node1.log")
+        config2 = Config.Config 8082 8082 skNode2 [Peer (generateNodeId skBootstrap,
+NodeEndPoint "127.0.0.1" bootstrapPort bootstrapPort)] (generateNodeId skNode2) (Data.Text.pack path <> "/node2.log")
     Config.makeConfig bootstrapConfig (path <> "/bootstrapConfig.yaml")
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
 -}
-
 defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
@@ -104,6 +106,8 @@ runNode configPath = do
             8125
             "Xoken"
             (Config.secretKey config)
+            20
+            5
             3
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
@@ -115,6 +119,7 @@ runNode configPath = do
                         (runUdpServer
                              (show (Config.udpPort config))
                              newIncomingConnection)
+                mapM_ initBootStrap (Config.trustedPeers config)
                 loadDefaultPeers (Config.trustedPeers config)
                 wait tid
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
@@ -147,6 +152,8 @@ runBSNode configPath = do
             8125
             "Xoken"
             (Config.secretKey config)
+            20
+            5
             3
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
