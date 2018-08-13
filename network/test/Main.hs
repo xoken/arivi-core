@@ -16,7 +16,7 @@ import Arivi.Crypto.Utils.PublicKey.Utils
 import Arivi.Env
 import Arivi.Utils.Logging
 import Arivi.Network
-
+import Arivi.Network.Types
 import Control.Concurrent (threadDelay, newEmptyMVar, putMVar, takeMVar, MVar)
 import Control.Concurrent.Async hiding (mapConcurrently_)
 import Control.Concurrent.Async.Lifted (mapConcurrently_)
@@ -38,6 +38,7 @@ instance HasNetworkEnv AppM where
     getEnv = ask
 
 instance HasSecretKey AppM
+
 
 runAppM :: AriviEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
@@ -71,8 +72,13 @@ sender tcpPort udpPort sk rk f = do
     runStdoutLoggingT $
         runAppM
             env
-            (do let ha = "127.0.0.1"
-                handleOrFail <- openConnection ha 8083 UDP (generateNodeId rk)
+            (do let nc = NetworkConfig {
+                                        _nodeId = generateNodeId rk
+                                       , _ip = "127.0.0.1"
+                                       , _udpPort = read $ show udpPort
+                                       , _tcpPort = read $ show tcpPort
+                                       }
+                handleOrFail <- openConnection nc UDP
                 case handleOrFail of
                     Left e -> throw e
                     Right cHandle -> do
@@ -80,16 +86,15 @@ sender tcpPort udpPort sk rk f = do
                         close cHandle
                 liftIO $ print "done")
 
-receiver
-    :: Int
+receiver :: Int
     -> Int
     -> SecretKey
     -> (ConnectionHandle -> ReaderT AriviEnv (LoggingT IO) ())
     -> IO ()
 receiver tcpPort udpPort sk handler = do
     let env = mkAriviEnv tcpPort udpPort sk
-    runStdoutLoggingT $ runAppM env $
-        runUdpServer (show $ ariviEnvUdpPort env) (\_ _ h -> handler h)
+    runStdoutLoggingT $ runAppM env
+        (runUdpServer (show $ ariviEnvUdpPort env) (\_ _ _ _ h -> handler h))
 
 senderTCP
     :: Int
@@ -103,8 +108,13 @@ senderTCP tcpPort udpPort sk rk f = do
     runStdoutLoggingT $
         runAppM
             env
-            (do let ha = "127.0.0.1"
-                handleOrFail <- openConnection ha 8083 TCP (generateNodeId rk)
+            (do let nc = NetworkConfig {
+                                       _nodeId = generateNodeId rk
+                                       , _ip = "127.0.0.1"
+                                       , _udpPort = read $ show udpPort
+                                       , _tcpPort = read $ show tcpPort
+                                       }
+                handleOrFail <- openConnection nc TCP
                 case handleOrFail of
                     Left e -> throw e
                     Right cHandle -> do
