@@ -19,8 +19,8 @@ pipeline {
             steps {
                 echo 'Testing..'
             }
-        }
-        stage('Deploy') {
+        } logdumpFabFile.py
+       stage('Deploy') {
             when {
               expression {
                 env.DEPLOY_BRANCH ==  env.GIT_BRANCH
@@ -30,7 +30,7 @@ pipeline {
                 echo 'Deploying....'
                 sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
                 sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
-                sh 'cd scripts/Deployment-Tools; python fabfile.py Main 180;rm Main'
+                sh 'cd scripts/Deployment-Tools; python logdumpFabFile.py Main 180;rm Main'
             }
         }
     }
