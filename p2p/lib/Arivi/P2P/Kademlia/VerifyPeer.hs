@@ -140,6 +140,7 @@ isVNRESPValid peerL peerR = do
                                  (C.unpack $ BS.encode $ fst $ getPeer x))
                         peerL
                 -- TODO address conditions when (In) is retruned or not
+            let minLessPeer = (1 / 10) * fromIntegral (Prelude.length temp)
             let result
                     | Peer (dnid, undefined) `elem` temp = True
                     | fromIntegral (Prelude.length temp) >= minLessPeer = True
@@ -161,12 +162,10 @@ isVNRESPValid peerL peerR = do
                             (T.pack $ show peerL')
                     bl <- mapConcurrently issuePing peerL'
                     let liveNodes = fromIntegral $ count' True bl
+                        minPeerResponded =
+                            (3 / 10) * fromIntegral (Prelude.length peerL')
                     return $ Right $ (>=) liveNodes minPeerResponded
                 else return $ Right False
-                -- TODO add to kbucket env
-            where minPeerResponded =
-                      (3 / 10) * fromIntegral (Prelude.length peerL)
-                  minLessPeer = (1 / 10) * fromIntegral (Prelude.length peerL)
         Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
 
 issueVerifyNode ::
