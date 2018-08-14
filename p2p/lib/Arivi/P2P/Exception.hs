@@ -10,14 +10,14 @@ data AriviP2PException
     = KademliaKbIndexDoesNotExist
     | KademliaInvalidPeer
     | KademliaDefaultPeerDoesNotExists
-    | HandlerSendMessageTimeout
+    | SendMessageTimeout
     | HandlerOpenConnectionError
     | HandlerNotRequest
-    | HandlerUuidNotFound
+    | InvalidUuid
     | HandlerConnectionBroken
-    | P2PDeserialisationException
-    | HandlerConnectionDetailsNotFound
-    | HandlerNetworkException AriviNetworkException
+    | DeserialiseFailureP2P
+    | PeerNotFound
+    | NetworkException AriviNetworkException
     | KademliaInvalidRequest
     | KademliaInvalidResponse
     | RPCResourceNotFoundException
