@@ -38,30 +38,60 @@ import           Control.Lens
 import           Data.Proxy
 
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
-issueRequest :: forall i o m t .(HasP2PEnv m, HasLogging m, Msg t, Serialise i, Serialise o)
+issueRequest ::
+       forall i o m t.
+       (HasP2PEnv m, HasLogging m, Msg t, Serialise i, Serialise o)
     => NodeId
     -> Request t i
     -> m (Response t o)
 issueRequest peerNodeId req = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
-    handleOrFail <-  LE.try $ getConnectionHandle peerNodeId nodeIdMapTVar (msgType (Proxy :: Proxy (Request t i)))
-    let peerDetailsTVarOrFail = nodeIdPeerMap ^.at peerNodeId
+    handleOrFail <-
+        LE.try $
+        getConnectionHandle
+            peerNodeId
+            nodeIdMapTVar
+            (msgType (Proxy :: Proxy (Request t i)))
+    let peerDetailsTVarOrFail = nodeIdPeerMap ^. at peerNodeId
     case peerDetailsTVarOrFail of
-        Nothing -> logWithNodeId peerNodeId "sendRequest called without adding peerNodeId: " >> throw HandlerConnectionDetailsNotFound
+        Nothing ->
+            logWithNodeId
+                peerNodeId
+                "sendRequest called without adding peerNodeId: " >>
+            throw HandlerConnectionDetailsNotFound
         Just peerDetailsTVar ->
             case handleOrFail of
-                Left (e::AriviP2PException) -> $(logDebug) "getConnectionHandle failed" >> throw e
-                Right connHandle -> case req of
+                Left (e :: AriviP2PException) ->
+                    $(logDebug) "getConnectionHandle failed" >> throw e
+                Right connHandle ->
+                    case req of
                         RpcRequest msg -> do
-                            (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
-                            (RpcResponse . deserialise) <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
+                            (uuid, updatedPeerDetailsTVar) <-
+                                sendRequest
+                                    peerNodeId
+                                    (msgType (Proxy :: Proxy (Request t i)))
+                                    connHandle
+                                    peerDetailsTVar
+                                    (serialise msg)
+                            (RpcResponse . deserialise) <$>
+                                receiveResponse
+                                    peerNodeId
+                                    uuid
+                                    updatedPeerDetailsTVar
                         OptionRequest msg -> do
-                            (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
-                            (OptionResponse . deserialise) <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
-
-                        
-
+                            (uuid, updatedPeerDetailsTVar) <-
+                                sendRequest
+                                    peerNodeId
+                                    (msgType (Proxy :: Proxy (Request t i)))
+                                    connHandle
+                                    peerDetailsTVar
+                                    (serialise msg)
+                            (OptionResponse . deserialise) <$>
+                                receiveResponse
+                                    peerNodeId
+                                    uuid
+                                    updatedPeerDetailsTVar
 
 -- | Send the p2p payload to the given NodeId
 -- | NodeId should be always added to the nodeIdToPeerMap before calling this function
@@ -105,8 +135,8 @@ receiveResponse _ uuid peerDetailsTVar = do
 -- | Called by kademlia. Adds a default PeerDetails record into hashmap before calling generic issueRequest
 issueKademliaRequest :: (HasP2PEnv m, HasLogging m, Serialise msg)
     => NetworkConfig
-    -> Request Kademlia msg
-    -> m (Response Kademlia msg)
+    -> Request 'Kademlia msg
+    -> m (Response 'Kademlia msg)
 issueKademliaRequest nc payload = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
     peerExists <- liftIO $ doesPeerExist nodeIdMapTVar (nc ^. nodeId)
@@ -174,20 +204,20 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
 
 -- | Gets the connection handle for the particular message type. If not present, it will create and return else will throw an exception
 getConnectionHandle :: (HasLogging m, HasP2PEnv m) => NodeId -> TVar NodeIdPeerMap -> MessageType -> m ConnectionHandle
-getConnectionHandle peerNodeId nodeToPeerTVar msgType = do
+getConnectionHandle peerNodeId nodeToPeerTVar mType = do
     nodeIdPeerMap <- liftIO $ atomically $ readTVar nodeToPeerTVar
     -- should find an entry in the hashmap
     -- raise and exception if it is not found
     case HM.lookup peerNodeId nodeIdPeerMap of
         Just peerDetailsTVar -> do
             peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
-            case getHandlerByMessageType peerDetails msgType of
+            case getHandlerByMessageType peerDetails mType of
                 Connected connHandle -> return connHandle
                 NotConnected ->
                     createConnection
                         peerDetailsTVar
                         nodeToPeerTVar
-                        (getTransportType msgType)
+                        (getTransportType mType)
                     -- The record has been updated.
                     -- Don't use nodeIdPeerMap anymore as its an old copy
         Nothing -> throw HandlerConnectionDetailsNotFound

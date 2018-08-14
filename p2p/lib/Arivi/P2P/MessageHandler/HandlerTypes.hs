@@ -19,9 +19,9 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , TransportType(..)
     , NodeIdPeerMap
     , Handle(..)
+    , HasNetworkConfig(..)
     , MessageTypeMap
     , MessageTypeHandler
-    , networkConfig
     , uuidMap
     , streamHandle
     , datagramHandle
@@ -29,17 +29,12 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , rep
     ) where
 
-import           Control.Concurrent.MVar
-
-{-
-
--}
 import           Arivi.Network                (ConnectionHandle (..),
                                                TransportType (..))
 import           Arivi.P2P.Types
 import           Codec.Serialise              (Serialise)
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TVar  ()
+import           Control.Concurrent.MVar
 import           Data.ByteString              as N (ByteString)
 import           Data.ByteString.Lazy         as Lazy (ByteString)
 import           Data.HashMap.Strict          as HM

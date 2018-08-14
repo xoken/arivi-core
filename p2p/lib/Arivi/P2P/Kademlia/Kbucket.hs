@@ -41,13 +41,14 @@ import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils          as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.P2P.P2PEnv                  (HasP2PEnv)
+import           Arivi.P2P.Types                   (NetworkConfig(..))
+import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Exception
-import           Control.Monad                     ()
 import           Control.Monad.IO.Class            (MonadIO, liftIO)
 import           Control.Monad.Logger              (logDebug)
-import           Control.Monad.Reader              ()
+import           Control.Monad.Reader
 import           Control.Monad.STM
 import qualified Data.List                         as L
 import           Data.Maybe
@@ -117,7 +118,7 @@ ifPeerExist peer = do
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
-addToKBucket :: (HasP2PEnv m, MonadIO m, HasLogging m) => Peer -> m ()
+addToKBucket :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => Peer -> m ()
 addToKBucket peerR = do
     $(logDebug) $ T.pack "Add to kbucket called "
     kb'' <- getKb
@@ -147,7 +148,7 @@ addToKBucket peerR = do
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
-removePeer :: (HasP2PEnv m, MonadIO m, HasLogging m) => NodeId -> m ()
+removePeer :: (HasP2PEnv m, HasLogging m) => NodeId -> m ()
 removePeer peerR = do
     kbb' <- getKb
     lp <- getDefaultNodeId
