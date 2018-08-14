@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs, RankNTypes #-}
+{-# LANGUAGE GADTs, RankNTypes, DataKinds #-}
 
 module Arivi.P2P.MessageHandler.NodeEndpoint (
       issueRequest
@@ -52,41 +52,16 @@ issueRequest peerNodeId req = do
         Just peerDetailsTVar ->
             case handleOrFail of
                 Left (e::AriviP2PException) -> $(logDebug) "getConnectionHandle failed" >> throw e
-                Right connHandle -> do
-                    (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise req)
-                    deserialise <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
+                Right connHandle -> case req of
+                        RpcRequest msg -> do
+                            (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
+                            (RpcResponse . deserialise) <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
+                        OptionRequest msg -> do
+                            (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
+                            (OptionResponse . deserialise) <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
 
+                        
 
--- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
-issueRequest' :: forall i m t.(HasP2PEnv m, HasLogging m, Msg i)
-    => NodeId
-    -> RequestG i t
-    -> m (ResponseG i)
-issueRequest' peerNodeId req = do
-    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
-    handleOrFail <-  LE.try $ getConnectionHandle peerNodeId nodeIdMapTVar (msgType (Proxy :: Proxy (RequestG i)))
-    let peerDetailsTVarOrFail = HM.lookup peerNodeId nodeIdPeerMap
-    case peerDetailsTVarOrFail of
-        Nothing -> logWithNodeId peerNodeId "sendRequest called without adding peerNodeId: " >> throw HandlerConnectionDetailsNotFound
-        Just peerDetailsTVar ->
-            case handleOrFail of
-                Left (e::AriviP2PException) -> $(logDebug) "getConnectionHandle failed" >> throw e
-                Right connHandle -> do
-                    case req of
-                      RpcRequestG r -> do
-                        (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (RequestG i))) connHandle peerDetailsTVar (serialise r)
-                        resp :: RpcResponse Int Int  <- deserialise <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
-                        return (RpcResponseG resp)
-                      OptionsRequestG r -> do
-                        (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (RequestG i))) connHandle peerDetailsTVar (serialise r)
-                        resp :: SResponse Int  <- deserialise <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
-                        return (OptionsResponseG resp)
-
-invoke :: forall m msg r .(HasP2PEnv m, HasLogging m, Serialise msg, Serialise r)
-    => Request Rpc (RpcRequest msg r)
-    -> m (Response Rpc (RpcResponse msg r))
-invoke req = issueRequest (undefined) req
 
 -- | Send the p2p payload to the given NodeId
 -- | NodeId should be always added to the nodeIdToPeerMap before calling this function

@@ -2,7 +2,7 @@
 {-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor,
   DeriveTraversable, DeriveAnyClass, ScopedTypeVariables #-}
 {-# LANGUAGE GADTs, DataKinds, KindSignatures, PolyKinds #-}
-{-# LANGUAGE FlexibleInstances, AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- |
 -- Module      :  Arivi.P2P.Types
@@ -26,117 +26,68 @@ import           Data.Proxy
 
 type Map = HashMap
 
-data RpcRequest msg r  = RpcRequest msg r  deriving (Eq, Ord, Show, Generic)
-data RpcResponse msg r =  RpcResponse msg r deriving (Eq, Ord, Show, Generic)
 
-instance (Serialise r, Serialise msg) => Serialise (RpcRequest r msg)
-instance (Serialise r, Serialise msg) => Serialise (RpcResponse r msg)
 
 data MessageType = Kademlia
-                 | Options
+                 | Option
                  | Rpc
                  | PubSub
                  deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
 
-data Void
 
-data RequestG (i :: MessageType) msg  where
-  RpcRequestG :: (Serialise msg, Serialise r) => RpcRequest msg r -> RequestG 'Rpc msg
-  OptionsRequestG :: SRequest -> RequestG 'Options Void
+data Request (i :: MessageType) msg where
+  RpcRequest :: (Serialise msg) => msg -> Request 'Rpc msg
+  OptionRequest :: (Serialise msg) => msg -> Request 'Option msg
 
-data ResponseG (i :: MessageType) where
-  RpcResponseG :: RpcResponse m r -> ResponseG 'Rpc
-  OptionsResponseG :: SResponse r -> ResponseG 'Options
+data Response (i :: MessageType) msg where
+  RpcResponse :: (Serialise msg) => msg -> Response 'Rpc msg
+  OptionResponse :: (Serialise msg) => msg -> Response 'Option msg
 
-data ResponseCode
-    = Error
-    | Ok
-    deriving (Eq, Ord, Show, Generic)
-
-instance Serialise ResponseCode
-
-data PubSub msg t = Subscribe UTCTime t
-                  | Notify msg t
-                  | Publish msg t
-                  | PubSubResponse ResponseCode UTCTime t
-                  deriving (Eq, Ord, Show, Generic)
-
-deriving instance Functor (PubSub msg)
-deriving instance Foldable (PubSub msg)
-deriving instance Traversable (PubSub msg)
-
-instance (Serialise t, Serialise msg) => Serialise (PubSub t msg)
-
-data SRequest = SRequest deriving (Eq, Ord, Show, Generic, Serialise)
-data SResponse r = SResponse r deriving (Eq, Ord, Show, Generic, Serialise)
-
-newtype Handler i o m = Handler { runHandler :: i -> m o }
-
-data Kademlia
-data Rpc
-
-deriving instance Generic Kademlia
-deriving instance Serialise Kademlia
-
-newtype Request i msg  = Request msg deriving (Eq, Ord, Show, Generic, Serialise)
-newtype Response i msg = Response msg deriving (Eq, Ord, Show, Generic, Serialise)
 
 class Msg (i :: k) where
   msgType :: Proxy i -> MessageType
 
+
 instance Msg i => Msg (Request i msg) where
   msgType _ = msgType (Proxy :: Proxy i)
 
-
-instance Msg i => Msg (Response i msg) where
+instance (Msg i) => Msg (Response i msg) where
   msgType _ = msgType (Proxy :: Proxy i)
-
-instance Msg Rpc where
-  msgType _ = Rpc
-
-instance Msg Kademlia where
-  msgType _ = Kademlia
-
-instance Msg i => Msg (RequestG i) where
-  msgType _ = msgType (Proxy :: Proxy i)
-
-instance Msg (ResponseG 'Options) where
-  msgType _ = Options
 
 instance Msg 'Rpc where
   msgType _ = Rpc
 
-instance Msg 'Options where
-  msgType _ = Options
+instance Msg 'Option where
+  msgType _ = Option
 
-{-
+instance Msg 'Kademlia where
+  msgType _ = Kademlia
 
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
-issueRequest' :: forall i m .(HasP2PEnv m, HasLogging m, Msg i)
-    => NodeId
-    -> RequestG i
-    -> m (ResponseG i)
-issueRequest' peerNodeId req = do
-    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
-    handleOrFail <-  LE.try $ getConnectionHandle peerNodeId nodeIdMapTVar (msgType (Proxy :: Proxy (RequestG i)))
-    let peerDetailsTVarOrFail = HM.lookup peerNodeId nodeIdPeerMap
-    case peerDetailsTVarOrFail of
-        Nothing -> logWithNodeId peerNodeId "sendRequest called without adding peerNodeId: " >> throw HandlerConnectionDetailsNotFound
-        Just peerDetailsTVar ->
-            case handleOrFail of
-                Left (e::AriviP2PException) -> $(logDebug) "getConnectionHandle failed" >> throw e
-                Right connHandle -> do
-                    case req of
-                      RpcRequestG r -> do
-                        (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (RequestG i))) connHandle peerDetailsTVar (serialise r)
-                        resp :: RpcResponse Int Int  <- deserialise <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
-                        return (RpcResponseG resp)
-                      OptionsRequestG r -> do
-                        (uuid, updatedPeerDetailsTVar) <- sendRequest peerNodeId (msgType (Proxy :: Proxy (RequestG i))) connHandle peerDetailsTVar (serialise r)
-                        (OptionsResponseG . deserialise) <$> receiveResponse peerNodeId uuid updatedPeerDetailsTVar
+issueRequest' :: forall t i m o.(Monad m, Serialise o)
+    => Request t i
+    -> m (Response t o)
+issueRequest' req = do
+  case req of
+    RpcRequest msg -> do
+      let resp = deserialise (serialise msg)
+      return (RpcResponse resp)
+    OptionRequest r -> do
+      let resp = deserialise (serialise r)
+      return (OptionResponse resp)
 
--}
+data Resource = Block deriving (Eq, Ord, Show, Generic, Serialise)
 
-main :: Response Kademlia Int
-main = deserialise (serialise (Request 1 :: Request Rpc Int))
+main' = do
+  RpcResponse (RpcPayload r s :: RpcPayload String Resource ) <- issueRequest' (RpcRequest (RpcPayload "abc" Block))
+  print r
+  print s
+  
+
+data RpcPayload r msg = RpcPayload r msg deriving (Eq, Ord, Show, Generic, Serialise)
+
+
+data OptionPayload msg = OptionPayload msg deriving (Eq, Ord, Show, Generic, Serialise)
+
+-- main :: Response Kademlia Int
+-- main = deserialise (serialise (Request 1 :: Request Rpc Int))
