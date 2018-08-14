@@ -1,5 +1,4 @@
 -- |
--- Module      : Arivi.Kademlia.RefreshKbucket
 -- Copyright   : (c) Xoken Labs
 -- License     : -
 --
@@ -17,6 +16,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE GADTs               #-}
 
 module Arivi.P2P.Kademlia.RefreshKbucket
     ( refreshKbucket
@@ -25,23 +25,18 @@ module Arivi.P2P.Kademlia.RefreshKbucket
     ) where
 
 import           Arivi.P2P.Kademlia.Types
-import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
-import           Arivi.P2P.P2PEnv                      (HasP2PEnv,
-                                                        getAriviTVarP2PEnv)
+import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
+import           Arivi.P2P.P2PEnv                      (HasP2PEnv)
 import           Arivi.P2P.Types
+import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.Utils.Logging
-import           Codec.Serialise                       (DeserialiseFailure,
-                                                        deserialiseOrFail,
-                                                        serialise)
 import           Control.Concurrent.Async.Lifted
-import           Control.Concurrent.STM.TVar           (readTVar)
 import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
-import           Control.Monad                         ()
-import           Control.Monad.IO.Class                (MonadIO, liftIO)
+import           Control.Lens
+import           Control.Monad.Reader
 import           Control.Monad.Logger                  (logDebug)
-import           Control.Monad.STM
 import qualified Data.List                             as L
 import qualified Data.Text                             as T
 
@@ -72,52 +67,34 @@ addToNewList bl pl
 -- | Issues a ping command and waits for the response and if the response is
 --   is valid returns True else False
 issuePing ::
-       forall m. (HasP2PEnv m, HasLogging m, MonadIO m)
+       forall m env. (MonadReader env m, HasP2PEnv m, HasNetworkConfig env NetworkConfig, HasLogging m)
     => Peer
     -> m Bool
 issuePing rpeer = do
-    p2pInstanceTVar <- getAriviTVarP2PEnv
-    p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
-    let lnid = selfNodeId p2pInstance
-        luport = selfUDPPort p2pInstance
-        lip = selfIP p2pInstance
-        ltport = selfTCPPort p2pInstance
-        rnid = fst $ getPeer rpeer
+    nc <- (^. networkConfig) <$> ask
+    let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
-        ping_msg = packPing lnid lip luport ltport
+        ping_msg = packPing nc
+        rnc = NetworkConfig rnid rip ruport ruport
     $(logDebug) $
-        T.pack ("Issueing ping request to : " ++ show rip ++ ":" ++ show ruport)
-    resp <-
-        Exception.try $
-        sendRequestforKademlia rnid HT.Kademlia (serialise ping_msg) ruport rip
+        T.pack ("Issuing ping request to : " ++ show rip ++ ":" ++ show ruport)
+    resp <- Exception.try $ issueKademliaRequest rnc (KademliaRequest ping_msg)
     $(logDebug) $
         T.pack ("Response for ping from : " ++ show rip ++ ":" ++ show ruport)
     case resp of
         Left (e :: Exception.SomeException) -> do
             $(logDebug) (T.pack (displayException e))
             return False
-        Right resp' -> do
-            let resp'' =
-                    deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
-            case resp'' of
-                Left e -> do
-                    $(logDebug) $
-                        T.append
-                            (T.pack "Deserilization failure while pong: ")
-                            (T.pack (displayException e))
-                    return False
-                Right rl -> do
-                    let msg = message rl
-                        msgb = messageBody msg
-                    case msgb of
-                        PONG _ _ -> return True
-                        _        -> return False
+        Right (KademliaResponse payload) -> do
+            case messageBody (message payload) of
+                PONG _ _ -> return True
+                _ -> return False
 
 -- | creates a new list from an existing one by issuing a ping command
 refreshKbucket ::
-       (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> [Peer] -> m [Peer]
+       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => Peer -> [Peer] -> m [Peer]
 refreshKbucket peerR pl = do
     sb <- getKb
     let pl2 =
@@ -150,7 +127,7 @@ refreshKbucket peerR pl = do
         else return (pl2 ++ [peerR])
 
 runKademliaConcurrently ::
-       forall a b m. (HasP2PEnv m, HasLogging m, MonadIO m)
+       forall a b m. (HasP2PEnv m, HasLogging m)
     => (a -> m b)
     -> [a]
     -> m [b]

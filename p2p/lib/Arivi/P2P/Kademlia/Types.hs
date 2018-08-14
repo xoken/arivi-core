@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveGeneric    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Arivi.P2P.Kademlia.Types
     ( Message(..)
@@ -30,13 +31,13 @@ module Arivi.P2P.Kademlia.Types
     , NodeStatus(..)
     ) where
 
+import           Arivi.P2P.Types (NetworkConfig(..))
 import           Codec.Serialise.Class    (Serialise (..))
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Control.Monad.STM        (atomically)
 import           Crypto.Error
-import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey,
-                                           signature)
+import           Crypto.PubKey.Ed25519    (PublicKey, Signature, publicKey)
 import           Data.ByteArray           (convert)
 import           Data.ByteString
 import qualified Data.ByteString.Char8    as C
@@ -146,59 +147,53 @@ data NodeStatus
     deriving (Show)
 
 -- Helper functions to create messages
-packPing :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packPing nId hostName udpPortb tcpPortb = PayLoad msg
+packPing :: NetworkConfig -> PayLoad
+packPing NetworkConfig{..} = PayLoad msg
   where
-    fromep = NodeEndPoint hostName udpPortb tcpPortb
-    msgBody = PING nId fromep
+    fromep = NodeEndPoint _ip _udpPort _tcpPort
+    msgBody = PING _nodeId fromep
     msg = Message MSG01 msgBody
 
-packPong :: NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packPong nId hostName udpPort' tcpPort' = PayLoad msg
+packPong :: NetworkConfig -> PayLoad
+packPong NetworkConfig{..} = PayLoad msg
   where
-    fromep = NodeEndPoint hostName udpPort' tcpPort'
-    msgBody = PONG nId fromep
+    fromep = NodeEndPoint _ip _udpPort _tcpPort
+    msgBody = PONG _nodeId fromep
     msg = Message MSG02 msgBody
 
 packFindMsg ::
-       NodeId -> NodeId -> HostName -> PortNumber -> PortNumber -> PayLoad
-packFindMsg nId targetNode hostName' udpPort'' tcpPort'' = PayLoad msg
+       NetworkConfig -> NodeId -> PayLoad
+packFindMsg NetworkConfig{..} targetNode = PayLoad msg
   where
-    fromep = NodeEndPoint hostName' udpPort'' tcpPort''
-    msgBody = FIND_NODE nId targetNode fromep
+    fromep = NodeEndPoint _ip _udpPort _tcpPort
+    msgBody = FIND_NODE _nodeId targetNode fromep
     msg = Message MSG03 msgBody
 
-packFnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
-packFnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
+packFnR :: NetworkConfig -> [Peer] -> PayLoad
+packFnR NetworkConfig{..} mPeerList = PayLoad msg
   where
-    fromep = NodeEndPoint hostNamea udpPorta tcpPorta
-    msgBody = FN_RESP nId mPeerList fromep
+    fromep = NodeEndPoint _ip _udpPort _tcpPort
+    msgBody = FN_RESP _nodeId mPeerList fromep
     msg = Message MSG04 msgBody
 
 packVerifyMsg ::
-       NodeId
+       NetworkConfig
+    -> NetworkConfig
     -> NodeId
-    -> NodeId
-    -> HostName
-    -> PortNumber
-    -> PortNumber
-    -> HostName
-    -> PortNumber
-    -> PortNumber
     -> PayLoad
-packVerifyMsg nId targetNode refNode hostName' udpPort'' tcpPort'' thostName tudpPort ttcpPort =
+packVerifyMsg nc tnc refNode =
     PayLoad msg
   where
-    fromep = NodeEndPoint hostName' udpPort'' tcpPort''
-    targetep = NodeEndPoint thostName tudpPort ttcpPort
-    msgBody = VERIFY_NODE nId targetNode refNode targetep fromep
+    fromep = NodeEndPoint (_ip nc) (_udpPort nc) (_tcpPort nc)
+    targetep = NodeEndPoint (_ip tnc) (_udpPort tnc) (_tcpPort tnc)
+    msgBody = VERIFY_NODE (_nodeId nc) (_nodeId tnc) refNode targetep fromep
     msg = Message MSG05 msgBody
 
-packVnR :: NodeId -> [Peer] -> HostName -> PortNumber -> PortNumber -> PayLoad
-packVnR nId mPeerList hostNamea udpPorta tcpPorta = PayLoad msg
+packVnR :: NetworkConfig -> [Peer] -> PayLoad
+packVnR NetworkConfig{..} mPeerList = PayLoad msg
   where
-    fromep = NodeEndPoint hostNamea udpPorta tcpPorta
-    msgBody = VN_RESP nId mPeerList fromep
+    fromep = NodeEndPoint _ip _udpPort _tcpPort
+    msgBody = VN_RESP _nodeId mPeerList fromep
     msg = Message MSG06 msgBody
 
 -- Serialise instance of different custom types so that they can be encoded
@@ -235,26 +230,7 @@ decodePublicKey = do
             throwCryptoError . publicKey <$> (decode :: Decoder s ByteString)
         _ -> fail "invalid PublicKey encoding"
 
--- Serilaise instance for Signature
-instance Serialise Signature where
-    encode = encodeSignature
-    decode = decodeSignature
-
-encodeSignature :: Signature -> Encoding
-encodeSignature bytes = do
-    let temp = convert bytes :: ByteString
-    encodeListLen 2 <> encodeWord 0 <> encode temp
-
-decodeSignature :: Decoder s Signature
-decodeSignature = do
-    len <- decodeListLen
-    tag <- decodeWord
-    case (len, tag) of
-        (2, 0) ->
-            throwCryptoError . Crypto.PubKey.Ed25519.signature <$>
-            (decode :: Decoder s ByteString)
-        _ -> fail "invalid Signature encoding"
-
+{-
 -- Serialise Instance for SockAddr type defined in Network.Socket
 instance Serialise SockAddr where
     encode = encodeSockAddr
@@ -273,7 +249,7 @@ decodeSockAddr = do
     case (len, tag) of
         (3, 0) -> SockAddrInet <$> decode <*> decode
         _      -> fail "invalid SockAddr encoding"
-
+-}
 -- Serialise instance for PortNumber again defined in Network module
 instance Serialise PortNumber where
     encode = encodePortNumber

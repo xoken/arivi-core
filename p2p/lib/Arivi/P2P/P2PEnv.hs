@@ -4,6 +4,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -11,7 +15,7 @@ module Arivi.P2P.P2PEnv
     , T.HasKbucket(..)
     ) where
 import           Arivi.Env
-import           Arivi.P2P.Types (NetworkConfig)
+import           Arivi.P2P.Types (NetworkConfig(..))
 import           Arivi.P2P.Kademlia.Types              (createKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -20,12 +24,11 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, newTVarIO)
+import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
-import           Network.Socket                        (PortNumber)
 
 data P2PEnv = P2PEnv
-    { selfNId :: T.NodeId
-    , tvarAriviP2PInstance :: TVar NetworkConfig
+    { _networkConfig :: NetworkConfig
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket :: T.Kbucket Int [T.Peer]
@@ -44,8 +47,7 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
       HasP2PEnv m
     where
     getP2PEnv :: m P2PEnv
-    getSelfNodeId :: m T.NodeId
-    getAriviTVarP2PEnv :: m (TVar NetworkConfig)
+    getAriviTVarP2PEnv :: m NetworkConfig
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getArchivedResourceToPeerMapP2PEnv :: m (TVar ArchivedResourceToPeerMap)
     getMessageTypeMapP2PEnv :: m (MessageTypeMap m)
@@ -56,21 +58,18 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
 
 makeP2PEnvironment ::
-       String
-    -> T.NodeId
-    -> PortNumber
-    -> PortNumber
+       NetworkConfig
     -> Int
     -> Int
     -> Int
     -> IO P2PEnv
-makeP2PEnvironment nIp nId tPort uPort sbound pingThreshold kademliaConcurrencyFactor = do
+makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor = do
     nmap <- newTVarIO HM.empty
     r2pmap <- newTVarIO HM.empty
     dr2pmap <- newTVarIO HM.empty
     kb <-
         createKbucket
-            (T.Peer (nId, T.NodeEndPoint nIp tPort uPort))
+            (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
             sbound
             pingThreshold
             kademliaConcurrencyFactor
@@ -81,7 +80,7 @@ makeP2PEnvironment nIp nId tPort uPort sbound pingThreshold kademliaConcurrencyF
     messageMap <- newTVarIO HM.empty
     return
         P2PEnv
-            { selfNId = nId
+            { _networkConfig = nc
             , tvarNodeIdPeerMap = nmap
             , tvarArchivedResourceToPeerMap = r2pmap
             , tvarMessageTypeMap = mtypemap
@@ -92,3 +91,5 @@ makeP2PEnvironment nIp nId tPort uPort sbound pingThreshold kademliaConcurrencyF
             , tvarDynamicResourceToPeerMap = dr2pmap
             , kbucket = kb
             }
+
+makeLensesWith classUnderscoreNoPrefixFields ''P2PEnv
