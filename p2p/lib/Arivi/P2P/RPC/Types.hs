@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 module Arivi.P2P.RPC.Types
     ( ServiceId
@@ -15,6 +15,8 @@ module Arivi.P2P.RPC.Types
     , ResponseCode(..)
     , TransientResourceToPeerMap
     , ResourceType(..)
+    , Options(..)
+    , Supported(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
@@ -38,13 +40,13 @@ type ArchivedResourceToPeerMap
 
 type ResourceHandler = (ServiceMessage -> ServiceMessage)
 
-data MessageTypeRPC
-    = Options { to   :: NodeId
-              , from :: NodeId }
-    | Support { to                 :: NodeId
-              , from               :: NodeId
-              , supportedResources :: [ResourceId] }
-    | RequestResource { to             :: NodeId
+data MessageTypeRPC = 
+    -- Options { to   :: NodeId
+    --           , from :: NodeId }
+    -- | Support { to                 :: NodeId
+    --           , from               :: NodeId
+    --           , supportedResources :: [ResourceId] }
+    RequestResource { to             :: NodeId
                       , from           :: NodeId
                       , rid            :: ResourceId
                       , serviceMessage :: ServiceMessage }
@@ -67,6 +69,12 @@ data ResponseCode
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise ResponseCode
+
+data Options = Options deriving (Eq, Ord, Show, Generic, Serialise)
+
+data Supported r = Supported r deriving(Eq, Ord, Generic, Serialise)
+
+
 
 -- any other responses can be added here
 --instance Hashable MessageTypeRPC

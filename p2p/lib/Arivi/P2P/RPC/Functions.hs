@@ -40,6 +40,11 @@ import           Data.ByteString.Lazy                  as Lazy (fromStrict)
 import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
+import           Control.Applicative
+
+
+class Resource i where
+    resourceId :: i -> String
 
 -- import           Debug.Trace
 -- import           System.Random                         (randomRIO)
@@ -147,12 +152,11 @@ extractListOfLengths (x:xs) = do
     lenNextTQ <- extractListOfLengths xs
     return $ len : lenNextTQ
 
-getResource ::
-       (HasP2PEnv m, HasLogging m)
-    => ResourceId
-    -> ServiceMessage
-    -> m ServiceMessage
-getResource resourceID servicemessage = do
+getResource :: forall r . 
+       (HasP2PEnv m, HasLogging m, Resource r, Serialise msg, Serialise r)
+    => RpcPayload r msg
+    -> m (RpcPayload r msg)
+getResource (RpcPayload msg resource) = do
     mynodeid <- getSelfNodeId
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
@@ -162,10 +166,10 @@ getResource resourceID servicemessage = do
         liftIO $ readTVarIO transientResourceToPeerMapTVar
     --resourceToPeerMap <- readTVarIO resourceToPeerMapTvar
     let entryInArchivedResourceMap =
-            HM.lookup resourceID archivedResourceToPeerMap
+            HM.lookup (resourceId resource) archivedResourceToPeerMap
     let entryInTransientResourceMap =
-            HM.lookup resourceID transientResourceToPeerMap
-    let entry = firstJust entryInArchivedResourceMap entryInTransientResourceMap
+            HM.lookup (resourceId resource) transientResourceToPeerMap
+    let entry = entryInArchivedResourceMap <|> entryInTransientResourceMap
     case entry of
         Nothing -> throw RPCResourceNotFoundException
         Just entryMap -> do
@@ -176,9 +180,9 @@ getResource resourceID servicemessage = do
                 then throw RPCEmptyNodeListException
                 else sendResourceRequestToPeer
                          nodeListTVar
-                         resourceID
+                         resource
                          mynodeid
-                         servicemessage
+                         msg
 
 sendResourceRequestToPeer ::
        (HasP2PEnv m, HasLogging m)
