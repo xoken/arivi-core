@@ -18,7 +18,6 @@ module Arivi.P2P.Types (module Arivi.P2P.Types, NetworkConfig(..)) where
 
 import           Arivi.Network.Types (NetworkConfig(..))
 import           Codec.Serialise
-import           Data.Time
 import           GHC.Generics        (Generic)
 import           Data.HashMap.Strict (HashMap)
 import           Data.Hashable
@@ -38,10 +37,12 @@ data MessageType = Kademlia
 data Request (i :: MessageType) msg where
   RpcRequest :: (Serialise msg) => msg -> Request 'Rpc msg
   OptionRequest :: (Serialise msg) => msg -> Request 'Option msg
+  KademliaRequest :: (Serialise msg) => msg -> Request 'Kademlia msg
 
 data Response (i :: MessageType) msg where
   RpcResponse :: (Serialise msg) => msg -> Response 'Rpc msg
   OptionResponse :: (Serialise msg) => msg -> Response 'Option msg
+  KademliaResponse :: (Serialise msg) => msg -> Response 'Kademlia msg
 
 
 class Msg (i :: k) where
@@ -63,31 +64,8 @@ instance Msg 'Option where
 instance Msg 'Kademlia where
   msgType _ = Kademlia
 
--- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
-issueRequest' :: forall t i m o.(Monad m, Serialise o)
-    => Request t i
-    -> m (Response t o)
-issueRequest' req = do
-  case req of
-    RpcRequest msg -> do
-      let resp = deserialise (serialise msg)
-      return (RpcResponse resp)
-    OptionRequest r -> do
-      let resp = deserialise (serialise r)
-      return (OptionResponse resp)
+data RpcPayload r msg = RpcPayload r msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
 
-data Resource = Block deriving (Eq, Ord, Show, Generic, Serialise)
-
-main' = do
-  RpcResponse (RpcPayload r s :: RpcPayload String Resource ) <- issueRequest' (RpcRequest (RpcPayload "abc" Block))
-  print r
-  print s
-  
-
-data RpcPayload r msg = RpcPayload r msg deriving (Eq, Ord, Show, Generic, Serialise)
-
-
-data OptionPayload msg = OptionPayload msg deriving (Eq, Ord, Show, Generic, Serialise)
-
--- main :: Response Kademlia Int
--- main = deserialise (serialise (Request 1 :: Request Rpc Int))
+data OptionPayload msg = OptionPayload msg
+                       deriving (Eq, Ord, Show, Generic, Serialise)

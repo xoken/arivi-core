@@ -47,9 +47,8 @@ getHandlerByMessageType peerDetails Rpc =  peerDetails ^. streamHandle
 getHandlerByMessageType peerDetails _   =  peerDetails ^. datagramHandle
 
 getTransportType :: MessageType -> TransportType
-getTransportType msgType
-    | msgType == Rpc = TCP
-    | otherwise = UDP
+getTransportType Rpc = TCP
+getTransportType _   = UDP
 
 -- | Wrapper around openConnection
 openConnectionToPeer :: (HasP2PEnv m, HasLogging m) => NetworkConfig ->TransportType ->m (Either AriviNetworkException ConnectionHandle)
