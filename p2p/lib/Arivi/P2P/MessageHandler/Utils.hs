@@ -13,6 +13,7 @@ import           Arivi.Network                         (AriviNetworkException (.
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
+import           Arivi.P2P.Exception
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Arivi.Network.Types                   hiding (NodeId)
@@ -23,7 +24,6 @@ import           Data.String.Conv
 import qualified Data.UUID                             as UUID (toString)
 import           Data.UUID.V4                          (nextRandom)
 import           Control.Lens
-
 
 logWithNodeId :: (HasLogging m) => NodeId -> String -> m ()
 logWithNodeId peerNodeId logLine = $(logDebug) $ toS $ logLine ++ show peerNodeId
@@ -42,17 +42,28 @@ insertToUUIDMap uuid mvar peerDetails = peerDetails & uuidMap.at uuid ?~ mvar
 deleteFromUUIDMap :: P2PUUID -> PeerDetails -> PeerDetails
 deleteFromUUIDMap uuid peerDetails = peerDetails & uuidMap %~ (HM.delete uuid)
 
-getHandlerByMessageType :: PeerDetails -> MessageType -> Handle
-getHandlerByMessageType peerDetails Rpc =  peerDetails ^. streamHandle
-getHandlerByMessageType peerDetails _   =  peerDetails ^. datagramHandle
+getHandlerByMessageType :: PeerDetails -> TransportType -> Handle
+getHandlerByMessageType peerDetails TCP =  peerDetails ^. streamHandle
+getHandlerByMessageType peerDetails UDP   =  peerDetails ^. datagramHandle
 
 getTransportType :: MessageType -> TransportType
 getTransportType Rpc = TCP
 getTransportType _   = UDP
 
+
+networkToP2PException :: Either AriviNetworkException a -> Either AriviP2PException a
+networkToP2PException (Left e) = Left (NetworkException e)
+networkToP2PException (Right a) = Right a
+
+
 -- | Wrapper around openConnection
 openConnectionToPeer :: (HasP2PEnv m, HasLogging m) => NetworkConfig ->TransportType ->m (Either AriviNetworkException ConnectionHandle)
 openConnectionToPeer = openConnection
+
+safeDeserialise :: Either DeserialiseFailure a -> Either AriviP2PException a
+safeDeserialise (Left _) = Left DeserialiseFailureP2P
+safeDeserialise (Right a) = Right a
+
 
 checkConnection :: PeerDetails -> TransportType -> Handle
 checkConnection peerDetails TCP = peerDetails ^. streamHandle
@@ -112,3 +123,5 @@ updatePeer transportType connHandle peerDetailsTVar =
             if transportType == TCP then
                 peerDetails & streamHandle .~ connHandle
             else peerDetails & datagramHandle .~ connHandle
+
+
