@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE DeriveGeneric         #-}
@@ -35,10 +36,6 @@ module Arivi.Network.Types
     , ConnectionId
     , SequenceNum
     , FragmentNumber
-    , tcpPort
-    , udpPort
-    , ip
-    , nodeId
     -- FragmentCount,
     , HandshakeInitMasked(..)
     , HandshakeRespMasked(..)
@@ -48,6 +45,11 @@ module Arivi.Network.Types
     , deserialise
     , serialise
     , NetworkConfig(..)
+    , defaultNetworkConfig
+    , HasNodeId(..)
+    , HasIp(..)
+    , HasTcpPort(..)
+    , HasUdpPort(..)
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
@@ -295,5 +297,7 @@ data NetworkConfig = NetworkConfig
     , _tcpPort :: PortNumber
     } deriving (Eq, Ord, Show, Generic)
 
+defaultNetworkConfig :: NetworkConfig
+defaultNetworkConfig = NetworkConfig "0" "127.0.0.1" 6565 6565
 
 makeLensesWith classUnderscoreNoPrefixFields ''NetworkConfig

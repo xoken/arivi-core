@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Arivi.P2P.ServiceRegistry
     ( makeP2Pinstance
@@ -33,41 +34,28 @@ makeP2Pinstance ::
     -> Int
     -> IO P2PEnv
 makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk sbound pingThreshold kademliaConcurrencyFactor = do
-    ariviP2PInstanceTvar <-
-        atomically (newTVar (AriviP2PInstance nodeid mIp tcpport udpport))
-    -- newKBucket <- createKbucket nodeid mIP tcpport udpport
     newStatsdClient <- createStatsdClient statsdIP statsdPort statsdPrefix
     let netENV = mkAriviEnv (read $ show tcpport) (read $ show udpport) sk
+        nc     = NetworkConfig nodeid mIp tcpport udpport
     -- TODO:  need to make port consistent
     p2p' <-
         makeP2PEnvironment
-            mIp
-            nodeid
-            tcpport
-            udpport
+            nc
             sbound
             pingThreshold
             kademliaConcurrencyFactor
-    -- let newmap = HM.insert RPC rpcHandler $ tvarMessageTypeMap p2p'
     let p2pEnv =
             p2p'
                 { ariviNetworkEnv = netENV
-                , tvarAriviP2PInstance = ariviP2PInstanceTvar
-                        -- , kbucket = newKBucket
+                , _networkConfig = nc
                 , statsdClient = newStatsdClient
                 , tvarMessageTypeMap = insertHandlers
                 }
     return p2pEnv
 
---     liftIO $
---         forkIO $
---         runP2Papp
---             p2pEnv
--- --add funcs to run at start
---             ()
 insertHandlers :: (HasP2PEnv m, HasLogging m) => MessageTypeMap m
 insertHandlers =
     HM.insert
         Kademlia
-        kademliaMessageHandler
+        kademliaHandlerHelper
         (HM.insert Option optionsHandler (HM.insert RPC rpcHandler HM.empty))
