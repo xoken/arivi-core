@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE DuplicateRecordFields               #-}
 
 -- |
 -- Module      : Arivi.P2P.Kademlia.LoadDefaultPeers
@@ -36,6 +37,7 @@ import           Control.Exception                     (displayException)
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Lens
+import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.Logger
 import qualified Data.List                             as LL
@@ -77,19 +79,19 @@ deleteIfPeerExist (x:xs) = do
 issueFindNode :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => Peer -> m ()
 issueFindNode rpeer = do
     kb' <- getKb
-    NetworkConfig{..} <- (^.networkConfig) <$> ask
+    nc@NetworkConfig{..} <- (^.networkConfig) <$> ask
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
         rip = nodeIp rnep
         rnc = NetworkConfig rnid rip ruport ruport
-        fn_msg = packFindMsg _nodeId _nodeId _ip _udpPort _tcpPort
+        fn_msg = packFindMsg nc _nodeId
     $(logDebug) $
         T.pack ("Issuing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
     resp <-
-        Exception.try $ issueKademliaRequest rnc (KademliaRequest fn_msg)
+        runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg)
     case resp of
-        Left (e :: Exception.SomeException) ->
+        Left e ->
             $(logDebug) $ T.pack (displayException e)
         Right (KademliaResponse payload) -> do
             addToKBucket rpeer

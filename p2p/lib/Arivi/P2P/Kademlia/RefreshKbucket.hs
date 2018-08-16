@@ -35,10 +35,12 @@ import           Control.Exception
 import qualified Control.Exception.Lifted              as Exception (SomeException,
                                                                      try)
 import           Control.Lens
+import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.Logger                  (logDebug)
 import qualified Data.List                             as L
 import qualified Data.Text                             as T
+
 
 -- | Helper function to combine to lists
 combineList :: [[a]] -> [[a]] -> [[a]]
@@ -80,11 +82,11 @@ issuePing rpeer = do
         rnc = NetworkConfig rnid rip ruport ruport
     $(logDebug) $
         T.pack ("Issuing ping request to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- Exception.try $ issueKademliaRequest rnc (KademliaRequest ping_msg)
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest ping_msg)
     $(logDebug) $
         T.pack ("Response for ping from : " ++ show rip ++ ":" ++ show ruport)
     case resp of
-        Left (e :: Exception.SomeException) -> do
+        Left e -> do
             $(logDebug) (T.pack (displayException e))
             return False
         Right (KademliaResponse payload) -> do

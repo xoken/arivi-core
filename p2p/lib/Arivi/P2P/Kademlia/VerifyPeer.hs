@@ -47,6 +47,7 @@ import qualified Control.Exception.Lifted              as Exception (SomeExcepti
                                                                      try)
 import           Control.Lens
 import           Control.Monad                         (filterM)
+import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.Logger                  (logDebug)
 import           Control.Monad.STM                     (atomically)
@@ -198,11 +199,11 @@ issueVerifyNode peerV peerT peerR = do
                 (fst $ getPeer peerR)
     $(logDebug) $
         T.pack ("Issueing Verify_Node for : " ++ show tip ++ ":" ++ show tuport)
-    resp <- Exception.try $ issueKademliaRequest vnc (KademliaRequest vmsg)
+    resp <- runExceptT $ issueKademliaRequest vnc (KademliaRequest vmsg)
     $(logDebug) $
         T.pack ("Recieved Verify_Resp for : " ++ show tip ++ ":" ++ show tuport)
     case resp of
-        Left (e :: Exception.SomeException) -> throw e
+        Left e -> throw e
             -- TODO isue verifyNode once more just to be sure
         Right (KademliaResponse payload) -> do
             $(logDebug) $
