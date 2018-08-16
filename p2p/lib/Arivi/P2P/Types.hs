@@ -14,9 +14,14 @@
 --
 -- This module provides different data types that are used in the P2P layer
 --
-module Arivi.P2P.Types (module Arivi.P2P.Types, NetworkConfig(..)) where
+module Arivi.P2P.Types
+    ( module Arivi.P2P.Types
+    , NetworkConfig(..)
+    , nodeId
+    , defaultNetworkConfig
+    ) where
 
-import           Arivi.Network.Types (NetworkConfig(..))
+import           Arivi.Network.Types (NetworkConfig(..), nodeId, defaultNetworkConfig)
 import           Codec.Serialise
 import           GHC.Generics        (Generic)
 import           Data.HashMap.Strict (HashMap)
@@ -63,6 +68,13 @@ instance Msg 'Option where
 
 instance Msg 'Kademlia where
   msgType _ = Kademlia
+
+
+class (Serialise r) => Resource r where
+    resourceId :: r -> String
+
+instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
+  resourceId (RpcPayload r _) = resourceId r
 
 data RpcPayload r msg = RpcPayload r msg
                       deriving (Eq, Ord, Show, Generic, Serialise)

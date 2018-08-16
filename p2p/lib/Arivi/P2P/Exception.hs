@@ -3,7 +3,6 @@ module Arivi.P2P.Exception
     ) where
 
 import           Arivi.Network       (AriviNetworkException)
-import           Arivi.P2P.RPC.Types (MessageTypeRPC)
 import           Control.Exception
 
 data AriviP2PException
@@ -23,10 +22,10 @@ data AriviP2PException
     | RPCResourceNotFoundException
     | RPCHandlerResourceNotFoundException
     | RPCEmptyNodeListException
-    | RPCInvalidMessageType MessageTypeRPC
+    | RPCInvalidMessageType
     | SendOptionsFailedException
-    | OptionsInvalidMessageType MessageTypeRPC
-    | OptionsHandlerInvalidMessageType MessageTypeRPC
+    | OptionsInvalidMessageType
+    | OptionsHandlerInvalidMessageType
     | KademliaDeserialiseFailure
     | PubSubInvalidResponseException
     | PubSubNoWatcherOrNotifierException

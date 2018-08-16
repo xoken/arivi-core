@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RankNTypes    #-}
@@ -8,6 +9,7 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     ( MessageType(..)
     , P2PMessage(..)
     , PeerDetails(..)
+    , defaultPeerDetails
     , IP
     , Port
     , P2PUUID
@@ -108,6 +110,18 @@ data PeerDetails = PeerDetails
     , _datagramHandle :: Handle
     , _uuidMap        :: UUIDMap
     , _connectionLock :: TMVar Bool
+    }
+
+defaultPeerDetails :: STM PeerDetails
+defaultPeerDetails = do
+  lock <- newTMVar False
+  return $ PeerDetails {
+      _networkConfig = defaultNetworkConfig
+    , _rep = 0.0
+    , _streamHandle = NotConnected
+    , _datagramHandle = NotConnected
+    , _uuidMap = HM.empty
+    , _connectionLock = lock
     }
 
 makeLensesWith classUnderscoreNoPrefixFields ''PeerDetails
