@@ -98,12 +98,12 @@ def executeProgram(dstPath,remoteUserName,serverIp,executableName):
         # Connection(remoteUserName + "@" + serverIp).run("nohup " \
         #         + executablePath +  " > nohup.out 2> nohup.err < /dev/null &")
         # Connection(remoteUserName + "@" + serverIp).run("exec 1>&2; " + executablePath + " & disown ")
-        Connection(remoteUserName + "@" + serverIp).run("runMainFluentd")
-        # Connection(remoteUserName + "@" + serverIp).run("(nohup "\
-        #   + executablePath + " . " +  "> nohup.out 2> nohup.err < /dev/null &) && sleep 1",pty=False)
+        # Connection(remoteUserName + "@" + serverIp).run(executablePath)
+        Connection(remoteUserName + "@" + serverIp).run("(nohup "\
+          + executablePath + " . " +  "> nohup.out 2> nohup.err < /dev/null &) && sleep 1",pty=False)
         # Connection(remoteUserName + "@" + serverIp).run('nohup Main . > nohup.log 2>&1 &', pty=False)
-        # print("(nohup bash `"\
-        #   + executablePath + " . ` &  " +  "> nohup.out 2> nohup.err < /dev/null &) && sleep 1")
+        print("(nohup bash `"\
+          + executablePath + " . ` &  " +  "> nohup.out 2> nohup.err < /dev/null &) && sleep 1")
     except:
         print("Can not execute file")
 def deleteOldLogs(dstPath,remoteUserName,serverIp,executableName):
@@ -119,6 +119,14 @@ def dumpLogs(remoteUserName,serverIp):
     try:
         print("Dumping logs")
         Connection(remoteUserName + "@" + serverIp).run("dump-log-fluentdRun")
+        print("Logs dumped successfully")
+    except:
+        print("Can not dump logs")
+
+def dumpLogsOnLogServer(logServerUser,logServerIp):
+    try:
+        print("Preparing logs on log server")
+        Connection(logServerUser + "@" + logServerIp).run("dump-log")
         print("Logs dumped successfully")
     except:
         print("Can not dump logs")
@@ -155,4 +163,5 @@ def deployAll(configFileName,slpTime):
         dumpLogs(remoteUserName, serverIp)
         rowNo = rowNo + 1
         print("Done for " + serverIp + "\n")
+    dumpLogsOnLogServer(logServerUser,logServerIp)
 deployAll(configFileName, str(sys.argv[2]))
