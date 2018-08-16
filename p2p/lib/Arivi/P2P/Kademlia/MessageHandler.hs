@@ -34,13 +34,12 @@ import           Codec.Serialise                       (DeserialiseFailure,
                                                         serialise)
 import           Control.Concurrent.Async.Lifted       (async)
 import           Control.Exception
-import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                     try)
 import           Control.Lens
 import           Control.Monad.Reader
 import           Control.Monad.Logger
 import qualified Data.ByteString.Lazy                  as L
 import qualified Data.Text                             as T
+import           Control.Monad.Except
 
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
@@ -103,7 +102,7 @@ kademliaMessageHandler payl = do
                             (T.pack (show rnep))
                     let findNodeMsg = packFindMsg nc refnid
                     resp <-
-                        Exception.try $
+                        runExceptT $
                         issueKademliaRequest
                             (NetworkConfig
                                  tnid
@@ -112,7 +111,7 @@ kademliaMessageHandler payl = do
                                  (tcpPort tnep))
                             (KademliaRequest findNodeMsg)
                     case resp of
-                        Left (e :: Exception.SomeException) -> throw e
+                        Left e -> throw e
                         Right (KademliaResponse payload) -> do
                             case messageBody (message payload) of
                                 FN_RESP _ pl _ ->
