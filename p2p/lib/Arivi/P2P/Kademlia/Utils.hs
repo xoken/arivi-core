@@ -17,11 +17,14 @@ module Arivi.P2P.Kademlia.Utils
     , convToSockAddr
     , randomList
     , count'
+    , deleteByPeer
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
+import           Arivi.P2P.Kademlia.Types
 import qualified Data.ByteString.Char8             as C
 import           Data.Int
+import qualified Data.List                         as L
 import qualified Data.List.Split                   as S
 import           Data.Word
 import           Network.Socket
@@ -68,16 +71,16 @@ convToSockAddr = SockAddrInet
 
 -- covnerts a string of format IP:Port to (PublicKey,SockAddr)
 convertToSockAddr :: String -> (PublicKey, SockAddr)
-convertToSockAddr x = (nodeId, fSockAddr)
+convertToSockAddr x = (nodeId', fSockAddr)
   where
     addrString = S.splitOn ":" x
     remotePort = read $ addrString !! 2 :: M.PortNumber
     remoteIp = stringToHostAddress (addrString !! 1)
-    nodeId = hexToPublicKey (C.pack (head addrString))
+    nodeId' = hexToPublicKey (C.pack (head addrString))
     fSockAddr = SockAddrInet remotePort remoteIp
 
 getSockAddr :: HostAddress -> PortNumber -> SockAddr
-getSockAddr ip udpPort = SockAddrInet udpPort ip
+getSockAddr ip udpPort' = SockAddrInet udpPort' ip
 
 sockAddrToHostAddr :: SockAddr -> HostAddress
 sockAddrToHostAddr (SockAddrInet _ b) = b
@@ -112,3 +115,6 @@ getRandomSequence2 = randomIO
 
 count' :: Eq a => a -> [a] -> Int
 count' x = length . filter (x ==)
+
+deleteByPeer :: Peer -> [Peer] -> [Peer]
+deleteByPeer = L.deleteBy (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))

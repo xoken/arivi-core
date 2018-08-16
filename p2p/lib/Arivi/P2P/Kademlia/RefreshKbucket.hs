@@ -25,6 +25,7 @@ module Arivi.P2P.Kademlia.RefreshKbucket
     ) where
 
 import           Arivi.P2P.Kademlia.Types
+import           Arivi.P2P.Kademlia.Utils              (deleteByPeer)
 import           Arivi.P2P.MessageHandler.Handler
 import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
 import           Arivi.P2P.P2PEnv                      (HasP2PEnv,
@@ -46,7 +47,7 @@ import           Control.Monad.STM
 import qualified Data.List                             as L
 import qualified Data.Text                             as T
 
--- | Helper function to combine to lists
+-- | Helper function to combine two lists
 combineList :: [[a]] -> [[a]] -> [[a]]
 combineList [] [] = []
 combineList l1 l2 =
@@ -123,10 +124,7 @@ refreshKbucket peerR pl = do
     sb <- getKb
     let pl2 =
             if peerR `elem` pl
-                then L.deleteBy
-                         (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))
-                         peerR
-                         pl
+                then deleteByPeer peerR pl
                 else pl
     if L.length pl2 > pingThreshold sb
         then do

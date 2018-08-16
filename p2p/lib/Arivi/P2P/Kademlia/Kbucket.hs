@@ -77,12 +77,9 @@ getPeerList ::
     -> m (Either AriviP2PException [Peer])
 getPeerList peerR = do
     kbucket'' <- getKb
-    -- liftIO (atomically (H.size (getKbucket kbucket'')) >>= print)
     lp <- getDefaultNodeId
     case lp of
-        Right localPeer
-            -- liftIO $ print (peerR == localPeer)
-         -> do
+        Right localPeer -> do
             let peer = peerR
                 kbDistance = getKbIndex localPeer peer
             pl <-
