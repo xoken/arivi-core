@@ -92,12 +92,10 @@ type MessageInfo = (P2PUUID, P2PPayload)
 
 data Handle
     = NotConnected
-    | Pending
     | Connected ConnectionHandle
 
 instance Eq Handle where
     NotConnected == NotConnected = True
-    Pending == Pending = True
     Connected _ == Connected _ = True
     _ == _ = False
 
