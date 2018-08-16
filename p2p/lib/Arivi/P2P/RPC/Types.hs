@@ -1,17 +1,17 @@
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Arivi.P2P.RPC.Types
     ( ServiceId
     , ResourceHandlerList
     , ArchivedResourceToPeerMap
     , ResourceId
-    , MessageTypeRPC(..)
     , NodeId
     , P2PUUID
     , ServicePayload(..)
     , P2Pinfo(..)
     , ServiceMessage
-    , ResourceHandler
+    , ResourceHandler(..)
     , ResponseCode(..)
     , TransientResourceToPeerMap
     , ResourceType(..)
@@ -27,6 +27,8 @@ import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
 
+import           Arivi.P2P.Types (RpcPayload(..))
+
 type ResourceId = String
 
 type ServiceId = String
@@ -38,29 +40,24 @@ type ResourceHandlerList = [(ResourceId, ResourceHandler)]
 type ArchivedResourceToPeerMap
      = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
 
-type ResourceHandler = (ServiceMessage -> ServiceMessage)
-
-data MessageTypeRPC = 
-    -- Options { to   :: NodeId
-    --           , from :: NodeId }
-    -- | Support { to                 :: NodeId
-    --           , from               :: NodeId
-    --           , supportedResources :: [ResourceId] }
-    RequestResource { to             :: NodeId
-                      , from           :: NodeId
-                      , rid            :: ResourceId
+newtype ResourceHandler = ResourceHandler (forall r m . RpcPayload r m -> RpcPayload r m)
+{-
+data MessageTypeRPC
+    = RequestResource { to :: NodeId
+                      , from :: NodeId
+                      , rid :: ResourceId
                       , serviceMessage :: ServiceMessage }
-    | ReplyResource { to             :: NodeId
-                    , from           :: NodeId
-                    , rid            :: ResourceId
+    | ReplyResource { to :: NodeId
+                    , from :: NodeId
+                    , rid :: ResourceId
                     , serviceMessage :: ServiceMessage }
-    | Response { to           :: NodeId
-               , from         :: NodeId
+    | Response { to :: NodeId
+               , from :: NodeId
                , responseCode :: ResponseCode }
     deriving (Eq, Ord, Show, Generic)
 
 instance Serialise MessageTypeRPC
-
+-}
 -- Error here is a placeholder proper errors will be defined later
 data ResponseCode
     = Busy

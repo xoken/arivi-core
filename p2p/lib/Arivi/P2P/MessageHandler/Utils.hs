@@ -16,8 +16,8 @@ import           Arivi.P2P.Types
 import           Arivi.P2P.Exception
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-import           Arivi.Network.Types                   hiding (NodeId)
 import           Arivi.Utils.Logging
+import           Codec.Serialise                       (DeserialiseFailure)
 import           Control.Monad.Logger
 import           Data.HashMap.Strict                   as HM
 import           Data.String.Conv

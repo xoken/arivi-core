@@ -4,7 +4,7 @@
 
 module Arivi.P2P where
 
-
+{--- Test implementation
 import Arivi.P2P.Types
 
 import Data.Hashable
@@ -195,24 +195,6 @@ instance (Message a) => Message (Resp a) where
 instance Rpc a => Rpc (Req a) where
    resource (Req a) = resource a
 
-issueRequest' :: forall i. (Message i, Serialise i)
-    => Map NodeId PeerDetails
-    -> Handler (NodeId, Req i) (NodeId, Resp i) IO
-issueRequest' _ =
-    Handler $ \(nId, req) -> do
-        let mt = msgType req
-        let s = serialise req
-        undefined
-{-
-        case req of
-          Req (RpcRequest msg r) -> do
-            print (serialise msg)
-            print (serialise r)
-            return (nId, Resp (RpcResponse msg BlockResource))
-          Req SRequest -> do
-            return (nId, Resp (SResponse BlockResource))
--}
-
 invoke' ::
        forall o i.
        (Serialise i, Eq i, Hashable i, Show i, Rpc i)
@@ -233,3 +215,4 @@ mainIncoming' = do
   a <- invoke rpcMessage handlerMap :: IO (RpcResponse ByteString Resource)
   print "In main"
   print a
+-}

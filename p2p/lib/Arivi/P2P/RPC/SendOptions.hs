@@ -10,63 +10,45 @@ module Arivi.P2P.RPC.SendOptions
 --                                                         extractSecond,
 --                                                         extractThird)
 import           Arivi.P2P.Exception
-import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType(..),
-                                                        P2PPayload)
-
 import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
-import           Arivi.P2P.Types                       
+import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-import           Codec.Serialise                       (deserialiseOrFail,
-                                                        serialise)
-
--- import           Control.Concurrent                    (forkIO, threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 
--- import           Control.Concurrent.Lifted             (fork)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
-import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                     try)
-import           Control.Monad                         (when)
 import           Control.Monad.IO.Class                (liftIO)
+import           Control.Monad.Except
 import           Control.Monad.STM
-import           Data.ByteString.Char8                 as Char8 (pack)
-                                                                --  pack, unpack)
-                                                                -- toStrict)
-
--- import           Data.ByteString.Char8                 as Char8 (ByteString,
--- import qualified Data.ByteString.Lazy                  as Lazy (fromStrict,
 import           Data.HashMap.Strict                   as HM
-import           Codec.Serialise
+
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
-sendOptionsMessage :: (HasP2PEnv m, HasLogging m) => NodeId -> [NodeId] -> m ()
-sendOptionsMessage _ [] = return ()
-sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
-    _ <- LAsync.async (sendOptionsToPeer sendingPeer recievingPeer)
-    sendOptionsMessage sendingPeer peerList
+sendOptionsMessage :: (HasP2PEnv m, HasLogging m) => [NodeId] -> m ()
+sendOptionsMessage [] = return ()
+sendOptionsMessage (peer:peers) = do
+    _ <- LAsync.async (sendOptionsToPeer peer)
+    sendOptionsMessage peers
 
 -- this function runs on each lightweight thread
 -- two major functions
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based oh the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: forall m . (HasP2PEnv m, HasLogging m) => NodeId -> NodeId -> m ()
-sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
-    let optionMessage = serialise Options
+sendOptionsToPeer :: forall m . (HasP2PEnv m, HasLogging m) => NodeId -> m ()
+sendOptionsToPeer recievingPeerNodeId = do
     res <-
-        Exception.try $ issueRequest recievingPeerNodeId (OptionRequest optionMessage) 
+        runExceptT $ issueRequest recievingPeerNodeId (OptionRequest Options)
     case res of
-        Left (_ :: Exception.SomeException) -> throw SendOptionsFailedException
-        Right (OptionResponse (OptionPayload (Supported resources))) ->
-                updateResourcePeers
-                    (recievingPeerNodeId, resources)
-            
+        Left _ -> throw SendOptionsFailedException
+        Right (OptionResponse (Supported resources)) ->
+            updateResourcePeers (recievingPeerNodeId, resources)
+
 -- this wrapper will update the hashMap based on the supported message returned by the peer
 updateResourcePeers ::
-       (HasP2PEnv m, HasLogging m) => (NodeId, [ResourceId]) -> m ()
+       (HasP2PEnv m) => (NodeId, [ResourceId]) -> m ()
 updateResourcePeers peerResourceTuple = do
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
@@ -110,13 +92,8 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
             return $ 1 + tmp
 
 -- | takes an options message and returns a supported message
-optionsHandler :: (HasP2PEnv m) => OptionPayload Options -> m P2PPayload
-optionsHandler optionsMessage = do
-    myId <- getSelfNodeId
-    archivedResourceToPeerMapTvar <-
-        getArchivedResourceToPeerMapP2PEnv
-    archivedResourceToPeerMap <-
-        liftIO $ readTVarIO archivedResourceToPeerMapTvar
-    let resourceList = keys archivedResourceToPeerMap
-    let supportedMessage = Supported resourceList     
-    return $ serialise supportedMessage 
+optionsHandler ::
+       (HasP2PEnv m) => m (Supported [ResourceId])
+optionsHandler = do
+    archivedResourceMap <- getArchivedResourceToPeerMapP2PEnv >>=  (liftIO . readTVarIO)
+    return (Supported (keys archivedResourceMap))
