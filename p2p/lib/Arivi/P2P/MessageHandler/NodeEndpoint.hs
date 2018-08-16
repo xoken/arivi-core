@@ -37,6 +37,15 @@ import           Data.Maybe                            (fromJust)
 import           Control.Lens
 import           Data.Proxy
 import           Control.Monad.Except
+import           Data.String.Conv
+
+handler :: forall o m t. (HasP2PEnv m, HasLogging m) 
+    => AriviP2PException
+    -> ExceptT AriviP2PException m (Response t o)
+handler e =
+    case e of
+        PeerNotFound -> $(logDebug) "peer not added to map" >> throwError PeerNotFound
+        x -> $(logDebug) ((toS . displayException) x) >> throwError x
 
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
 issueRequest ::
@@ -45,7 +54,7 @@ issueRequest ::
     => NodeId
     -> Request t i
     -> ExceptT AriviP2PException m (Response t o)
-issueRequest peerNodeId req = do
+issueRequest peerNodeId req = flip catchError handler $ do 
     nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
     nodeIdPeerMap <- (lift . liftIO) $ readTVarIO nodeIdMapTVar
     connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
@@ -100,7 +109,7 @@ receiveResponse :: (HasLogging m)
 receiveResponse peerDetailsTVar uuid = do
     peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
     case peerDetails ^. uuidMap.at uuid of
-        Nothing -> $(logDebug) "uuid not added to peer's uuidMap" >> throw InvalidUuid
+        Nothing -> $(logDebug) "uuid not added to peer's uuidMap" >> return  (Left InvalidUuid)
         Just mvar -> do
             winner <- liftIO $ Async.race (threadDelay 30000000) (takeMVar mvar :: IO P2PMessage)
             liftIO $ atomically $ modifyTVar' peerDetailsTVar (deleteFromUUIDMap uuid)
