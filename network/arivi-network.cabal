@@ -49,6 +49,7 @@ library
                     ,  stm >= 2.4.4.1
                     ,  template-haskell
                     ,  text
+                    ,  time-units >= 1.0.0
                     ,  timers-updatable <= 0.2.0.2
                     ,  unordered-containers <= 0.2.9.0
                     ,  arivi-crypto

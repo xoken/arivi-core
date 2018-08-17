@@ -15,6 +15,7 @@ import Arivi.Network
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.ServiceRegistry
 import Arivi.Utils.Logging
+import Arivi.Utils.Statsd
 import Service.HelloWorld
 
 import Control.Concurrent (threadDelay)
@@ -133,5 +134,5 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler :: (HasLogging m, HasSecretKey m,HasStatsdClient m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h >>= send h

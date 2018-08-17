@@ -44,6 +44,7 @@ module Arivi.Network.Types
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
 import           Arivi.Utils.Logging                (HasLogging)
+import           Arivi.Utils.Statsd
 import           Codec.Serialise
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
@@ -271,10 +272,10 @@ decodeSignature = do
         _ -> fail "invalid Signature encoding"
 
 data ConnectionHandle = ConnectionHandle
-    { send :: forall m. (HasLogging m) =>
+    { send :: forall m. (HasLogging m,HasStatsdClient m) =>
                             BSL.ByteString -> m ()
-    , recv :: forall m. (HasLogging m) =>
+    , recv :: forall m. (HasLogging m,HasStatsdClient m) =>
                             m BSL.ByteString
-    , close :: forall m. (HasLogging m) =>
+    , close :: forall m. (HasLogging m,HasStatsdClient m) =>
                              m ()
     }
