@@ -39,7 +39,7 @@ type Map = HashMap
 data MessageType = Kademlia
                  | Option
                  | Rpc
-                 | PubSub
+                 | Pubsub
                  deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
 
 
@@ -47,12 +47,13 @@ data Request :: MessageType -> * -> * where
   RpcRequest :: (Serialise msg) => msg -> Request 'Rpc msg
   OptionRequest :: (Serialise msg) => msg -> Request 'Option msg
   KademliaRequest :: (Serialise msg) => msg -> Request 'Kademlia msg
+  PubsubRequest :: (Serialise msg) => msg -> Request 'Pubsub msg
 
 data Response (i :: MessageType) msg where
   RpcResponse :: (Serialise msg) => msg -> Response 'Rpc msg
   OptionResponse :: (Serialise msg) => msg -> Response 'Option msg
   KademliaResponse :: (Serialise msg) => msg -> Response 'Kademlia msg
-
+  PubsubResponse :: (Serialise msg) => msg -> Response 'Pubsub msg
 
 class Msg (i :: k) where
   msgType :: Proxy i -> MessageType
@@ -71,6 +72,9 @@ instance Msg 'Option where
 
 instance Msg 'Kademlia where
   msgType _ = Kademlia
+
+instance Msg 'Pubsub where
+  msgType _ = Pubsub
 
 
 class (Serialise r) => Resource r where
@@ -193,3 +197,6 @@ main = do
   case g of
     RpcRequest m -> print m
 -}
+data PubSubPayload t msg = PubSubPayload t msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
+
