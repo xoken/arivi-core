@@ -6,7 +6,7 @@ module Arivi.P2P.PRT.Instance
 
 import qualified Arivi.Network.Types         as Network (NodeId)
 import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.PRT.Exception     (PRTExecption (..))
+import           Arivi.P2P.PRT.Exceptions    (PRTExecption (..))
 import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
                                               PeerReputationHistory (..),
                                               Reputation)
