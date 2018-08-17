@@ -93,6 +93,7 @@ library
                        Arivi.P2P.Kademlia.MessageHandler
                        Arivi.P2P.Kademlia.LoadDefaultPeers
                        Arivi.P2P.Kademlia.RefreshKbucket
+                       Arivi.P2P.PRT.Exceptions
                        Arivi.P2P.PRT.Instance
                        Arivi.P2P.PRT.Types
                        Arivi.P2P.PubSub.Functions
