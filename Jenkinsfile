@@ -17,9 +17,9 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                 gitlabBuilds(builds: ["Build", "Lint Checking"]) {
+                 gitlabBuilds(builds: ["1.Build", "2.Lint Checking"]) {
                     echo 'Building..'
-                    running('Build');
+                    running('1.Build');
                     sh 'stack clean'
                     sh 'stack build'
 
@@ -27,38 +27,38 @@ pipeline {
             }
             post {
                 success {
-                    success('Build');
-                    running('Lint Checking');
+                    success('1.Build');
+                    running('2.Lint Checking');
                 }
                 failure {
-                    failure('Build');
-                    failure('Lint Checking');
+                    failure('1.Build');
+                    failure('2.Lint Checking');
                 }
             }
         }
 
         stage('Lint Checking') {
             steps {
-                gitlabBuilds(builds: ["Lint Checking","Testing"]) {
+                gitlabBuilds(builds: ["2.Lint Checking","3.Testing"]) {
                     echo 'Checking lint..'
-                    running('Lint Checking');
+                    running('2.Lint Checking');
                     sh 'hlint --extension=hs .'
                 }
             }
             post {
                 success {
-                    success('Lint Checking');
-                    running('Testing');
+                    success('2.Lint Checking');
+                    running('3.Testing');
                 }
                 failure {
-                    failure('Lint Checking');
-                    failure('Testing');
+                    failure('2.Lint Checking');
+                    failure('3.Testing');
                 }
             }
         }
         stage('Test') {
             steps {
-                 gitlabBuilds(builds: ["Testing","Deploy"]) {
+                 gitlabBuilds(builds: ["3.Testing","4.Deploy"]) {
                     echo 'Testing..'
 
                 }
@@ -66,11 +66,11 @@ pipeline {
 
             post {
                 success {
-                    success('Testing');
+                    success('3.Testing');
                 }
                 failure {
-                    failure('Testing');
-                    failure('Deploy');
+                    failure('3.Testing');
+                    failure('4.Deploy');
                 }
             }
 
@@ -91,10 +91,10 @@ pipeline {
             }
             post {
                 success {
-                    success('Deploy');
+                    success('4.Deploy');
                 }
                 failure {
-                    failure('Deploy');
+                    failure('4.Deploy');
                 }
             }
         }
