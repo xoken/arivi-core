@@ -59,6 +59,8 @@ instance HasP2PEnv AppM where
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
     getSelfNodeId = selfNId <$> getP2PEnv
     getPeerReputationHistoryTableTVar = tvPeerReputationHashTable <$> getP2PEnv
+    getP2PReputationHashMapTVar = tvP2PReputationHashMap <$> getP2PEnv
+    getServicesReputationHashMapTVar = tvServicesReputationHashMap <$> getP2PEnv
 
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
