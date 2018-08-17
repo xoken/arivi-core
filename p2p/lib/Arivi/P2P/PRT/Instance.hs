@@ -1,7 +1,11 @@
 module Arivi.P2P.PRT.Instance
-    ( loadConfigFile
-        -- , updatePeerKarma
+    ( getReputationForServices
+    , getReputationForP2P
+    , loadConfigFile
     , loadPRTConfigToHashMap
+    , updatePeerReputationHistory
+    , updatePeerReputationForP2P
+    , updatePeerReputationForServices
     ) where
 
 import qualified Arivi.Network.Types         as Network (NodeId)
@@ -10,7 +14,6 @@ import           Arivi.P2P.PRT.Exceptions    (PRTExecption (..))
 import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
                                               PeerReputationHistory (..),
                                               Reputation)
-import           Control.Concurrent.STM      (TVar, newTVarIO)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
 import           Control.Monad.IO.Class      (liftIO)
@@ -84,13 +87,13 @@ updatePeerReputationForServices ::
 updatePeerReputationForServices peerNodeId peerDeed = do
     maybeReputation <- getReputationForServices peerDeed
     case maybeReputation of
-        Just reputation -> updatePeerReputationHistory peerNodeId reputation
-        Nothing         -> throw PeerDeedNotFound
+        Just mReputation -> updatePeerReputationHistory peerNodeId mReputation
+        Nothing -> throw PeerDeedNotFound
 
 updatePeerReputationForP2P ::
        (HasP2PEnv m) => Network.NodeId -> PeerDeed -> m ()
 updatePeerReputationForP2P peerNodeId peerDeed = do
     maybeReputation <- getReputationForP2P peerDeed
     case maybeReputation of
-        Just reputation -> updatePeerReputationHistory peerNodeId reputation
-        Nothing         -> throw PeerDeedNotFound
+        Just mReputation -> updatePeerReputationHistory peerNodeId mReputation
+        Nothing -> throw PeerDeedNotFound

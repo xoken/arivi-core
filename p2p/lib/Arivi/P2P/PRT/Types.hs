@@ -24,13 +24,11 @@ module Arivi.P2P.PRT.Types
     , P2PReputationHashMap
     ) where
 
-import qualified Arivi.Network.Types   as Network (NodeId)
+import qualified Arivi.Network.Types as Network (NodeId)
 import           Data.Aeson
-import           Data.ByteString.Char8 as Char8
 import           Data.Hashable
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Text             as T
-import           Data.Yaml
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text           as T
 import           GHC.Generics
 
 -- | `Reputation` is a unit to count Peer Reputations
@@ -65,8 +63,6 @@ instance Hashable PeerDeed
 
 type PeerReputationHistoryTable
      = HM.HashMap Network.NodeId PeerReputationHistory
-
-type PeerDeedHashMap = HM.HashMap PeerDeed Reputation
 
 -- | This is structure of config file that contains the details of different
 -- `PeerDeeds` and their respective `Reputation`
