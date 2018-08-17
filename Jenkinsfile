@@ -102,6 +102,7 @@ pipeline {
 
   post {
         success {
+          updateGitlabCommitStatus name: 'build', state: 'success'
           emailext (
               subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
               body: """
@@ -133,6 +134,7 @@ pipeline {
         }
 
         failure {
+          updateGitlabCommitStatus name: 'build', state: 'failed'
           emailext (
               subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
              body: """
