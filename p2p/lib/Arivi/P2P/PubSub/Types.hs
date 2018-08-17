@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 module Arivi.P2P.PubSub.Types
     ( Topic
@@ -13,6 +13,8 @@ module Arivi.P2P.PubSub.Types
     , NotifiersTable
     , TopicHandlerMap
     , MessageHashMap
+    , SubscribeResponse(..)
+    , Subscribe(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -42,17 +44,23 @@ data ResponseCode
 instance Serialise ResponseCode
 
 -- convert the pico passed to diff time in functions, diff time is not serialisable
-data MessageTypePubSub
-    = Subscribe { topicId      :: Topic
-                , messageTimer :: Integer }
-    | Notify { topicId      :: Topic
+data MessageTypePubSub = 
+    -- = Subscribe { topicId      :: Topic
+    --             , messageTimer :: Integer }
+      Notify { topicId      :: Topic
              , topicMessage :: TopicMessage }
     | Publish { topicId      :: Topic
               , topicMessage :: TopicMessage }
-    | Response { responseCode :: ResponseCode
-               , messageTimer :: Integer -- specify time duration as seconds
-                }
+    -- | Response { responseCode :: ResponseCode
+    --            , messageTimer :: Integer -- specify time duration as seconds
+                -- }
     deriving (Eq, Ord, Show, Generic)
+
+type Timer = Integer
+
+data Subscribe t = Subscribe t Timer deriving(Eq, Ord, Generic, Serialise)
+data SubscribeResponse t = SubscribeResponse t ResponseCode Timer deriving(Eq, Ord, Generic, Serialise)
+
 
 instance Serialise MessageTypePubSub
 

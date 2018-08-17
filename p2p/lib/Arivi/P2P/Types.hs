@@ -39,7 +39,7 @@ type Map = HashMap
 data MessageType = Kademlia
                  | Option
                  | Rpc
-                 | Pubsub
+                 | PubSub
                  deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
 
 
@@ -47,13 +47,19 @@ data Request :: MessageType -> * -> * where
   RpcRequest :: (Serialise msg) => msg -> Request 'Rpc msg
   OptionRequest :: (Serialise msg) => msg -> Request 'Option msg
   KademliaRequest :: (Serialise msg) => msg -> Request 'Kademlia msg
-  PubsubRequest :: (Serialise msg) => msg -> Request 'Pubsub msg
+  PubSubRequest :: (Serialise msg) => msg -> Request 'PubSub msg
 
 data Response (i :: MessageType) msg where
   RpcResponse :: (Serialise msg) => msg -> Response 'Rpc msg
   OptionResponse :: (Serialise msg) => msg -> Response 'Option msg
   KademliaResponse :: (Serialise msg) => msg -> Response 'Kademlia msg
-  PubsubResponse :: (Serialise msg) => msg -> Response 'Pubsub msg
+  PubSubResponse :: (Serialise msg) => msg -> Response 'PubSub msg
+
+-- data PubSubMessage (i :: PubSubType) t msg where
+--   PubsubPublish :: (Serialise msg, Topic t) => msg -> t ->  PubSubMessage 'Publish t msg
+--   PubsubNotify :: (Serialise msg, Topic t) => msg -> t ->  PubSubMessage 'Notify t msg
+
+-- data PubSubType = Notify | Publish deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
 
 class Msg (i :: k) where
   msgType :: Proxy i -> MessageType
@@ -73,8 +79,8 @@ instance Msg 'Option where
 instance Msg 'Kademlia where
   msgType _ = Kademlia
 
-instance Msg 'Pubsub where
-  msgType _ = Pubsub
+instance Msg 'PubSub where
+  msgType _ = PubSub
 
 
 class (Serialise r) => Resource r where
@@ -82,6 +88,13 @@ class (Serialise r) => Resource r where
 
 instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
   resourceId (RpcPayload r _) = resourceId r
+
+class (Serialise t) => Topic t where
+  topicId :: t -> String
+
+instance (Topic t, Serialise msg) => Topic (PubSubPayload t msg) where
+  topicId (PubSubPayload t _) = topicId t
+
 
 data RpcPayload r msg = RpcPayload r msg
                       deriving (Eq, Ord, Show, Generic, Serialise)
@@ -200,3 +213,8 @@ main = do
 data PubSubPayload t msg = PubSubPayload t msg
                       deriving (Eq, Ord, Show, Generic, Serialise)
 
+data PubSubPublish t msg = PubSubPublish t msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
+
+data PubSubNotify t msg = PubSubNotify t msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
