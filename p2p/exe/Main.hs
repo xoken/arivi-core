@@ -58,6 +58,7 @@ instance HasP2PEnv AppM where
         tvarArchivedResourceToPeerMap <$> getP2PEnv
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
     getSelfNodeId = selfNId <$> getP2PEnv
+    getPeerReputationHistoryTableTVar = tvPeerReputationHashTable <$> getP2PEnv
 
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
@@ -75,7 +76,6 @@ writeConfigs path = do
     Config.makeConfig config1 (path <> "/config1.yaml")
     Config.makeConfig config2 (path <> "/config2.yaml")
 -}
-
 defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
