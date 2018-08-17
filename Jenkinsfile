@@ -1,24 +1,79 @@
+def running(gitlabBuildName) {
+	updateGitlabCommitStatus(name: "${gitlabBuildName}", state: 'running')
+}
+
+def success(gitlabBuildName) {
+	updateGitlabCommitStatus(name: "${gitlabBuildName}", state: 'success')
+}
+
+def failure(gitlabBuildName) {
+	updateGitlabCommitStatus(name: "${gitlabBuildName}", state: 'failed')
+}
 pipeline {
     agent any
-
+    options {
+        gitLabConnection('Gitlab');
+    }
     stages {
         stage('Build') {
             steps {
-                echo 'Building..'
-                sh 'stack clean'
-                sh 'stack build'
+                 gitlabBuilds(builds: ["Build", "Lint Checking"]) {
+                    echo 'Building..'
+                    running('Build');
+                    sh 'stack clean'
+                    sh 'stack build'
+
+                }
+            }
+            post {
+                success {
+                    success('Build');
+                    running('Lint Checking');
+                }
+                failure {
+                    failure('Build');
+                    failure('Lint Checking');
+                }
             }
         }
+
         stage('Lint Checking') {
             steps {
-                echo 'Checking lint..'
-                sh 'hlint --extension=hs .'
+                gitlabBuilds(builds: ["Lint Checking","Testing"]) {
+                    echo 'Checking lint..'
+                    running('Lint Checking');
+                    sh 'hlint --extension=hs .'
+                }
+            }
+            post {
+                success {
+                    success('Lint Checking');
+                    running('Testing');
+                }
+                failure {
+                    failure('Lint Checking');
+                    failure('Testing');
+                }
             }
         }
         stage('Test') {
             steps {
-                echo 'Testing..'
+                 gitlabBuilds(builds: ["Testing","Deploy"]) {
+                    echo 'Testing..'
+
+                }
             }
+
+            post {
+                success {
+                    success('Testing');
+                }
+                failure {
+                    failure('Testing');
+                    failure('Deploy');
+                }
+            }
+
         }
        stage('Deploy') {
             when {
@@ -27,18 +82,26 @@ pipeline {
               }
             }
             steps {
-                echo 'Deploying....'
-                sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
-                sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
-                sh 'cd scripts/Deployment-Tools; python fabfile.py Main 180;rm Main'
+                gitlabBuilds(builds: ["Testing","Deploy"]) {
+                    echo 'Deploying....'
+                    sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
+                    sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
+                    sh 'cd scripts/Deployment-Tools; python fabfile.py Main 180;rm Main'
+                }
+            }
+            post {
+                success {
+                    success('Deploy');
+                }
+                failure {
+                    failure('Deploy');
+                }
             }
         }
     }
 
   post {
         success {
-          updateGitlabCommitStatus name: 'build', state: 'success'
-
           emailext (
               subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
               body: """
@@ -70,8 +133,6 @@ pipeline {
         }
 
         failure {
-          updateGitlabCommitStatus name: 'build', state: 'failed'
-
           emailext (
               subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
              body: """
