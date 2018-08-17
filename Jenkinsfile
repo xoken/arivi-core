@@ -28,7 +28,7 @@ pipeline {
             post {
                 success {
                     success('1.Build');
-                    running('2.Lint Checking');
+
                 }
                 failure {
                     failure('1.Build');
@@ -48,7 +48,6 @@ pipeline {
             post {
                 success {
                     success('2.Lint Checking');
-                    running('3.Testing');
                 }
                 failure {
                     failure('2.Lint Checking');
@@ -58,7 +57,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                 gitlabBuilds(builds: ["3.Testing","4.Deploy"]) {
+                 gitlabBuilds(builds: ["3.Testing"]) {
                     echo 'Testing..'
 
                 }
@@ -70,7 +69,6 @@ pipeline {
                 }
                 failure {
                     failure('3.Testing');
-                    failure('4.Deploy');
                 }
             }
 
@@ -82,8 +80,9 @@ pipeline {
               }
             }
             steps {
-                gitlabBuilds(builds: ["Testing","Deploy"]) {
+                gitlabBuilds(builds: ["Deploy"]) {
                     echo 'Deploying....'
+                    running('4.Deploy');
                     sh 'mv `stack path --local-install-root`/bin/Main scripts/Deployment-Tools/Main'
                     sh 'chmod +x scripts/Deployment-Tools/cronejob.sh'
                     sh 'cd scripts/Deployment-Tools; python fabfile.py Main 180;rm Main'
