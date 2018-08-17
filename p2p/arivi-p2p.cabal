@@ -70,6 +70,7 @@ library
                     ,  sorted-list
                     ,  string-conv
                     ,  yaml
+                    ,  aeson >= 1.4.0.0
   ghc-options:         -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
