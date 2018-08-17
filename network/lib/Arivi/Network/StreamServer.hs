@@ -98,7 +98,7 @@ handleInboundConnection sock handler =
             , Arivi.Network.Types.close = closeConnection (Conn.socket conn)
             }
         finalTime <- liftIO getCPUTime
-        let diff = (fromIntegral ( (finalTime - initTime) `div` (1000000000)))
-        time "Connection establishment time " $ (diff ::Millisecond)
+        let diff = fromIntegral ( (finalTime - initTime) `div` 1000000000)
+        time "Connection establishment time"  (diff ::Millisecond)
         incrementCounter "Incoming Connection Established"
 

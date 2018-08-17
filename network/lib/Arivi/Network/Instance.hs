@@ -65,7 +65,7 @@ openConnection host portNum tt rnId = do
     initTime <- liftIO getCPUTime
     rethandle<-
         $(withLoggingTH)
-            (LogNetworkStatement ([qc|Opening Connection to host {host} |]))
+            (LogNetworkStatement [qc|Opening Connection to host {host} |])
             LevelDebug $ do
             let cId = makeConnectionId host portNum tt
             sock <- liftIO $ createSocket host (read (show portNum)) tt
@@ -76,8 +76,8 @@ openConnection host portNum tt rnId = do
                 TCP -> openTcpConnection conn
                 UDP -> openUdpConnection conn
     finalTime <- liftIO getCPUTime
-    let diff = (fromIntegral ( (finalTime - initTime) `div` (1000000000)))
-    time "Connection establishment time " $ (diff ::Millisecond)
+    let diff = fromIntegral ( (finalTime - initTime) `div` 1000000000)
+    time "Connection establishment time "  (diff ::Millisecond)
     incrementCounter "Connection Established"
     return rethandle
 
