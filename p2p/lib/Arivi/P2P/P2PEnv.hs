@@ -15,6 +15,7 @@ import           Arivi.Env
 import           Arivi.P2P.Kademlia.Types              (createKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.PRT.Types
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
@@ -40,6 +41,9 @@ data P2PEnv = P2PEnv
     , ariviNetworkEnv :: AriviEnv
     , kademliaConcurrencyFactor :: Int
     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
+    , tvPeerReputationHashTable :: TVar PeerReputationHistoryTable
+    , tvServicesReputationHashMap :: TVar ServicesReputationHashMap
+    , tvP2PReputationHashMap :: TVar P2PReputationHashMap
     }
 
 class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
@@ -57,6 +61,9 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getMessageHashMapP2PEnv :: m (TVar MessageHashMap)
     getKademliaConcurrencyFactor :: m Int
     getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
+    getPeerReputationHistoryTableTVar :: m (TVar PeerReputationHistoryTable)
+    getServicesReputationHashMapTVar :: m (TVar ServicesReputationHashMap)
+    getP2PReputationHashMapTVar :: m (TVar P2PReputationHashMap)
 
 makeP2PEnvironment ::
        String -> T.NodeId -> PortNumber -> PortNumber -> Int -> IO P2PEnv
@@ -70,17 +77,23 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
     notifierMap <- newTVarIO HM.empty
     topicHandleMap <- newTVarIO HM.empty
     messageMap <- newTVarIO HM.empty
+    peerReputationHashTable <- newTVarIO HM.empty
+    servicesReputationHashMapTVar <- newTVarIO HM.empty
+    p2pReputationHashMapTVar <- newTVarIO HM.empty
     return
         P2PEnv
-            { selfNId = nId
-            , tvarNodeIdPeerMap = nmap
-            , tvarArchivedResourceToPeerMap = r2pmap
-            , tvarMessageTypeMap = mtypemap
-            , tvarWatchersTable = watcherMap
-            , tvarNotifiersTable = notifierMap
-            , tvarTopicHandlerMap = topicHandleMap
-            , tvarMessageHashMap = messageMap
-            , tvarDynamicResourceToPeerMap = dr2pmap
-            , kbucket = kb
-            , kademliaConcurrencyFactor = alpha
-            }
+        { selfNId = nId
+        , tvarNodeIdPeerMap = nmap
+        , tvarArchivedResourceToPeerMap = r2pmap
+        , tvarMessageTypeMap = mtypemap
+        , tvarWatchersTable = watcherMap
+        , tvarNotifiersTable = notifierMap
+        , tvarTopicHandlerMap = topicHandleMap
+        , tvarMessageHashMap = messageMap
+        , tvarDynamicResourceToPeerMap = dr2pmap
+        , kbucket = kb
+        , kademliaConcurrencyFactor = alpha
+        , tvPeerReputationHashTable = peerReputationHashTable
+        , tvServicesReputationHashMap = servicesReputationHashMapTVar
+        , tvP2PReputationHashMap = p2pReputationHashMapTVar
+        }
