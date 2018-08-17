@@ -186,5 +186,5 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler :: (HasLogging m, HasSecretKey m,HasStatsdClient m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h >>= send h

@@ -16,6 +16,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (MessageType (..),
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
+import           Arivi.Utils.Statsd
 import           Codec.Serialise                       (deserialiseOrFail,
                                                         serialise)
 
@@ -51,10 +52,11 @@ sendOptionsMessage sendingPeer (recievingPeer:peerList) = do
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based oh the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: (HasP2PEnv m, HasLogging m) => NodeId -> NodeId -> m ()
+sendOptionsToPeer :: (HasP2PEnv m, HasLogging m,HasStatsdClient m) => NodeId -> NodeId -> m ()
 sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
     let mMessage = Options {to = recievingPeerNodeId, from = sendingPeerNodeId}
     let byteStringMessage = serialise mMessage
+    incrementCounter "Options Outgoing Attempted"
     res1 <-
         Exception.try $ sendRequest recievingPeerNodeId Option byteStringMessage -- not exactly RPC, needs to be changed
     case res1 of
@@ -67,10 +69,11 @@ sendOptionsToPeer sendingPeerNodeId recievingPeerNodeId = do
                 Left _ -> return ()
                 Right (deserialisedMessage :: MessageTypeRPC) ->
                     case deserialisedMessage of
-                        Support _ fromPeer resourceList ->
+                        Support _ fromPeer resourceList -> do
+                            incrementCounter "Support Received"
                             Control.Monad.when (to mMessage == fromPeer) $
-                            updateResourcePeers
-                                (recievingPeerNodeId, resourceList)
+                                updateResourcePeers
+                                    (recievingPeerNodeId, resourceList)
                         _ ->
                             throw
                                 (OptionsInvalidMessageType deserialisedMessage)
@@ -123,6 +126,7 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
 -- | takes an options message and returns a supported message
 optionsHandler :: (HasP2PEnv m) => P2PPayload -> m P2PPayload
 optionsHandler payload = do
+    incrementCounter "Options Incoming Received"
     let deserialiseCheck = deserialiseOrFail payload
     myId <- getSelfNodeId
     case deserialiseCheck of
@@ -139,6 +143,7 @@ optionsHandler payload = do
         Right (optionsMessage :: MessageTypeRPC) ->
             case optionsMessage of
                 Options _ fromNodeId -> do
+                    incrementCounter "Support Sent"
                     archivedResourceToPeerMapTvar <-
                         getArchivedResourceToPeerMapP2PEnv
                     archivedResourceToPeerMap <-
