@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
--- {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------------------
 -- |
 -- Module      : Arivi.P2P.PRT.Types
@@ -15,21 +14,22 @@
 --
 --------------------------------------------------------------------------------
 module Arivi.P2P.PRT.Types
-    ( Config(..)
-    , Reputation
+    ( Reputation
     , PeerDeed(..)
     , PeerReputationHistory(..)
     , PeerReputationHistoryTable
-    , ServicesReputationHashMap
     , P2PReputationHashMap
+    , ServicesReputationHashMap
+    , Config(..)
     ) where
 
 import qualified Arivi.Network.Types as Network (NodeId)
-import           Data.Aeson
-import           Data.Hashable
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text           as T
-import           GHC.Generics
+import           Data.Aeson          (FromJSON (..), FromJSONKey (..),
+                                      FromJSONKeyFunction (..))
+import           Data.Hashable       (Hashable)
+import qualified Data.HashMap.Strict as HM (HashMap)
+import qualified Data.Text           as Text (unpack)
+import           GHC.Generics        (Generic)
 
 -- | `Reputation` is a unit to count Peer Reputations
 newtype Reputation =
@@ -44,40 +44,17 @@ instance Num Reputation where
     signum (Reputation x) = Reputation (signum x)
     fromInteger x = Reputation (fromInteger x)
 
--- | This table contains the brief history of Peer Deeds
-data PeerReputationHistory = PeerReputationHistory
-    { nodeId     :: Network.NodeId
-    , nofDeeds   :: Integer
-    , reputation :: Reputation
-    } deriving (Show, Eq, Generic)
+instance FromJSON Reputation
 
 -- |  Type of deed Peers can do
-data PeerDeed -- P2P
-    = DeserialiseFaliure
-    | SignatureMismatch
-              -- Kademlia
-    | Verified
+data PeerDeed
+    = DeserialiseFaliure -- ^ `PeerDeed` when Packet sent by Peer can't
+                         --    Deserialise
+    | SignatureMismatch -- ^ `PeerDeed` when Signature of Peer not matched
+    | Verified -- ^ `PeerDeed` when Kademlia Peer is  `Verified`
     deriving (Show, Eq, Generic)
 
 instance Hashable PeerDeed
-
-type PeerReputationHistoryTable
-     = HM.HashMap Network.NodeId PeerReputationHistory
-
--- | This is structure of config file that contains the details of different
--- `PeerDeeds` and their respective `Reputation`
-type ServicesReputationHashMap = HM.HashMap String Reputation
-
-type P2PReputationHashMap = HM.HashMap PeerDeed Reputation
-
-data Config = Config
-    { services :: ServicesReputationHashMap
-    , p2p      :: P2PReputationHashMap
-    } deriving (Show, Eq, Generic)
-
-instance FromJSON Config
-
-instance FromJSON Reputation
 
 instance FromJSON PeerDeed
 
@@ -88,4 +65,33 @@ instance FromJSONKey PeerDeed where
                 "SignatureMismatch" -> pure SignatureMismatch
                 "DeserialiseFaliure" -> pure DeserialiseFaliure
                 "Verified" -> pure Verified
-                _ -> fail $ "Cannot parse key into PeerDeed: " ++ T.unpack t
+                _ -> fail $ "Cannot parse key into PeerDeed: " ++ Text.unpack t
+
+-- | This table contains the brief history of Peer Deeds
+data PeerReputationHistory = PeerReputationHistory
+    { nodeId     :: Network.NodeId -- ^ NodeId of Peer
+    , nofDeeds   :: Integer -- ^ No of deeds Peer did till time
+    , reputation :: Reputation -- ^ Based on the history `Reputation` of
+                                    --   Peer
+    } deriving (Show, Eq, Generic)
+
+-- | This hashmap contains `PeerReputationHistory` of each Peer
+type PeerReputationHistoryTable
+     = HM.HashMap Network.NodeId PeerReputationHistory
+
+-- | This is structure of config file that contains the details of different
+-- `PeerDeeds` and their respective `Reputation` for services
+type ServicesReputationHashMap = HM.HashMap String Reputation
+
+-- | This is structure of config file that contains the details of different
+-- `PeerDeeds` and their respective `Reputation` for P2P
+type P2PReputationHashMap = HM.HashMap PeerDeed Reputation
+
+-- | This is the structure of config file that  stores the `PeerDeeds` and
+-- their respective `Reputation`
+data Config = Config
+    { services :: ServicesReputationHashMap -- ^ `PeerDeeds` for services
+    , p2p      :: P2PReputationHashMap -- ^  `PeerDeeds` for P2P
+    } deriving (Show, Eq, Generic)
+
+instance FromJSON Config
