@@ -18,7 +18,7 @@ import           Control.Exception
 
 -- | Types of Exceptions that comes in Peer Reputation management
 data PRTExecption =
-    PeerDeedNotFound -- ^ Throw this Exception whene given Peer NodeId not
+    PeerDeedNotFound -- ^ Throw this Exception whene given Peer Deed not
                      --   found in the PeerReputation hashmap
     deriving (Show)
 
