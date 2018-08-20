@@ -18,6 +18,7 @@ module Arivi.P2P.PRT.Instance
     , updatePeerReputationHistory
     , updatePeerReputationForP2P
     , updatePeerReputationForServices
+    , getReputation
     ) where
 
 import qualified Arivi.Network.Types         as Network (NodeId)
@@ -114,3 +115,12 @@ updatePeerReputationForServices peerNodeId peerDeed = do
     case maybeReputation of
         Just mReputation -> updatePeerReputationHistory peerNodeId mReputation
         Nothing -> throw PeerDeedNotFound
+
+-- | Gives the current reputation of Peer identified by given NodeId
+getReputation :: (HasP2PEnv m) => Network.NodeId -> m (Maybe Reputation)
+getReputation peerNodeId = do
+    mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
+    mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
+    case HM.lookup peerNodeId mapOfAllPeersHistory of
+        Just peerHistoryTable -> return $ Just $ reputation peerHistoryTable
+        Nothing               -> return Nothing
