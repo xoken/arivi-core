@@ -159,7 +159,7 @@ sendTcpMessage ::
 sendTcpMessage conn msg = do
     $(withLoggingTH)
         (LogNetworkStatement
-             ([qc|sendTcpMessage: Host: {Conn.ipAddress conn} |]))
+             [qc|sendTcpMessage: Host: {Conn.ipAddress conn} |])
         LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn
@@ -183,7 +183,7 @@ sendUdpMessage ::
 sendUdpMessage conn msg = do
     $(withLoggingTH)
         (LogNetworkStatement
-             ([qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}: MsgLength: {BSLC.length msg}|]))
+             [qc|sendUdpMessage: Host: {Conn.ipAddress conn}: Port: {Conn.port conn}: MsgLength: {BSLC.length msg}|])
         LevelInfo $ do
         let sock = Conn.socket conn
             lock = Conn.waitWrite conn

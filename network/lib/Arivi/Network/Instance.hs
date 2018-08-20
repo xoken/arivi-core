@@ -63,6 +63,7 @@ openConnection ::
     -> m (Either AriviNetworkException ConnectionHandle)
 openConnection host portNum tt rnId = do
     initTime <- liftIO getCPUTime
+    incrementCounter "Connection Initiated"
     rethandle<-
         $(withLoggingTH)
             (LogNetworkStatement [qc|Opening Connection to host {host} |])
@@ -77,8 +78,8 @@ openConnection host portNum tt rnId = do
                 UDP -> openUdpConnection conn
     finalTime <- liftIO getCPUTime
     let diff = fromIntegral ( (finalTime - initTime) `div` 1000000000)
-    time "Connection establishment time "  (diff ::Millisecond)
-    incrementCounter "Connection Established"
+    time "Connection establishment time"  (diff ::Millisecond)
+    incrementCounter "Connection Initiated and Established"
     return rethandle
 
 openTcpConnection ::

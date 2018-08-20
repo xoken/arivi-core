@@ -30,6 +30,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
+import           Arivi.Utils.Statsd
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
@@ -82,8 +83,9 @@ deleteIfPeerExist (x:xs) = do
         else return []
 
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
-issueFindNode :: (HasP2PEnv m, HasLogging m, MonadIO m) => Peer -> m ()
+issueFindNode :: (HasP2PEnv m, HasLogging m,HasStatsdClient m, MonadIO m) => Peer -> m ()
 issueFindNode rpeer = do
+    incrementCounter "Find Node Attempted"
     p2pInstanceTVar <- getAriviTVarP2PEnv
     kb' <- getKb
     p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
@@ -116,6 +118,7 @@ issueFindNode rpeer = do
                               show rip ++ ":" ++ show ruport))
                         (T.pack (displayException e))
                 Right peerl -> do
+                    incrementCounter "Find Response Received"
                     $(logDebug) $
                         T.pack
                             ("Received PeerList from " ++

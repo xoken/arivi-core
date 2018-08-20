@@ -24,6 +24,7 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
+import           Arivi.Utils.Statsd
 import           Codec.Serialise                       (deserialiseOrFail,
                                                         serialise)
 import           Control.Concurrent                    (threadDelay)
@@ -40,6 +41,8 @@ import           Data.ByteString.Lazy                  as Lazy (fromStrict)
 import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
+import           Data.Time.Units
+import           System.CPUTime
 
 -- import           Debug.Trace
 -- import           System.Random                         (randomRIO)
@@ -148,11 +151,12 @@ extractListOfLengths (x:xs) = do
     return $ len : lenNextTQ
 
 getResource ::
-       (HasP2PEnv m, HasLogging m)
+       (HasP2PEnv m, HasLogging m,HasStatsdClient m)
     => ResourceId
     -> ServiceMessage
     -> m ServiceMessage
 getResource resourceID servicemessage = do
+    initTime <- liftIO getCPUTime
     mynodeid <- getSelfNodeId
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
@@ -172,6 +176,9 @@ getResource resourceID servicemessage = do
             let nodeListTVar = snd entryMap
             nodeList <- liftIO $ atomically $ readTVar nodeListTVar
             liftIO $ print nodeList
+            finalTime <- liftIO getCPUTime
+            let diff = fromIntegral ( (finalTime - initTime) `div` 1000000000)
+            time "Get Resource Time"  (diff ::Millisecond)
             if null nodeList
                 then throw RPCEmptyNodeListException
                 else sendResourceRequestToPeer
@@ -179,6 +186,7 @@ getResource resourceID servicemessage = do
                          resourceID
                          mynodeid
                          servicemessage
+
 
 sendResourceRequestToPeer ::
        (HasP2PEnv m, HasLogging m)
