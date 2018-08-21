@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DuplicateRecordFields, KindSignatures, DataKinds, GADTs #-}
 
 module Arivi.P2P.ServiceRegistry
     ( makeP2Pinstance
@@ -18,7 +18,10 @@ import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM
+import           Codec.Serialise
 import           Data.HashMap.Strict                   as HM
+
+import           Control.Monad.Reader
 
 makeP2Pinstance ::
        NodeId
@@ -49,13 +52,35 @@ makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk s
                 { ariviNetworkEnv = netENV
                 , _networkConfig = nc
                 , statsdClient = newStatsdClient
-                , tvarMessageTypeMap = insertHandlers
+                , tvarMessageTypeMap = handlers
                 }
     return p2pEnv
 
-insertHandlers :: (HasP2PEnv m, HasLogging m) => MessageTypeMap m
-insertHandlers =
+
+
+handlers :: Handlers
+handlers = Handler rpcHandler kademliaHandler
+
+{-
+data Handler m = forall t msg. Handler (Request t msg -> m (Response t msg))
+
+kH :: (MonadReader env m, HasP2PEnv m, HasNetworkConfig env NetworkConfig, HasLogging m) => Handler m
+kH = Handler kademliaHandlerHelper
+
+rH :: ( MonadReader env m
+      , HasP2PEnv m
+      , HasNetworkConfig env NetworkConfig
+      , HasLogging m
+      )
+   => Handler m
+rH = Handler rpcHandlerHelper
+
+insertHandlers' ::
+       forall m . (HasP2PEnv m, HasLogging m)
+    => HashMap MessageType (Handler m)
+insertHandlers' =
     HM.insert
         Kademlia
-        kademliaHandlerHelper
-        (HM.insert Option optionsHandler (HM.insert RPC rpcHandler HM.empty))
+        (Handler kademliaHandlerHelper)
+        (HM.insert RPC (Handler rpcHandlerHelper) HM.empty)
+-}
