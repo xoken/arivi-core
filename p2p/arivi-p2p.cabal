@@ -88,6 +88,7 @@ library
                        Arivi.P2P.Kademlia.VerifyPeer
                        Arivi.P2P.PubSub.Functions
                        Arivi.P2P
+                       Arivi.P2P.Kademlia.RunConcurrently
   default-language:    Haskell2010
 
 executable Main
