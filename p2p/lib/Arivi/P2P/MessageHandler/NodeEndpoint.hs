@@ -69,14 +69,20 @@ issueRequest peerNodeId req = flip catchError handler $ do
         OptionRequest msg -> do 
             uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
             resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
-            rpcResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (OptionResponse rpcResp)
+            optionResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
+            return (OptionResponse optionResp)
 
         KademliaRequest msg -> do 
             uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
             resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
-            rpcResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (KademliaResponse rpcResp)
+            kademliaResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
+            return (KademliaResponse kademliaResp)
+
+        PubSubRequest msg -> do 
+            uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
+            resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
+            pubsubResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
+            return (PubSubResponse pubsubResp)
         
             
 -- | Send the p2p payload to the given NodeId
