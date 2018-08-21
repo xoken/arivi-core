@@ -136,7 +136,7 @@ issueKademliaRequest nc payload = do
 readIncomingMessage :: (HasP2PEnv m, HasLogging m)
     => ConnectionHandle
     -> TVar PeerDetails
-    -> MessageTypeMap m
+    -> Handlers
     -> m ()
 readIncomingMessage connHandle peerDetailsTVar messageTypeMap = do
     peerNodeId <- liftIO $ getNodeId peerDetailsTVar
@@ -164,11 +164,11 @@ processRequest connHandle handlerFunc p2pMessage peerNodeId = do
         Right _                         -> return (Right ())
 
 
--- | Takes an incoming message from the network layer and procesess it in 2 ways. If the message was an expected reply, it is put into the waiting mvar or else the appropriate handler for the message type is called and the generated response is sent back
+-- | Takes an incoming message from the network layer and procesess it in 2 ways. If the mes0sage was an expected reply, it is put into the waiting mvar or else the appropriate handler for the message type is called and the generated response is sent back
 processIncomingMessage :: (HasP2PEnv m, HasLogging m)
     => ConnectionHandle
     -> TVar PeerDetails
-    -> MessageTypeMap m
+    -> Handlers
     -> P2PPayload
     -> m (Either AriviP2PException ())
 processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
@@ -181,7 +181,10 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
             case peerDetails ^. uuidMap.at (uuid p2pMessage) of
                 Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
                 Nothing -> do
-                    let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
+                    --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
+                    let func = case messageType p2pMessage of
+                          Rpc -> rpc messageTypeMap
+                          Kademlia -> kademlia messageTypeMap
                     processRequest connHandle func p2pMessage peerNodeId
 
 -- | Gets the connection handle for the particular message type. If not present, it will create and return else will throw an exception
@@ -236,5 +239,4 @@ newIncomingConnectionHandler nc transportType connHandle = do
         Just peerDetailsTVar -> liftIO $ atomically $ updatePeer transportType (Connected connHandle) peerDetailsTVar
     nodeIdPeerMap' <- liftIO $ atomically $ readTVar nodeIdMapTVar
     let peerDetailsTVar = fromJust (HM.lookup (nc ^. nodeId) nodeIdPeerMap')
-    _ <- LA.async (readIncomingMessage connHandle peerDetailsTVar msgTypeMap)
-    return ()
+    readIncomingMessage connHandle peerDetailsTVar msgTypeMap

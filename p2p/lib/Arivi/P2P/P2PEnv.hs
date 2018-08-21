@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE DataKinds #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -15,14 +16,16 @@ module Arivi.P2P.P2PEnv
     , T.HasKbucket(..)
     ) where
 import           Arivi.Env
-import           Arivi.P2P.Types (NetworkConfig(..))
+import           Arivi.P2P.Types (NetworkConfig(..), Resource, RpcPayload, Request ,Response)
 import           Arivi.P2P.Kademlia.Types              (createKbucket)
+import           Arivi.P2P.Kademlia.Types (PayLoad)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
+import           Codec.Serialise
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
@@ -33,8 +36,7 @@ data P2PEnv = P2PEnv
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket :: T.Kbucket Int [T.Peer]
     , statsdClient :: StatsdClient
-    , tvarMessageTypeMap :: forall m. (HasP2PEnv m, HasLogging m) =>
-                                          (MessageTypeMap m)
+    , tvarMessageTypeMap :: Handlers
     , tvarWatchersTable :: TVar WatchersTable
     , tvarNotifiersTable :: TVar NotifiersTable
     , tvarTopicHandlerMap :: TVar TopicHandlerMap
@@ -50,7 +52,7 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getAriviTVarP2PEnv :: m NetworkConfig
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getArchivedResourceToPeerMapP2PEnv :: m (TVar ArchivedResourceToPeerMap)
-    getMessageTypeMapP2PEnv :: m (MessageTypeMap m)
+    getMessageTypeMapP2PEnv :: m Handlers
     getWatcherTableP2PEnv :: m (TVar WatchersTable)
     getNotifiersTableP2PEnv :: m (TVar NotifiersTable)
     getTopicHandlerMapP2PEnv :: m (TVar TopicHandlerMap)
@@ -73,7 +75,6 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
             sbound
             pingThreshold
             kademliaConcurrencyFactor
-    let mtypemap = HM.empty
     watcherMap <- newTVarIO HM.empty
     notifierMap <- newTVarIO HM.empty
     topicHandleMap <- newTVarIO HM.empty
@@ -83,7 +84,6 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
             { _networkConfig = nc
             , tvarNodeIdPeerMap = nmap
             , tvarArchivedResourceToPeerMap = r2pmap
-            , tvarMessageTypeMap = mtypemap
             , tvarWatchersTable = watcherMap
             , tvarNotifiersTable = notifierMap
             , tvarTopicHandlerMap = topicHandleMap
@@ -91,5 +91,11 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
             , tvarDynamicResourceToPeerMap = dr2pmap
             , kbucket = kb
             }
+
+data Handlers = Handlers
+  { rpc :: forall m t msg. (HasP2PEnv m) =>
+                               Request t msg -> m (Response t msg)
+  , kademlia :: forall m t msg. (HasP2PEnv m) => Request t msg -> m (Response t msg)
+  }
 
 makeLensesWith classUnderscoreNoPrefixFields ''P2PEnv
