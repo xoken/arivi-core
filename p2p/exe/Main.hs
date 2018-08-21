@@ -104,7 +104,7 @@ runNode configPath = do
             (Config.udpPort config)
             "127.0.0.1"
             8125
-            "Xoken"
+            "Xokentest"
             (Config.secretKey config)
             20
             5
@@ -150,7 +150,7 @@ runBSNode configPath = do
             (Config.udpPort config)
             "127.0.0.1"
             8125
-            "Xoken"
+            "Xokentest"
             (Config.secretKey config)
             20
             5
