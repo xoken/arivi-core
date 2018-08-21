@@ -1,12 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DuplicateRecordFields, RecordWildCards #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs, DataKinds #-}
 
 module Arivi.P2P.RPC.Functions
     ( registerResource
     , fetchResource
     -- -- not for Service Layer
     , rpcHandler
+    , rpcHandlerHelper
     , updatePeerInResourceMap
     , addPeerFromKademlia
     ) where
@@ -232,6 +233,15 @@ sendResourceRequestToPeer nodeListTVar nId msg = do
          --                            Lazy.fromStrict $ pack " Deserialise error "
          -- -- should check to and from
          --                _ -> return $ Lazy.fromStrict $ pack " default"
+
+rpcHandlerHelper ::
+       ( HasP2PEnv m
+       , Resource r
+       , Serialise msg
+       )
+    => Request 'Rpc (RpcPayload r msg)
+    -> m (Response 'Rpc (RpcPayload r msg))
+rpcHandlerHelper (RpcRequest req) = RpcResponse <$> rpcHandler req
 
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
