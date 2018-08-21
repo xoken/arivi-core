@@ -1,8 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE DuplicateRecordFields               #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 
 -- |
 -- Module      : Arivi.P2P.Kademlia.LoadDefaultPeers
@@ -38,25 +39,32 @@ import qualified Control.Exception.Lifted              as Exception (SomeExcepti
                                                                      try)
 import           Control.Lens
 import           Control.Monad.Except
-import           Control.Monad.Reader
 import           Control.Monad.Logger
+import           Control.Monad.Reader
 import qualified Data.List                             as LL
 import qualified Data.Text                             as T
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
 --   local node information which are passed to P2P environment during
 --   P2P instance initialization.
-loadDefaultPeers :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => [Peer] -> m ()
-loadDefaultPeers = mapConcurrently_ issueFindNode
+loadDefaultPeers ::
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasP2PEnv m
+       , HasLogging m
+       )
+    => [Peer]
+    -> m ()
+loadDefaultPeers = runKademliaActionConcurrently_ issueFindNode
 
 -- | Helper function to retrieve Peer list from PayLoad
 getPeerListFromPayload :: PayLoad -> Either AriviP2PException [Peer]
 getPeerListFromPayload payload =
     let msg = message payload
         msgb = messageBody msg
-    in case msgb of
-           FN_RESP _ pl _ -> Right pl
-           _ -> Left KademliaInvalidResponse
+     in case msgb of
+            FN_RESP _ pl _ -> Right pl
+            _              -> Left KademliaInvalidResponse
 
 ifPeerExist' ::
        (HasKbucket m, MonadIO m) => Arivi.P2P.Kademlia.Types.NodeId -> m Bool
@@ -76,10 +84,16 @@ deleteIfPeerExist (x:xs) = do
         else return []
 
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
-issueFindNode :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => Peer -> m ()
+issueFindNode ::
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasP2PEnv m
+       , HasLogging m
+       )
+    => Peer
+    -> m ()
 issueFindNode rpeer = do
-    kb' <- getKb
-    nc@NetworkConfig{..} <- (^.networkConfig) <$> ask
+    nc@NetworkConfig {..} <- (^. networkConfig) <$> ask
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep
@@ -88,13 +102,11 @@ issueFindNode rpeer = do
         fn_msg = packFindMsg nc _nodeId
     $(logDebug) $
         T.pack ("Issuing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
-    resp <-
-        runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg)
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg)
     case resp of
-        Left e ->
-            $(logDebug) $ T.pack (displayException e)
+        Left e -> $(logDebug) $ T.pack (displayException e)
         Right (KademliaResponse payload) -> do
-            addToKBucket rpeer
+            _ <- addToKBucket rpeer
             case getPeerListFromPayload payload of
                 Left e ->
                     $(logDebug) $
@@ -121,7 +133,4 @@ issueFindNode rpeer = do
                     --   k-bucket this is important otherwise it will be stuck
                     --   in a loop where the function constantly issue
                     --   FIND_NODE request forever.
-                    let alpha = kademliaConcurrencyFactor kb'
-                        pl3 = LL.splitAt alpha peerl2
-                    mapConcurrently_ issueFindNode $ fst pl3
-                    mapConcurrently_ issueFindNode $ snd pl3
+                    runKademliaActionConcurrently_ issueFindNode peerl2

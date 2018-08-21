@@ -15,11 +15,11 @@
 --
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE GADTs     #-}
 
 module Arivi.P2P.Kademlia.VerifyPeer
     ( verifyPeer
@@ -34,10 +34,10 @@ import           Arivi.P2P.Kademlia.RefreshKbucket     (issuePing)
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.Kademlia.Utils              (count')
 import           Arivi.P2P.Kademlia.XorDistance
-import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
+import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
+import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv                      (HasP2PEnv)
 import           Arivi.P2P.Types
-import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.Utils.Logging
 import           Control.Concurrent                    (threadDelay)
 import           Control.Concurrent.Async.Lifted       (async, mapConcurrently,
@@ -48,8 +48,8 @@ import qualified Control.Exception.Lifted              as Exception (SomeExcepti
 import           Control.Lens
 import           Control.Monad                         (filterM)
 import           Control.Monad.Except
-import           Control.Monad.Reader
 import           Control.Monad.Logger                  (logDebug)
+import           Control.Monad.Reader
 import           Control.Monad.STM                     (atomically)
 import qualified Data.ByteString.Base16                as BS (encode)
 import qualified Data.ByteString.Char8                 as C
@@ -117,7 +117,11 @@ getVerifiedNodes peerR k = do
 --     rps <- getKRandomPeers k
 --     mapM isVerified rps
 isVNRESPValid ::
-       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m)
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasP2PEnv m
+       , HasLogging m
+       )
     => [Peer]
     -> Peer
     -> m (Either AriviP2PException Bool)
@@ -157,7 +161,7 @@ isVNRESPValid peerL peerR = do
                         T.append
                             (T.pack "Issueing ping to : ")
                             (T.pack $ show peerL')
-                    bl <- mapConcurrently issuePing peerL'
+                    bl <- runKademliaActionConcurrently issuePing peerL'
                     let liveNodes = fromIntegral $ count' True bl
                     return $ Right $ (>=) liveNodes minPeerResponded
                 else return $ Right False
@@ -192,11 +196,7 @@ issueVerifyNode peerV peerT peerR = do
         tip = nodeIp tnep
         tnc = NetworkConfig tnid tip tuport ttport
         vnc = NetworkConfig vnid vip vuport vuport
-        vmsg =
-            packVerifyMsg
-                nc
-                tnc
-                (fst $ getPeer peerR)
+        vmsg = packVerifyMsg nc tnc (fst $ getPeer peerR)
     $(logDebug) $
         T.pack ("Issueing Verify_Node for : " ++ show tip ++ ":" ++ show tuport)
     resp <- runExceptT $ issueKademliaRequest vnc (KademliaRequest vmsg)
@@ -210,7 +210,7 @@ issueVerifyNode peerV peerT peerR = do
                 T.append (T.pack "VN_RESP MSG : ") (T.pack $ show payload)
             case messageBody (message payload) of
                 VN_RESP _ pl' _ -> return pl'
-                _ -> throw KademliaInvalidResponse
+                _               -> throw KademliaInvalidResponse
 
 getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => m Peer
 getRandomVerifiedPeer = do
@@ -235,7 +235,11 @@ getRandomVerifiedPeer = do
         Left _ -> throw KademliaNoVerifiedPeer
 
 responseHandler ::
-       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasLogging m, HasP2PEnv m)
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasLogging m
+       , HasP2PEnv m
+       )
     => Either SomeException [Peer]
     -> Peer
     -> Peer
@@ -270,13 +274,29 @@ responseHandler resp peerR peerT =
         -- liftIO $ print "RH Done"
         Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
 
-sendVNMsg :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasLogging m, HasP2PEnv m) => Peer -> Peer -> Peer -> m ()
+sendVNMsg ::
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasLogging m
+       , HasP2PEnv m
+       )
+    => Peer
+    -> Peer
+    -> Peer
+    -> m ()
 sendVNMsg peerT peerV peerR = do
     resp <- Exception.try $ issueVerifyNode peerV peerT peerR
     t <- async $ responseHandler resp peerR peerT
     wait t
 
-verifyPeer :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => Peer -> m ()
+verifyPeer ::
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasP2PEnv m
+       , HasLogging m
+       )
+    => Peer
+    -> m ()
 verifyPeer peerT = do
     isV <- isVerified peerT
     case isV of

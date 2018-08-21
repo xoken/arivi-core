@@ -26,6 +26,7 @@ module Arivi.P2P.Kademlia.RefreshKbucket
     ) where
 
 import           Arivi.P2P.Exception
+import           Arivi.P2P.Kademlia.RunConcurrently
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
 import           Arivi.P2P.MessageHandler.NodeEndpoint
@@ -130,23 +131,10 @@ refreshKbucket peerR pl = do
                 T.append
                     (T.pack "Issueing ping to refresh kbucket no of req sent :")
                     (T.pack (show (fst sl)))
-            resp <- mapConcurrently issuePing (fst sl)
+            resp <- runKademliaActionConcurrently issuePing (fst sl)
             $(logDebug) $
                 T.append (T.pack "Pong response recieved ") (T.pack (show resp))
             let temp = addToNewList resp (fst sl)
                 newpl = L.head temp ++ [peerR] ++ L.head (L.tail temp) ++ snd sl
             return newpl
         else return (pl2 ++ [peerR])
-
-runKademliaConcurrently ::
-       forall a b m. (HasP2PEnv m, HasLogging m)
-    => (a -> m b)
-    -> [a]
-    -> m [b]
-runKademliaConcurrently fn il = do
-    kb <- getKb
-    let alpha = kademliaConcurrencyFactor kb
-        ls = L.splitAt alpha il
-    temp <- mapConcurrently fn (fst ls)
-    temp2 <- runKademliaConcurrently fn (snd ls)
-    return $ temp ++ temp2
