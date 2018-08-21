@@ -58,6 +58,11 @@ import           ListT                                 (toList)
 import qualified STMContainers.Map                     as H
 import           System.Random                         (randomRIO)
 
+updateNodeStatus :: (HasKbucket m) => NodeStatus -> NodeId -> m ()
+updateNodeStatus status nid = do
+    kb <- getKb
+    liftIO $ atomically $ H.insert status nid (nodeStatusTable kb)
+
 deleteVerifiedPeers ::
        (HasKbucket m, MonadIO m, HasLogging m) => [Peer] -> m [Peer]
 deleteVerifiedPeers =
@@ -116,6 +121,37 @@ getVerifiedNodes peerR k = do
 --     let vt = nodeStatusTable  kb
 --     rps <- getKRandomPeers k
 --     mapM isVerified rps
+filterPeer :: NodeId -> NodeId -> [Peer] -> [Peer]
+filterPeer nid rnid peerL = result
+  where
+    result =
+        filter
+            (\x ->
+                 rXor >=
+                 getXorDistance
+                     (C.unpack $ BS.encode dnid)
+                     (C.unpack $ BS.encode $ fst $ getPeer x))
+            peerL
+    rXor = getXorDistance (C.unpack $ BS.encode rnid) (C.unpack $ BS.encode nid)
+
+initVerification ::
+       ( MonadReader env m
+       , HasNetworkConfig env NetworkConfig
+       , HasP2PEnv m
+       , HasLogging m
+       )
+    => [Peer]
+    -> m Bool
+initVerification peerL = do
+    $(logDebug) $ T.pack (show "Issueing Ping for Verification")
+    $(logDebug) $ T.append (T.pack "recieved vn_resp : ") (T.pack $ show peerL)
+    peerL' <- deleteVerifiedPeers peerL
+    $(logDebug) $ T.append (T.pack "Issueing ping to : ") (T.pack $ show peerL')
+    bl <- runKademliaActionConcurrently issuePing peerL'
+    let liveNodes = fromIntegral $ count' True bl
+        minPeerResponded = (3 / 10) * fromIntegral (Prelude.length peerL)
+    return $ (>=) liveNodes minPeerResponded
+
 isVNRESPValid ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
@@ -124,52 +160,20 @@ isVNRESPValid ::
        )
     => [Peer]
     -> Peer
-    -> m (Either AriviP2PException Bool)
+    -> ExceptT AriviP2PException m Bool
 isVNRESPValid peerL peerR = do
-    dPeer <- getDefaultNodeId
-    case dPeer of
-        Right dnid -> do
-            let rXor =
-                    getXorDistance
-                        (C.unpack $ BS.encode $ fst $ getPeer peerR)
-                        (C.unpack $ BS.encode dnid)
-            let temp =
-                    filter
-                        (\x ->
-                             rXor >=
-                             getXorDistance
-                                 (C.unpack $ BS.encode dnid)
-                                 (C.unpack $ BS.encode $ fst $ getPeer x))
-                        peerL
-                -- TODO address conditions when (In) is retruned or not
-            let result
-                    | Peer (dnid, undefined) `elem` temp = True
-                    | fromIntegral (Prelude.length temp) >= minLessPeer = True
-                    | Prelude.null temp = False
-                    | otherwise = False
-            $(logDebug) $
-                T.append (T.pack "First Check : ") (T.pack $ show result)
-            if result
-                then do
-                    $(logDebug) $ T.pack (show "Issueing Ping for Verification")
-                    $(logDebug) $
-                        T.append
-                            (T.pack "recieved vn_resp : ")
-                            (T.pack $ show peerL)
-                    peerL' <- deleteVerifiedPeers peerL
-                    $(logDebug) $
-                        T.append
-                            (T.pack "Issueing ping to : ")
-                            (T.pack $ show peerL')
-                    bl <- runKademliaActionConcurrently issuePing peerL'
-                    let liveNodes = fromIntegral $ count' True bl
-                    return $ Right $ (>=) liveNodes minPeerResponded
-                else return $ Right False
-                -- TODO add to kbucket env
-            where minPeerResponded =
-                      (3 / 10) * fromIntegral (Prelude.length peerL)
-                  minLessPeer = (1 / 10) * fromIntegral (Prelude.length peerL)
-        Left _ -> return $ Left KademliaDefaultPeerDoesNotExists
+    dnid <- getDefaultNodeId
+    let temp = filterPeer dnid (fst $ getPeer peerR) peerL
+        minLessPeer = (1 / 10) * fromIntegral (Prelude.length peerL)
+        -- TODO address conditions when (In) is retruned or not
+    let firstCheck
+            | Peer (dnid, undefined) `elem` temp = True
+            | fromIntegral (Prelude.length temp) >= minLessPeer = True
+            | Prelude.null temp = False
+            | otherwise = False
+    if firstCheck
+        then initVerification peerL
+        else return False
 
 issueVerifyNode ::
        forall m env.
@@ -249,21 +253,12 @@ responseHandler resp peerR peerT =
         Right pl -> do
             kb <- getKb
             rl <- isVNRESPValid pl peerR
-            case rl of
-                Right True ->
-                    liftIO $
-                    atomically $
-                    H.insert Verified (fst $ getPeer peerT) (nodeStatusTable kb)
-                Right False -> do
+            if rl
+                then updateNodeStatus Verified (fst $ getPeer peerT)
+                else do
                     moveToHardBound peerT
-                    liftIO $
-                        atomically $
-                        H.insert
-                            UnVerified
-                            (fst $ getPeer peerT)
-                            (nodeStatusTable kb)
-                Left e -> $(logDebug) (T.pack (show e))
-         -- Logs the NodeStatus Table
+                    updateNodeStatus UnVerified (fst $ getPeer peer)
+            -- Logs the NodeStatus Table
             let kbm2 = nodeStatusTable kb
                 kbtemp = H.stream kbm2
             kvList <- liftIO $ atomically $ toList kbtemp
@@ -271,7 +266,6 @@ responseHandler resp peerR peerT =
                 T.append
                     (T.pack "NodeStatusTable after adding : ")
                     (T.pack (show kvList))
-        -- liftIO $ print "RH Done"
         Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
 
 sendVNMsg ::
