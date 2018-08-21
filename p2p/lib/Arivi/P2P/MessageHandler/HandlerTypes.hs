@@ -57,7 +57,7 @@ type P2PUUID = String
 type P2PPayload = Lazy.ByteString
 
 data P2PMessage = P2PMessage
-    { uuid        :: P2PUUID
+    { uuid        :: Maybe P2PUUID
     , messageType :: MessageType
     , payload     :: P2PPayload
     } deriving (Eq, Ord, Show, Generic)
