@@ -103,23 +103,14 @@ data OptionPayload msg = OptionPayload msg
                        deriving (Eq, Ord, Show, Generic, Serialise)
 
 
--- GHC can't derive Generic instances for GADTs, so we need to write
--- serialise instances by hand. The encoding part is trvial, decoding gets
--- tricky. The following code uses a data family to propagate some type level
--- info to runtime. See https://www.well-typed.com/blog/2017/06/rtti/ . An
--- alternate approach using Singletons is also provided below
+data PubSubPayload t msg = PubSubPayload t msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
 
-instance (HasRTTI (Request i) msg, Serialise msg) =>
-         Serialise (Request i msg) where
-    encode = encodeRequest
-    decode = decodeRequest rtti
+data PubSubPublish t msg = PubSubPublish t msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
 
-encodeRequest :: (Serialise msg) => Request i msg -> Encoding
-encodeRequest (RpcRequest msg) = encodeListLen 2 <> encodeWord 0 <> encode msg
-encodeRequest (OptionRequest msg) =
-    encodeListLen 2 <> encodeWord 1 <> encode msg
-encodeRequest (KademliaRequest msg) =
-    encodeListLen 2 <> encodeWord 2 <> encode msg
+data PubSubNotify t msg = PubSubNotify t msg
+                      deriving (Eq, Ord, Show, Generic, Serialise)
 
 data family RTTI (f :: k -> *) :: (k -> *)
 
@@ -139,6 +130,25 @@ instance HasRTTI (Request 'Kademlia) msg where
 
 instance HasRTTI (Request 'Option) msg where
   rtti = RttiReqOption
+
+
+-- GHC can't derive Generic instances for GADTs, so we need to write
+-- serialise instances by hand. The encoding part is trvial, decoding gets
+-- tricky. The following code uses a data family to propagate some type level
+-- info to runtime. See https://www.well-typed.com/blog/2017/06/rtti/ . An
+-- alternate approach using Singletons is also provided below
+
+instance (HasRTTI (Request i) msg, Serialise msg) =>
+         Serialise (Request i msg) where
+    encode = encodeRequest
+    decode = decodeRequest rtti
+
+encodeRequest :: (Serialise msg) => Request i msg -> Encoding
+encodeRequest (RpcRequest msg) = encodeListLen 2 <> encodeWord 0 <> encode msg
+encodeRequest (OptionRequest msg) =
+    encodeListLen 2 <> encodeWord 1 <> encode msg
+encodeRequest (KademliaRequest msg) =
+    encodeListLen 2 <> encodeWord 2 <> encode msg
 
 decodeRequest ::
        (Serialise msg) => RTTI (Request i) msg -> Decoder s (Request i msg)
@@ -160,6 +170,53 @@ decodeRequest RttiReqKademlia = do
     case (len, tag) of
         (2, 2) -> KademliaRequest <$> decode
         _ -> fail "Invalid KademliaRequest type"
+
+data instance  RTTI (Response i) msg where
+        RttiResRpc :: RTTI (Response 'Rpc) msg
+        RttiResOption :: RTTI (Response 'Option) msg
+        RttiResKademlia :: RTTI (Response 'Kademlia) msg
+
+instance HasRTTI (Response 'Rpc) msg where
+    rtti = RttiResRpc
+
+instance HasRTTI (Response 'Option) msg where
+    rtti = RttiResOption
+
+instance HasRTTI (Response 'Kademlia) msg where
+    rtti = RttiResKademlia
+
+instance (HasRTTI (Response i) msg, Serialise msg) =>
+         Serialise (Response i msg) where
+    encode = encodeResponse
+    decode = decodeResponse rtti
+
+encodeResponse :: (Serialise msg) => Response i msg -> Encoding
+encodeResponse (RpcResponse msg) = encodeListLen 2 <> encodeWord 0 <> encode msg
+encodeResponse (OptionResponse msg) =
+    encodeListLen 2 <> encodeWord 1 <> encode msg
+encodeResponse (KademliaResponse msg) =
+    encodeListLen 2 <> encodeWord 2 <> encode msg
+
+decodeResponse ::
+       (Serialise msg) => RTTI (Response i) msg -> Decoder s (Response i msg)
+decodeResponse RttiResRpc = do
+    len <- decodeListLen
+    tag <- decodeWord
+    case (len, tag) of
+        (2, 0) -> RpcResponse <$> decode
+        _ -> fail "Failed to deserialise into a valid RpcResponse type"
+decodeResponse RttiResOption = do
+    len <- decodeListLen
+    tag <- decodeWord
+    case (len, tag) of
+        (2, 1) -> OptionResponse <$> decode
+        _ -> fail "Failed to deserialise into a valid OptionResponse type"
+decodeResponse RttiResKademlia = do
+    len <- decodeListLen
+    tag <- decodeWord
+    case (len, tag) of
+        (2, 2) -> KademliaResponse <$> decode
+        _ -> fail "Failed to deserialise into a valid KademliaResponse type"
 
 {-
 -- Serialise instances for Request and Response GADTs using Singletons
@@ -210,11 +267,3 @@ main = do
   case g of
     RpcRequest m -> print m
 -}
-data PubSubPayload t msg = PubSubPayload t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
-
-data PubSubPublish t msg = PubSubPublish t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
-
-data PubSubNotify t msg = PubSubNotify t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
