@@ -7,6 +7,7 @@
 
 module Arivi.P2P.MessageHandler.NodeEndpoint (
       issueRequest
+    , issueSend
     , issueKademliaRequest
     , newIncomingConnectionHandler
 ) where
@@ -98,7 +99,7 @@ sendRequest peerNodeId messageType connHandle peerDetailsTVar payload = do
     newuuid <- liftIO getUUID
     mvar <- liftIO newEmptyMVar
     liftIO $ atomically $ modifyTVar' peerDetailsTVar (insertToUUIDMap newuuid mvar)
-    let p2pMessage = generateP2PMessage newuuid messageType payload
+    let p2pMessage = generateP2PMessage (Just newuuid) messageType payload
     res <- LE.try (send connHandle (serialise p2pMessage))
     case res of
         Left (e::AriviNetworkException) -> do
@@ -137,6 +138,41 @@ issueKademliaRequest nc payload = do
             peerDetailsTVar <- (lift . liftIO) $ atomically $ mkPeer nc UDP NotConnected
             (lift . liftIO) $ atomically $ addNewPeer (nc ^. nodeId) peerDetailsTVar nodeIdMapTVar
             issueRequest (nc ^. nodeId) payload
+
+-- | Send a message without waiting for any response or registering a uuid.
+-- | Useful for pubsub notifies and publish. To be called by the rpc/pubsub and kademlia handlers on getting a new request
+issueSend :: forall i m t.
+       (HasP2PEnv m, HasLogging m, Msg t, Serialise i)
+    => NodeId
+    -> Maybe P2PUUID
+    -> Request t i
+    -> ExceptT AriviP2PException m ()
+issueSend peerNodeId uuid req = do
+    nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
+    nodeIdPeerMap <- (lift . liftIO) $ readTVarIO nodeIdMapTVar
+    connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
+    case req of
+        RpcRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
+        OptionRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
+        KademliaRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
+        PubSubRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
+
+sendWithoutUUID ::forall m .(HasP2PEnv m, HasLogging m)
+    => NodeId
+    -> MessageType
+    -> Maybe P2PUUID
+    -> ConnectionHandle
+    -> P2PPayload
+    -> m (Either AriviP2PException ())
+sendWithoutUUID peerNodeId messageType uuid connHandle payload = do
+    let p2pMessage = generateP2PMessage uuid messageType payload
+    res <- LE.try (send connHandle (serialise p2pMessage))
+    case res of
+        Left (e::AriviNetworkException) -> do
+            logWithNodeId peerNodeId "network send failed from sendWithoutUUID for "
+            return (Left $ NetworkException e)
+        Right a -> return (Right a)
+
 
 -- | Recv from connection handle and process incoming message
 readIncomingMessage :: (HasP2PEnv m, HasLogging m)
@@ -184,8 +220,11 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
         Left _ -> logWithNodeId peerNodeId "Peer sent malformed msg" >> return  (Left DeserialiseFailureP2P)
         Right p2pMessage -> do
             peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
-            case peerDetails ^. uuidMap.at (uuid p2pMessage) of
-                Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
+            case (uuid p2pMessage) of
+                Just uuid ->
+                    case peerDetails ^. uuidMap.at uuid of
+                        Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
+                        Nothing -> return (Left InvalidUuid)
                 Nothing -> do
                     --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
                     let func = case messageType p2pMessage of
