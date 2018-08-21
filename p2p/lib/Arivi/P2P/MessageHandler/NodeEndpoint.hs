@@ -55,74 +55,31 @@ issueRequest ::
     => NodeId
     -> Request t i
     -> ExceptT AriviP2PException m (Response t o)
-issueRequest peerNodeId req = flip catchError handler $ do 
+issueRequest peerNodeId req = do 
     nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
-    nodeIdPeerMap <- (lift . liftIO) $ readTVarIO nodeIdMapTVar
+    nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
     connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
-    peerDetailsTVar <- maybe (throwError PeerNotFound) return (nodeIdPeerMap ^.at peerNodeId) 
+    peerDetailsTVar <- maybe (throwError PeerNotFound) return (nodeIdPeerMap ^.at peerNodeId)
     case req of
-        RpcRequest msg -> do 
-            uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
-            resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
+        RpcRequest msg -> do
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
             rpcResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
             return (RpcResponse rpcResp)
 
         OptionRequest msg -> do 
-            uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
-            resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
             optionResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (OptionResponse optionResp)
+            return (OptionResponse optionResp) 
 
         KademliaRequest msg -> do 
-            uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
-            resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
             kademliaResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (KademliaResponse kademliaResp)
+            return (KademliaResponse kademliaResp) 
 
         PubSubRequest msg -> do 
-            uuid <- ExceptT $ sendRequest peerNodeId (msgType (Proxy :: Proxy (Request t i))) connHandle peerDetailsTVar (serialise msg)
-            resp <- ExceptT $ receiveResponse peerDetailsTVar uuid
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
             pubsubResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
             return (PubSubResponse pubsubResp)
-        
-            
--- | Send the p2p payload to the given NodeId
--- | NodeId should be always added to the nodeIdToPeerMap before calling this function
-sendRequest :: forall m .(HasP2PEnv m, HasLogging m)
-    => NodeId
-    -> MessageType
-    -> ConnectionHandle
-    -> TVar PeerDetails
-    -> P2PPayload
-    -> m (Either AriviP2PException P2PUUID)
-sendRequest peerNodeId messageType connHandle peerDetailsTVar payload = do
-    newuuid <- liftIO getUUID
-    mvar <- liftIO newEmptyMVar
-    liftIO $ atomically $ modifyTVar' peerDetailsTVar (insertToUUIDMap newuuid mvar)
-    let p2pMessage = generateP2PMessage (Just newuuid) messageType payload
-    res <- LE.try (send connHandle (serialise p2pMessage))
-    case res of
-        Left (e::AriviNetworkException) -> do
-            liftIO $ atomically $ modifyTVar' peerDetailsTVar (deleteFromUUIDMap newuuid)
-            logWithNodeId peerNodeId "network send failed from sendRequst for "
-            return (Left $ NetworkException e)
-        Right () -> return (Right newuuid)
-
--- | Wait for response from the peer on the given uuid and then return the p2p message or throw an exception.
-receiveResponse :: (HasLogging m)
-    => TVar PeerDetails
-    -> P2PUUID
-    -> m (Either AriviP2PException P2PPayload)
-receiveResponse peerDetailsTVar uuid = do
-    peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
-    case peerDetails ^. uuidMap.at uuid of
-        Nothing -> $(logDebug) "uuid not added to peer's uuidMap" >> return  (Left InvalidUuid)
-        Just mvar -> do
-            winner <- liftIO $ Async.race (threadDelay 30000000) (takeMVar mvar :: IO P2PMessage)
-            liftIO $ atomically $ modifyTVar' peerDetailsTVar (deleteFromUUIDMap uuid)
-            case winner of
-                Left _ -> $(logDebug) "response timed out" >> return  (Left SendMessageTimeout)
-                Right p2pMessage -> return $ Right (payload p2pMessage)
 
 -- | Called by kademlia. Adds a default PeerDetails record into hashmap before calling generic issueRequest
 issueKademliaRequest :: (HasP2PEnv m, HasLogging m, Serialise msg)
@@ -149,7 +106,6 @@ issueSend :: forall i m t.
     -> ExceptT AriviP2PException m ()
 issueSend peerNodeId uuid req = do
     nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
-    nodeIdPeerMap <- (lift . liftIO) $ readTVarIO nodeIdMapTVar
     connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
     case req of
         RpcRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
@@ -172,6 +128,30 @@ sendWithoutUUID peerNodeId messageType uuid connHandle payload = do
             logWithNodeId peerNodeId "network send failed from sendWithoutUUID for "
             return (Left $ NetworkException e)
         Right a -> return (Right a)
+
+sendAndReceive :: forall m.
+       (HasP2PEnv m, HasLogging m)
+    => TVar PeerDetails
+    -> MessageType
+    -> ConnectionHandle
+    -> P2PPayload
+    -> m (Either AriviP2PException P2PPayload)
+sendAndReceive peerDetailsTVar messageType connHandle msg = do
+    uuid <- liftIO getUUID
+    mvar <- liftIO newEmptyMVar
+    liftIO $ atomically $ modifyTVar' peerDetailsTVar (insertToUUIDMap uuid mvar)
+    let p2pMessage = generateP2PMessage (Just uuid) messageType msg
+    res <- networkToP2PException <$> LE.try (send connHandle (serialise p2pMessage))
+    case res of
+        Left e -> do
+            liftIO $ atomically $ modifyTVar' peerDetailsTVar (deleteFromUUIDMap uuid)
+            return (Left e)
+        Right () -> do
+            winner <- liftIO $ Async.race (threadDelay 30000000) (takeMVar mvar :: IO P2PMessage)
+            case winner of
+                Left _ -> $(logDebug) "response timed out" >> return (Left SendMessageTimeout)
+                Right p2pMessage -> return (Right $ payload p2pMessage)
+
 
 
 -- | Recv from connection handle and process incoming message
@@ -225,12 +205,12 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
                     case peerDetails ^. uuidMap.at uuid of
                         Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
                         Nothing -> return (Left InvalidUuid)
-                Nothing -> do
-                    --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
-                    let func = case messageType p2pMessage of
-                          Rpc -> rpc messageTypeMap
-                          Kademlia -> kademlia messageTypeMap
-                    processRequest connHandle func p2pMessage peerNodeId
+                -- Nothing -> do
+                --     --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
+                --     let func = case messageType p2pMessage of
+                --           Rpc -> rpc messageTypeMap
+                --           Kademlia -> kademlia messageTypeMap
+                --     processRequest connHandle func p2pMessage peerNodeId
 
 -- | Gets the connection handle for the particular message type. If not present, it will create and return else will throw an exception
 getConnectionHandle :: (HasLogging m, HasP2PEnv m) => NodeId -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
