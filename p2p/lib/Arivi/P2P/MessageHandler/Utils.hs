@@ -33,7 +33,7 @@ getNodeId peerDetailsTVar =
     (^.networkConfig.nodeId) <$> readTVarIO peerDetailsTVar
 
 -- | wraps the payload with message type { Kademlia | Rpc | PubSub} and UUID
-generateP2PMessage :: P2PUUID -> MessageType -> P2PPayload -> P2PMessage
+generateP2PMessage :: Maybe P2PUUID -> MessageType -> P2PPayload -> P2PMessage
 generateP2PMessage = P2PMessage
 
 insertToUUIDMap :: P2PUUID -> MVar P2PMessage -> PeerDetails -> PeerDetails
