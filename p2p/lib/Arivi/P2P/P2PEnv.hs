@@ -67,8 +67,8 @@ makeP2PEnvironment ::
     -> IO P2PEnv
 makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor = do
     nmap <- newTVarIO HM.empty
-    r2pmap <- newTVarIO HM.empty
-    dr2pmap <- newTVarIO HM.empty
+    r2pmap <- newTVarIO (ArchivedResourceToPeerMap HM.empty)
+    dr2pmap <- newTVarIO (TransientResourceToPeerMap HM.empty)
     kb <-
         createKbucket
             (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))

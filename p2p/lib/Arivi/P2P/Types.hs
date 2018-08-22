@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs, DataKinds, KindSignatures, PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances, ConstraintKinds #-}
 
 -- |
 -- Module      :  Arivi.P2P.Types
@@ -83,11 +83,14 @@ instance Msg 'PubSub where
   msgType _ = PubSub
 
 
-class (Serialise r) => Resource r where
+
+-- type Resource r = (Eq r, Hashable r, Serialise r)
+
+class (Eq r, Hashable r, Serialise r) => Resource r where
     resourceId :: r -> String
 
-instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
-  resourceId (RpcPayload r _) = resourceId r
+-- instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
+--   resourceId (RpcPayload r _) = resourceId r
 
 class (Serialise t) => Topic t where
   topicId :: t -> String

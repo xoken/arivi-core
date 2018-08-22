@@ -47,8 +47,8 @@ sendOptionsToPeer recievingPeerNodeId = do
             updateResourcePeers (recievingPeerNodeId, resources)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers ::
-       (HasP2PEnv m) => (NodeId, [ResourceId]) -> m ()
+updateResourcePeers :: forall m r . 
+       (HasP2PEnv m, Resource r) => (NodeId, [r]) -> m ()
 updateResourcePeers peerResourceTuple = do
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
@@ -67,11 +67,11 @@ updateResourcePeers peerResourceTuple = do
 -- lookup for the current resource in the HashMap
 -- assumes that the resourceIDs are present in the HashMap
 -- cannot add new currently because the serviceID is not available
-updateResourcePeersHelper ::
-       NodeId -> [ResourceId] -> ArchivedResourceToPeerMap -> IO Int
+updateResourcePeersHelper :: forall r . (Resource r) => 
+       NodeId -> [r] -> ArchivedResourceToPeerMap -> IO Int
 updateResourcePeersHelper _ [] _ = return 0
 updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourceToPeerMap = do
-    let temp = HM.lookup currResource archivedResourceToPeerMap -- check for lookup returning Nothing
+    let temp = HM.lookup currResource (getArchivedMap archivedResourceToPeerMap) -- check for lookup returning Nothing
     case temp of
         Nothing ->
             updateResourcePeersHelper
@@ -92,8 +92,8 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
             return $ 1 + tmp
 
 -- | takes an options message and returns a supported message
-optionsHandler ::
-       (HasP2PEnv m) => m (Supported [ResourceId])
-optionsHandler = do
-    archivedResourceMap <- getArchivedResourceToPeerMapP2PEnv >>=  (liftIO . readTVarIO)
-    return (Supported (keys archivedResourceMap))
+-- optionsHandler ::
+--        (HasP2PEnv m) => m (Supported [ResourceId])
+-- optionsHandler = do
+--     archivedResourceMap <- getArchivedResourceToPeerMapP2PEnv >>=  (liftIO . readTVarIO)
+--     return (Supported (keys (getArchivedMap archivedResourceMap)))
