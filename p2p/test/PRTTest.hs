@@ -68,6 +68,8 @@ instance HasP2PEnv AppM where
     getPeerReputationHistoryTableTVar = tvPeerReputationHashTable <$> getP2PEnv
     getP2PReputationHashMapTVar = tvP2PReputationHashMap <$> getP2PEnv
     getServicesReputationHashMapTVar = tvServicesReputationHashMap <$> getP2PEnv
+    getReputedVsOtherTVar = tvReputedVsOther <$> getP2PEnv
+    getKClosestVsRandomTVar = tvKClosestVsRandom <$> getP2PEnv
 
 runAppM :: P2PEnv -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
