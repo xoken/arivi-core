@@ -23,6 +23,7 @@ import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Data.HashMap.Strict                   as HM
+import           Data.Ratio                            (Rational, (%))
 import           Network.Socket                        (PortNumber)
 
 data P2PEnv = P2PEnv
@@ -44,6 +45,8 @@ data P2PEnv = P2PEnv
     , tvPeerReputationHashTable :: TVar PeerReputationHistoryTable
     , tvServicesReputationHashMap :: TVar ServicesReputationHashMap
     , tvP2PReputationHashMap :: TVar P2PReputationHashMap
+    , tvReputedVsOther :: TVar Rational
+    , tvKClosestVsRandom :: TVar Rational
     }
 
 class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
@@ -64,6 +67,8 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getPeerReputationHistoryTableTVar :: m (TVar PeerReputationHistoryTable)
     getServicesReputationHashMapTVar :: m (TVar ServicesReputationHashMap)
     getP2PReputationHashMapTVar :: m (TVar P2PReputationHashMap)
+    getReputedVsOtherTVar :: m (TVar Rational)
+    getKClosestVsRandomTVar :: m (TVar Rational)
 
 makeP2PEnvironment ::
        String -> T.NodeId -> PortNumber -> PortNumber -> Int -> IO P2PEnv
@@ -80,6 +85,8 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
     peerReputationHashTable <- newTVarIO HM.empty
     servicesReputationHashMapTVar <- newTVarIO HM.empty
     p2pReputationHashMapTVar <- newTVarIO HM.empty
+    reputedVsOtherTVar <- newTVarIO (1 % 1 :: Rational)
+    kClosestVsRandomTVar <- newTVarIO (1 % 1 :: Rational)
     return
         P2PEnv
         { selfNId = nId
@@ -96,4 +103,6 @@ makeP2PEnvironment nIp nId tPort uPort alpha = do
         , tvPeerReputationHashTable = peerReputationHashTable
         , tvServicesReputationHashMap = servicesReputationHashMapTVar
         , tvP2PReputationHashMap = p2pReputationHashMapTVar
+        , tvReputedVsOther = reputedVsOtherTVar
+        , tvKClosestVsRandom = kClosestVsRandomTVar
         }
