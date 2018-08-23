@@ -84,10 +84,10 @@ instance Msg 'PubSub where
 
 
 
--- type Resource r = (Eq r, Hashable r, Serialise r)
+type Resource r = (Eq r, Hashable r, Serialise r)
 
-class (Eq r, Hashable r, Serialise r) => Resource r where
-    resourceId :: r -> String
+-- class (Eq r, Hashable r, Serialise r) => Resource r where
+--     resourceId :: r -> String
 
 -- instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
 --   resourceId (RpcPayload r _) = resourceId r
@@ -124,6 +124,7 @@ data instance RTTI (Request i) msg where
   RttiReqRpc :: RTTI (Request 'Rpc) msg
   RttiReqKademlia :: RTTI (Request 'Kademlia) msg
   RttiReqOption :: RTTI (Request 'Option) msg
+  RttiReqPubSub :: RTTI (Request 'PubSub) msg
 
 instance HasRTTI (Request 'Rpc) msg where
   rtti = RttiReqRpc
@@ -134,6 +135,9 @@ instance HasRTTI (Request 'Kademlia) msg where
 instance HasRTTI (Request 'Option) msg where
   rtti = RttiReqOption
 
+
+instance HasRTTI (Request 'PubSub) msg where
+  rtti = RttiReqPubSub
 
 -- GHC can't derive Generic instances for GADTs, so we need to write
 -- serialise instances by hand. The encoding part is trvial, decoding gets
@@ -152,6 +156,8 @@ encodeRequest (OptionRequest msg) =
     encodeListLen 2 <> encodeWord 1 <> encode msg
 encodeRequest (KademliaRequest msg) =
     encodeListLen 2 <> encodeWord 2 <> encode msg
+encodeRequest (PubSubRequest msg) =
+    encodeListLen 2 <> encodeWord 3 <> encode msg
 
 decodeRequest ::
        (Serialise msg) => RTTI (Request i) msg -> Decoder s (Request i msg)
@@ -174,10 +180,18 @@ decodeRequest RttiReqKademlia = do
         (2, 2) -> KademliaRequest <$> decode
         _ -> fail "Invalid KademliaRequest type"
 
+decodeRequest RttiReqPubSub = do
+    len <- decodeListLen
+    tag <- decodeWord
+    case (len, tag) of
+        (2, 3) -> PubSubRequest <$> decode
+        _ -> fail "Invalid PubSubRequest type"
+
 data instance  RTTI (Response i) msg where
         RttiResRpc :: RTTI (Response 'Rpc) msg
         RttiResOption :: RTTI (Response 'Option) msg
         RttiResKademlia :: RTTI (Response 'Kademlia) msg
+        RttiResPubSub :: RTTI (Response 'PubSub) msg
 
 instance HasRTTI (Response 'Rpc) msg where
     rtti = RttiResRpc
@@ -187,6 +201,9 @@ instance HasRTTI (Response 'Option) msg where
 
 instance HasRTTI (Response 'Kademlia) msg where
     rtti = RttiResKademlia
+
+instance HasRTTI (Response 'PubSub) msg where
+    rtti = RttiResPubSub
 
 instance (HasRTTI (Response i) msg, Serialise msg) =>
          Serialise (Response i msg) where
@@ -199,6 +216,8 @@ encodeResponse (OptionResponse msg) =
     encodeListLen 2 <> encodeWord 1 <> encode msg
 encodeResponse (KademliaResponse msg) =
     encodeListLen 2 <> encodeWord 2 <> encode msg
+encodeResponse (PubSubResponse msg) =
+    encodeListLen 2 <> encodeWord 3 <> encode msg
 
 decodeResponse ::
        (Serialise msg) => RTTI (Response i) msg -> Decoder s (Response i msg)
@@ -220,6 +239,15 @@ decodeResponse RttiResKademlia = do
     case (len, tag) of
         (2, 2) -> KademliaResponse <$> decode
         _ -> fail "Failed to deserialise into a valid KademliaResponse type"
+
+decodeResponse RttiResPubSub = do
+    len <- decodeListLen
+    tag <- decodeWord
+    case (len, tag) of
+        (2, 3) -> PubSubResponse <$> decode
+        _ -> fail "Failed to deserialise into a valid PubSubResponse type"
+
+
 
 {-
 -- Serialise instances for Request and Response GADTs using Singletons
