@@ -10,3 +10,7 @@ p2p:
   SignatureMismatch: -100
   DeserialiseFaliure: -50
   Verified : 1
+
+
+reputedVsOther: {"numerator": 60, "denominator": 40}
+kClosestVsRandom: {"numerator": 50, "denominator": 50}

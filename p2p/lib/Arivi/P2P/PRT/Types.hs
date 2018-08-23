@@ -28,6 +28,7 @@ import           Data.Aeson          (FromJSON (..), FromJSONKey (..),
                                       FromJSONKeyFunction (..))
 import           Data.Hashable       (Hashable)
 import qualified Data.HashMap.Strict as HM (HashMap)
+import           Data.Ratio          (Rational)
 import qualified Data.Text           as Text (unpack)
 import           GHC.Generics        (Generic)
 
@@ -90,8 +91,10 @@ type P2PReputationHashMap = HM.HashMap PeerDeed Reputation
 -- | This is the structure of config file that  stores the `PeerDeeds` and
 -- their respective `Reputation`
 data Config = Config
-    { services :: ServicesReputationHashMap -- ^ `PeerDeeds` for services
-    , p2p      :: P2PReputationHashMap -- ^  `PeerDeeds` for P2P
+    { services         :: ServicesReputationHashMap -- ^ `PeerDeeds` for services
+    , p2p              :: P2PReputationHashMap -- ^  `PeerDeeds` for P2P
+    , reputedVsOther   :: Rational -- ^ Ratio of reputated vs non reputated
+    , kClosestVsRandom :: Rational -- ^ Ratio of closet vs random
     } deriving (Show, Eq, Generic)
 
 instance FromJSON Config
