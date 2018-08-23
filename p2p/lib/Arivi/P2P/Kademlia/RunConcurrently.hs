@@ -31,12 +31,11 @@ runKademliaActionConcurrently_ ::
 runKademliaActionConcurrently_ fx lt = do
     kb <- getKb
     if length lt <= kademliaConcurrencyFactor kb
-        then mapConcurrently_ fx (fst pl2)
+        then mapConcurrently_ fx lt
         else do
+            let pl2 = L.splitAt (kademliaConcurrencyFactor kb) lt
             _ <- mapConcurrently_ fx (fst pl2)
             runKademliaActionConcurrently_ fx (snd pl2)
-  where
-    pl2 = L.splitAt (kademliaConcurrencyFactor kb) lt
 
 -- | Runs async kademlia action which returns something
 runKademliaActionConcurrently ::
@@ -44,10 +43,9 @@ runKademliaActionConcurrently ::
 runKademliaActionConcurrently fx lt = do
     kb <- getKb
     if length lt <= kademliaConcurrencyFactor kb
-        then mapConcurrently fx (fst pl2)
+        then mapConcurrently fx lt
         else do
+            let pl2 = L.splitAt (kademliaConcurrencyFactor kb) lt
             temp <- mapConcurrently fx (fst pl2)
             temp2 <- runKademliaActionConcurrently fx (snd pl2)
             return $ temp ++ temp2
-  where
-    pl2 = L.splitAt (kademliaConcurrencyFactor kb) lt
