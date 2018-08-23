@@ -17,9 +17,11 @@ module Arivi.P2P.PRT.Exceptions
 import           Control.Exception
 
 -- | Types of Exceptions that comes in Peer Reputation management
-data PRTExecption =
-    PeerDeedNotFound -- ^ Throw this Exception whene given Peer Deed not
+data PRTExecption
+    = PeerDeedNotFound -- ^ Throw this Exception whene given Peer Deed not
                      --   found in the PeerReputation hashmap
+    | InvalidRatioReputedVsOther
+    | InvalidRatioKClosestVsRandom
     deriving (Show)
 
 instance Exception PRTExecption
