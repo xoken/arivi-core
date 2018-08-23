@@ -33,7 +33,7 @@ newtype ArchivedResourceToPeerMap = ArchivedResourceToPeerMap {
 
 newtype ResourceHandler = ResourceHandler (forall r m . RpcPayload r m -> RpcPayload r m)
 
-data Options = Options deriving (Eq, Ord, Show, Generic, Serialise)
+data Options r = Options deriving (Eq, Ord, Show, Generic, Serialise)
 
 data Supported r = Supported r deriving(Eq, Ord, Generic, Serialise, Hashable)
 
