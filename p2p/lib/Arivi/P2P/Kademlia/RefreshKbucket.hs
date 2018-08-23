@@ -22,7 +22,6 @@
 module Arivi.P2P.Kademlia.RefreshKbucket
     ( refreshKbucket
     , issuePing
-    , runKademliaConcurrently
     ) where
 
 import           Arivi.P2P.Exception
