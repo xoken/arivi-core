@@ -78,7 +78,7 @@ issuePing ::
        )
     => Peer
     -> m Bool
-issuePing rpeer = do
+issuePing rpeer  = do
     nc <- (^. networkConfig) <$> ask
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
@@ -88,7 +88,7 @@ issuePing rpeer = do
         rnc = NetworkConfig rnid rip ruport ruport
     $(logDebug) $
         T.pack ("Issuing ping request to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest ping_msg)
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest ping_msg) Nothing
     $(logDebug) $
         T.pack ("Response for ping from : " ++ show rip ++ ":" ++ show ruport)
     case resp of
