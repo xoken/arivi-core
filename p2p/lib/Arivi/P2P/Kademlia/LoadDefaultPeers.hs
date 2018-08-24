@@ -23,6 +23,7 @@ module Arivi.P2P.Kademlia.LoadDefaultPeers
     ( loadDefaultPeers
     , deleteIfPeerExist
     , ifPeerExist'
+    , getPeerListFromPayload
     ) where
 
 import           Arivi.P2P.Exception
@@ -55,7 +56,7 @@ loadDefaultPeers ::
        )
     => [Peer]
     -> m ()
-loadDefaultPeers = runKademliaActionConcurrently_ issueFindNode
+loadDefaultPeers = mapConcurrently_ issueFindNode
 
 -- | Helper function to retrieve Peer list from PayLoad
 getPeerListFromPayload :: PayLoad -> Either AriviP2PException [Peer]
@@ -69,7 +70,7 @@ getPeerListFromPayload payload =
 ifPeerExist' ::
        (HasKbucket m, MonadIO m) => Arivi.P2P.Kademlia.Types.NodeId -> m Bool
 ifPeerExist' nid = do
-    m <- ifPeerExist nid
+    m <- runExceptT $ ifPeerExist nid
     case m of
         Right x -> return x
         Left _  -> return False
@@ -102,7 +103,7 @@ issueFindNode rpeer = do
         fn_msg = packFindMsg nc _nodeId
     $(logDebug) $
         T.pack ("Issuing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg)
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg) Nothing
     case resp of
         Left e -> $(logDebug) $ T.pack (displayException e)
         Right (KademliaResponse payload) -> do
