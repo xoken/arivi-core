@@ -34,13 +34,13 @@ import qualified Control.Exception.Lifted              as LE (try)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Logger
 import           Data.HashMap.Strict                   as HM
-import           Data.Maybe                            (fromJust)
+import           Data.Maybe                            (fromJust,fromMaybe )
 import           Control.Lens
 import           Data.Proxy
 import           Control.Monad.Except
 import           Data.String.Conv
 
-handler :: forall o m t. (HasP2PEnv m, HasLogging m) 
+handler :: forall o m t. (HasP2PEnv m, HasLogging m)
     => AriviP2PException
     -> ExceptT AriviP2PException m (Response t o)
 handler e =
@@ -54,30 +54,31 @@ issueRequest ::
        (HasP2PEnv m, HasLogging m, Msg t, Serialise i, Serialise o)
     => NodeId
     -> Request t i
+    -> Maybe Int
     -> ExceptT AriviP2PException m (Response t o)
-issueRequest peerNodeId req = do 
+issueRequest peerNodeId req timeOut= do
     nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
     nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
     connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
     peerDetailsTVar <- maybe (throwError PeerNotFound) return (nodeIdPeerMap ^.at peerNodeId)
     case req of
         RpcRequest msg -> do
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg) timeOut
             rpcResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
             return (RpcResponse rpcResp)
 
-        OptionRequest msg -> do 
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
+        OptionRequest msg -> do
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg) timeOut
             optionResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (OptionResponse optionResp) 
+            return (OptionResponse optionResp)
 
-        KademliaRequest msg -> do 
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
+        KademliaRequest msg -> do
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg) timeOut
             kademliaResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (KademliaResponse kademliaResp) 
+            return (KademliaResponse kademliaResp)
 
-        PubSubRequest msg -> do 
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
+        PubSubRequest msg -> do
+            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg) timeOut
             pubsubResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
             return (PubSubResponse pubsubResp)
 
@@ -85,16 +86,17 @@ issueRequest peerNodeId req = do
 issueKademliaRequest :: (HasP2PEnv m, HasLogging m, Serialise msg)
     => NetworkConfig
     -> Request 'Kademlia msg
+    -> Maybe Int
     -> ExceptT AriviP2PException m (Response 'Kademlia msg)
-issueKademliaRequest nc payload = do
+issueKademliaRequest nc payload timeOut= do
     nodeIdMapTVar <- lift $ getNodeIdPeerMapTVarP2PEnv
     peerExists <- (lift . liftIO) $ doesPeerExist nodeIdMapTVar (nc ^. nodeId)
     case peerExists of
-        True -> issueRequest (nc ^. nodeId) payload
+        True -> issueRequest (nc ^. nodeId) payload timeOut
         False -> do
             peerDetailsTVar <- (lift . liftIO) $ atomically $ mkPeer nc UDP NotConnected
             (lift . liftIO) $ atomically $ addNewPeer (nc ^. nodeId) peerDetailsTVar nodeIdMapTVar
-            issueRequest (nc ^. nodeId) payload
+            issueRequest (nc ^. nodeId) payload timeOut
 
 -- | Send a message without waiting for any response or registering a uuid.
 -- | Useful for pubsub notifies and publish. To be called by the rpc/pubsub and kademlia handlers on getting a new request
@@ -135,8 +137,10 @@ sendAndReceive :: forall m.
     -> MessageType
     -> ConnectionHandle
     -> P2PPayload
+    -> Maybe Int
     -> m (Either AriviP2PException P2PPayload)
-sendAndReceive peerDetailsTVar messageType connHandle msg = do
+sendAndReceive peerDetailsTVar messageType connHandle msg timeOut= do
+    let timeOut' = fromMaybe 30000000 timeOut
     uuid <- liftIO getUUID
     mvar <- liftIO newEmptyMVar
     liftIO $ atomically $ modifyTVar' peerDetailsTVar (insertToUUIDMap uuid mvar)
@@ -147,7 +151,7 @@ sendAndReceive peerDetailsTVar messageType connHandle msg = do
             liftIO $ atomically $ modifyTVar' peerDetailsTVar (deleteFromUUIDMap uuid)
             return (Left e)
         Right () -> do
-            winner <- liftIO $ Async.race (threadDelay 30000000) (takeMVar mvar :: IO P2PMessage)
+            winner <- liftIO $ Async.race (threadDelay timeOut') (takeMVar mvar :: IO P2PMessage)
             case winner of
                 Left _ -> $(logDebug) "response timed out" >> return (Left SendMessageTimeout)
                 Right p2pMessage -> return (Right $ payload p2pMessage)
@@ -224,7 +228,7 @@ getConnectionHandle peerNodeId nodeToPeerTVar transportType = do
             case getHandlerByMessageType peerDetails transportType of
                 Connected connHandle -> return (Right connHandle)
                 NotConnected -> createConnection peerDetailsTVar nodeToPeerTVar transportType
-        Nothing -> return (Left PeerNotFound) 
+        Nothing -> return (Left PeerNotFound)
 
 -- | Obtains the connectionLock on entry and then checks if connection has been made. If yes, then simply returns the connectionHandl;e else it tries to openConnection
 -- | Returns the connectionHandle or an exception
@@ -235,8 +239,8 @@ createConnection peerDetailsTVar _ transportType = do
     connHandleEither <-
         case checkConnection peerDetails transportType of
             Connected connHandle -> return $ Right connHandle
-            NotConnected -> networkToP2PException <$> openConnectionToPeer (peerDetails ^. networkConfig) transportType 
-                        
+            NotConnected -> networkToP2PException <$> openConnectionToPeer (peerDetails ^. networkConfig) transportType
+
     msgTypeMap <- getMessageTypeMapP2PEnv
     liftIO $ atomically $ putTMVar (peerDetails ^. connectionLock) lock
     case connHandleEither of
