@@ -36,14 +36,14 @@ sendOptionsMessage (peer:peers) optionsMessage = do
 sendOptionsToPeer :: forall m r . (HasP2PEnv m, HasLogging m, Resource r) => NodeId -> Options r -> m ()
 sendOptionsToPeer recievingPeerNodeId optionsMsg = do
     res <-
-        runExceptT $ issueRequest recievingPeerNodeId (OptionRequest optionsMsg)
+        runExceptT $ issueRequest recievingPeerNodeId (OptionRequest optionsMsg) Nothing
     case res of
         Left _ -> throw SendOptionsFailedException
         Right (OptionResponse (Supported resources :: Supported [r])) ->
             updateResourcePeers (recievingPeerNodeId, resources)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers :: forall m r . 
+updateResourcePeers :: forall m r .
        (HasP2PEnv m, Resource r) => (NodeId, [r]) -> m ()
 updateResourcePeers peerResourceTuple = do
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
@@ -63,7 +63,7 @@ updateResourcePeers peerResourceTuple = do
 -- lookup for the current resource in the HashMap
 -- assumes that the resourceIDs are present in the HashMap
 -- cannot add new currently because the serviceID is not available
-updateResourcePeersHelper :: forall r . (Resource r) => 
+updateResourcePeersHelper :: forall r . (Resource r) =>
        NodeId -> [r] -> ArchivedResourceToPeerMap -> IO Int
 updateResourcePeersHelper _ [] _ = return 0
 updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourceToPeerMap = do
@@ -91,6 +91,6 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
 optionsHandler ::
        (HasP2PEnv m, Resource r) => m (Supported [r])
 optionsHandler = do
-    tvar <- getArchivedResourceToPeerMapP2PEnv 
+    tvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceMap <- (liftIO . readTVarIO) tvar
     return (Supported (keys (getArchivedMap archivedResourceMap)))
