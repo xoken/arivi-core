@@ -7,8 +7,9 @@
 
 
 module Arivi.P2P.Kademlia.LoadReputedPeers
-    ( loadReputedPeers
-    , findGivenNode
+    (
+        -- loadReputedPeers
+     findGivenNode
     ) where
 
 import           Arivi.P2P.Exception
@@ -40,9 +41,10 @@ loadReputedPeers ::
     , HasP2PEnv m
     , HasLogging m
     )
-    => [Peer]
-    -> m ()
-loadReputedPeers = runKademliaActionConcurrently_ findGivenNode
+    => [Arivi.P2P.Kademlia.Types.NodeId]
+    -> Peer
+    ->[ m () ]
+loadReputedPeers nodeIdList rpeer = map (`findGivenNode` rpeer) nodeIdList
 
 
 
@@ -52,10 +54,10 @@ findGivenNode ::
        , HasP2PEnv m
        , HasLogging m
        )
-    => Peer
-    -> Arivi.P2P.Kademlia.Types.NodeId
-    -> m ()
-findGivenNode rpeer tnid = do
+    => Arivi.P2P.Kademlia.Types.NodeId
+    -> Peer
+    -> m()
+findGivenNode tnid rpeer = do
     nc@NetworkConfig {..} <- asks (^. networkConfig)
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
@@ -68,8 +70,8 @@ findGivenNode rpeer tnid = do
     resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg) Nothing
     case resp of
         Left e -> $(logDebug) $ T.pack (displayException e)
-        Right (KademliaResponse payload) -> do
-            _ <- runExceptT $ addToKBucket rpeer
+        Right (KademliaResponse payload) ->
+            -- _ <- runExceptT $ addToKBucket rpeer
             case getPeerListFromPayload payload of
                 Left e ->
                     $(logDebug) $
@@ -88,8 +90,22 @@ findGivenNode rpeer tnid = do
                     -- TODO Rethink about handling exceptions
                     let peerDetail = LL.find (\x -> (fst . getPeer) x == tnid ) peerl
                     case peerDetail of
-                        Just details -> runExceptT $ addToKBucket details
-                        Nothing -> runKademliaActionConcurrently_ findGivenNode peerl
+                        Just details -> do
+                                action <-  runExceptT $ addToKBucket details
+                                case action of
+                                    Left e -> do
+                                        $(logDebug) $
+                                            T.append
+                                                (T.pack
+                                                ("Couldn't deserialise message while recieving fn_resp from : " ++
+                                                show rip ++ ":" ++ show ruport))
+                                            (T.pack (displayException e))
+                                        runKademliaActionConcurrently_ (findGivenNode tnid) peerl
+                                    Right _ ->
+                                        $(logDebug) $
+                                            T.pack
+                                                ("Added the Peer with nodeId" ++ show tnid  ++"to KBucket")
+                        Nothing -> runKademliaActionConcurrently_ (findGivenNode tnid) peerl
 
 
                     -- Initiates the verification process
