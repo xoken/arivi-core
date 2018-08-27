@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DuplicateRecordFields, RecordWildCards #-}
-{-# LANGUAGE GADTs, DataKinds #-}
+{-# LANGUAGE GADTs, DataKinds, RankNTypes #-}
 
 module Arivi.P2P.RPC.Functions
     ( registerResource
@@ -31,54 +31,34 @@ import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
 import           Control.Exception
-import qualified Control.Exception.Lifted              as Exception (try)
 import           Control.Lens
 import           Control.Monad                         (forever)
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.STM
-import           Data.Either.Unwrap
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 import           Control.Applicative
 
--- import           Debug.Trace
--- import           System.Random                         (randomRIO)
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
-registerResource ::
-       (HasP2PEnv m)
-    => ResourceId
+registerResource :: forall r m .
+       (HasNodeEndpoint m, HasRpc r, Resource r, MonadIO m)
+    => r
     -> ResourceHandler
     -> ResourceType
     -> m ()
 registerResource resource resourceHandler resourceType = do
-    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
-    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
+    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
+    let transientResourceToPeerMapTVar = getTransientResourceToPeerMap
     nodeIds <- liftIO $ newTVarIO [] -- create a new empty Tqueue for Peers
     case resourceType of
-        Archived ->
-            liftIO $
-            atomically
-                (do archivedResourceToPeerMap <-
-                        readTVar archivedResourceToPeerMapTvar
-                    let newMap =
-                            HM.insert
-                                resource
-                                (resourceHandler, nodeIds)
-                                archivedResourceToPeerMap --
-                    writeTVar archivedResourceToPeerMapTvar newMap)
-        Transient ->
-            liftIO $
-            atomically
-                (do transientResourceToPeerMap <-
-                        readTVar transientResourceToPeerMapTVar
-                    let updatedMap =
-                            HM.insert
-                                resource
-                                (resourceHandler, nodeIds)
-                                transientResourceToPeerMap --
-                    writeTVar transientResourceToPeerMapTVar updatedMap)
+        Archived -> liftIO $ atomically $ modifyTVar' archivedResourceToPeerMapTvar (funcA nodeIds)
+        Transient -> liftIO $ atomically $ modifyTVar' transientResourceToPeerMapTVar (funcT nodeIds)
+    where
+        funcA l hm = ArchivedResourceToPeerMap $ HM.insert (resource :: r) (resourceHandler, l) (getArchivedMap hm)
+        funcT l hm = TransientResourceToPeerMap $ HM.insert (resource :: r) (resourceHandler, l) (getTransientMap hm)
+
 
 -------------------- Functions for periodic updation of the hashmap ---------------------
 -- creates a worker thread
@@ -86,48 +66,50 @@ registerResource resource resourceHandler resourceType = do
 -- if it is less should ask Kademlia for more nodes
 -- send each peer and option message
 -- the options message module will handle the sending of messages and updating of the HashMap based on the support message
-updatePeerInResourceMap :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m) => m ()
-updatePeerInResourceMap = do
+updatePeerInResourceMap :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r, HasKbucket m) => r -> m ()
+updatePeerInResourceMap r = do
     nId <- (^.networkConfig.nodeId) <$> ask
-    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
     let minimumNodes = 5 -- this value should be decided on and taken from the RPC environment
     _ <-
         LAsync.async
-            (updatePeerInResourceMapHelper
+            (updatePeerInResourceMapHelper r 
                  archivedResourceToPeerMap
                  minimumNodes
                  nId)
     return ()
 
-updatePeerInResourceMapHelper ::
-       (HasP2PEnv m, HasLogging m)
-    => ArchivedResourceToPeerMap
+
+
+
+updatePeerInResourceMapHelper :: forall m r .
+       (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r, HasKbucket m)
+    => r
+    -> ArchivedResourceToPeerMap r
     -> Int
     -> NodeId
     -> m ()
-updatePeerInResourceMapHelper archivedResourceToPeerMap minimumNodes currNodeId =
+updatePeerInResourceMapHelper resource archivedResourceToPeerMap minimumNodes currNodeId =
     forever $ do
-        let tempList = HM.toList archivedResourceToPeerMap
-        listOfLengths <- liftIO $ extractListOfLengths tempList
-        let numberOfPeers = minimumNodes - minimum listOfLengths
+        let tempList = HM.toList (getArchivedMap archivedResourceToPeerMap :: HM.HashMap r  (ResourceHandler, TVar [NodeId]))
+        listOfLengths <- liftIO $ safeExtractMin (x tempList)
+        let numberOfPeers = minimumNodes - listOfLengths
         if numberOfPeers > 0
             then do
                 peerRandom <- Kademlia.getKRandomPeers 2
-                res1 <-
-                    Exception.try $
-                    Kademlia.getKClosestPeersByNodeid currNodeId 3
+                res1 <- runExceptT $ Kademlia.getKClosestPeersByNodeid currNodeId 3
                 -- TODO:: if getting closest peer fails what to do? currently getting random peers
                 -- TODO:: handle certain exceptions specifically
-                peersClose <-
-                    case res1 of
-                        Left (_ :: AriviP2PException) ->
-                            Kademlia.getKRandomPeers 3
-                        Right peers -> return (fromRight peers)
+                -- peersClose <-
+                peersClose <- case res1 of
+                    Left (_ :: AriviP2PException) ->
+                        Kademlia.getKRandomPeers 3
+                    Right peers -> return peers
                 let peers = peerRandom ++ peersClose
                 nodeIds <- addPeerFromKademlia peers
-                sendOptionsMessage nodeIds
+                sendOptionsMessage nodeIds (Options :: Options r)
                 -- The thread delay is needed here put the updation thread to sleep for a given amount of time
                 -- We want a periodic updation of the hashMap so, if the hashMap was updated the thread sleeps for a larger
                 -- period of time (which needs to be decided after testing) but if the thread did not do any updation
@@ -136,21 +118,22 @@ updatePeerInResourceMapHelper archivedResourceToPeerMap minimumNodes currNodeId 
             else liftIO $ threadDelay (30 * 1000000) -- in microseconds
         return ()
 
--- function to find the TQueue with minimum length
--- used by the worker thread
-extractListOfLengths ::
-       [(ResourceId, (ResourceHandler, TVar [NodeId]))] -> IO [Int]
-extractListOfLengths [] = return [0]
-extractListOfLengths (x:xs) = do
-    let nodeListTVar = snd (snd x) -- get the TQueue of Peers
-    len <- atomically (length <$> readTVar nodeListTVar)
-    lenNextTQ <- extractListOfLengths xs
-    return $ len : lenNextTQ
 
-fetchResource ::
+-- Extract the length of the minimum list from a list of TVar lists
+extractMin ::[TVar [a]] -> IO Int
+extractMin = fmap minimum <$> mapM (fmap length <$> readTVarIO)
+  
+x :: [(a, (b, c))] -> [c]
+x = fmap (snd . snd)
+
+safeExtractMin :: [TVar [a]] -> IO Int
+safeExtractMin [] = return 0
+safeExtractMin l = extractMin l
+
+fetchResource :: forall m r msg env . 
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m, HasRpc r
        , HasLogging m
        , Resource r
        , Serialise msg
@@ -159,16 +142,16 @@ fetchResource ::
     -> m (RpcPayload r msg)
 fetchResource payload@(RpcPayload resource _) = do
     nId <- (^.networkConfig.nodeId) <$> ask
-    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
-    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
+    let transientResourceToPeerMapTVar = getTransientResourceToPeerMap
     transientResourceToPeerMap <-
         liftIO $ readTVarIO transientResourceToPeerMapTVar
     let entryInArchivedResourceMap =
-            HM.lookup (resourceId resource) archivedResourceToPeerMap
+            HM.lookup resource (getArchivedMap archivedResourceToPeerMap)
     let entryInTransientResourceMap =
-            HM.lookup (resourceId resource) transientResourceToPeerMap
+            HM.lookup resource (getTransientMap transientResourceToPeerMap)
     let entry = entryInArchivedResourceMap <|> entryInTransientResourceMap
     case entry of
         Nothing -> throw RPCResourceNotFoundException
@@ -184,7 +167,7 @@ fetchResource payload@(RpcPayload resource _) = do
                          payload
 
 sendResourceRequestToPeer ::
-       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasP2PEnv m, HasLogging m, Resource r, Serialise msg)
+       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r, Serialise msg)
     => TVar [NodeId]
     -> NodeId
     -> RpcPayload r msg
@@ -235,37 +218,39 @@ sendResourceRequestToPeer nodeListTVar nId msg = do
          --                _ -> return $ Lazy.fromStrict $ pack " default"
 
 rpcHandlerHelper ::
-       ( HasP2PEnv m
+       ( HasNodeEndpoint m, HasRpc r
        , Resource r
-       , Serialise msg
+       , MonadIO m
        )
     => Request 'Rpc (RpcPayload r msg)
     -> m (Response 'Rpc (RpcPayload r msg))
 rpcHandlerHelper (RpcRequest req) = RpcResponse <$> rpcHandler req
 
 -- will need the from NodeId to check the to and from
--- rpcHandler :: (HasP2PEnv m) => NodeId -> P2PPayload -> P2PPayload
-rpcHandler ::
-       ( HasP2PEnv m
+-- rpcHandler :: (HasNodeEndpoint m, HasRpc r) => NodeId -> P2PPayload -> P2PPayload
+rpcHandler :: forall m r msg .
+       ( HasNodeEndpoint m, HasRpc r
        , Resource r
-       , Serialise msg
+       , MonadIO m
        )
     => RpcPayload r msg
     -> m (RpcPayload r msg)
-rpcHandler req = do
-    archivedResourceMap <- getArchivedResourceToPeerMapP2PEnv >>= (liftIO . readTVarIO)
-    transientResourceMap <- getTransientResourceToPeerMap >>= (liftIO . readTVarIO)
-    let entry =  transientResourceMap ^. at (resourceId req)
-             <|> archivedResourceMap ^. at (resourceId req)
+rpcHandler payload@(RpcPayload resource _) = do
+    let archivedResourceMap = getArchivedResourceToPeerMapP2PEnv
+    archivedMap <- (liftIO . readTVarIO) archivedResourceMap
+    let transientResourceMap = getTransientResourceToPeerMap 
+    transientMap <- (liftIO . readTVarIO) transientResourceMap
+    let entry =  getTransientMap transientMap ^. at resource
+             <|> getArchivedMap archivedMap ^. at resource
     case entry of
         Nothing -> throw RPCHandlerResourceNotFoundException
         Just entryMap -> do
             let ResourceHandler resourceHandler = fst entryMap
-            return (resourceHandler req)
+            return (resourceHandler payload)
 
 -- | add the peers returned by Kademlia to the PeerDetails HashMap
 addPeerFromKademlia ::
-       (HasP2PEnv m, HasLogging m) => [Kademlia.Peer] -> m [NodeId]
+       (HasNodeEndpoint m, HasKbucket m, MonadIO m) => [Kademlia.Peer] -> m [NodeId]
 addPeerFromKademlia [] = return []
 addPeerFromKademlia (peer:peerList) = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
@@ -274,7 +259,7 @@ addPeerFromKademlia (peer:peerList) = do
     return $ mNodeId : nextNodeId
 
 addPeerFromKademliaHelper ::
-       (HasP2PEnv m)
+       (MonadIO m)
     => Kademlia.Peer
     -> TVar NodeIdPeerMap
     -> m NodeId

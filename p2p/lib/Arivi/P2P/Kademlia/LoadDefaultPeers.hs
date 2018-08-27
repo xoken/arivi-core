@@ -52,8 +52,9 @@ import qualified Data.Text                             as T
 loadDefaultPeers ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasKbucket m
        , HasLogging m
+       , HasNodeEndpoint m
        )
     => [Peer]
     -> m ()
@@ -90,7 +91,7 @@ deleteIfPeerExist (x:xs) = do
 issueFindNode ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasLogging m
        )
     => Peer

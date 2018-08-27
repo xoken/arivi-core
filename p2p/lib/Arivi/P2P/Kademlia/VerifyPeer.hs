@@ -37,7 +37,7 @@ import Arivi.P2P.Kademlia.Utils (count')
 import Arivi.P2P.Kademlia.XorDistance
 import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
-import Arivi.P2P.P2PEnv (HasP2PEnv)
+import Arivi.P2P.P2PEnv (HasNodeEndpoint)
 import Arivi.P2P.Types
 import Arivi.Utils.Logging
 import Control.Concurrent (threadDelay)
@@ -146,7 +146,8 @@ filterPeer nid rnid peerL = result
 initVerification ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
+       , HasKbucket m
        , HasLogging m
        )
     => [Peer]
@@ -164,7 +165,8 @@ initVerification peerL = do
 isVNRESPValid ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
+       , HasKbucket m
        , HasLogging m
        )
     => [Peer]
@@ -188,7 +190,7 @@ issueVerifyNode ::
        forall m env.
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasLogging m
        )
     => Peer
@@ -249,7 +251,8 @@ responseHandler ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
        , HasLogging m
-       , HasP2PEnv m
+       , HasNodeEndpoint m
+       , HasKbucket m
        )
     => Either SomeException [Peer]
     -> Peer
@@ -279,7 +282,8 @@ sendVNMsg ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
        , HasLogging m
-       , HasP2PEnv m
+       , HasNodeEndpoint m
+       , HasKbucket m
        )
     => Peer
     -> Peer
@@ -293,8 +297,9 @@ sendVNMsg peerT peerV peerR = do
 verifyPeer ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasLogging m
+       , HasKbucket m
        )
     => Peer
     -> ExceptT AriviP2PException m ()

@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fprint-potential-instances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE RankNTypes, ScopedTypeVariables       #-}
 {-# LANGUAGE DuplicateRecordFields, KindSignatures, DataKinds, GADTs #-}
 
 module Arivi.P2P.ServiceRegistry
@@ -23,7 +23,7 @@ import           Data.HashMap.Strict                   as HM
 
 import           Control.Monad.Reader
 
-makeP2Pinstance ::
+makeP2Pinstance :: forall r . 
        NodeId
     -> IP
     -> Port
@@ -35,12 +35,14 @@ makeP2Pinstance ::
     -> Int
     -> Int
     -> Int
-    -> IO P2PEnv
+    -> IO (P2PEnv r)
 makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk sbound pingThreshold kademliaConcurrencyFactor = do
     newStatsdClient <- createStatsdClient statsdIP statsdPort statsdPrefix
     let netENV = mkAriviEnv (read $ show tcpport) (read $ show udpport) sk
         nc     = NetworkConfig nodeid mIp tcpport udpport
     -- TODO:  need to make port consistent
+    nmap <- newTVarIO HM.empty
+    let nodeEndpointEnv = mkNodeEndpoint nc nmap handlers netENV
     p2p' <-
         makeP2PEnvironment
             nc
@@ -49,17 +51,15 @@ makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk s
             kademliaConcurrencyFactor
     let p2pEnv =
             p2p'
-                { ariviNetworkEnv = netENV
-                , _networkConfig = nc
-                , statsdClient = newStatsdClient
-                , tvarMessageTypeMap = handlers
+                { statsdClient = newStatsdClient
+                , nodeEndpointEnv = nodeEndpointEnv
                 }
     return p2pEnv
 
 
 
 handlers :: Handlers
-handlers = Handler rpcHandler kademliaHandler
+handlers = Handlers rpcHandlerHelper kademliaHandlerHelper
 
 {-
 data Handler m = forall t msg. Handler (Request t msg -> m (Response t msg))

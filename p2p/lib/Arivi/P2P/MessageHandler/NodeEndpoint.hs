@@ -14,7 +14,7 @@ module Arivi.P2P.MessageHandler.NodeEndpoint (
 
 import           Arivi.Network                         (AriviNetworkException (..),
                                                         ConnectionHandle (..),
-                                                        TransportType (..))
+                                                        TransportType (..), HasSecretKey(..))
 import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.MessageHandler.Utils
@@ -40,7 +40,7 @@ import           Data.Proxy
 import           Control.Monad.Except
 import           Data.String.Conv
 
-handler :: forall o m t. (HasP2PEnv m, HasLogging m) 
+handler :: forall o m t. (HasNodeEndpoint m, HasLogging m) 
     => AriviP2PException
     -> ExceptT AriviP2PException m (Response t o)
 handler e =
@@ -51,7 +51,7 @@ handler e =
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
 issueRequest ::
        forall i o m t.
-       (HasP2PEnv m, HasLogging m, Msg t, Serialise i, Serialise o)
+       (HasNodeEndpoint m, HasLogging m, Msg t, Serialise i, Serialise o)
     => NodeId
     -> Request t i
     -> ExceptT AriviP2PException m (Response t o)
@@ -82,7 +82,7 @@ issueRequest peerNodeId req = do
             return (PubSubResponse pubsubResp)
 
 -- | Called by kademlia. Adds a default PeerDetails record into hashmap before calling generic issueRequest
-issueKademliaRequest :: (HasP2PEnv m, HasLogging m, Serialise msg)
+issueKademliaRequest :: (HasNodeEndpoint m, HasLogging m, Serialise msg)
     => NetworkConfig
     -> Request 'Kademlia msg
     -> ExceptT AriviP2PException m (Response 'Kademlia msg)
@@ -99,7 +99,7 @@ issueKademliaRequest nc payload = do
 -- | Send a message without waiting for any response or registering a uuid.
 -- | Useful for pubsub notifies and publish. To be called by the rpc/pubsub and kademlia handlers on getting a new request
 issueSend :: forall i m t.
-       (HasP2PEnv m, HasLogging m, Msg t, Serialise i)
+       (HasNodeEndpoint m, HasLogging m, Msg t, Serialise i)
     => NodeId
     -> Maybe P2PUUID
     -> Request t i
@@ -113,7 +113,7 @@ issueSend peerNodeId uuid req = do
         KademliaRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
         PubSubRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
 
-sendWithoutUUID ::forall m .(HasP2PEnv m, HasLogging m)
+sendWithoutUUID ::forall m .(HasNodeEndpoint m, HasLogging m)
     => NodeId
     -> MessageType
     -> Maybe P2PUUID
@@ -130,7 +130,7 @@ sendWithoutUUID peerNodeId messageType uuid connHandle payload = do
         Right a -> return (Right a)
 
 sendAndReceive :: forall m.
-       (HasP2PEnv m, HasLogging m)
+       (HasNodeEndpoint m, HasLogging m)
     => TVar PeerDetails
     -> MessageType
     -> ConnectionHandle
@@ -155,7 +155,7 @@ sendAndReceive peerDetailsTVar messageType connHandle msg = do
 
 
 -- | Recv from connection handle and process incoming message
-readIncomingMessage :: (HasP2PEnv m, HasLogging m)
+readIncomingMessage :: (HasNodeEndpoint m, HasLogging m)
     => ConnectionHandle
     -> TVar PeerDetails
     -> Handlers
@@ -187,7 +187,7 @@ processRequest connHandle handlerFunc p2pMessage peerNodeId = do
 
 
 -- | Takes an incoming message from the network layer and procesess it in 2 ways. If the mes0sage was an expected reply, it is put into the waiting mvar or else the appropriate handler for the message type is called and the generated response is sent back
-processIncomingMessage :: (HasP2PEnv m, HasLogging m)
+processIncomingMessage :: (HasNodeEndpoint m, HasLogging m)
     => ConnectionHandle
     -> TVar PeerDetails
     -> Handlers
@@ -213,7 +213,7 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
                 --     processRequest connHandle func p2pMessage peerNodeId
 
 -- | Gets the connection handle for the particular message type. If not present, it will create and return else will throw an exception
-getConnectionHandle :: (HasLogging m, HasP2PEnv m) => NodeId -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
+getConnectionHandle :: (HasLogging m, HasNodeEndpoint m) => NodeId -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
 getConnectionHandle peerNodeId nodeToPeerTVar transportType = do
     nodeIdPeerMap <- liftIO $ atomically $ readTVar nodeToPeerTVar
     -- should find an entry in the hashmap
@@ -228,7 +228,7 @@ getConnectionHandle peerNodeId nodeToPeerTVar transportType = do
 
 -- | Obtains the connectionLock on entry and then checks if connection has been made. If yes, then simply returns the connectionHandl;e else it tries to openConnection
 -- | Returns the connectionHandle or an exception
-createConnection :: (HasLogging m, HasP2PEnv m) => TVar PeerDetails -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
+createConnection :: (HasLogging m, HasNodeEndpoint m) => TVar PeerDetails -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
 createConnection peerDetailsTVar _ transportType = do
     peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
     lock <- liftIO $ atomically $ takeTMVar (peerDetails ^. connectionLock)
@@ -247,7 +247,7 @@ createConnection peerDetailsTVar _ transportType = do
         Left e -> return (Left e)
 
 
-newIncomingConnectionHandler :: (HasP2PEnv m, HasLogging m)
+newIncomingConnectionHandler :: (HasNodeEndpoint m, HasLogging m)
     => NetworkConfig
     -> TransportType
     -> ConnectionHandle

@@ -29,7 +29,7 @@ import           Arivi.P2P.Kademlia.RunConcurrently
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
 import           Arivi.P2P.MessageHandler.NodeEndpoint
-import           Arivi.P2P.P2PEnv                      (HasP2PEnv)
+import           Arivi.P2P.P2PEnv                      (HasNodeEndpoint(..))
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted
@@ -72,7 +72,7 @@ addToNewList bl pl
 issuePing ::
        forall m env.
        ( MonadReader env m
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasNetworkConfig env NetworkConfig
        , HasLogging m
        )
@@ -113,9 +113,10 @@ deleteIfExist peerR pl =
 refreshKbucket ::
        forall m env.
        ( MonadReader env m
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasNetworkConfig env NetworkConfig
        , HasLogging m
+       , HasKbucket m
        )
     => Peer
     -> [Peer]

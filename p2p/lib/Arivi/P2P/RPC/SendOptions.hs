@@ -2,7 +2,7 @@
 
 module Arivi.P2P.RPC.SendOptions
     ( sendOptionsMessage
-    , optionsHandler
+    -- , optionsHandler
     ) where
 
 import           Arivi.P2P.Exception
@@ -22,7 +22,7 @@ import           Data.HashMap.Strict                   as HM
 
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
-sendOptionsMessage :: (HasP2PEnv m, HasLogging m, Resource r) => [NodeId] -> Options r -> m ()
+sendOptionsMessage :: (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r) => [NodeId] -> Options r -> m ()
 sendOptionsMessage [] _  = return ()
 sendOptionsMessage (peer:peers) optionsMessage = do
     _ <- LAsync.async (sendOptionsToPeer peer optionsMessage)
@@ -33,7 +33,7 @@ sendOptionsMessage (peer:peers) optionsMessage = do
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based oh the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: forall m r . (HasP2PEnv m, HasLogging m, Resource r) => NodeId -> Options r -> m ()
+sendOptionsToPeer :: forall m r . (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r) => NodeId -> Options r -> m ()
 sendOptionsToPeer recievingPeerNodeId optionsMsg = do
     res <-
         runExceptT $ issueRequest recievingPeerNodeId (OptionRequest optionsMsg)
@@ -43,10 +43,10 @@ sendOptionsToPeer recievingPeerNodeId optionsMsg = do
             updateResourcePeers (recievingPeerNodeId, resources)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers :: forall m r . 
-       (HasP2PEnv m, Resource r) => (NodeId, [r]) -> m ()
+updateResourcePeers :: forall m r .
+       (HasNodeEndpoint m, HasRpc r, Resource r, MonadIO m) => (NodeId, [r]) -> m ()
 updateResourcePeers peerResourceTuple = do
-    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
     let mNode = fst peerResourceTuple
@@ -63,8 +63,8 @@ updateResourcePeers peerResourceTuple = do
 -- lookup for the current resource in the HashMap
 -- assumes that the resourceIDs are present in the HashMap
 -- cannot add new currently because the serviceID is not available
-updateResourcePeersHelper :: forall r . (Resource r) => 
-       NodeId -> [r] -> ArchivedResourceToPeerMap -> IO Int
+updateResourcePeersHelper :: forall r . (Resource r) =>
+       NodeId -> [r] -> ArchivedResourceToPeerMap r -> IO Int
 updateResourcePeersHelper _ [] _ = return 0
 updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourceToPeerMap = do
     let temp = HM.lookup currResource (getArchivedMap archivedResourceToPeerMap) -- check for lookup returning Nothing
@@ -87,10 +87,10 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
                     archivedResourceToPeerMap
             return $ 1 + tmp
 
--- | takes an options message and returns a supported message
-optionsHandler ::
-       (HasP2PEnv m, Resource r) => m (Supported [r])
-optionsHandler = do
-    tvar <- getArchivedResourceToPeerMapP2PEnv 
-    archivedResourceMap <- (liftIO . readTVarIO) tvar
-    return (Supported (keys (getArchivedMap archivedResourceMap)))
+-- -- | takes an options message and returns a supported message
+-- optionsHandler :: forall m r . 
+--        (HasNodeEndpoint m, HasRpc r, Resource r) => m (Supported [r])
+-- optionsHandler = do
+--     tvar <- getArchivedResourceToPeerMapP2PEnv
+--     archivedResourceMap <- (liftIO . readTVarIO) tvar
+--     return (Supported (keys (getArchivedMap archivedResourceMap)))

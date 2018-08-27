@@ -37,6 +37,7 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Reader
 import qualified Data.Text as T
+import Arivi.Utils.Statsd
 
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
@@ -53,8 +54,10 @@ import qualified Data.Text as T
 kademliaHandlerHelper ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasLogging m
+       , HasKbucket m
+       , HasStatsdClient m
        )
     => Request 'Kademlia PayLoad
     -> m (Response 'Kademlia PayLoad)
@@ -64,8 +67,10 @@ kademliaHandlerHelper (KademliaRequest payload) =
 kademliaMessageHandler ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasLogging m
+       , HasKbucket m
+       , HasStatsdClient m
        )
     => PayLoad
     -> m PayLoad

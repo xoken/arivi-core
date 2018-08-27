@@ -9,7 +9,7 @@ module Arivi.P2P.MessageHandler.Utils where
 import           Arivi.Network                         (AriviNetworkException (..),
                                                         ConnectionHandle (..),
                                                         TransportType (..),
-                                                        openConnection)
+                                                        openConnection, HasSecretKey(..))
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
@@ -57,7 +57,7 @@ networkToP2PException (Right a) = Right a
 
 
 -- | Wrapper around openConnection
-openConnectionToPeer :: (HasP2PEnv m, HasLogging m) => NetworkConfig ->TransportType ->m (Either AriviNetworkException ConnectionHandle)
+openConnectionToPeer :: (HasNodeEndpoint m, HasLogging m) => NetworkConfig ->TransportType ->m (Either AriviNetworkException ConnectionHandle)
 openConnectionToPeer = openConnection
 
 safeDeserialise :: Either DeserialiseFailure a -> Either AriviP2PException a

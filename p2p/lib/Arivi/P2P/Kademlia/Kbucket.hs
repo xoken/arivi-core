@@ -41,7 +41,7 @@ import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils              as U
 import           Arivi.P2P.Kademlia.XorDistance
 import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
-import           Arivi.P2P.P2PEnv                      (HasP2PEnv)
+import           Arivi.P2P.P2PEnv                      (HasNodeEndpoint(..))
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
@@ -105,9 +105,11 @@ ifPeerExist peer = do
 addToKBucket ::
        forall m env.
        ( MonadReader env m
-       , HasP2PEnv m
+       , HasNodeEndpoint m
        , HasLogging m
+       , HasKbucket m
        , HasNetworkConfig env NetworkConfig
+       , HasStatsdClient m
        )
     => Peer
     -> ExceptT AriviP2PException m ()
