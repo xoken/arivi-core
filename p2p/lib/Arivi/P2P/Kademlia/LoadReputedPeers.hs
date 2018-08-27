@@ -13,9 +13,9 @@ module Arivi.P2P.Kademlia.LoadReputedPeers
 
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.Kbucket
-import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.Kademlia.LoadDefaultPeers   (getPeerListFromPayload)
 import           Arivi.P2P.Kademlia.RunConcurrently
+import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv
@@ -30,8 +30,8 @@ import           Control.Monad.Except
 import           Control.Monad.Logger
 import           Control.Monad.Reader
 import qualified Data.List                             as LL
-import qualified Data.Text                             as T
 import           Data.Maybe                            (fromJust)
+import qualified Data.Text                             as T
 
 
 loadReputedPeers ::
