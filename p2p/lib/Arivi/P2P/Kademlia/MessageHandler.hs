@@ -10,34 +10,33 @@
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE GADTs, DataKinds    #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GADTs, DataKinds #-}
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
     , kademliaHandlerHelper
     ) where
 
-import           Arivi.P2P.Exception
-import           Arivi.P2P.Kademlia.Kbucket
-import           Arivi.P2P.Kademlia.Types
-import           Arivi.P2P.Kademlia.VerifyPeer
-import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
-import           Arivi.P2P.MessageHandler.NodeEndpoint
-import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
-import           Control.Concurrent.Async.Lifted       (async)
-import           Control.Exception
-import           Control.Lens
-import           Control.Monad.Reader
-import           Control.Monad.Logger
-import qualified Data.Text                             as T
-import           Control.Monad.Except
-import           Arivi.P2P.Types
+import Arivi.P2P.Exception
+import Arivi.P2P.Kademlia.Kbucket
+import Arivi.P2P.Kademlia.Types
+import Arivi.P2P.Kademlia.VerifyPeer
+import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
+import Arivi.P2P.MessageHandler.NodeEndpoint
+import Arivi.P2P.P2PEnv
+import Arivi.P2P.Types
+import Arivi.Utils.Logging
+import Control.Concurrent.Async.Lifted (async)
+import Control.Exception
+import Control.Lens
+import Control.Monad.Except
+import Control.Monad.Logger
+import Control.Monad.Reader
+import qualified Data.Text as T
 
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
@@ -51,8 +50,6 @@ import           Arivi.P2P.Types
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-
-
 kademliaHandlerHelper ::
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
@@ -61,7 +58,8 @@ kademliaHandlerHelper ::
        )
     => Request 'Kademlia PayLoad
     -> m (Response 'Kademlia PayLoad)
-kademliaHandlerHelper (KademliaRequest payload) = KademliaResponse <$> kademliaMessageHandler payload
+kademliaHandlerHelper (KademliaRequest payload) =
+    KademliaResponse <$> kademliaMessageHandler payload
 
 kademliaMessageHandler ::
        ( MonadReader env m
@@ -89,14 +87,14 @@ kademliaMessageHandler payload = do
                 T.append
                     (T.pack "Find_Node Message Recieved from : ")
                     (T.pack (show rnep))
-            addToKBucket rpeer
+            runExceptT $ addToKBucket rpeer
                      -- Initiates the verification process
-            _ <- async $ verifyPeer rpeer
+            _ <- async $ runExceptT $ verifyPeer rpeer
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
                     --     print ("Kbucket size after mH " ++ show i)
-            pl <- getKClosestPeersByNodeid rnid 20
+            pl <- runExceptT $ getKClosestPeersByNodeid rnid 20
             case pl of
                 Right pl2 -> return $ packFnR nc pl2
                 Left _ -> throw KademliaInvalidPeer
@@ -117,7 +115,7 @@ kademliaMessageHandler payload = do
                     (KademliaRequest findNodeMsg)
             case resp of
                 Left e -> throw e
-                Right (KademliaResponse resp') -> do
+                Right (KademliaResponse resp') ->
                     case messageBody (message resp') of
                         FN_RESP _ pl _ -> return $ packVnR nc pl
                         _ -> throw KademliaInvalidResponse
