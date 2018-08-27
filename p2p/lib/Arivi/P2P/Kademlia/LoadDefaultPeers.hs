@@ -107,8 +107,7 @@ issueFindNode rpeer = do
     case resp of
         Left (e :: Exception.SomeException) ->
             $(logDebug) $ T.pack (displayException e)
-        Right resp' -> do
-            addToKBucket rpeer
+        Right resp' ->
             case getPeerListFromPayload resp' of
                 Left e ->
                     $(logDebug) $
@@ -118,6 +117,7 @@ issueFindNode rpeer = do
                               show rip ++ ":" ++ show ruport))
                         (T.pack (displayException e))
                 Right peerl -> do
+                    addToKBucket rpeer
                     incrementCounter "Find Response Received"
                     $(logDebug) $
                         T.pack

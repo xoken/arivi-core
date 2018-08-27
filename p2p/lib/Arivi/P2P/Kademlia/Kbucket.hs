@@ -129,9 +129,11 @@ addToKBucket peerR = do
                 Just pl -> do
                     tempp <- refreshKbucket peerR pl
                     liftIO $ atomically $ H.insert tempp kbDistance kb
+                    incrementCounter "KbucketSize"
                 Nothing -> do
                     liftIO $ atomically $ H.insert [peerR] kbDistance kb
                     $(logDebug) $ T.pack "First_Element in respective kbucket"
+                    incrementCounter "KbucketSize"
             -- Logs the Kbucket and pushes statsd metric to collectd server
             let kbm2 = getKbucket kb''
                 kbtemp = H.stream kbm2
@@ -140,7 +142,6 @@ addToKBucket peerR = do
                 T.append
                     (T.pack "Kbucket after adding : ")
                     (T.pack (show kvList))
-            incrementCounter "KbucketSize"
         Left e -> throw e
 
 -- | Removes a given peer from kbucket
