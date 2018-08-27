@@ -8,8 +8,8 @@
 
 module Arivi.P2P.Kademlia.LoadReputedPeers
     (
-        -- loadReputedPeers
-     findGivenNode
+     loadReputedPeers
+     ,findGivenNode
     ) where
 
 import           Arivi.P2P.Exception
