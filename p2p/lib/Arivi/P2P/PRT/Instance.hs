@@ -22,19 +22,29 @@ module Arivi.P2P.PRT.Instance
     , updatePeerReputationForServices
     , getReputation
     , getWeightages
+    , getKNodes
     ) where
 
 import qualified Arivi.Network.Types         as Network (NodeId)
-import           Arivi.P2P.P2PEnv            (HasP2PEnv (..))
+import           Arivi.P2P.Exception         (AriviP2PException)
+import           Arivi.P2P.Kademlia.Kbucket  (Peer (..), getDefaultNodeId,
+                                              getKClosestPeersByNodeid,
+                                              getKRandomPeers,
+                                              getPeersByNodeIds)
+import           Arivi.P2P.P2PEnv            (HasKbucket, HasP2PEnv (..))
 import           Arivi.P2P.PRT.Exceptions    (PRTExecption (..))
 import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
                                               PeerReputationHistory (..),
+                                              PeerReputationHistoryTable,
                                               Reputation)
 import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
 import           Control.Exception           (throw)
-import           Control.Monad.IO.Class      (liftIO)
+import           Control.Monad.Except        (ExceptT, runExceptT)
+import           Control.Monad.IO.Class      (MonadIO, liftIO)
 import           Control.Monad.STM           (atomically)
-import qualified Data.HashMap.Strict         as HM (insert, lookup)
+import qualified Data.HashMap.Strict         as HM (insert, lookup, size,
+                                                    toList)
+import           Data.List                   (sortBy)
 import           Data.Ratio                  (Ratio, Rational, denominator,
                                               numerator)
 import           Data.Yaml                   (ParseException, decodeFileEither)
@@ -190,15 +200,76 @@ getWeightages k = do
 -- of deeds
 -- sortGT ::
 --        (Ord a1, Ord a2) => (a3, (a4, a2, a1)) -> (a5, (a6, a2, a1)) -> Ordering
--- sortGT (_, (_, d1, r1)) (_, (_, d2, r2))
---     | r1 < r2 = GT
---     | r1 > r2 = LT
---     | r1 == r2 = compare d2 d1
+sortGT :: (a1, PeerReputationHistory) -> (a2, PeerReputationHistory) -> Ordering
+sortGT (_, PeerReputationHistory _ d1 r1) (_, PeerReputationHistory _ d2 r2)
+    | r1 < r2 = GT
+    | r1 > r2 = LT
+    | r1 == r2 = compare d2 d1
+sortGT (_, PeerReputationHistory {}) (_, PeerReputationHistory {}) =
+    error "Something went wrong"
 
 -- | Gives the list of NodeIds from given list of Peer History list
--- getNodeIds ::
---        [(Network.NodeId, (Network.NodeId, Integer, Reputation))]
---     -> [Network.NodeId]
--- -- getNodeIds []                 = []
--- getNodeIds [(a, (_, _, _))]   = [a]
--- getNodeIds ((a, (_, _, _)):y) = a : getNodeIds y
+getNodeIds :: [(Network.NodeId, PeerReputationHistory)] -> [Network.NodeId]
+getNodeIds []         = []
+getNodeIds [(a, _)]   = [a]
+getNodeIds ((a, _):y) = a : getNodeIds y
+
+-- | Gives given no of reputed Peers
+getReputedNodes ::
+       (HasKbucket m, MonadIO m)
+    => Integer
+    -> PeerReputationHistoryTable
+    -> m [Peer]
+getReputedNodes n mapOfAllPeersHistory = do
+    let sortedListofAllPeersHistory -- HM.toList mapOfAllPeersHistory
+         = sortBy sortGT (HM.toList mapOfAllPeersHistory)
+    liftIO $ print sortedListofAllPeersHistory
+    eitherNReputedPeerList <-
+        runExceptT $
+        getPeersByNodeIds
+            (getNodeIds $ take (fromIntegral n) sortedListofAllPeersHistory)
+    case eitherNReputedPeerList of
+        Left e                 -> throw e
+        Right nReputedPeerList -> return nReputedPeerList
+
+-- getKNodes :: (HasP2PEnv m,HasKbucket m) => Integer -> ExceptT AriviP2PException m [Peer]
+getKNodes ::
+       (HasKbucket m, HasP2PEnv (ExceptT AriviP2PException m), MonadIO m)
+    => Integer
+    -> ExceptT AriviP2PException m [Peer]
+getKNodes k = do
+    (noOfReputed, noOfClosest, noOfRandom) <- getWeightages k
+    selfNodeId <- getDefaultNodeId
+    mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
+    mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
+    let availableReputedPeers = fromIntegral $ HM.size mapOfAllPeersHistory
+    kRandomPeers <- getKRandomPeers (fromIntegral noOfRandom)
+    if availableReputedPeers < noOfReputed
+        then do
+            let requiredClosestPeers =
+                    fromIntegral
+                        (noOfClosest + (noOfReputed - availableReputedPeers))
+            eitherClosestPeers <-
+                runExceptT $
+                getKClosestPeersByNodeid selfNodeId requiredClosestPeers
+            case eitherClosestPeers of
+                Left e -> throw e
+                Right closestPeers -> do
+                    reputedPeers <-
+                        getReputedNodes
+                            availableReputedPeers
+                            mapOfAllPeersHistory
+                    -- getReputedNodes availableReputedPeers mapOfAllPeersHistory -- ++
+                    -- closestPeers ++ kRandomPeers
+                    return $ reputedPeers ++ closestPeers ++ kRandomPeers
+        else do
+            eitherClosestPeers <-
+                runExceptT $
+                getKClosestPeersByNodeid selfNodeId (fromIntegral noOfClosest)
+            case eitherClosestPeers of
+                Left e -> throw e
+                Right closestPeers -> do
+                    reputedPeers <-
+                        getReputedNodes noOfReputed mapOfAllPeersHistory
+                    return $ reputedPeers ++ closestPeers ++ kRandomPeers
+                    -- getReputedNodes noOfReputed  mapOfAllPeersHistory
