@@ -10,6 +10,8 @@ module Arivi.P2P.MessageHandler.NodeEndpoint (
     , issueSend
     , issueKademliaRequest
     , newIncomingConnectionHandler
+    , handler
+    , processRequest
 ) where
 
 import           Arivi.Network                         (AriviNetworkException (..),
@@ -154,7 +156,7 @@ sendAndReceive peerDetailsTVar messageType connHandle msg timeOut= do
             winner <- liftIO $ Async.race (threadDelay timeOut') (takeMVar mvar :: IO P2PMessage)
             case winner of
                 Left _ -> $(logDebug) "response timed out" >> return (Left SendMessageTimeout)
-                Right p2pMessage -> return (Right $ payload p2pMessage)
+                Right mp2pMessage -> return (Right $ payload mp2pMessage)
 
 
 
@@ -204,11 +206,12 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
         Left _ -> logWithNodeId peerNodeId "Peer sent malformed msg" >> return  (Left DeserialiseFailureP2P)
         Right p2pMessage -> do
             peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
-            case (uuid p2pMessage) of
+            case uuid p2pMessage of
                 Just uuid ->
                     case peerDetails ^. uuidMap.at uuid of
                         Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
                         Nothing -> return (Left InvalidUuid)
+                Nothing -> undefined
                 -- Nothing -> do
                 --     --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
                 --     let func = case messageType p2pMessage of
