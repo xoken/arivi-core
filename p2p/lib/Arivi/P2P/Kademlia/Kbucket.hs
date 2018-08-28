@@ -232,6 +232,12 @@ getPeerByNodeId nid = do
     pl <- getPeerListByKIndex kbi
     return $ head $ filter (\x -> fst (getPeer x) == nid) pl
 
+getPeersByNodeIds ::
+       (HasKbucket m, MonadIO m)
+    => [NodeId]
+    -> ExceptT AriviP2PException m [Peer]
+getPeersByNodeIds = mapM getPeerByNodeId
+
 moveToHardBound ::
        (HasKbucket m, MonadIO m, HasLogging m)
     => Peer
