@@ -35,7 +35,7 @@ import           GHC.Generics        (Generic)
 -- | `Reputation` is a unit to count Peer Reputations
 newtype Reputation =
     Reputation Integer
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Generic,Ord)
 
 instance Num Reputation where
     Reputation x - Reputation y = Reputation (x - y)
