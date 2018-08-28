@@ -8,7 +8,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds, ExistentialQuantification #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -16,16 +16,19 @@ module Arivi.P2P.P2PEnv
     , T.HasKbucket(..)
     ) where
 import           Arivi.Env
-import           Arivi.P2P.Types (NetworkConfig(..), Request ,Response)
-import           Arivi.P2P.Kademlia.Types              (createKbucket)
+import           Arivi.P2P.Types (NetworkConfig(..), Request ,Response, RpcPayload(..))
+import           Arivi.P2P.Kademlia.Types              (createKbucket, HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Statsd
+import           Codec.Serialise
+import           Control.Monad.IO.Class
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
+import           Data.Hashable
 
 -- data P2PEnv = P2PEnv
 --     { _networkConfig :: NetworkConfig
@@ -85,9 +88,9 @@ class (HasSecretKey m) => HasNodeEndpoint m where
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getMessageTypeMapP2PEnv :: m Handlers
 
-class HasRpc r where
-    getArchivedResourceToPeerMapP2PEnv :: TVar (ArchivedResourceToPeerMap r)
-    getTransientResourceToPeerMap :: TVar (TransientResourceToPeerMap r)
+class HasRpc m r where
+    getArchivedResourceToPeerMapP2PEnv :: m (TVar (ArchivedResourceToPeerMap r))
+    getTransientResourceToPeerMap :: m (TVar (TransientResourceToPeerMap r))
 
 -- class HasPubSub where
 --     getWatcherTableP2PEnv :: TVar WatchersTable
@@ -151,8 +154,9 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
         --     }
 
 data Handlers = Handlers
-  { rpc :: forall m t msg . Request t msg -> m (Response t msg)
-  , kademlia :: forall m t msg. Request t msg -> m (Response t msg)
+  { rpc :: forall m r t msg. (HasRpc m r, HasNodeEndpoint m, Eq r, Hashable r, Serialise r, MonadIO m) => Request t msg -> m (Response t msg)
+  , kademlia :: forall m t msg. (HasKbucket m, Serialise msg) => Request t msg -> m (Response t msg)
   }
+
 
 makeLensesWith classUnderscoreNoPrefixFields ''P2PEnv

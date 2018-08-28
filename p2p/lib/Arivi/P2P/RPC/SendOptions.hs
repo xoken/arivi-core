@@ -22,7 +22,7 @@ import           Data.HashMap.Strict                   as HM
 
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
-sendOptionsMessage :: (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r) => [NodeId] -> Options r -> m ()
+sendOptionsMessage :: (HasNodeEndpoint m, HasRpc m r, HasLogging m, Resource r) => [NodeId] -> Options r -> m ()
 sendOptionsMessage peers optionsMessage =
     mapM_ (LAsync.async . ((flip sendOptionsToPeer) optionsMessage)) peers
 
@@ -31,7 +31,7 @@ sendOptionsMessage peers optionsMessage =
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based oh the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: forall m r . (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r) => NodeId -> Options r -> m ()
+sendOptionsToPeer :: forall m r . (HasNodeEndpoint m, HasRpc m r, HasLogging m, Resource r) => NodeId -> Options r -> m ()
 sendOptionsToPeer recievingPeerNodeId optionsMsg = do
     res <-
         runExceptT $ issueRequest recievingPeerNodeId (OptionRequest optionsMsg)
@@ -42,9 +42,9 @@ sendOptionsToPeer recievingPeerNodeId optionsMsg = do
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
 updateResourcePeers :: forall m r .
-       (HasNodeEndpoint m, HasRpc r, Resource r, MonadIO m) => (NodeId, [r]) -> m ()
+       (HasNodeEndpoint m, HasRpc m r, Resource r, MonadIO m) => (NodeId, [r]) -> m ()
 updateResourcePeers peerResourceTuple = do
-    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
     let mNode = fst peerResourceTuple
@@ -87,9 +87,9 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
 
 -- | takes an options message and returns a supported message
 optionsHandler ::
-       forall m r. (HasNodeEndpoint m, HasRpc r, MonadIO m)
+       forall m r. (HasNodeEndpoint m, HasRpc m r, MonadIO m)
     => m (Supported [r])
 optionsHandler = do
-    archivedResourceMap <-
-        (liftIO . readTVarIO) getArchivedResourceToPeerMapP2PEnv
+    archivedResourceMapTVar <-getArchivedResourceToPeerMapP2PEnv
+    archivedResourceMap <- (liftIO . readTVarIO) archivedResourceMapTVar
     return (Supported (keys (getArchivedMap archivedResourceMap)))

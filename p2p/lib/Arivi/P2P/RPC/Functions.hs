@@ -43,14 +43,14 @@ import           Control.Applicative
 
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
 registerResource :: forall r m .
-       (HasNodeEndpoint m, HasRpc r, Resource r, MonadIO m)
+       (HasNodeEndpoint m, HasRpc m r, Resource r, MonadIO m)
     => r
     -> ResourceHandler
     -> ResourceType
     -> m ()
 registerResource resource resourceHandler resourceType = do
-    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
-    let transientResourceToPeerMapTVar = getTransientResourceToPeerMap
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
+    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
     nodeIds <- liftIO $ newTVarIO [] -- create a new empty Tqueue for Peers
     case resourceType of
         Archived -> liftIO $ atomically $ modifyTVar' archivedResourceToPeerMapTvar (funcA nodeIds)
@@ -66,10 +66,10 @@ registerResource resource resourceHandler resourceType = do
 -- if it is less should ask Kademlia for more nodes
 -- send each peer and option message
 -- the options message module will handle the sending of messages and updating of the HashMap based on the support message
-updatePeerInResourceMap :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r, HasKbucket m) => r -> m ()
+updatePeerInResourceMap :: (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasRpc m r, HasLogging m, Resource r, HasKbucket m) => r -> m ()
 updatePeerInResourceMap r = do
     nId <- (^.networkConfig.nodeId) <$> ask
-    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
     let minimumNodes = 5 -- this value should be decided on and taken from the RPC environment
@@ -85,7 +85,7 @@ updatePeerInResourceMap r = do
 
 
 updatePeerInResourceMapHelper :: forall m r .
-       (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r, HasKbucket m)
+       (HasNodeEndpoint m, HasRpc m r, HasLogging m, Resource r, HasKbucket m)
     => r
     -> ArchivedResourceToPeerMap r
     -> Int
@@ -133,7 +133,7 @@ safeExtractMin l = extractMin l
 fetchResource :: forall m r msg env . 
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m, HasRpc r
+       , HasNodeEndpoint m, HasRpc m r
        , HasLogging m
        , Resource r
        , Serialise msg
@@ -142,10 +142,10 @@ fetchResource :: forall m r msg env .
     -> m (RpcPayload r msg)
 fetchResource payload@(RpcPayload resource _) = do
     nId <- (^.networkConfig.nodeId) <$> ask
-    let archivedResourceToPeerMapTvar = getArchivedResourceToPeerMapP2PEnv
+    archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
-    let transientResourceToPeerMapTVar = getTransientResourceToPeerMap
+    transientResourceToPeerMapTVar <- getTransientResourceToPeerMap
     transientResourceToPeerMap <-
         liftIO $ readTVarIO transientResourceToPeerMapTVar
     let entryInArchivedResourceMap =
@@ -167,7 +167,7 @@ fetchResource payload@(RpcPayload resource _) = do
                          payload
 
 sendResourceRequestToPeer ::
-       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r, Serialise msg)
+       (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasRpc m r, HasLogging m, Resource r, Serialise msg)
     => TVar [NodeId]
     -> NodeId
     -> RpcPayload r msg
@@ -217,8 +217,8 @@ sendResourceRequestToPeer nodeListTVar nId msg = do
          -- -- should check to and from
          --                _ -> return $ Lazy.fromStrict $ pack " default"
 
-rpcHandlerHelper ::
-       ( HasNodeEndpoint m, HasRpc r
+rpcHandlerHelper :: forall m r msg .
+       ( HasNodeEndpoint m, HasRpc m r
        , Resource r
        , MonadIO m
        )
@@ -227,18 +227,18 @@ rpcHandlerHelper ::
 rpcHandlerHelper (RpcRequest req) = RpcResponse <$> rpcHandler req
 
 -- will need the from NodeId to check the to and from
--- rpcHandler :: (HasNodeEndpoint m, HasRpc r) => NodeId -> P2PPayload -> P2PPayload
+-- rpcHandler :: (HasNodeEndpoint m, HasRpc m r) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler :: forall m r msg .
-       ( HasNodeEndpoint m, HasRpc r
+       ( HasNodeEndpoint m, HasRpc m r
        , Resource r
        , MonadIO m
        )
     => RpcPayload r msg
     -> m (RpcPayload r msg)
 rpcHandler payload@(RpcPayload resource _) = do
-    let archivedResourceMap = getArchivedResourceToPeerMapP2PEnv
+    archivedResourceMap <- getArchivedResourceToPeerMapP2PEnv
     archivedMap <- (liftIO . readTVarIO) archivedResourceMap
-    let transientResourceMap = getTransientResourceToPeerMap 
+    transientResourceMap <- getTransientResourceToPeerMap 
     transientMap <- (liftIO . readTVarIO) transientResourceMap
     let entry =  getTransientMap transientMap ^. at resource
              <|> getArchivedMap archivedMap ^. at resource
