@@ -127,7 +127,7 @@ getVerifiedPeers peerR k = do
 -- -- getRandomVerifiedNodes :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 -- -- getRandomVerifiedNodes k = do
 -- --     kb  <- getKb
--- --     let vt = nodeStatusTable  kb 
+-- --     let vt = nodeStatusTable  kb
 -- --     rps <- getKRandomPeers k
 -- --     mapM isVerified rps
 filterPeer :: NodeId -> NodeId -> [Peer] -> [Peer]
@@ -212,7 +212,7 @@ issueVerifyNode peerV peerT peerR = do
         vmsg = packVerifyMsg nc tnc (fst $ getPeer peerR)
     $(logDebug) $
         T.pack ("Issueing Verify_Node for : " ++ show tip ++ ":" ++ show tuport)
-    resp <- runExceptT $ issueKademliaRequest vnc (KademliaRequest vmsg)
+    resp <- runExceptT $ issueKademliaRequest vnc (KademliaRequest vmsg) Nothing
     $(logDebug) $
         T.pack ("Recieved Verify_Resp for : " ++ show tip ++ ":" ++ show tuport)
     case resp of

@@ -105,7 +105,7 @@ issueFindNode rpeer = do
         fn_msg = packFindMsg nc _nodeId
     $(logDebug) $
         T.pack ("Issuing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg)
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg) Nothing
     case resp of
         Left e -> $(logDebug) $ T.pack (displayException e)
         Right (KademliaResponse payload) -> do
