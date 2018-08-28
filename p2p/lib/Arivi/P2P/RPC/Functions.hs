@@ -56,8 +56,8 @@ registerResource resource resourceHandler resourceType = do
         Archived -> liftIO $ atomically $ modifyTVar' archivedResourceToPeerMapTvar (funcA nodeIds)
         Transient -> liftIO $ atomically $ modifyTVar' transientResourceToPeerMapTVar (funcT nodeIds)
     where
-        funcA l hm = ArchivedResourceToPeerMap $ HM.insert (resource :: r) (resourceHandler, l) (getArchivedMap hm)
-        funcT l hm = TransientResourceToPeerMap $ HM.insert (resource :: r) (resourceHandler, l) (getTransientMap hm)
+        funcA l hm = ArchivedResourceToPeerMap $ HM.insert resource (resourceHandler, l) (getArchivedMap hm)
+        funcT l hm = TransientResourceToPeerMap $ HM.insert resource (resourceHandler, l) (getTransientMap hm)
 
 
 -------------------- Functions for periodic updation of the hashmap ---------------------
@@ -250,13 +250,12 @@ rpcHandler payload@(RpcPayload resource _) = do
 
 -- | add the peers returned by Kademlia to the PeerDetails HashMap
 addPeerFromKademlia ::
-       (HasNodeEndpoint m, HasKbucket m, MonadIO m) => [Kademlia.Peer] -> m [NodeId]
-addPeerFromKademlia [] = return []
-addPeerFromKademlia (peer:peerList) = do
+       (HasNodeEndpoint m, MonadIO m)
+    => [Kademlia.Peer]
+    -> m [NodeId]
+addPeerFromKademlia peers = mapM (\peer -> do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    nextNodeId <- addPeerFromKademlia peerList
-    mNodeId <- addPeerFromKademliaHelper peer nodeIdMapTVar
-    return $ mNodeId : nextNodeId
+    addPeerFromKademliaHelper peer nodeIdMapTVar) peers
 
 addPeerFromKademliaHelper ::
        (MonadIO m)

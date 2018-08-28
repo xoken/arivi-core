@@ -2,7 +2,7 @@
 
 module Arivi.P2P.RPC.SendOptions
     ( sendOptionsMessage
-    -- , optionsHandler
+    , optionsHandler
     ) where
 
 import           Arivi.P2P.Exception
@@ -23,10 +23,8 @@ import           Data.HashMap.Strict                   as HM
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
 sendOptionsMessage :: (HasNodeEndpoint m, HasRpc r, HasLogging m, Resource r) => [NodeId] -> Options r -> m ()
-sendOptionsMessage [] _  = return ()
-sendOptionsMessage (peer:peers) optionsMessage = do
-    _ <- LAsync.async (sendOptionsToPeer peer optionsMessage)
-    sendOptionsMessage peers optionsMessage
+sendOptionsMessage peers optionsMessage =
+    mapM_ (LAsync.async . ((flip sendOptionsToPeer) optionsMessage)) peers
 
 -- this function runs on each lightweight thread
 -- two major functions
@@ -87,10 +85,11 @@ updateResourcePeersHelper mNodeId (currResource:listOfResources) archivedResourc
                     archivedResourceToPeerMap
             return $ 1 + tmp
 
--- -- | takes an options message and returns a supported message
--- optionsHandler :: forall m r . 
---        (HasNodeEndpoint m, HasRpc r, Resource r) => m (Supported [r])
--- optionsHandler = do
---     tvar <- getArchivedResourceToPeerMapP2PEnv
---     archivedResourceMap <- (liftIO . readTVarIO) tvar
---     return (Supported (keys (getArchivedMap archivedResourceMap)))
+-- | takes an options message and returns a supported message
+optionsHandler ::
+       forall m r. (HasNodeEndpoint m, HasRpc r, MonadIO m)
+    => m (Supported [r])
+optionsHandler = do
+    archivedResourceMap <-
+        (liftIO . readTVarIO) getArchivedResourceToPeerMapP2PEnv
+    return (Supported (keys (getArchivedMap archivedResourceMap)))
