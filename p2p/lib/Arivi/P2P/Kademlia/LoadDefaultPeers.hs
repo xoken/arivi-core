@@ -35,15 +35,15 @@ import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-import           Control.Concurrent.Async.Lifted
+-- import           Control.Concurrent.Async.Lifted
 import           Control.Exception                     (displayException)
-import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                     try)
+-- import qualified Control.Exception.Lifted              as Exception (SomeException,
+                                                                    --  try)
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Logger
 import           Control.Monad.Reader
-import qualified Data.List                             as LL
+-- import qualified Data.List                             as LL
 import qualified Data.Text                             as T
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
