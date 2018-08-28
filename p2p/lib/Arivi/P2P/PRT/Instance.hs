@@ -221,7 +221,7 @@ getReputedNodes ::
     -> PeerReputationHistoryTable
     -> m [Peer]
 getReputedNodes n mapOfAllPeersHistory = do
-    let sortedListofAllPeersHistory -- HM.toList mapOfAllPeersHistory
+    let sortedListofAllPeersHistory
          = sortBy sortGT (HM.toList mapOfAllPeersHistory)
     liftIO $ print sortedListofAllPeersHistory
     eitherNReputedPeerList <-
@@ -232,7 +232,8 @@ getReputedNodes n mapOfAllPeersHistory = do
         Left e                 -> throw e
         Right nReputedPeerList -> return nReputedPeerList
 
--- getKNodes :: (HasP2PEnv m,HasKbucket m) => Integer -> ExceptT AriviP2PException m [Peer]
+-- | Gives K no of Peer's containting Reputed,Closest and Random based on the
+-- weightages defined in the config file
 getKNodes ::
        (HasKbucket m, HasP2PEnv (ExceptT AriviP2PException m), MonadIO m)
     => Integer
@@ -259,8 +260,6 @@ getKNodes k = do
                         getReputedNodes
                             availableReputedPeers
                             mapOfAllPeersHistory
-                    -- getReputedNodes availableReputedPeers mapOfAllPeersHistory -- ++
-                    -- closestPeers ++ kRandomPeers
                     return $ reputedPeers ++ closestPeers ++ kRandomPeers
         else do
             eitherClosestPeers <-
@@ -272,4 +271,3 @@ getKNodes k = do
                     reputedPeers <-
                         getReputedNodes noOfReputed mapOfAllPeersHistory
                     return $ reputedPeers ++ closestPeers ++ kRandomPeers
-                    -- getReputedNodes noOfReputed  mapOfAllPeersHistory
