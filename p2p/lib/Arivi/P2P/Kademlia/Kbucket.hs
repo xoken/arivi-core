@@ -33,6 +33,7 @@ module Arivi.P2P.Kademlia.Kbucket
     , getKRandomPeers
     , getPeerByNodeId
     , moveToHardBound
+    , getPeersByNodeIds
     ) where
 
 import           Arivi.P2P.Exception
