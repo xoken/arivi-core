@@ -188,17 +188,17 @@ getWeightages k = do
 
 -- | Sorts the given Peer History details according to Reputation and their No
 -- of deeds
-sortGT ::
-       (Ord a1, Ord a2) => (a3, (a4, a2, a1)) -> (a5, (a6, a2, a1)) -> Ordering
-sortGT (_, (_, d1, r1)) (_, (_, d2, r2))
-    | r1 < r2 = GT
-    | r1 > r2 = LT
-    | r1 == r2 = compare d2 d1
+-- sortGT ::
+--        (Ord a1, Ord a2) => (a3, (a4, a2, a1)) -> (a5, (a6, a2, a1)) -> Ordering
+-- sortGT (_, (_, d1, r1)) (_, (_, d2, r2))
+--     | r1 < r2 = GT
+--     | r1 > r2 = LT
+--     | r1 == r2 = compare d2 d1
 
 -- | Gives the list of NodeIds from given list of Peer History list
-getNodeIds ::
-       [(Network.NodeId, (Network.NodeId, Integer, Reputation))]
-    -> [Network.NodeId]
-getNodeIds []                 = []
-getNodeIds [(a, (_, _, _))]   = [a]
-getNodeIds ((a, (_, _, _)):y) = a : getNodeIds y
+-- getNodeIds ::
+--        [(Network.NodeId, (Network.NodeId, Integer, Reputation))]
+--     -> [Network.NodeId]
+-- -- getNodeIds []                 = []
+-- getNodeIds [(a, (_, _, _))]   = [a]
+-- getNodeIds ((a, (_, _, _)):y) = a : getNodeIds y

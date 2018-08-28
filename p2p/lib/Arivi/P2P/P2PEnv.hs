@@ -16,7 +16,7 @@ module Arivi.P2P.P2PEnv
     ) where
 
 import           Arivi.Env
-import           Arivi.P2P.Kademlia.Types              (PayLoad, createKbucket)
+import           Arivi.P2P.Kademlia.Types              (createKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PRT.Types
@@ -25,21 +25,22 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types                       (NetworkConfig (..),
                                                         Request,
                                                         Response,)
--- import           Arivi.P2P.Types                       (NetworkConfig (..))
 -- import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
-import           Codec.Serialise
+-- import           Codec.Serialise
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
 import           Data.Ratio                            (Rational, (%))
-import           Network.Socket                        (PortNumber)
+
 
 data P2PEnv = P2PEnv
     { _networkConfig                :: NetworkConfig
     , tvarNodeIdPeerMap             :: TVar NodeIdPeerMap
     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
     , kbucket                       :: T.Kbucket Int [T.Peer]
+    , kademliaConcurrencyFactor     :: Int
+    , kademliaSoftBound             :: Int
     , statsdClient                  :: StatsdClient
     , tvarMessageTypeMap            :: Handlers
     , tvarWatchersTable             :: TVar WatchersTable
@@ -99,14 +100,14 @@ makeP2PEnvironment nc@NetworkConfig {..} sbound pingThreshold kademliaConcurrenc
         { _networkConfig = nc
         , tvarNodeIdPeerMap = nmap
         , tvarArchivedResourceToPeerMap = r2pmap
-        , tvarMessageTypeMap = mtypemap
+        -- , tvarMessageTypeMap = mtypemap
         , tvarWatchersTable = watcherMap
         , tvarNotifiersTable = notifierMap
         , tvarTopicHandlerMap = topicHandleMap
         , tvarMessageHashMap = messageMap
         , tvarDynamicResourceToPeerMap = dr2pmap
         , kbucket = kb
-        , kademliaConcurrencyFactor = alpha
+        , kademliaConcurrencyFactor = kademliaConcurrencyFactor
         , kademliaSoftBound = sbound
         , tvPeerReputationHashTable = peerReputationHashTable
         , tvServicesReputationHashMap = servicesReputationHashMapTVar
