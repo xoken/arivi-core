@@ -23,10 +23,10 @@ import           Arivi.P2P.PRT.Types
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types                       (NetworkConfig (..),
-                                                        Request, Resource,
-                                                        Response, RpcPayload)
-import           Arivi.P2P.Types                       (NetworkConfig (..))
-import           Arivi.Utils.Logging
+                                                        Request,
+                                                        Response,)
+-- import           Arivi.P2P.Types                       (NetworkConfig (..))
+-- import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Codec.Serialise
 import           Control.Concurrent.STM                (TVar, newTVarIO)

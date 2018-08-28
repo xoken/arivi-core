@@ -112,7 +112,7 @@ kademliaMessageHandler payload = do
                          (nodeIp tnep)
                          (udpPort tnep)
                          (tcpPort tnep))
-                    (KademliaRequest findNodeMsg)
+                    (KademliaRequest findNodeMsg) Nothing
             case resp of
                 Left e -> throw e
                 Right (KademliaResponse resp') ->

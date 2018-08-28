@@ -200,7 +200,7 @@ sendResourceRequestToPeer nodeListTVar nId msg = do
     --         , serviceMessage = servicemessage
     --         }
     -- let mMessage = serialise requestMessage
-    res1 <- runExceptT $ issueRequest mNodeId (RpcRequest msg)
+    res1 <- runExceptT $ issueRequest mNodeId (RpcRequest msg) Nothing
     -- removeNode mNodeId nodeList will be used when we take random nodes and not the head
     case res1 of
         Left _ -> sendResourceRequestToPeer
