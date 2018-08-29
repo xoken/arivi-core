@@ -64,6 +64,9 @@ library
                     ,  string-conv
                     ,  yaml
                     ,  aeson >= 1.4.0.0
+                    ,  leveldb-haskell >= 0.6.5
+                    ,  data-default >= 0.7.1.1
+                    ,  resourcet >= 1.2.1
   ghc-options:         -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
