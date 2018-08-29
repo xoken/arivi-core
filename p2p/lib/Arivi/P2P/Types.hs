@@ -63,30 +63,31 @@ data Response (i :: MessageType) (j :: MessageSubType) msg where
 
 -- data PubSubType = Notify | Publish deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
 
-class Msg (i :: k) (j :: k1) where
-  msgType :: Proxy i -> Proxy j -> (MessageType, MessageSubType)
+class Msg1 (i :: k) (j :: k1) where
+  msgType1 :: Proxy i -> Proxy j -> (MessageType, MessageSubType)
+
+instance Msg1 'Rpc 'RpcA where
+  msgType1 _ _ = (Rpc, RpcA)
+
+instance Msg1 'Option 'None where
+  msgType1 _ _ = (Option, None)
+
+instance Msg1 'Kademlia 'None where
+  msgType1 _ _ = (Kademlia, None)
+
+instance Msg1 'PubSub 'None where
+  msgType1 _ _ = (PubSub, None)
+
+class Msg (i :: k) where
+  msgType :: Proxy i -> (MessageType, MessageSubType)
   -- msgSubType :: Proxy j -> MessageSubType
 
-instance Msg i j => Msg (Request i j msg) k where
-  msgType _ _ = msgType (Proxy :: Proxy i) (Proxy :: Proxy j)
-  -- msgSubType _ = msgSubType (Proxy :: Proxy j)
+instance Msg1 i j => Msg (Request i j msg) where
+  msgType _ = msgType1 (Proxy :: Proxy i) (Proxy :: Proxy j)
 
-instance Msg i j => Msg (Response i j msg) k where
-  msgType _ _ = msgType (Proxy :: Proxy i) (Proxy :: Proxy j)
-  -- msgSubType _ = msgSubType (Proxy :: Proxy j)
+instance Msg1 i j => Msg (Response i j msg) where
+  msgType _ = msgType1 (Proxy :: Proxy i) (Proxy :: Proxy j)
 
-instance Msg 'Rpc 'RpcA where
-  msgType _ _ = (Rpc, RpcA)
-  -- msgSubType _ = RpcA
-
-instance Msg 'Option 'None where
-  msgType _ _ = (Option, None)
-
-instance Msg 'Kademlia 'None where
-  msgType _ _ = (Kademlia, None)
-
-instance Msg 'PubSub 'None where
-  msgType _ _ = (PubSub, None)
 
 
 type Resource r = (Eq r, Hashable r, Serialise r)
