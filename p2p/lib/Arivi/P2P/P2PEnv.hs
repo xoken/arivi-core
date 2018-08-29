@@ -9,6 +9,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds, ExistentialQuantification #-}
+{-# LANGUAGE KindSignatures #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -16,7 +17,7 @@ module Arivi.P2P.P2PEnv
     , T.HasKbucket(..)
     ) where
 import           Arivi.Env
-import           Arivi.P2P.Types (NetworkConfig(..), Request ,Response, RpcPayload(..))
+import           Arivi.P2P.Types -- (NetworkConfig(..), Request ,Response, RpcPayload(..))
 import           Arivi.P2P.Kademlia.Types              (createKbucket, HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -29,6 +30,7 @@ import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
+import           Data.Proxy
 
 -- data P2PEnv = P2PEnv
 --     { _networkConfig :: NetworkConfig
@@ -76,7 +78,7 @@ data KademliaEnv = KademliaEnv {
 data P2PEnv r = P2PEnv {
       nodeEndpointEnv :: NodeEndPointEnv
     , rpcEnv :: RpcEnv r
-    , kademliaEnv :: KademliaEnv 
+    , kademliaEnv :: KademliaEnv
     -- , pubSubEnv :: PubSubEnv
     , statsdClient :: StatsdClient
 }
@@ -88,9 +90,10 @@ class (HasSecretKey m) => HasNodeEndpoint m where
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
     getMessageTypeMapP2PEnv :: m Handlers
 
-class HasRpc m r where
-    getArchivedResourceToPeerMapP2PEnv :: m (TVar (ArchivedResourceToPeerMap r))
-    getTransientResourceToPeerMap :: m (TVar (TransientResourceToPeerMap r))
+-- The actual hashmap key of type String would depend on the MessageSubType
+class HasRpc m (r :: MessageSubType) where
+    getArchivedResourceToPeerMapP2PEnv :: Proxy r -> m (TVar (ArchivedResourceToPeerMap String))
+    getTransientResourceToPeerMap :: Proxy r -> m (TVar (TransientResourceToPeerMap String))
 
 -- class HasPubSub where
 --     getWatcherTableP2PEnv :: TVar WatchersTable
@@ -135,12 +138,12 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
     -- notifierMap <- newTVarIO HM.empty
     -- topicHandleMap <- newTVarIO HM.empty
     -- messageMap <- newTVarIO HM.empty
-    -- let pubSubEnv = PubSubEnv 
+    -- let pubSubEnv = PubSubEnv
     return P2PEnv {
         rpcEnv = rpcEnv
       , kademliaEnv = kademliaEnv
       -- , pubSubEnv :: PubSubEnv
-    } 
+    }
         -- P2PEnv
         --     { _networkConfig = nc
         --     , tvarNodeIdPeerMap = nmap
@@ -154,8 +157,10 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
         --     }
 
 data Handlers = Handlers
-  { rpc :: forall m r t msg. (HasRpc m r, HasNodeEndpoint m, Eq r, Hashable r, Serialise r, MonadIO m) => Request t msg -> m (Response t msg)
-  , kademlia :: forall m t msg. (HasKbucket m, Serialise msg) => Request t msg -> m (Response t msg)
+  { rpc :: forall m r t msg. (HasRpc m r, HasNodeEndpoint m, MonadIO m)
+        => Request t r msg -> m (Response t r msg)
+  , kademlia :: forall m t msg. (HasKbucket m, Serialise msg)
+        => Request t 'None msg -> m (Response t 'None msg)
   }
 
 
