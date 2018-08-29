@@ -23,16 +23,21 @@ import           Arivi.P2P.PRT.Types
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types                       (NetworkConfig (..),
-                                                        Request,
-                                                        Response,)
+                                                        Request, Response)
+
 -- import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
+
 -- import           Codec.Serialise
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
+import           Control.Monad.Trans.Resource          (runResourceT)
 import           Data.HashMap.Strict                   as HM
 import           Data.Ratio                            (Rational, (%))
-
+import           Database.LevelDB                      (DB, bloomFilter,
+                                                        createIfMissing,
+                                                        defaultOptions,
+                                                        filterPolicy, open)
 
 data P2PEnv = P2PEnv
     { _networkConfig                :: NetworkConfig
@@ -54,6 +59,7 @@ data P2PEnv = P2PEnv
     , tvP2PReputationHashMap        :: TVar P2PReputationHashMap
     , tvReputedVsOther              :: TVar Rational
     , tvKClosestVsRandom            :: TVar Rational
+    , tvDB                          :: TVar DB
     }
 
 class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
@@ -74,6 +80,7 @@ class (T.HasKbucket m, HasStatsdClient m, HasNetworkEnv m, HasSecretKey m) =>
     getP2PReputationHashMapTVar :: m (TVar P2PReputationHashMap)
     getReputedVsOtherTVar :: m (TVar Rational)
     getKClosestVsRandomTVar :: m (TVar Rational)
+    getDBTVar :: m (TVar DB)
 
 makeP2PEnvironment :: NetworkConfig -> Int -> Int -> Int -> IO P2PEnv
 makeP2PEnvironment nc@NetworkConfig {..} sbound pingThreshold kademliaConcurrencyFactor = do
@@ -95,6 +102,15 @@ makeP2PEnvironment nc@NetworkConfig {..} sbound pingThreshold kademliaConcurrenc
     p2pReputationHashMapTVar <- newTVarIO HM.empty
     reputedVsOtherTVar <- newTVarIO (1 % 1 :: Rational)
     kClosestVsRandomTVar <- newTVarIO (1 % 1 :: Rational)
+    -- runResourceT $ do
+    bloom <- runResourceT $ bloomFilter 10
+    db <-
+        runResourceT $
+        open
+            "/tmp/lvlbloomtest"
+            defaultOptions
+            {createIfMissing = True, filterPolicy = Just . Left $ bloom}
+    dbTVar <- newTVarIO (db :: DB)
     return
         P2PEnv
         { _networkConfig = nc
@@ -114,6 +130,7 @@ makeP2PEnvironment nc@NetworkConfig {..} sbound pingThreshold kademliaConcurrenc
         , tvP2PReputationHashMap = p2pReputationHashMapTVar
         , tvReputedVsOther = reputedVsOtherTVar
         , tvKClosestVsRandom = kClosestVsRandomTVar
+        , tvDB = dbTVar
         }
 
 data Handlers = Handlers
