@@ -27,6 +27,7 @@ import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
+import           Arivi.Utils.Statsd
 import           Codec.Serialise                       (DeserialiseFailure,
                                                         deserialiseOrFail,
                                                         serialise)
@@ -55,7 +56,7 @@ import qualified Data.Text                             as T
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
 kademliaMessageHandler ::
-       (HasP2PEnv m, HasLogging m) => L.ByteString -> m L.ByteString
+       (HasP2PEnv m, HasLogging m,HasStatsdClient m) => L.ByteString -> m L.ByteString
 kademliaMessageHandler payl = do
     let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
     case payl' of
