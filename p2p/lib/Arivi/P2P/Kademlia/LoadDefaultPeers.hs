@@ -118,6 +118,7 @@ issueFindNode rpeer = do
                         (T.pack (displayException e))
                 Right peerl -> do
                     addToKBucket rpeer
+                    incrementCounter "KbucketSize"
                     incrementCounter "Find Response Received"
                     $(logDebug) $
                         T.pack

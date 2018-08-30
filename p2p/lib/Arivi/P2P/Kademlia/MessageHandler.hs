@@ -84,6 +84,7 @@ kademliaMessageHandler payl = do
                             (T.pack "Find_Node Message Recieved from : ")
                             (T.pack (show rnep))
                     addToKBucket rpeer
+                    incrementCounter "KbucketSize"
                      -- Initiates the verification process
                     _ <- async $ verifyPeer rpeer
 
