@@ -30,6 +30,8 @@ import Arivi.P2P.MessageHandler.NodeEndpoint
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
 import Arivi.Utils.Logging
+import Data.ByteString.Lazy (ByteString)
+import Codec.Serialise
 import Control.Concurrent.Async.Lifted (async)
 import Control.Exception
 import Control.Lens
@@ -51,18 +53,18 @@ import Arivi.Utils.Statsd
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-kademliaHandlerHelper ::
-       ( MonadReader env m
+
+kademliaHandlerHelper :: 
+      ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
        , HasNodeEndpoint m
        , HasLogging m
        , HasKbucket m
        , HasStatsdClient m
        )
-    => Request 'Kademlia PayLoad
-    -> m (Response 'Kademlia PayLoad)
-kademliaHandlerHelper (KademliaRequest payload) =
-    KademliaResponse <$> kademliaMessageHandler payload
+    => Request 'Kademlia ByteString
+    -> m (Response 'Kademlia ByteString)
+kademliaHandlerHelper (KademliaRequest payload) = KademliaResponse . serialise <$> kademliaMessageHandler (deserialise payload)
 
 kademliaMessageHandler ::
        ( MonadReader env m

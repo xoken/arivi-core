@@ -50,8 +50,8 @@ handler e =
 
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
 issueRequest ::
-       forall i o m t.
-       (HasNodeEndpoint m, HasLogging m, Msg t, Serialise i, Serialise o)
+       forall i o m t r msg.
+       (HasNodeEndpoint m, HasLogging m, Msg t, Serialise i, Serialise o, HasResourceAndService m r msg)
     => NodeId
     -> Request t i
     -> ExceptT AriviP2PException m (Response t o)
@@ -155,29 +155,39 @@ sendAndReceive peerDetailsTVar messageType connHandle msg = do
 
 
 -- | Recv from connection handle and process incoming message
-readIncomingMessage :: (HasNodeEndpoint m, HasLogging m)
+readIncomingMessage :: forall m r msg . (HasNodeEndpoint m, HasLogging m, HasResourceAndService m r msg)
     => ConnectionHandle
     -> TVar PeerDetails
-    -> Handlers
     -> m ()
-readIncomingMessage connHandle peerDetailsTVar messageTypeMap = do
+readIncomingMessage connHandle peerDetailsTVar = do
     peerNodeId <- liftIO $ getNodeId peerDetailsTVar
     msgOrFail <- LE.try $ recv connHandle
     case msgOrFail of
         Left (_::AriviNetworkException) -> logWithNodeId peerNodeId "network recv failed from readIncomingMessage" >> return ()
         Right msg -> do
-            _ <- LA.async (processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg)
-            readIncomingMessage connHandle peerDetailsTVar messageTypeMap
+            _ <- LA.async (processIncomingMessage connHandle peerDetailsTVar msg)
+            readIncomingMessage connHandle peerDetailsTVar
+
+
+globalHandler :: forall m r msg t . (HasResourceAndService m r msg) 
+    => Request t ByteString
+    -> m (Response t ByteString)
+globalHandler req = do
+    resource <- getResourceType
+    message <- getServiceMessageType
+    handlers <- getHandlers
+    case req of 
+        RpcRequest payload -> (rpc handlers) resource message payload
+        KademliaRequest payload -> (kademlia handlers) payload
 
 
 -- | Processes a new request from peer
-processRequest :: (HasLogging m)
+processRequest :: forall m r msg . (HasLogging m, HasNodeEndpoint m, HasResourceAndService m r msg)
     => ConnectionHandle
-    -> (P2PPayload -> m P2PPayload)
     -> P2PMessage
     -> NodeId
     -> m (Either AriviP2PException ())
-processRequest connHandle handlerFunc p2pMessage peerNodeId = do
+processRequest connHandle p2pMessage peerNodeId = do
     responseMsg <- handlerFunc (payload p2pMessage) -- handler should handle all its own exceptions. No exception should reach here.
     let p2pResponse = generateP2PMessage (uuid p2pMessage) (messageType p2pMessage) responseMsg
     res <- LE.try $ send connHandle (serialise p2pResponse)
@@ -187,13 +197,12 @@ processRequest connHandle handlerFunc p2pMessage peerNodeId = do
 
 
 -- | Takes an incoming message from the network layer and procesess it in 2 ways. If the mes0sage was an expected reply, it is put into the waiting mvar or else the appropriate handler for the message type is called and the generated response is sent back
-processIncomingMessage :: (HasNodeEndpoint m, HasLogging m)
+processIncomingMessage :: forall m r msg . (HasNodeEndpoint m, HasLogging m, HasResourceAndService m r msg)
     => ConnectionHandle
     -> TVar PeerDetails
-    -> Handlers
     -> P2PPayload
     -> m (Either AriviP2PException ())
-processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
+processIncomingMessage connHandle peerDetailsTVar msg = do
     peerNodeId <- liftIO $ getNodeId peerDetailsTVar
     let p2pMessageOrFail = deserialiseOrFail msg
     case p2pMessageOrFail of
@@ -205,15 +214,15 @@ processIncomingMessage connHandle peerDetailsTVar messageTypeMap msg = do
                     case peerDetails ^. uuidMap.at uuid of
                         Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
                         Nothing -> return (Left InvalidUuid)
-                -- Nothing -> do
-                --     --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
-                --     let func = case messageType p2pMessage of
-                --           Rpc -> rpc messageTypeMap
-                --           Kademlia -> kademlia messageTypeMap
-                --     processRequest connHandle func p2pMessage peerNodeId
+                Nothing ->
+                    --let func = fromJust $ HM.lookup (messageType p2pMessage) messageTypeMap
+                    -- let func = case messageType p2pMessage of
+                    --       Rpc -> rpc messageTypeMap
+                    --       Kademlia -> kademlia messageTypeMap
+                    processRequest connHandle p2pMessage peerNodeId
 
 -- | Gets the connection handle for the particular message type. If not present, it will create and return else will throw an exception
-getConnectionHandle :: (HasLogging m, HasNodeEndpoint m) => NodeId -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
+getConnectionHandle :: forall m r msg . (HasLogging m, HasNodeEndpoint m, HasResourceAndService m r msg) => NodeId -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
 getConnectionHandle peerNodeId nodeToPeerTVar transportType = do
     nodeIdPeerMap <- liftIO $ atomically $ readTVar nodeToPeerTVar
     -- should find an entry in the hashmap
@@ -228,7 +237,7 @@ getConnectionHandle peerNodeId nodeToPeerTVar transportType = do
 
 -- | Obtains the connectionLock on entry and then checks if connection has been made. If yes, then simply returns the connectionHandl;e else it tries to openConnection
 -- | Returns the connectionHandle or an exception
-createConnection :: (HasLogging m, HasNodeEndpoint m) => TVar PeerDetails -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
+createConnection :: forall m r msg . (HasLogging m, HasNodeEndpoint m, HasResourceAndService m r msg) => TVar PeerDetails -> TVar NodeIdPeerMap -> TransportType -> m (Either AriviP2PException ConnectionHandle)
 createConnection peerDetailsTVar _ transportType = do
     peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
     lock <- liftIO $ atomically $ takeTMVar (peerDetails ^. connectionLock)
@@ -237,24 +246,24 @@ createConnection peerDetailsTVar _ transportType = do
             Connected connHandle -> return $ Right connHandle
             NotConnected -> networkToP2PException <$> openConnectionToPeer (peerDetails ^. networkConfig) transportType 
                         
-    msgTypeMap <- getMessageTypeMapP2PEnv
+    -- msgTypeMap <- getMessageTypeMapP2PEnv
     liftIO $ atomically $ putTMVar (peerDetails ^. connectionLock) lock
     case connHandleEither of
         Right c -> do
             liftIO $ atomically $ updatePeer transportType (Connected c) peerDetailsTVar
-            _ <- LA.async $ readIncomingMessage c peerDetailsTVar msgTypeMap
+            _ <- LA.async $ readIncomingMessage c peerDetailsTVar
             return (Right c)
         Left e -> return (Left e)
 
 
-newIncomingConnectionHandler :: (HasNodeEndpoint m, HasLogging m)
+newIncomingConnectionHandler :: forall m r msg . (HasNodeEndpoint m, HasLogging m, HasResourceAndService m r msg)
     => NetworkConfig
     -> TransportType
     -> ConnectionHandle
     -> m ()
 newIncomingConnectionHandler nc transportType connHandle = do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    msgTypeMap <- getMessageTypeMapP2PEnv
+    -- msgTypeMap <- getMessageTypeMapP2PEnv
     nodeIdPeerMap <- liftIO $ atomically $ readTVar nodeIdMapTVar
     -- lock <- liftIO $ atomically $ newTMVar True
     case HM.lookup (nc ^. nodeId) nodeIdPeerMap of
@@ -264,4 +273,4 @@ newIncomingConnectionHandler nc transportType connHandle = do
         Just peerDetailsTVar -> liftIO $ atomically $ updatePeer transportType (Connected connHandle) peerDetailsTVar
     nodeIdPeerMap' <- liftIO $ atomically $ readTVar nodeIdMapTVar
     let peerDetailsTVar = fromJust (HM.lookup (nc ^. nodeId) nodeIdPeerMap')
-    readIncomingMessage connHandle peerDetailsTVar msgTypeMap
+    readIncomingMessage connHandle peerDetailsTVar

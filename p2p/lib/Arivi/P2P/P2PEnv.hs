@@ -8,7 +8,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE DataKinds, ExistentialQuantification #-}
+{-# LANGUAGE DataKinds, ExistentialQuantification, ConstraintKinds  #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -22,14 +22,16 @@ import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
+import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Codec.Serialise
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
+import           Data.ByteString.Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
-
 -- data P2PEnv = P2PEnv
 --     { _networkConfig :: NetworkConfig
 --     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
@@ -45,16 +47,23 @@ import           Data.Hashable
 --     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
 --     }
 
+
+type HasP2PEnv m r msg = (Monad m, MonadIO m, HasNodeEndpoint m, HasLogging m, HasRpc m r, HasKbucket m, HasStatsdClient m, HasSecretKey m, HasResourcesType m r, HasServiceMsgType m msg)
+
+type HasResourceAndService m r msg = (HasResourcesType m r, HasServiceMsgType m msg)
+
+
 data NodeEndpointEnv = NodeEndpointEnv {
       _networkConfig :: NetworkConfig
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
+    , handlers          :: Handlers
     , ariviNetworkEnv :: AriviEnv
 }
 
-mkNodeEndpoint :: NetworkConfig -> AriviEnv -> IO NodeEndpointEnv
-mkNodeEndpoint nc ne = do
+mkNodeEndpoint :: NetworkConfig -> Handlers -> AriviEnv -> IO NodeEndpointEnv
+mkNodeEndpoint nc handlers ne = do
     peerMap <- newTVarIO HM.empty
-    return $ NodeEndpointEnv nc peerMap ne
+    return $ NodeEndpointEnv nc peerMap handlers ne
 
 
 data RpcEnv r = RpcEnv {
@@ -78,18 +87,36 @@ data KademliaEnv = KademliaEnv {
     kbucket :: T.Kbucket Int [T.Peer]
 }
 
-data P2PEnv r = P2PEnv {
+data P2PEnv r msg = P2PEnv {
       nodeEndpointEnv :: NodeEndpointEnv
     , rpcEnv :: RpcEnv r
     , kademliaEnv :: KademliaEnv 
     -- , pubSubEnv :: PubSubEnv
     , statsdClient :: StatsdClient
+    , resourceEnv :: ResourceType r
+    , messageEnv :: ServiceMessageType msg
 }
+
+data ResourceType r = ResourceType {
+    resourceType :: r
+}
+
+data ServiceMessageType msg = ServiceMessageType {
+    serviceMessageType :: msg
+}
+
+class HasResourcesType m r where
+    getResourceType :: m r
+
+class HasServiceMsgType m msg where
+    getServiceMessageType :: m msg
+
 
 
 class (HasSecretKey m) => HasNodeEndpoint m where
     getEndpointEnv :: m NodeEndpointEnv
     getNetworkConfig :: m NetworkConfig
+    getHandlers      :: m Handlers
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
 
 class HasRpc m r where
@@ -118,33 +145,33 @@ class HasRpc m r where
 --     getTransientResourceToPeerMap :: m (TVar TransientResourceToPeerMap)
 
 
-makeP2PEnvironment ::
-       NetworkConfig
-    -> Int
-    -> Int
-    -> Int
-    -> IO (P2PEnv r)
-makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor = do
-    r2pmap <- newTVarIO (ArchivedResourceToPeerMap HM.empty)
-    dr2pmap <- newTVarIO (TransientResourceToPeerMap HM.empty)
-    let rpcEnv = RpcEnv r2pmap dr2pmap
-    kb <-
-        createKbucket
-            (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
-            sbound
-            pingThreshold
-            kademliaConcurrencyFactor
-    let kademliaEnv = KademliaEnv kb
-    -- watcherMap <- newTVarIO HM.empty
-    -- notifierMap <- newTVarIO HM.empty
-    -- topicHandleMap <- newTVarIO HM.empty
-    -- messageMap <- newTVarIO HM.empty
-    -- let pubSubEnv = PubSubEnv 
-    return P2PEnv {
-        rpcEnv = rpcEnv
-      , kademliaEnv = kademliaEnv
-      -- , pubSubEnv :: PubSubEnv
-    } 
+-- makeP2PEnvironment ::
+--        NetworkConfig
+--     -> Int
+--     -> Int
+--     -> Int
+--     -> IO (P2PEnv r)
+-- makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor = do
+--     r2pmap <- newTVarIO (ArchivedResourceToPeerMap HM.empty)
+--     dr2pmap <- newTVarIO (TransientResourceToPeerMap HM.empty)
+--     let rpcEnv = RpcEnv r2pmap dr2pmap
+--     kb <-
+--         createKbucket
+--             (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
+--             sbound
+--             pingThreshold
+--             kademliaConcurrencyFactor
+--     let kademliaEnv = KademliaEnv kb
+--     -- watcherMap <- newTVarIO HM.empty
+--     -- notifierMap <- newTVarIO HM.empty
+--     -- topicHandleMap <- newTVarIO HM.empty
+--     -- messageMap <- newTVarIO HM.empty
+--     -- let pubSubEnv = PubSubEnv 
+--     return P2PEnv {
+--         rpcEnv = rpcEnv
+--       , kademliaEnv = kademliaEnv
+--       -- , pubSubEnv :: PubSubEnv
+--     } 
         -- P2PEnv
         --     { _networkConfig = nc
         --     , tvarNodeIdPeerMap = nmap
@@ -162,5 +189,10 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
 --   , kademlia :: forall m t msg. (HasKbucket m, Serialise msg) => Request t msg -> m (Response t msg)
 --   }
 
+data Handlers = Handlers {
+      rpc :: forall m r msg. (HasNodeEndpoint m, HasRpc m r, Eq r, Hashable r, Serialise msg, Serialise r , MonadIO m) => r -> msg -> Request 'Rpc ByteString -> m (Response 'Rpc ByteString)
+    , kademlia :: forall m env. (MonadReader env m, HasNetworkConfig env NetworkConfig, HasNodeEndpoint m, HasLogging m, HasKbucket m, HasStatsdClient m) => Request 'Kademlia ByteString -> m (Response 'Kademlia ByteString)
+
+}
 
 makeLensesWith classUnderscoreNoPrefixFields ''P2PEnv

@@ -8,9 +8,10 @@ module Arivi.P2P.RPC.Types
     , ServiceMessage
     , ResourceHandler(..)
     , TransientResourceToPeerMap(..)
-    , ResourceType(..)
+    -- , ResourceType(..)
     , Options(..)
     , Supported(..)
+    , ArchivedOrTransient(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
@@ -31,6 +32,8 @@ newtype ArchivedResourceToPeerMap r = ArchivedResourceToPeerMap {
     getArchivedMap :: HM.HashMap r  (ResourceHandler, TVar [NodeId])
 }
 
+newtype ResourceToPeer = ResourceToPeer (forall r . HM.HashMap r (TVar [NodeId]))
+
 newtype ResourceHandler = ResourceHandler (forall r m . RpcPayload r m -> RpcPayload r m)
 
 data Options r = Options deriving (Eq, Ord, Show, Generic, Serialise)
@@ -42,9 +45,9 @@ newtype TransientResourceToPeerMap r = TransientResourceToPeerMap {
     getTransientMap ::  HM.HashMap r (ResourceHandler, TVar [NodeId])
 }
 
-data ResourceType
+data ArchivedOrTransient
     = Archived
     | Transient
     deriving (Eq, Ord, Show, Generic)
 
-instance Serialise ResourceType
+instance Serialise ArchivedOrTransient

@@ -26,7 +26,7 @@ import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
-import           Codec.Serialise                       (Serialise)
+import           Codec.Serialise
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
@@ -37,6 +37,8 @@ import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.STM
+import           Data.ByteString.Lazy                  (ByteString)
+import           Data.Hashable
 import qualified Data.HashMap.Strict                   as HM
 import           Data.Maybe
 import           Control.Applicative
@@ -46,7 +48,7 @@ registerResource :: forall r m .
        (HasNodeEndpoint m, HasRpc m r, Resource r, MonadIO m)
     => r
     -> ResourceHandler
-    -> ResourceType
+    -> ArchivedOrTransient
     -> m ()
 registerResource resource resourceHandler resourceType = do
     archivedResourceToPeerMapTvar <- getArchivedResourceToPeerMapP2PEnv
@@ -219,18 +221,20 @@ sendResourceRequestToPeer nodeListTVar nId msg = do
 
 rpcHandlerHelper :: forall m r msg .
        ( HasNodeEndpoint m, HasRpc m r
-       , Resource r
+       , Eq r, Hashable r, Serialise msg, Serialise r
        , MonadIO m
        )
-    => Request 'Rpc (RpcPayload r msg)
-    -> m (Response 'Rpc (RpcPayload r msg))
-rpcHandlerHelper (RpcRequest req) = RpcResponse <$> rpcHandler req
+    => r
+    -> msg
+    -> Request 'Rpc ByteString
+    -> m (Response 'Rpc ByteString)
+rpcHandlerHelper resource message (RpcRequest req) = RpcResponse . serialise <$> rpcHandler (deserialise req :: RpcPayload r msg)
 
 -- will need the from NodeId to check the to and from
 -- rpcHandler :: (HasNodeEndpoint m, HasRpc m r) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler :: forall m r msg .
        ( HasNodeEndpoint m, HasRpc m r
-       , Resource r
+       , Eq r, Hashable r, Serialise msg
        , MonadIO m
        )
     => RpcPayload r msg
