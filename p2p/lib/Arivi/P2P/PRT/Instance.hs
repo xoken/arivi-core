@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -23,31 +25,38 @@ module Arivi.P2P.PRT.Instance
     , getReputation
     , getWeightages
     , getKNodes
+    , savePRTHMtoDBPeriodically
+    , loadPeerReputationHistoryTable
     ) where
 
-import qualified Arivi.Network.Types         as Network (NodeId)
-import           Arivi.P2P.Exception         (AriviP2PException)
-import           Arivi.P2P.Kademlia.Kbucket  (Peer (..), getDefaultNodeId,
-                                              getKClosestPeersByNodeid,
-                                              getKRandomPeers,
-                                              getPeersByNodeIds)
-import           Arivi.P2P.P2PEnv            (HasKbucket, HasP2PEnv (..))
-import           Arivi.P2P.PRT.Exceptions    (PRTExecption (..))
-import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
-                                              PeerReputationHistory (..),
-                                              PeerReputationHistoryTable,
-                                              Reputation)
-import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
-import           Control.Exception           (throw)
-import           Control.Monad.Except        (ExceptT, runExceptT)
-import           Control.Monad.IO.Class      (MonadIO, liftIO)
-import           Control.Monad.STM           (atomically)
-import qualified Data.HashMap.Strict         as HM (insert, lookup, size,
-                                                    toList)
-import           Data.List                   (sortBy)
-import           Data.Ratio                  (Ratio, Rational, denominator,
-                                              numerator)
-import           Data.Yaml                   (ParseException, decodeFileEither)
+import qualified Arivi.Network.Types          as Network (NodeId)
+import           Arivi.P2P.Exception          (AriviP2PException)
+import           Arivi.P2P.Kademlia.Kbucket   (Peer (..), getDefaultNodeId,
+                                               getKClosestPeersByNodeid,
+                                               getKRandomPeers,
+                                               getPeersByNodeIds)
+import qualified Arivi.P2P.LevelDB            as LevelDB (getValue, putValue)
+import           Arivi.P2P.P2PEnv             (HasKbucket, HasP2PEnv (..))
+import           Arivi.P2P.PRT.Exceptions     (PRTExecption (..))
+import           Arivi.P2P.PRT.Types          (Config (..), PeerDeed (..),
+                                               PeerReputationHistory (..),
+                                               PeerReputationHistoryTable,
+                                               Reputation)
+import           Control.Concurrent           (threadDelay)
+import           Control.Concurrent.STM.TVar  (readTVarIO, writeTVar)
+import           Control.Exception            (throw)
+import           Control.Monad.Except         (ExceptT, runExceptT)
+import           Control.Monad.IO.Class       (MonadIO, liftIO)
+import           Control.Monad.IO.Unlift      (MonadUnliftIO)
+import           Control.Monad.STM            (atomically)
+import           Control.Monad.Trans.Resource (ResourceT)
+import qualified Data.ByteString.Char8        as Char8 (pack, unpack)
+import qualified Data.HashMap.Strict          as HM (fromList, insert, lookup,
+                                                     size, toList)
+import           Data.List                    (sortBy)
+import           Data.Ratio                   (Ratio, Rational, denominator,
+                                               numerator)
+import           Data.Yaml                    (ParseException, decodeFileEither)
 
 -- | Reads the config file and converts it's fields to config data type
 loadConfigFile :: FilePath -> IO Config
@@ -221,8 +230,8 @@ getReputedNodes ::
     -> PeerReputationHistoryTable
     -> m [Peer]
 getReputedNodes n mapOfAllPeersHistory = do
-    let sortedListofAllPeersHistory
-         = sortBy sortGT (HM.toList mapOfAllPeersHistory)
+    let sortedListofAllPeersHistory =
+            sortBy sortGT (HM.toList mapOfAllPeersHistory)
     liftIO $ print sortedListofAllPeersHistory
     eitherNReputedPeerList <-
         runExceptT $
@@ -271,3 +280,35 @@ getKNodes k = do
                     reputedPeers <-
                         getReputedNodes noOfReputed mapOfAllPeersHistory
                     return $ reputedPeers ++ closestPeers ++ kRandomPeers
+
+-- | This function dumps PeerReputationHistoryTable to Level DB datbase
+savePRTHMtoDBPeriodically ::
+       (MonadUnliftIO m, HasP2PEnv (ResourceT m), HasP2PEnv m) => Int -> m ()
+savePRTHMtoDBPeriodically timeInterval = do
+    mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
+    mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
+    -- let listofAllPeersHistory = HM.toList mapOfAllPeersHistory
+    liftIO $ threadDelay timeInterval
+    LevelDB.putValue
+        "PeerReputationHistoryTable"
+        (Char8.pack $ show mapOfAllPeersHistory)
+    savePRTHMtoDBPeriodically timeInterval
+
+-- | Loads the maybeMapOfAllPeersHistory from datbase to
+--  mapOfAllPeersHistoryTVar of P2P Environment
+loadPeerReputationHistoryTable ::
+       (MonadUnliftIO m, HasP2PEnv (ResourceT m), HasP2PEnv m) => m ()
+loadPeerReputationHistoryTable = do
+    mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
+    maybeMapOfAllPeersHistory <- LevelDB.getValue "PeerReputationHistoryTable"
+    case maybeMapOfAllPeersHistory of
+        Nothing -> return ()
+        Just mapPHty -> do
+            let mapOfAllPeersHistory =
+                    read (Char8.unpack mapPHty) :: [( Network.NodeId
+                                                    , PeerReputationHistory)]
+            liftIO $
+                atomically $
+                writeTVar
+                    mapOfAllPeersHistoryTVar
+                    (HM.fromList mapOfAllPeersHistory)
