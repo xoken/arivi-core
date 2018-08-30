@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 --------------------------------------------------------------------------------
 -- |
 -- Module      : Arivi.P2P.LevelDB
@@ -18,32 +20,44 @@ module Arivi.P2P.LevelDB
 
 import           Arivi.P2P.P2PEnv             (HasP2PEnv (..))
 import           Control.Concurrent.STM.TVar  (readTVarIO)
-import           Control.Monad.IO.Class       (MonadIO, liftIO)
-import           Control.Monad.Trans.Resource (runResourceT)
+import           Control.Monad.IO.Class       (liftIO)
+import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import           Data.ByteString.Char8        (ByteString)
 import           Data.Default                 (def)
-import           Database.LevelDB             (DB, delete, get, put)
+import           Database.LevelDB             (delete, get, put)
+
+--
+import           Control.Monad.IO.Unlift      (MonadUnliftIO)
 
 -- | Returns Value from database corresponding to given key
-getValue :: (HasP2PEnv m, MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
+getValue ::
+       (MonadUnliftIO m, HasP2PEnv (ResourceT m))
+    => ByteString
+    -> m (Maybe ByteString)
 getValue key =
     runResourceT $ do
-        dbTVar <- liftIO getDBTVar
+        dbTVar <- getDBTVar
         db <- liftIO $ readTVarIO dbTVar
         get db def key
 
 -- | Stores given (Key,Value) pair in database
-putValue :: (HasP2PEnv m, MonadIO m) => ByteString -> ByteString -> DB -> m ()
+putValue ::
+       (MonadUnliftIO m, HasP2PEnv (ResourceT m))
+    => ByteString
+    -> ByteString
+    -> m ()
 putValue key value =
     runResourceT $ do
-        dbTVar <- liftIO getDBTVar
+        dbTVar <- getDBTVar
         db <- liftIO $ readTVarIO dbTVar
         put db def key value
+        return ()
 
 -- | Deletes Value from database corresponding to given key
-deleteValue :: (HasP2PEnv m, MonadIO m) => ByteString -> DB -> m ()
+deleteValue :: (MonadUnliftIO m, HasP2PEnv (ResourceT m)) => ByteString -> m ()
 deleteValue key =
     runResourceT $ do
         dbTVar <- getDBTVar
         db <- liftIO $ readTVarIO dbTVar
         delete db def key
+        return ()
