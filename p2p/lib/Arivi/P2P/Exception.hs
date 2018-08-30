@@ -2,7 +2,7 @@ module Arivi.P2P.Exception
     ( AriviP2PException(..)
     ) where
 
-import           Arivi.Network       (AriviNetworkException)
+import           Arivi.Network     (AriviNetworkException)
 import           Control.Exception
 
 data AriviP2PException

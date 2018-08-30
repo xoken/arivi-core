@@ -14,11 +14,10 @@ module Arivi.P2P.RPC.Types
     , Supported(..)
     ) where
 
-import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId, P2PUUID)
+import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
-import           Data.Hashable
 import           Data.Hashable
 import           Data.HashMap.Strict                   as HM
 import           GHC.Generics                          (Generic)
