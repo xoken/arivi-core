@@ -45,15 +45,16 @@ import           Data.Hashable
 --     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
 --     }
 
-data NodeEndPointEnv = NodeEndPointEnv {
+data NodeEndpointEnv = NodeEndpointEnv {
       _networkConfig :: NetworkConfig
     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
-    , tvarMessageTypeMap :: Handlers
     , ariviNetworkEnv :: AriviEnv
 }
 
-mkNodeEndpoint :: NetworkConfig -> TVar NodeIdPeerMap -> Handlers -> AriviEnv -> NodeEndPointEnv
-mkNodeEndpoint = NodeEndPointEnv
+mkNodeEndpoint :: NetworkConfig -> AriviEnv -> IO NodeEndpointEnv
+mkNodeEndpoint nc ne = do
+    peerMap <- newTVarIO HM.empty
+    return $ NodeEndpointEnv nc peerMap ne
 
 
 data RpcEnv r = RpcEnv {
@@ -61,7 +62,11 @@ data RpcEnv r = RpcEnv {
     , tvarDynamicResourceToPeerMap :: TVar (TransientResourceToPeerMap r)
 }
 
-
+mkRpcEnv ::  IO (RpcEnv r)
+mkRpcEnv = do
+    archived <- newTVarIO (ArchivedResourceToPeerMap HM.empty)
+    transient <- newTVarIO (TransientResourceToPeerMap HM.empty)
+    return $ RpcEnv archived transient
 -- data PubSubEnv = PubSubEnv {
 --       tvarWatchersTable :: TVar WatchersTable
 --     , tvarNotifiersTable :: TVar NotifiersTable
@@ -74,7 +79,7 @@ data KademliaEnv = KademliaEnv {
 }
 
 data P2PEnv r = P2PEnv {
-      nodeEndpointEnv :: NodeEndPointEnv
+      nodeEndpointEnv :: NodeEndpointEnv
     , rpcEnv :: RpcEnv r
     , kademliaEnv :: KademliaEnv 
     -- , pubSubEnv :: PubSubEnv
@@ -83,10 +88,9 @@ data P2PEnv r = P2PEnv {
 
 
 class (HasSecretKey m) => HasNodeEndpoint m where
-    getEndpointEnv :: m NodeEndPointEnv
+    getEndpointEnv :: m NodeEndpointEnv
     getNetworkConfig :: m NetworkConfig
     getNodeIdPeerMapTVarP2PEnv :: m (TVar NodeIdPeerMap)
-    getMessageTypeMapP2PEnv :: m Handlers
 
 class HasRpc m r where
     getArchivedResourceToPeerMapP2PEnv :: m (TVar (ArchivedResourceToPeerMap r))
@@ -153,10 +157,10 @@ makeP2PEnvironment nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrency
         --     , kbucket = kb
         --     }
 
-data Handlers = Handlers
-  { rpc :: forall m r t msg. (HasRpc m r, HasNodeEndpoint m, Eq r, Hashable r, Serialise r, MonadIO m) => Request t msg -> m (Response t msg)
-  , kademlia :: forall m t msg. (HasKbucket m, Serialise msg) => Request t msg -> m (Response t msg)
-  }
+-- data Handlers = Handlers
+--   { rpc :: forall m r t msg. (HasRpc m r, HasNodeEndpoint m, Eq r, Hashable r, Serialise r, MonadIO m) => Request t msg -> m (Response t msg)
+--   , kademlia :: forall m t msg. (HasKbucket m, Serialise msg) => Request t msg -> m (Response t msg)
+--   }
 
 
 makeLensesWith classUnderscoreNoPrefixFields ''P2PEnv
