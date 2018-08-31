@@ -281,7 +281,8 @@ getKNodes k = do
                         getReputedNodes noOfReputed mapOfAllPeersHistory
                     return $ reputedPeers ++ closestPeers ++ kRandomPeers
 
--- | This function dumps PeerReputationHistoryTable to Level DB datbase
+-- | This function dumps PeerReputationHistoryTable to Level DB database
+--   periodically
 savePRTHMtoDBPeriodically ::
        (MonadUnliftIO m, HasP2PEnv (ResourceT m), HasP2PEnv m) => Int -> m ()
 savePRTHMtoDBPeriodically timeInterval = do
