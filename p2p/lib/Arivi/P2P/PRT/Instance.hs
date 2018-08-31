@@ -287,11 +287,11 @@ savePRTHMtoDBPeriodically ::
 savePRTHMtoDBPeriodically timeInterval = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
-    -- let listofAllPeersHistory = HM.toList mapOfAllPeersHistory
+    let listofAllPeersHistory = HM.toList mapOfAllPeersHistory
     liftIO $ threadDelay timeInterval
     LevelDB.putValue
         "PeerReputationHistoryTable"
-        (Char8.pack $ show mapOfAllPeersHistory)
+        (Char8.pack $ show listofAllPeersHistory)
     savePRTHMtoDBPeriodically timeInterval
 
 -- | Loads the maybeMapOfAllPeersHistory from datbase to
