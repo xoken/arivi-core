@@ -35,7 +35,7 @@ import           GHC.Generics        (Generic)
 -- | `Reputation` is a unit to count Peer Reputations
 newtype Reputation =
     Reputation Integer
-    deriving (Show, Eq, Generic, Ord)
+    deriving (Show, Eq, Generic, Ord, Read)
 
 instance Num Reputation where
     Reputation x - Reputation y = Reputation (x - y)
@@ -53,7 +53,7 @@ data PeerDeed
                          --    Deserialise
     | SignatureMismatch -- ^ `PeerDeed` when Signature of Peer not matched
     | Verified -- ^ `PeerDeed` when Kademlia Peer is  `Verified`
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Generic, Read)
 
 instance Hashable PeerDeed
 
@@ -74,9 +74,7 @@ data PeerReputationHistory = PeerReputationHistory
     , nofDeeds   :: Integer -- ^ No of deeds Peer did till time
     , reputation :: Reputation -- ^ Based on the history `Reputation` of
                                     --   Peer
-    } deriving (Show, Eq, Generic)
-
-instance Read PeerReputationHistory
+    } deriving (Show, Eq, Generic, Read)
 
 -- | This hashmap contains `PeerReputationHistory` of each Peer
 type PeerReputationHistoryTable
