@@ -10,15 +10,12 @@
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE GADTs, DataKinds #-}
+{-# LANGUAGE GADTs #-}
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
-    , kademliaHandlerHelper
     ) where
 
 import Arivi.P2P.Exception
@@ -29,9 +26,6 @@ import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import Arivi.P2P.MessageHandler.NodeEndpoint
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
-import Arivi.Utils.Logging
-import Data.ByteString.Lazy (ByteString)
-import Codec.Serialise
 import Control.Concurrent.Async.Lifted (async)
 import Control.Exception
 import Control.Lens
@@ -39,7 +33,6 @@ import Control.Monad.Except
 import Control.Monad.Logger
 import Control.Monad.Reader
 import qualified Data.Text as T
-import Arivi.Utils.Statsd
 
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
@@ -54,25 +47,8 @@ import Arivi.Utils.Statsd
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
 
-kademliaHandlerHelper :: 
-      ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasLogging m
-       , HasKbucket m
-       , HasStatsdClient m
-       )
-    => Request 'Kademlia ByteString
-    -> m (Response 'Kademlia ByteString)
-kademliaHandlerHelper (KademliaRequest payload) = KademliaResponse . serialise <$> kademliaMessageHandler (deserialise payload)
-
 kademliaMessageHandler ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasLogging m
-       , HasKbucket m
-       , HasStatsdClient m
+       ( HasP2PEnv env m r msg
        )
     => PayLoad
     -> m PayLoad

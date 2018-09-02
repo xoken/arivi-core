@@ -9,7 +9,7 @@
 --
 -- This modules implements a new command that a kademlia node can issue
 -- called Verify_Peer. All kademlia node except for bootstrap node starts with
--- status verified, therefor all other nodes when recieve FN_RESP from
+-- status verified, therefore all other nodes when they receive FN_RESP from
 -- other nodes can issue verify peer to already verified nodes in kbucket
 -- to update it's status.
 --
@@ -37,7 +37,7 @@ import Arivi.P2P.Kademlia.Utils (count')
 import Arivi.P2P.Kademlia.XorDistance
 import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
-import Arivi.P2P.P2PEnv (HasNodeEndpoint)
+import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
 import Arivi.Utils.Logging
 import Control.Concurrent (threadDelay)
@@ -58,7 +58,7 @@ import qualified STMContainers.Map as H
 import System.Random (randomRIO)
 
 updateNodeStatus ::
-       forall m. (HasKbucket m, MonadIO m)
+       (HasKbucket m, MonadIO m)
     => NodeStatus
     -> NodeId
     -> ExceptT AriviP2PException m ()
@@ -144,11 +144,7 @@ filterPeer nid rnid peerL = result
     rXor = getXorDistance (C.unpack $ BS.encode rnid) (C.unpack $ BS.encode nid)
 
 initVerification ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasKbucket m
-       , HasLogging m
+       ( HasP2PEnv env m r msg
        )
     => [Peer]
     -> ExceptT AriviP2PException m Bool
@@ -163,11 +159,7 @@ initVerification peerL = do
     return $ (>=) liveNodes minPeerResponded
 
 isVNRESPValid ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasKbucket m
-       , HasLogging m
+       ( HasP2PEnv env m r msg
        )
     => [Peer]
     -> Peer
@@ -187,11 +179,7 @@ isVNRESPValid peerL peerR = do
         else return False
 
 issueVerifyNode ::
-       forall m env.
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasLogging m
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> Peer
@@ -248,11 +236,7 @@ getRandomVerifiedPeer = do
     getPeerByNodeId rp
 
 responseHandler ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasLogging m
-       , HasNodeEndpoint m
-       , HasKbucket m
+       ( HasP2PEnv env m r msg
        )
     => Either SomeException [Peer]
     -> Peer
@@ -279,11 +263,7 @@ responseHandler resp peerR peerT =
         Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
 
 sendVNMsg ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasLogging m
-       , HasNodeEndpoint m
-       , HasKbucket m
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> Peer
@@ -295,11 +275,7 @@ sendVNMsg peerT peerV peerR = do
     wait t
 
 verifyPeer ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasLogging m
-       , HasKbucket m
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> ExceptT AriviP2PException m ()

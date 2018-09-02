@@ -16,7 +16,7 @@ import           Arivi.Network
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.ServiceRegistry
 
-import           Arivi.P2P.MessageHandler.NodeEndpoint  (newIncomingConnectionHandler)
+import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad                          (mapM_)
 import           Control.Monad.IO.Class                 (liftIO)

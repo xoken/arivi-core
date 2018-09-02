@@ -29,7 +29,7 @@ import           Arivi.P2P.Kademlia.RunConcurrently
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
 import           Arivi.P2P.MessageHandler.NodeEndpoint
-import           Arivi.P2P.P2PEnv                      (HasNodeEndpoint(..))
+import           Arivi.P2P.P2PEnv--                      (HasNodeEndpoint(..))
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted
@@ -70,11 +70,8 @@ addToNewList bl pl
 -- | Issues a ping command and waits for the response and if the response is
 --   is valid returns True else False
 issuePing ::
-       forall m env.
-       ( MonadReader env m
-       , HasNodeEndpoint m
-       , HasNetworkConfig env NetworkConfig
-       , HasLogging m
+       forall env m r msg.
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> m Bool
@@ -111,12 +108,8 @@ deleteIfExist peerR pl =
 
 -- | creates a new list from an existing one by issuing a ping command
 refreshKbucket ::
-       forall m env.
-       ( MonadReader env m
-       , HasNodeEndpoint m
-       , HasNetworkConfig env NetworkConfig
-       , HasLogging m
-       , HasKbucket m
+       forall env m r msg.
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> [Peer]

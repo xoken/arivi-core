@@ -8,8 +8,8 @@ import Arivi.P2P.Types hiding (Resource)
 import Arivi.P2P.P2PEnv
 import Arivi.Network
 import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
-import Arivi.P2P.RPC.Functions (rpcHandlerHelper)
-import Arivi.P2P.Kademlia.MessageHandler (kademliaHandlerHelper)
+import Arivi.P2P.RPC.Functions
+import Arivi.P2P.Kademlia.MessageHandler
 import Arivi.P2P.MessageHandler.NodeEndpoint
 import Arivi.P2P.RPC.Types
 import Arivi.Env

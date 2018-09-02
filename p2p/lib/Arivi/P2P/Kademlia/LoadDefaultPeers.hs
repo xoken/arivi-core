@@ -1,8 +1,5 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
 -- |
@@ -50,11 +47,7 @@ import qualified Data.Text                             as T
 --   local node information which are passed to P2P environment during
 --   P2P instance initialization.
 loadDefaultPeers ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasKbucket m
-       , HasLogging m
-       , HasNodeEndpoint m
+       ( HasP2PEnv env m r msg
        )
     => [Peer]
     -> m ()
@@ -89,10 +82,7 @@ deleteIfPeerExist (x:xs) = do
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
 --  TODO : See if need to be converted to ExceptT
 issueFindNode ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasNodeEndpoint m
-       , HasLogging m
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> m ()

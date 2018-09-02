@@ -22,27 +22,25 @@ import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
 import           GHC.Generics                          (Generic)
 
-import           Arivi.P2P.Types (RpcPayload(..), Resource)
+import           Arivi.P2P.Types (RpcPayload(..))
 
 type ServiceMessage = Lazy.ByteString
 type ResourceId = String
 
 
-newtype ArchivedResourceToPeerMap r = ArchivedResourceToPeerMap {
-    getArchivedMap :: HM.HashMap r  (ResourceHandler, TVar [NodeId])
+newtype ArchivedResourceToPeerMap r m = ArchivedResourceToPeerMap {
+    getArchivedMap :: HM.HashMap r (ResourceHandler r m, TVar [NodeId])
 }
 
-newtype ResourceToPeer = ResourceToPeer (forall r . HM.HashMap r (TVar [NodeId]))
-
-newtype ResourceHandler = ResourceHandler (forall r m . RpcPayload r m -> RpcPayload r m)
+newtype ResourceHandler r msg = ResourceHandler (RpcPayload r msg -> RpcPayload r msg)
 
 data Options r = Options deriving (Eq, Ord, Show, Generic, Serialise)
 
 data Supported r = Supported r deriving(Eq, Ord, Generic, Serialise, Hashable)
 
 
-newtype TransientResourceToPeerMap r = TransientResourceToPeerMap {
-    getTransientMap ::  HM.HashMap r (ResourceHandler, TVar [NodeId])
+newtype TransientResourceToPeerMap r msg = TransientResourceToPeerMap {
+    getTransientMap ::  HM.HashMap r (ResourceHandler r msg, TVar [NodeId])
 }
 
 data ArchivedOrTransient
