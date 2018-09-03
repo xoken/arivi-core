@@ -40,6 +40,7 @@ import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
 import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
+
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
     let hint =

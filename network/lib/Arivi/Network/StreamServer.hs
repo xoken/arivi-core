@@ -8,14 +8,15 @@ module Arivi.Network.StreamServer
 
 import           Arivi.Env
 import qualified Arivi.Network.Connection        as Conn (remoteNodeId, socket,
-                                                          transportType)
+                                                          transportType, ipAddress,
+                                                          port)
 import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readHandshakeInitSock,
                                                   readTcpSock, sendTcpMessage)
 import           Arivi.Network.StreamClient      (createFrame)
-import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
-                                                  TransportType)
+import           Arivi.Network.Types             (ConnectionHandle (..),
+                                                  TransportType, NetworkConfig(..))
 import           Arivi.Utils.Logging
 import           Control.Concurrent.Async.Lifted (async)
 import           Control.Exception.Lifted        (finally)
@@ -35,7 +36,7 @@ liftWithSocketsDo f = control $ \runInIO -> withSocketsDo (runInIO f)
 runTcpServer ::
        (HasSecretKey m, HasLogging m)
     => ServiceName
-    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
+    -> (NetworkConfig -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 runTcpServer port handler =
     $(withLoggingTH) (LogNetworkStatement "TCP Server started...") LevelInfo $
@@ -60,7 +61,7 @@ runTcpServer port handler =
 acceptIncomingSocket ::
        (HasSecretKey m, HasLogging m)
     => Socket
-    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
+    -> (NetworkConfig -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 acceptIncomingSocket sock handler =
     forever $ do
@@ -72,7 +73,7 @@ acceptIncomingSocket sock handler =
 handleInboundConnection ::
        (HasSecretKey m, HasLogging m)
     => Socket
-    -> (NodeId -> TransportType -> ConnectionHandle -> m ())
+    -> (NetworkConfig -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 handleInboundConnection sock handler =
     $(withLoggingTH)
@@ -84,7 +85,16 @@ handleInboundConnection sock handler =
             readHandshakeInitSock sock >>=
             establishSecureConnection sk sock createFrame
         fragmentsHM <- liftIO $ newIORef HM.empty
-        handler (Conn.remoteNodeId conn) (Conn.transportType conn)
+        let nc =
+                NetworkConfig
+                { _nodeId = Conn.remoteNodeId conn
+                , _ip = Conn.ipAddress conn
+                , _udpPort = Conn.port conn
+                , _tcpPort = 0
+                }
+        handler
+            nc
+            (Conn.transportType conn)
             ConnectionHandle
             { Arivi.Network.Types.send = sendTcpMessage conn
             , Arivi.Network.Types.recv = readTcpSock conn fragmentsHM
