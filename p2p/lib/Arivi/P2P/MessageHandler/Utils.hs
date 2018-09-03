@@ -125,3 +125,12 @@ updatePeer transportType connHandle peerDetailsTVar =
             else peerDetails & datagramHandle .~ connHandle
 
 
+-- | Create an entry in the nodeIdPeerDetails map with the given NetworkConfig and transportType 
+addPeerToMap :: 
+       NetworkConfig
+    -> TransportType
+    -> TVar NodeIdPeerMap
+    -> STM ()
+addPeerToMap nc transportType nodeIdMapTVar = do 
+    peerDetailsTVar <- mkPeer nc transportType NotConnected
+    addNewPeer (nc ^. nodeId) peerDetailsTVar nodeIdMapTVar

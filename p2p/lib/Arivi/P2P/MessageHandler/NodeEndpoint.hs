@@ -134,6 +134,5 @@ issueKademliaRequest nc payload = do
     case peerExists of
         True -> issueRequest (nc ^. nodeId) payload
         False -> do
-            peerDetailsTVar <- (lift . liftIO) $ atomically $ mkPeer nc UDP NotConnected
-            (lift . liftIO) $ atomically $ addNewPeer (nc ^. nodeId) peerDetailsTVar nodeIdMapTVar
+            (lift . liftIO) $ atomically $ addPeerToMap nc UDP nodeIdMapTVar
             issueRequest (nc ^. nodeId) payload
