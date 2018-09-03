@@ -24,18 +24,13 @@ module Arivi.P2P.Kademlia.RefreshKbucket
     , issuePing
     ) where
 
-import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.RunConcurrently
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
 import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv--                      (HasNodeEndpoint(..))
 import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
-import           Control.Concurrent.Async.Lifted
 import           Control.Exception
-import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                     try)
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Logger                  (logDebug)

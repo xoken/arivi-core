@@ -1,22 +1,19 @@
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Arivi.P2P.MessageHandler.Utils where
+module Arivi.P2P.MessageHandler.Utils
+    ( module Arivi.P2P.MessageHandler.Utils
+    ) where
 
-import           Arivi.Network                         (AriviNetworkException (..),
-                                                        ConnectionHandle (..),
-                                                        TransportType (..),
-                                                        openConnection, HasSecretKey(..))
-import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.Network                         (AriviNetworkException (..), ConnectionHandle (..), TransportType (..), openConnection)
+import           Arivi.P2P.MessageHandler.HandlerTypes hiding (uuid)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.P2P.Exception
+import           Arivi.Utils.Logging
+
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-import           Arivi.Utils.Logging
 import           Codec.Serialise                       (DeserialiseFailure)
 import           Control.Monad.Logger
 import           Data.HashMap.Strict                   as HM
@@ -40,7 +37,7 @@ insertToUUIDMap :: P2PUUID -> MVar P2PMessage -> PeerDetails -> PeerDetails
 insertToUUIDMap uuid mvar peerDetails = peerDetails & uuidMap.at uuid ?~ mvar
 
 deleteFromUUIDMap :: P2PUUID -> PeerDetails -> PeerDetails
-deleteFromUUIDMap uuid peerDetails = peerDetails & uuidMap %~ (HM.delete uuid)
+deleteFromUUIDMap uuid peerDetails = peerDetails & uuidMap %~ HM.delete uuid
 
 getHandlerByMessageType :: PeerDetails -> TransportType -> Handle
 getHandlerByMessageType peerDetails TCP =  peerDetails ^. streamHandle

@@ -28,7 +28,7 @@ sendOptionsMessage ::
     -> Options r
     -> m ()
 sendOptionsMessage peers optionsMessage =
-    mapM_ (LAsync.async . ((flip sendOptionsToPeer) optionsMessage)) peers
+    mapM_ (LAsync.async . flip sendOptionsToPeer optionsMessage) peers
 
 -- this function runs on each lightweight thread
 -- two major functions

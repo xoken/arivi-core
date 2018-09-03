@@ -70,9 +70,9 @@ kademliaMessageHandler payload = do
                 T.append
                     (T.pack "Find_Node Message Recieved from : ")
                     (T.pack (show rnep))
-            runExceptT $ addToKBucket rpeer
+            void . runExceptT $ addToKBucket rpeer
                      -- Initiates the verification process
-            _ <- async $ runExceptT $ verifyPeer rpeer
+            void . async $ runExceptT $ verifyPeer rpeer
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb

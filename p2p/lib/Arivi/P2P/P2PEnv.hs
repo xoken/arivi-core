@@ -1,22 +1,18 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE DataKinds, ExistentialQuantification, ConstraintKinds  #-}
+{-# LANGUAGE ConstraintKinds  #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
     , HasStatsdClient(..)
     , T.HasKbucket(..)
     ) where
+
 import           Arivi.Env
 import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..))
-import           Arivi.P2P.Kademlia.Types              (createKbucket, HasKbucket)
+import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.RPC.Types
@@ -26,7 +22,6 @@ import           Codec.Serialise
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Concurrent.STM                (TVar, newTVarIO)
-import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
 
@@ -58,11 +53,11 @@ data RpcEnv r m = RpcEnv {
     , tvarDynamicResourceToPeerMap :: TVar (TransientResourceToPeerMap r m)
 }
 
-mkRpcEnv ::  IO (RpcEnv r m)
-mkRpcEnv = do
-    archived <- newTVarIO (ArchivedResourceToPeerMap HM.empty)
-    transient <- newTVarIO (TransientResourceToPeerMap HM.empty)
-    return $ RpcEnv archived transient
+mkRpcEnv :: IO (RpcEnv r m)
+mkRpcEnv =
+    RpcEnv <$> newTVarIO (ArchivedResourceToPeerMap HM.empty)
+           <*> newTVarIO (TransientResourceToPeerMap HM.empty)
+
 -- data PubSubEnv = PubSubEnv {
 --       tvarWatchersTable :: TVar WatchersTable
 --     , tvarNotifiersTable :: TVar NotifiersTable
@@ -76,7 +71,7 @@ data KademliaEnv = KademliaEnv {
 }
 
 mkKademlia :: NetworkConfig -> Int -> Int -> Int -> IO KademliaEnv
-mkKademlia nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
+mkKademlia NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
     KademliaEnv <$>
         T.createKbucket
             (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
@@ -184,5 +179,3 @@ data Handlers = Handlers {
     , kademlia :: forall env m r msg. (HasP2PEnv env m r msg) => T.PayLoad -> m T.PayLoad
     , option :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => m (Supported [r])
 }
-
-makeLensesWith classUnderscoreNoPrefixFields ''P2PEnv

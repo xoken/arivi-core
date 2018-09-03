@@ -26,7 +26,6 @@ import           Arivi.P2P.RPC.Types
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
 import           Control.Concurrent.STM.TVar
-import           Control.Exception
 import           Control.Lens
 import           Control.Monad                         (forever)
 import           Control.Monad.IO.Class                (liftIO)
@@ -89,7 +88,7 @@ updatePeerInResourceMapHelper ::
     -> Int
     -> NodeId
     -> m ()
-updatePeerInResourceMapHelper resource archivedResourceToPeerMap minimumNodes currNodeId =
+updatePeerInResourceMapHelper _ archivedResourceToPeerMap minimumNodes currNodeId =
     forever $ do
         let tempList = HM.toList (getArchivedMap archivedResourceToPeerMap)
         listOfLengths <- liftIO $ extractMin (fmap (snd . snd) tempList)
@@ -128,7 +127,6 @@ fetchResource ::
     => RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))
 fetchResource payload@(RpcPayload resource _) = do
-    nId <- (^. networkConfig . nodeId) <$> ask
     archivedResourceToPeerMapTvar <- archived
     archivedResourceToPeerMap <-
         liftIO $ readTVarIO archivedResourceToPeerMapTvar
@@ -149,6 +147,7 @@ fetchResource payload@(RpcPayload resource _) = do
             if null nodeList
                 then return (Left RPCEmptyNodeListException)
                 else sendResourceRequest nodeList payload
+fetchResource (RpcError _) = error "Change RpcPayload constructor"
 
 -- | Try fetching resource from a list of nodes. Return first successful response or return an error if didn't get a successfull response from any peer
 sendResourceRequest :: ( HasP2PEnv env m r msg)
@@ -170,9 +169,9 @@ addPeerFromKademlia ::
        (HasNodeEndpoint m, MonadIO m)
     => [Kademlia.Peer]
     -> m [NodeId]
-addPeerFromKademlia peers = mapM (\peer -> do
+addPeerFromKademlia = mapM (\peer -> do
     nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
-    addPeerFromKademliaHelper peer nodeIdMapTVar) peers
+    addPeerFromKademliaHelper peer nodeIdMapTVar)
 
 addPeerFromKademliaHelper ::
        (MonadIO m)

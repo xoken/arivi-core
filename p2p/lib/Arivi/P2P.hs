@@ -1,8 +1,10 @@
-{-# language DeriveGeneric, DeriveAnyClass, Rank2Types, ScopedTypeVariables  #-}
-{-# language GADTs, DataKinds, KindSignatures, TypeFamilies #-}
+{-# language Rank2Types, ScopedTypeVariables  #-}
+{-# language GADTs, DataKinds, TypeFamilies #-}
 {-# language PartialTypeSignatures, ApplicativeDo, RecordWildCards,ConstraintKinds #-}
 
-module Arivi.P2P where
+module Arivi.P2P
+    ( module Arivi.P2P
+    ) where
 
 import Arivi.P2P.Types hiding (Resource)
 import Arivi.P2P.P2PEnv

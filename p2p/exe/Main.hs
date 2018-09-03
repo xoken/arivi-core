@@ -55,12 +55,12 @@ instance HasNodeEndpoint AppM where
 
 instance HasNetworkConfig (P2PEnv r msg) NetworkConfig where
     networkConfig f p2p =
-        (fmap
-             (\nc ->
-                  (p2p
-                   { nodeEndpointEnv =
-                         (nodeEndpointEnv p2p) {PE._networkConfig = nc}
-                   })))
+        fmap
+            (\nc ->
+                 p2p
+                 { nodeEndpointEnv =
+                       (nodeEndpointEnv p2p) {PE._networkConfig = nc}
+                 })
             (f ((PE._networkConfig . nodeEndpointEnv) p2p))
 
 instance HasArchivedResourcers AppM ByteString ByteString where

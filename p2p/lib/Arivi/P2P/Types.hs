@@ -1,6 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor,
-  DeriveTraversable, DeriveAnyClass, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs, DataKinds, KindSignatures, PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}

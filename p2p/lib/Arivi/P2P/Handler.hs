@@ -20,6 +20,7 @@ import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Exception                     (displayException)
 import qualified Control.Exception.Lifted              as LE (try)
+import           Control.Monad                         (void)
 import           Control.Monad.IO.Class                (liftIO)
 import           Data.HashMap.Strict                   as HM
 import           Data.Maybe                            (fromJust)
@@ -37,6 +38,7 @@ processRequest connHandle p2pMessage peerNodeId = do
         Rpc -> serialise <$> rpc hh (deserialise $ payload p2pMessage)
         Kademlia -> serialise <$> kademlia hh (deserialise $ payload p2pMessage)
         Option -> serialise <$> option hh
+        PubSub -> error "PubSub Handler not implemented"
     let p2pResponse = generateP2PMessage (uuid p2pMessage) (messageType p2pMessage) responseMsg
     res <- LE.try $ send connHandle (serialise p2pResponse)
     case res of
@@ -57,7 +59,7 @@ processIncomingMessage connHandle peerDetailsTVar msg = do
         Left _ -> logWithNodeId peerNodeId "Peer sent malformed msg" >> return  (Left DeserialiseFailureP2P)
         Right p2pMessage -> do
             peerDetails <- liftIO $ atomically $ readTVar peerDetailsTVar
-            case (uuid p2pMessage) of
+            case uuid p2pMessage of
                 Just uid ->
                     case peerDetails ^. uuidMap.at uid of
                         Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
@@ -73,7 +75,7 @@ readIncomingMessage connHandle peerDetailsTVar = do
     peerNodeId <- liftIO $ getNodeId peerDetailsTVar
     msgOrFail <- LE.try $ recv connHandle
     case msgOrFail of
-        Left (e::AriviNetworkException) -> logWithNodeId peerNodeId ("network recv failed from readIncomingMessage" ++ displayException e) >> return ()
+        Left (e::AriviNetworkException) -> void $ logWithNodeId peerNodeId ("network recv failed from readIncomingMessage" ++ displayException e)
         Right msg -> do
             _ <- LA.async (processIncomingMessage connHandle peerDetailsTVar msg)
             readIncomingMessage connHandle peerDetailsTVar

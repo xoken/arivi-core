@@ -3,7 +3,9 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Arivi.P2P.SeparateEnv where
+module Arivi.P2P.SeparateEnv
+    ( module Arivi.P2P.SeparateEnv
+    ) where
 
 import           Control.Concurrent.STM                (TVar)
 import           Data.HashMap.Strict                   as HM

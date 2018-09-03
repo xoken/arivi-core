@@ -17,8 +17,6 @@ import           Control.Monad.Except
 import qualified Data.HashMap.Strict                   as HM
 import           Control.Applicative
 
--- will need the from NodeId to check the to and from
--- rpcHandler :: (HasNodeEndpoint m, HasRpc m r) => NodeId -> P2PPayload -> P2PPayload
 rpcHandler ::
        forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m)
     => RpcPayload r msg
@@ -35,6 +33,7 @@ rpcHandler payload@(RpcPayload resource _) = do
         Just entryMap -> do
             let ResourceHandler resourceHandler = fst entryMap
             return (resourceHandler payload)
+rpcHandler (RpcError _) = error "Change RpcPayload constructor"
 
 
 -- | takes an options message and returns a supported message

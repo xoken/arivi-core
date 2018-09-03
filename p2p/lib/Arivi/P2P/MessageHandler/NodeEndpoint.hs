@@ -14,12 +14,12 @@ import           Arivi.Network                         (AriviNetworkException,
                                                         ConnectionHandle (..),
                                                         TransportType (..))
 import           Arivi.P2P.Exception
-import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.MessageHandler.HandlerTypes hiding (messageType, uuid, payload)
 import           Arivi.P2P.MessageHandler.Utils
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
-import           Arivi.Network.Types                   hiding(NodeId)
+import           Arivi.Network.Types                   hiding (NodeId)
 import           Arivi.P2P.Connection
 
 import           Codec.Serialise
@@ -71,7 +71,7 @@ sendAndReceive peerDetailsTVar messageType connHandle msg = do
             winner <- liftIO $ Async.race (threadDelay 30000000) (takeMVar mvar :: IO P2PMessage)
             case winner of
                 Left _ -> $(logDebug) "response timed out" >> return (Left SendMessageTimeout)
-                Right won -> return (Right $ payload won)
+                Right (P2PMessage _ _ payl) -> return (Right payl)
 
 -- | Send a message without waiting for any response or registering a uuid.
 -- | Useful for pubsub notifies and publish. To be called by the rpc/pubsub and kademlia handlers on getting a new request
@@ -129,10 +129,10 @@ issueKademliaRequest :: (HasP2PEnv env m r smsg, Serialise msg)
     -> Request 'Kademlia msg
     -> ExceptT AriviP2PException m (Response 'Kademlia msg)
 issueKademliaRequest nc payload = do
-    nodeIdMapTVar <- lift $ getNodeIdPeerMapTVarP2PEnv
+    nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
     peerExists <- (lift . liftIO) $ doesPeerExist nodeIdMapTVar (nc ^. nodeId)
-    case peerExists of
-        True -> issueRequest (nc ^. nodeId) payload
-        False -> do
-            (lift . liftIO) $ atomically $ addPeerToMap nc UDP nodeIdMapTVar
-            issueRequest (nc ^. nodeId) payload
+    if peerExists
+        then issueRequest (nc ^. nodeId) payload
+        else (do (lift . liftIO) $
+                     atomically $ addPeerToMap nc UDP nodeIdMapTVar
+                 issueRequest (nc ^. nodeId) payload)

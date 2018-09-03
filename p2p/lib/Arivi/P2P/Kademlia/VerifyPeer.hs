@@ -41,7 +41,7 @@ import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
 import Arivi.Utils.Logging
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async.Lifted (async, mapConcurrently, wait)
+import Control.Concurrent.Async.Lifted (async, wait)
 import Control.Exception
 import qualified Control.Exception.Lifted as Exception (SomeException, try)
 import Control.Lens
@@ -76,8 +76,7 @@ deleteVerifiedPeers =
              isV <- isVerified x
              case isV of
                  Verified -> return False
-                 UnVerified -> return True
-                 _ -> return True)
+                 UnVerified -> return True)
 
 initBootStrap ::
        (HasKbucket m, MonadIO m, HasLogging m)
@@ -280,7 +279,7 @@ verifyPeer ::
     => Peer
     -> ExceptT AriviP2PException m ()
 verifyPeer peerT = do
-    isV <- isVerified peerT
+    void $ isVerified peerT
     $(logDebug) $ T.pack "Verification Started"
     dnid <- getDefaultNodeId
     rt <- liftIO $ randomRIO (10000, 180000000)

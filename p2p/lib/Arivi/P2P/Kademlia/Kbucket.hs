@@ -40,9 +40,7 @@ import           Arivi.P2P.Kademlia.RefreshKbucket
 import           Arivi.P2P.Kademlia.Types
 import qualified Arivi.P2P.Kademlia.Utils              as U
 import           Arivi.P2P.Kademlia.XorDistance
-import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
 import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Control.Exception                     ()
@@ -50,7 +48,6 @@ import           Control.Monad                         ()
 import           Control.Monad.Except
 import           Control.Monad.IO.Class                (MonadIO, liftIO)
 import           Control.Monad.Logger                  (logDebug)
-import           Control.Monad.Reader                  (MonadReader)
 import           Control.Monad.STM
 import qualified Data.List                             as L
 import           Data.Maybe
