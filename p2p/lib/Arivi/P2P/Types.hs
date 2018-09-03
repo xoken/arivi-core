@@ -99,7 +99,10 @@ instance (Topic t, Serialise msg) => Topic (PubSubPayload t msg) where
   topicId (PubSubPayload t _) = topicId t
 
 
+data Error = ResourceNotFound deriving (Eq, Ord, Show, Generic, Serialise)
+
 data RpcPayload r msg = RpcPayload r msg
+                      | RpcError Error 
                       deriving (Eq, Ord, Show, Generic, Serialise)
 
 data OptionPayload msg = OptionPayload msg

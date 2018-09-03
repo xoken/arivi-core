@@ -75,7 +75,7 @@ updatePeerInResourceMap r = do
     let minimumNodes = 5 -- this value should be decided on and taken from the RPC environment
     _ <-
         LAsync.async
-            (updatePeerInResourceMapHelper r 
+            (updatePeerInResourceMapHelper r
                  archivedResourceToPeerMap
                  minimumNodes
                  nId)
@@ -121,12 +121,12 @@ updatePeerInResourceMapHelper resource archivedResourceToPeerMap minimumNodes cu
 extractMin ::[TVar [a]] -> IO Int
 extractMin [] = return 0
 extractMin l  = (fmap minimum <$> mapM (fmap length <$> readTVarIO)) l
-  
+
 fetchResource ::
        ( HasP2PEnv env m r msg
        )
     => RpcPayload r msg
-    -> m (RpcPayload r msg)
+    -> m (Either AriviP2PException (RpcPayload r msg))
 fetchResource payload@(RpcPayload resource _) = do
     nId <- (^. networkConfig . nodeId) <$> ask
     archivedResourceToPeerMapTvar <- archived
@@ -141,66 +141,29 @@ fetchResource payload@(RpcPayload resource _) = do
             HM.lookup resource (getTransientMap transientResourceToPeerMap)
     let entry = entryInArchivedResourceMap <|> entryInTransientResourceMap
     case entry of
-        Nothing -> throw RPCResourceNotFoundException
+        Nothing -> return (Left RPCResourceNotFoundException)
         Just entryMap -> do
             let nodeListTVar = snd entryMap
             nodeList <- liftIO $ atomically $ readTVar nodeListTVar
             liftIO $ print nodeList
             if null nodeList
-                then throw RPCEmptyNodeListException
-                else sendResourceRequestToPeer nodeListTVar nId payload
+                then return (Left RPCEmptyNodeListException)
+                else sendResourceRequest nodeList payload
 
-sendResourceRequestToPeer ::
-       ( HasP2PEnv env m r msg
-       )
-    => TVar [NodeId]
-    -> NodeId
+-- | Try fetching resource from a list of nodes. Return first successful response or return an error if didn't get a successfull response from any peer
+sendResourceRequest :: ( HasP2PEnv env m r msg)
+    => [NodeId]
     -> RpcPayload r msg
-    -> m (RpcPayload r msg)
-sendResourceRequestToPeer nodeListTVar nId msg = do
-    nodeList <- liftIO $ readTVarIO nodeListTVar
-    let mNodeId = head nodeList
-    -- let requestMessage =
-    --         RequestResource
-    --         { to = mNodeId
-    --         , from = mynodeid
-    --         , rid = resourceID -- add RID
-    --         , serviceMessage = servicemessage
-    --         }
-    -- let mMessage = serialise requestMessage
-    res1 <- runExceptT $ issueRequest mNodeId (RpcRequest msg)
-    -- removeNode mNodeId nodeList will be used when we take random nodes and not the head
-    case res1 of
-        Left _ -> sendResourceRequestToPeer
-                      nodeListTVar
-                      nId
-                      msg -- should discard the peer
-        Right (RpcResponse resp) -> return resp
-         -- case msg of
-         --                ReplyResource toNodeId fromNodeId resID _ ->
-         --                    if (mynodeid == toNodeId && mNodeId == fromNodeId) &&
-         --                       resourceID == resID
-         --                        then liftIO $ return (resp)
-         --                        else sendResourceRequestToPeer
-         --                                 nodeListTVar
-         --                                 resourceID
-         --                                 mynodeid
-         --                                 servicemessage
-         --                Response _ _ responseCode' ->
-         --                    case responseCode' of
-         --                        Busy ->
-         --                            sendResourceRequestToPeer
-         --                                nodeListTVar
-         --                                resourceID
-         --                                mynodeid
-         --                                servicemessage
-         --                        Error ->
-         --                            return $ Lazy.fromStrict $ pack " error " -- need to define proper error handling maybe throw an exception
-         --                        DeserialiseError ->
-         --                            return $
-         --                            Lazy.fromStrict $ pack " Deserialise error "
-         -- -- should check to and from
-         --                _ -> return $ Lazy.fromStrict $ pack " default"
+    -> m (Either AriviP2PException (RpcPayload r msg))
+sendResourceRequest [] _ = return (Left RPCResourceNotFoundException)
+sendResourceRequest (currPeer:rest) msg = do
+    res <- runExceptT $ issueRequest currPeer (RpcRequest msg)
+    case res of
+        Left _ -> sendResourceRequest rest msg
+        Right (RpcResponse payload) ->
+            case payload of
+                resp@(RpcPayload _ _ ) -> return (Right resp)
+                RpcError _ -> sendResourceRequest rest msg
 
 -- | add the peers returned by Kademlia to the PeerDetails HashMap
 addPeerFromKademlia ::
@@ -216,7 +179,7 @@ addPeerFromKademliaHelper ::
     => Kademlia.Peer
     -> TVar NodeIdPeerMap
     -> m NodeId
-addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar = do
+addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar =
     liftIO $
         atomically
             (do nodeIdPeerMap <- readTVar nodeIdPeerMapTVar
