@@ -1,13 +1,14 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module Service.HelloWorld where
+module Service.HelloWorld
+    ( module Service.HelloWorld
+    ) where
 
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.RPC.Functions
 import Arivi.P2P.RPC.Types
 import Arivi.P2P.Types
-import Arivi.Utils.Logging
 
 import GHC.Generics
 import Codec.Serialise

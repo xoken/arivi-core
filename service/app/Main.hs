@@ -7,7 +7,9 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Main where
+module Main
+    ( module Main
+    ) where
 
 import           Service.HelloWorld
 
@@ -56,12 +58,12 @@ instance HasNodeEndpoint AppM where
 
 instance HasNetworkConfig (P2PEnv r msg) NetworkConfig where
     networkConfig f p2p =
-        (fmap
+        fmap
              (\nc ->
-                  (p2p
+                  p2p
                    { nodeEndpointEnv =
                          (nodeEndpointEnv p2p) {PE._networkConfig = nc}
-                   })))
+                   })
             (f ((PE._networkConfig . nodeEndpointEnv) p2p))
 
 instance HasArchivedResourcers AppM ServiceResource String where
@@ -73,6 +75,7 @@ instance HasTransientResourcers AppM ServiceResource String where
 runAppM :: P2PEnv ServiceResource String -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
+defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
     let config =
@@ -117,7 +120,7 @@ runNode configPath = do
                              (show (Config.tcpPort config))
                              newIncomingConnectionHandler)
                 liftIO $ threadDelay 1000000
-                async (loadDefaultPeers (Config.trustedPeers config))
+                void $ async (loadDefaultPeers (Config.trustedPeers config))
                 liftIO $ threadDelay 5000000
                 registerHelloWorld
                 liftIO $ threadDelay 3000000
@@ -129,7 +132,7 @@ runNode configPath = do
 
 main :: IO ()
 main = do
-    (path:args) <- getArgs
+    (path:_) <- getArgs
     b <- doesPathExist (path <> "/config.yaml")
     unless b (defaultConfig path)
     runNode (path <> "/config.yaml")
@@ -137,5 +140,5 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler :: (HasLogging m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h >>= send h
