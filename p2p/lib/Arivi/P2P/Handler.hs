@@ -13,13 +13,12 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.MessageHandler.Utils
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
---import           Arivi.P2P.Kademlia.MessageHandler
---import           Arivi.P2P.RPC.Handler
 import           Arivi.Network.Types                   hiding(NodeId)
 
 import qualified Control.Concurrent.Async.Lifted       as LA (async)
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
+import           Control.Exception                     (displayException)
 import qualified Control.Exception.Lifted              as LE (try)
 import           Control.Monad.IO.Class                (liftIO)
 import           Data.HashMap.Strict                   as HM
@@ -62,8 +61,8 @@ processIncomingMessage connHandle peerDetailsTVar msg = do
                 Just uid ->
                     case peerDetails ^. uuidMap.at uid of
                         Just mvar -> liftIO $ putMVar mvar p2pMessage >> return (Right ())
-                        Nothing -> return (Left InvalidUuid)
-                Nothing -> processRequest connHandle p2pMessage peerNodeId
+                        Nothing -> processRequest connHandle p2pMessage peerNodeId
+                Nothing -> error "Don't know what to do here"
 
 -- | Recv from connection handle and process incoming message
 readIncomingMessage :: (HasP2PEnv env m r msg)
@@ -74,7 +73,7 @@ readIncomingMessage connHandle peerDetailsTVar = do
     peerNodeId <- liftIO $ getNodeId peerDetailsTVar
     msgOrFail <- LE.try $ recv connHandle
     case msgOrFail of
-        Left (_::AriviNetworkException) -> logWithNodeId peerNodeId "network recv failed from readIncomingMessage" >> return ()
+        Left (e::AriviNetworkException) -> logWithNodeId peerNodeId ("network recv failed from readIncomingMessage" ++ displayException e) >> return ()
         Right msg -> do
             _ <- LA.async (processIncomingMessage connHandle peerDetailsTVar msg)
             readIncomingMessage connHandle peerDetailsTVar
