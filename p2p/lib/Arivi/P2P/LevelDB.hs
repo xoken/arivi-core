@@ -13,15 +13,13 @@
 --
 --------------------------------------------------------------------------------
 module Arivi.P2P.LevelDB
-    ( getValue
+    ( getDBPath
+    , getValue
     , putValue
     , deleteValue
     ) where
 
-import           Arivi.P2P.P2PEnv             (HasP2PEnv (..))
-import           Control.Concurrent.STM.TVar  (readTVarIO)
-import           Control.Monad.IO.Class       (liftIO)
-import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.ByteString.Char8        (ByteString)
 import           Data.Default                 (def)
 import           Database.LevelDB
@@ -30,6 +28,10 @@ import           Database.LevelDB
 --
 import           Control.Monad.IO.Unlift      (MonadUnliftIO)
 
+-- | This is path for the Database location
+getDBPath :: String
+getDBPath = "/tmp/lvlbloomtest"
+
 -- | Returns Value from database corresponding to given key
 getValue :: (MonadUnliftIO m) => ByteString -> m (Maybe ByteString)
 getValue key =
@@ -37,7 +39,7 @@ getValue key =
         bloom <- bloomFilter 10
         db <-
             open
-                "/tmp/lvlbloomtest"
+                getDBPath
                 defaultOptions
                 {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         get db def key
@@ -49,7 +51,7 @@ putValue key value =
         bloom <- bloomFilter 10
         db <-
             open
-                "/tmp/lvlbloomtest"
+                getDBPath
                 defaultOptions
                 {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         put db def key value
@@ -62,7 +64,7 @@ deleteValue key =
         bloom <- bloomFilter 10
         db <-
             open
-                "/tmp/lvlbloomtest"
+                getDBPath
                 defaultOptions
                 {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         delete db def key
