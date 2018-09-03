@@ -68,7 +68,8 @@ library
                     ,  data-default >= 0.7.1.1
                     ,  resourcet >= 1.2.1
                     ,  unliftio-core >= 0.1.2.0
-  ghc-options:         -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
+                    ,  directory >= 1.3.3.1
+  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
                       --  Arivi.P2P.PubSub
@@ -102,31 +103,31 @@ library
                        Arivi.P2P.Kademlia.LoadReputedPeers
   default-language:    Haskell2010
 
--- executable Main
---   main-is: Main.hs
---   hs-source-dirs:
---       exe
---   default-language: Haskell2010
---   ghc-options:      -threaded +RTS -N -RTS
---   default-extensions:          FlexibleContexts
---   build-depends:     async
---                   , base >=4.9 && <4.11
---                   , directory
---                   , bytestring
---                   , hashtables <= 1.2.6.1
---                   , lifted-async
---                   , monad-logger
---                   , mtl
---                   , stm >= 2.4.4.1
---                   , time
---                   , arivi-crypto
---                   , arivi-utils
---                   , arivi-network
---                   , network
---                   , arivi-p2p
---                   , text
---                   , yaml
---                   , cryptonite
---                   , memory
---                   , string-conv
---   other-modules: CreateConfig
+executable Main
+  main-is: Main.hs
+  hs-source-dirs:
+      exe
+  default-language: Haskell2010
+  ghc-options:      -threaded +RTS -N -RTS
+  default-extensions:          FlexibleContexts
+  build-depends:     async
+                  , base >=4.9 && <4.11
+                  , directory
+                  , bytestring
+                  , hashtables <= 1.2.6.1
+                  , lifted-async
+                  , monad-logger
+                  , mtl
+                  , stm >= 2.4.4.1
+                  , time
+                  , arivi-crypto
+                  , arivi-utils
+                  , arivi-network
+                  , network
+                  , arivi-p2p
+                  , text
+                  , yaml
+                  , cryptonite
+                  , memory
+                  , string-conv
+  other-modules: CreateConfig
