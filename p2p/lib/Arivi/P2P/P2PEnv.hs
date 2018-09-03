@@ -86,9 +86,20 @@ mkRpcEnv = do
 --     , tvarMessageHashMap :: TVar MessageHashMap
 -- }
 
+
 data KademliaEnv = KademliaEnv {
     kbucket :: T.Kbucket Int [T.Peer]
 }
+
+mkKademlia :: NetworkConfig -> Int -> Int -> Int -> IO KademliaEnv
+mkKademlia nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
+    KademliaEnv <$>
+        T.createKbucket
+            (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
+            sbound
+            pingThreshold
+            kademliaConcurrencyFactor
+
 
 data P2PEnv r msg = P2PEnv {
       nodeEndpointEnv :: NodeEndpointEnv

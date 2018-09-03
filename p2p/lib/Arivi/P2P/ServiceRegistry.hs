@@ -29,14 +29,14 @@ makeP2Pinstance ::
     -> IO (P2PEnv r msg)
 makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk sbound pingThreshold kademliaConcurrencyFactor = do
     newStatsdClient <- createStatsdClient statsdIP statsdPort statsdPrefix
-    kb <- error "Kbucket not initialised"
     let netENV = mkAriviEnv (read $ show tcpport) (read $ show udpport) sk
         nc = NetworkConfig nodeid mIp tcpport udpport
     -- TODO:  need to make port consistent
     nmap <- newTVarIO HM.empty
     nodeEndpointEnv <- mkNodeEndpoint nc mkHandlers netENV
+    kademliaEnv <- mkKademlia nc sbound pingThreshold kademliaConcurrencyFactor
     rEnv <- mkRpcEnv
-    return (P2PEnv nodeEndpointEnv rEnv kb newStatsdClient)
+    return (P2PEnv nodeEndpointEnv rEnv kademliaEnv newStatsdClient)
 
 mkHandlers :: Handlers
 mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler
