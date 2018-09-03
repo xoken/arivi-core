@@ -30,22 +30,6 @@ import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
 
--- data P2PEnv = P2PEnv
---     { _networkConfig :: NetworkConfig
---     , tvarNodeIdPeerMap :: TVar NodeIdPeerMap
---     , tvarArchivedResourceToPeerMap :: TVar ArchivedResourceToPeerMap
---     , kbucket :: T.Kbucket Int [T.Peer]
---     , statsdClient :: StatsdClient
---     , tvarMessageTypeMap :: Handlers
---     , tvarWatchersTable :: TVar WatchersTable
---     , tvarNotifiersTable :: TVar NotifiersTable
---     , tvarTopicHandlerMap :: TVar TopicHandlerMap
---     , tvarMessageHashMap :: TVar MessageHashMap
---     , ariviNetworkEnv :: AriviEnv
---     , tvarDynamicResourceToPeerMap :: TVar TransientResourceToPeerMap
---     }
-
-
 type HasP2PEnv env m r msg
      = ( HasNodeEndpoint m
        , HasLogging m
