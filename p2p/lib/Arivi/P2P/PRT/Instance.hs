@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 --------------------------------------------------------------------------------
@@ -29,41 +29,54 @@ module Arivi.P2P.PRT.Instance
     , loadPeerReputationHistoryTable
     ) where
 
-import qualified Arivi.Network.Types          as Network (NodeId)
-import           Arivi.P2P.Exception          (AriviP2PException)
-import           Arivi.P2P.Kademlia.Kbucket   (Peer (..), getDefaultNodeId,
-                                               getKClosestPeersByNodeid,
-                                               getKRandomPeers,
-                                               getPeersByNodeIds)
-import qualified Arivi.P2P.LevelDB            as LevelDB (getValue, putValue)
-import           Arivi.P2P.P2PEnv             (HasKbucket, HasP2PEnv (..))
-import           Arivi.P2P.PRT.Exceptions     (PRTExecption (..))
-import           Arivi.P2P.PRT.Types          (Config (..), PeerDeed (..),
-                                               PeerReputationHistory (..),
-                                               PeerReputationHistoryTable,
-                                               Reputation)
-import           Control.Concurrent           (threadDelay)
-import           Control.Concurrent.STM.TVar  (readTVarIO, writeTVar)
-import           Control.Exception            (throw)
-import           Control.Monad.Except         (ExceptT, runExceptT)
-import           Control.Monad.IO.Class       (MonadIO, liftIO)
-import           Control.Monad.IO.Unlift      (MonadUnliftIO)
-import           Control.Monad.STM            (atomically)
-import           Control.Monad.Trans.Resource (ResourceT)
-import qualified Data.ByteString.Char8        as Char8 (pack, unpack)
-import qualified Data.HashMap.Strict          as HM (fromList, insert, lookup,
-                                                     size, toList)
-import           Data.List                    (sortBy)
-import           Data.Ratio                   (Ratio, Rational, denominator,
-                                               numerator)
-import           Data.Yaml                    (ParseException, decodeFileEither)
+import qualified Arivi.Network.Types as Network (NodeId)
+import Arivi.P2P.Exception (AriviP2PException)
+import Arivi.P2P.Kademlia.Kbucket
+    ( Peer(..)
+    , getDefaultNodeId
+    , getKClosestPeersByNodeid
+    , getKRandomPeers
+    , getPeersByNodeIds
+    )
+import qualified Arivi.P2P.LevelDB as LevelDB (getValue, putValue)
+import Arivi.P2P.P2PEnv (HasKbucket, HasP2PEnv(..))
+import Arivi.P2P.PRT.Exceptions (PRTExecption(..))
+import Arivi.P2P.PRT.Types
+    ( Config(..)
+    , PeerDeed(..)
+    , PeerReputationHistory(..)
+    , PeerReputationHistoryTable
+    , Reputation
+    )
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
+import Control.Exception (throw)
+import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
+import Control.Monad.STM (atomically)
+import Control.Monad.Trans.Resource (ResourceT)
+import qualified Data.ByteString.Char8 as Char8 (pack, unpack)
+import qualified Data.HashMap.Strict as HM
+    ( fromList
+    , insert
+    , lookup
+    , size
+    , toList
+    )
+import Data.List (sortBy)
+import Data.Ratio (Ratio, Rational, denominator, numerator)
+import Data.Yaml (ParseException, decodeFileEither)
+
+--
+import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 
 -- | Reads the config file and converts it's fields to config data type
 loadConfigFile :: FilePath -> IO Config
 loadConfigFile filePath = do
     mConfig <- decodeFileEither filePath :: IO (Either ParseException Config)
     case mConfig of
-        Left e       -> throw e
+        Left e -> throw e
         Right config -> return config
 
 isValidRatio :: Integral a => Ratio a -> Bool
@@ -75,7 +88,7 @@ isValidRatio mRatio = do
     let secondTerm = (mDenominator * 100) `div` totalRatio
     case firstTerm + secondTerm of
         100 -> True
-        _   -> False
+        _ -> False
 
 -- | This  function loads the fields of config file into respective HashMap
 loadPRTConfigToHashMap :: (HasP2PEnv m) => m ()
@@ -169,7 +182,7 @@ getReputation peerNodeId = do
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
     case HM.lookup peerNodeId mapOfAllPeersHistory of
         Just peerHistoryTable -> return $ Just $ reputation peerHistoryTable
-        Nothing               -> return Nothing
+        Nothing -> return Nothing
 
 -- | Sums the denominator and numerator of the given Rational
 getTotal :: Rational -> Integer
@@ -219,8 +232,8 @@ sortGT (_, PeerReputationHistory {}) (_, PeerReputationHistory {}) =
 
 -- | Gives the list of NodeIds from given list of Peer History list
 getNodeIds :: [(Network.NodeId, PeerReputationHistory)] -> [Network.NodeId]
-getNodeIds []         = []
-getNodeIds [(a, _)]   = [a]
+getNodeIds [] = []
+getNodeIds [(a, _)] = [a]
 getNodeIds ((a, _):y) = a : getNodeIds y
 
 -- | Gives given no of reputed Peers
@@ -238,7 +251,7 @@ getReputedNodes n mapOfAllPeersHistory = do
         getPeersByNodeIds
             (getNodeIds $ take (fromIntegral n) sortedListofAllPeersHistory)
     case eitherNReputedPeerList of
-        Left e                 -> throw e
+        Left e -> throw e
         Right nReputedPeerList -> return nReputedPeerList
 
 -- | Gives K no of Peer's containting Reputed,Closest and Random based on the
@@ -282,9 +295,8 @@ getKNodes k = do
                     return $ reputedPeers ++ closestPeers ++ kRandomPeers
 
 -- | This function dumps PeerReputationHistoryTable to Level DB database
---   periodically
-savePRTHMtoDBPeriodically ::
-       (MonadUnliftIO m, HasP2PEnv (ResourceT m), HasP2PEnv m) => Int -> m ()
+-- periodically
+savePRTHMtoDBPeriodically :: (MonadUnliftIO m, HasP2PEnv m) => Int -> m ()
 savePRTHMtoDBPeriodically timeInterval = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
@@ -297,8 +309,7 @@ savePRTHMtoDBPeriodically timeInterval = do
 
 -- | Loads the maybeMapOfAllPeersHistory from datbase to
 --  mapOfAllPeersHistoryTVar of P2P Environment
-loadPeerReputationHistoryTable ::
-       (MonadUnliftIO m, HasP2PEnv (ResourceT m), HasP2PEnv m) => m ()
+loadPeerReputationHistoryTable :: (MonadUnliftIO m, HasP2PEnv m) => m ()
 loadPeerReputationHistoryTable = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     maybeMapOfAllPeersHistory <- LevelDB.getValue "PeerReputationHistoryTable"

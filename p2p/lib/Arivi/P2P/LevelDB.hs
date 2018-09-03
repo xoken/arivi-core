@@ -24,40 +24,46 @@ import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import           Data.ByteString.Char8        (ByteString)
 import           Data.Default                 (def)
-import           Database.LevelDB             (delete, get, put)
+import           Database.LevelDB
+ -- (delete, get, put)
 
 --
 import           Control.Monad.IO.Unlift      (MonadUnliftIO)
 
 -- | Returns Value from database corresponding to given key
-getValue ::
-       (MonadUnliftIO m, HasP2PEnv (ResourceT m))
-    => ByteString
-    -> m (Maybe ByteString)
+getValue :: (MonadUnliftIO m) => ByteString -> m (Maybe ByteString)
 getValue key =
     runResourceT $ do
-        dbTVar <- getDBTVar
-        db <- liftIO $ readTVarIO dbTVar
+        bloom <- bloomFilter 10
+        db <-
+            open
+                "/tmp/lvlbloomtest"
+                defaultOptions
+                {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         get db def key
 
 -- | Stores given (Key,Value) pair in database
-putValue ::
-       (MonadUnliftIO m, HasP2PEnv (ResourceT m))
-    => ByteString
-    -> ByteString
-    -> m ()
+putValue :: (MonadUnliftIO m) => ByteString -> ByteString -> m ()
 putValue key value =
     runResourceT $ do
-        dbTVar <- getDBTVar
-        db <- liftIO $ readTVarIO dbTVar
+        bloom <- bloomFilter 10
+        db <-
+            open
+                "/tmp/lvlbloomtest"
+                defaultOptions
+                {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         put db def key value
         return ()
 
 -- | Deletes Value from database corresponding to given key
-deleteValue :: (MonadUnliftIO m, HasP2PEnv (ResourceT m)) => ByteString -> m ()
+deleteValue :: (MonadUnliftIO m) => ByteString -> m ()
 deleteValue key =
     runResourceT $ do
-        dbTVar <- getDBTVar
-        db <- liftIO $ readTVarIO dbTVar
+        bloom <- bloomFilter 10
+        db <-
+            open
+                "/tmp/lvlbloomtest"
+                defaultOptions
+                {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         delete db def key
         return ()
