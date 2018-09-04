@@ -24,14 +24,9 @@ import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types                       (NetworkConfig (..),
                                                         Request, Response)
-
--- import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
-
--- import           Codec.Serialise
 import           Control.Concurrent.STM                (TVar, newTVarIO)
 import           Control.Lens.TH
-import           Control.Monad.Trans.Resource          (runResourceT)
 import           Data.HashMap.Strict                   as HM
 import           Data.Ratio                            (Rational, (%))
 
