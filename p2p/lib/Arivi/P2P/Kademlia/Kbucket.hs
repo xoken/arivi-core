@@ -39,25 +39,22 @@ module Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.RefreshKbucket
 import           Arivi.P2P.Kademlia.Types
-import qualified Arivi.P2P.Kademlia.Utils              as U
+import qualified Arivi.P2P.Kademlia.Utils          as U
 import           Arivi.P2P.Kademlia.XorDistance
-import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
-import           Arivi.P2P.P2PEnv                      (HasP2PEnv)
-import           Arivi.P2P.Types
+import           Arivi.P2P.P2PEnv                  (HasP2PEnv)
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
-import           Control.Exception                     ()
-import           Control.Monad                         ()
+import           Control.Exception                 ()
+import           Control.Monad                     ()
 import           Control.Monad.Except
-import           Control.Monad.IO.Class                (MonadIO, liftIO)
-import           Control.Monad.Logger                  (logDebug)
-import           Control.Monad.Reader                  (MonadReader)
+import           Control.Monad.IO.Class            (MonadIO, liftIO)
+import           Control.Monad.Logger              (logDebug)
 import           Control.Monad.STM
-import qualified Data.List                             as L
+import qualified Data.List                         as L
 import           Data.Maybe
-import qualified Data.Text                             as T
-import           ListT                                 (toList)
-import qualified STMContainers.Map                     as H
+import qualified Data.Text                         as T
+import           ListT                             (toList)
+import qualified STMContainers.Map                 as H
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
@@ -104,9 +101,7 @@ ifPeerExist peer = do
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
 addToKBucket ::
-       forall env m r msg.
-       ( HasP2PEnv env m r msg
-       )
+       forall env m r msg. (HasP2PEnv env m r msg)
     => Peer
     -> ExceptT AriviP2PException m ()
 addToKBucket peerR = do
