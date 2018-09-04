@@ -22,7 +22,6 @@ import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.MessageHandler.HandlerTypes
 
-import           Arivi.P2P.MessageHandler.NodeEndpoint  (newIncomingConnectionHandler)
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad                          (mapM_)
 import           Control.Monad.IO.Class                 (liftIO)
@@ -71,6 +70,15 @@ instance HasArchivedResourcers AppM ByteString ByteString where
 
 instance HasTransientResourcers AppM ByteString ByteString where
     transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
+
+
+instance HasPRT AppM where
+    getPeerReputationHistoryTableTVar = asks (tvPeerReputationHashTable . prtEnv)
+    getServicesReputationHashMapTVar = asks (tvServicesReputationHashMap . prtEnv)
+    getP2PReputationHashMapTVar = asks (tvP2PReputationHashMap . prtEnv)
+    getReputedVsOtherTVar = asks (tvReputedVsOther . prtEnv)
+    getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
+
 
 runAppM :: P2PEnv ByteString ByteString -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
