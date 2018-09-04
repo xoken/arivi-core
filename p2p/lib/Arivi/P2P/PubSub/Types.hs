@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Arivi.P2P.PubSub.Types
     ( MessageHashMap
@@ -99,8 +100,8 @@ data MessageTypePubSub
 
 type Timer = Integer
 
-data Subscribe t = Subscribe t Timer deriving(Eq, Ord, Generic, Serialise)
-data SubscribeResponse t = SubscribeResponse t ResponseCode Timer deriving(Eq, Ord, Generic, Serialise)
+-- data Subscribe t = Subscribe t Timer deriving(Eq, Ord, Generic, Serialise)
+-- data SubscribeResponse t = SubscribeResponse t ResponseCode Timer deriving(Eq, Ord, Generic, Serialise)
 
 
 instance Serialise MessageTypePubSub
