@@ -81,22 +81,13 @@ instance Msg 'Kademlia where
 instance Msg 'PubSub where
   msgType _ = PubSub
 
-
-
 type Resource r = (Eq r, Hashable r, Serialise r)
-
--- class (Eq r, Hashable r, Serialise r) => Resource r where
---     resourceId :: r -> String
-
--- instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
---   resourceId (RpcPayload r _) = resourceId r
 
 class (Serialise t) => Topic t where
   topicId :: t -> String
 
 instance (Topic t, Serialise msg) => Topic (PubSubPayload t msg) where
   topicId (PubSubPayload t _) = topicId t
-
 
 data Error = ResourceNotFound deriving (Eq, Ord, Show, Generic, Serialise)
 
@@ -109,12 +100,6 @@ data OptionPayload msg = OptionPayload msg
 
 
 data PubSubPayload t msg = PubSubPayload t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
-
-data PubSubPublish t msg = PubSubPublish t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
-
-data PubSubNotify t msg = PubSubNotify t msg
                       deriving (Eq, Ord, Show, Generic, Serialise)
 
 data family RTTI (f :: k -> *) :: (k -> *)
@@ -241,7 +226,6 @@ decodeResponse RttiResKademlia = do
     case (len, tag) of
         (2, 2) -> KademliaResponse <$> decode
         _ -> fail "Failed to deserialise into a valid KademliaResponse type"
-
 decodeResponse RttiResPubSub = do
     len <- decodeListLen
     tag <- decodeWord
