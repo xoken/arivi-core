@@ -22,9 +22,9 @@ import           Arivi.Network.Connection        as Conn
 import           Arivi.Network.ConnectionHandler (closeConnection,
                                                   establishSecureConnection,
                                                   readUdpSock, sendUdpMessage)
-import           Arivi.Network.Types             (ConnectionHandle (..), NodeId,
+import           Arivi.Network.Types             (ConnectionHandle (..),
                                                   TransportType,
-                                                  deserialiseOrFail)
+                                                  deserialiseOrFail, NetworkConfig(..))
                                                 --   Parcel,
 
 import           Arivi.Network.Exception
@@ -40,6 +40,7 @@ import           Network.Socket                  hiding (close, recv, recvFrom,
                                                   send)
 import qualified Network.Socket
 import           Network.Socket.ByteString       hiding (recv, send)
+
 makeSocket :: ServiceName -> SocketType -> IO Socket
 makeSocket portNumber socketType = do
     let hint =
@@ -58,7 +59,7 @@ makeSocket portNumber socketType = do
 runUdpServer ::
        (HasSecretKey m, HasLogging m)
     => ServiceName
-    -> (NodeId -> HostName -> PortNumber -> TransportType -> ConnectionHandle -> m ())
+    -> (NetworkConfig -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 runUdpServer portNumber handler =
     $(withLoggingTH) (LogNetworkStatement "UDP Server started...") LevelDebug $ do
@@ -77,7 +78,7 @@ newUdpConnection ::
        (HasSecretKey m, HasLogging m)
     => ByteString
     -> Socket
-    -> (NodeId -> HostName -> PortNumber -> TransportType -> ConnectionHandle -> m ())
+    -> (NetworkConfig -> TransportType -> ConnectionHandle -> m ())
     -> m ()
 newUdpConnection hsInitMsg sock handler =
     liftIO (getPeerName sock) >>= \addr ->
@@ -87,10 +88,14 @@ newUdpConnection hsInitMsg sock handler =
         (\hsInitParcel -> do
              sk <- getSecretKey
              conn <- liftIO $ establishSecureConnection sk sock id hsInitParcel
+             let nc = NetworkConfig {
+                  _nodeId = Conn.remoteNodeId conn
+                , _ip = Conn.ipAddress conn
+                , _udpPort = Conn.port conn
+                , _tcpPort = 0
+             }
              handler
-                 (Conn.remoteNodeId conn)
-                 (Conn.ipAddress conn)
-                 (Conn.port conn)
+                 nc
                  (Conn.transportType conn)
                  ConnectionHandle
                  { send = sendUdpMessage conn

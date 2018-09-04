@@ -1,6 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE StandaloneDeriving, DeriveGeneric, DeriveFunctor,
-  DeriveTraversable, DeriveAnyClass, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GADTs, DataKinds, KindSignatures, PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -99,7 +98,10 @@ instance (Topic t, Serialise msg) => Topic (PubSubPayload t msg) where
   topicId (PubSubPayload t _) = topicId t
 
 
+data Error = ResourceNotFound deriving (Eq, Ord, Show, Generic, Serialise)
+
 data RpcPayload r msg = RpcPayload r msg
+                      | RpcError Error 
                       deriving (Eq, Ord, Show, Generic, Serialise)
 
 data OptionPayload msg = OptionPayload msg

@@ -53,9 +53,6 @@ library
                     ,  time
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
-                    ,  arivi-network
-                    ,  arivi-crypto
-                    ,  arivi-utils
                     ,  hashable
                     ,  stm-containers >= 0.2.16 && < 1
                     ,  list-t >= 1.0.0.1
@@ -68,6 +65,9 @@ library
                     ,  data-default >= 0.7.1.1
                     ,  resourcet >= 1.2.1
                     ,  unliftio-core >= 0.1.2.0
+                    ,  arivi-network
+                    ,  arivi-crypto
+                    ,  arivi-utils
   ghc-options:         -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
@@ -76,6 +76,9 @@ library
                       --  Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.P2PEnv
+                       Arivi.P2P.Connection
+                       Arivi.P2P.Handler
+                       Arivi.P2P.RPC.Handler
                        Arivi.P2P.Exception
                        Arivi.P2P.MessageHandler.NodeEndpoint
                        Arivi.P2P.MessageHandler.HandlerTypes
@@ -86,7 +89,7 @@ library
                        Arivi.P2P.LevelDB
                       --  Arivi.P2P.RPC.Functions
                        Arivi.P2P.RPC.Types
-                       Arivi.P2P.PubSub.Types
+                       --Arivi.P2P.PubSub.Types
                        Arivi.P2P.RPC.SendOptions
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
@@ -102,31 +105,31 @@ library
                        Arivi.P2P.Kademlia.LoadReputedPeers
   default-language:    Haskell2010
 
--- executable Main
---   main-is: Main.hs
---   hs-source-dirs:
---       exe
---   default-language: Haskell2010
---   ghc-options:      -threaded +RTS -N -RTS
---   default-extensions:          FlexibleContexts
---   build-depends:     async
---                   , base >=4.9 && <4.11
---                   , directory
---                   , bytestring
---                   , hashtables <= 1.2.6.1
---                   , lifted-async
---                   , monad-logger
---                   , mtl
---                   , stm >= 2.4.4.1
---                   , time
---                   , arivi-crypto
---                   , arivi-utils
---                   , arivi-network
---                   , network
---                   , arivi-p2p
---                   , text
---                   , yaml
---                   , cryptonite
---                   , memory
---                   , string-conv
---   other-modules: CreateConfig
+executable Main
+  main-is: Main.hs
+  hs-source-dirs:
+      exe
+  default-language: Haskell2010
+  ghc-options:      -threaded +RTS -N -RTS
+  default-extensions:          FlexibleContexts
+  build-depends:     async
+                  , base >=4.9 && <4.11
+                  , directory
+                  , bytestring
+                  , hashtables <= 1.2.6.1
+                  , lifted-async
+                  , monad-logger
+                  , mtl
+                  , stm >= 2.4.4.1
+                  , time
+                  , arivi-crypto
+                  , arivi-utils
+                  , arivi-network
+                  , network
+                  , arivi-p2p
+                  , text
+                  , yaml
+                  , cryptonite
+                  , memory
+                  , string-conv
+  other-modules: CreateConfig

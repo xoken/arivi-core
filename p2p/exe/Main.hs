@@ -2,8 +2,10 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Main
     ( module Main
@@ -13,8 +15,12 @@ import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Network
-import           Arivi.P2P.P2PEnv
+import           Arivi.P2P.P2PEnv as PE
 import           Arivi.P2P.ServiceRegistry
+import           Arivi.P2P.Types
+import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
+import           Arivi.P2P.Kademlia.LoadDefaultPeers
+import           Arivi.P2P.MessageHandler.HandlerTypes
 
 import           Arivi.P2P.MessageHandler.NodeEndpoint  (newIncomingConnectionHandler)
 import           Control.Concurrent.Async.Lifted        (async, wait)
@@ -31,39 +37,42 @@ import           Data.Text
 import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
-type AppM = ReaderT P2PEnv (LoggingT IO)
+type AppM = ReaderT (P2PEnv ByteString ByteString) (LoggingT IO)
 
 instance HasNetworkEnv AppM where
-    getEnv = asks ariviNetworkEnv
+    getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
 
 instance HasSecretKey AppM
 
 instance HasKbucket AppM where
-    getKb = asks kbucket
+    getKb = asks (kbucket . kademliaEnv)
 
 instance HasStatsdClient AppM where
     getStatsdClient = asks statsdClient
 
-instance HasP2PEnv AppM where
-    getP2PEnv = ask
-    getAriviTVarP2PEnv = tvarAriviP2PInstance <$> getP2PEnv
-    getNodeIdPeerMapTVarP2PEnv = tvarNodeIdPeerMap <$> getP2PEnv
-    getMessageTypeMapP2PEnv = tvarMessageTypeMap <$> getP2PEnv
-    getWatcherTableP2PEnv = tvarWatchersTable <$> getP2PEnv
-    getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
-    getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
-    getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
-    getArchivedResourceToPeerMapP2PEnv =
-        tvarArchivedResourceToPeerMap <$> getP2PEnv
-    getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
-    getSelfNodeId = selfNId <$> getP2PEnv
-    getPeerReputationHistoryTableTVar = tvPeerReputationHashTable <$> getP2PEnv
-    getP2PReputationHashMapTVar = tvP2PReputationHashMap <$> getP2PEnv
-    getServicesReputationHashMapTVar = tvServicesReputationHashMap <$> getP2PEnv
-    getReputedVsOtherTVar = tvReputedVsOther <$> getP2PEnv
-    getKClosestVsRandomTVar = tvKClosestVsRandom <$> getP2PEnv
+instance HasNodeEndpoint AppM where
+    getEndpointEnv = asks nodeEndpointEnv
+    getNetworkConfig = asks (PE._networkConfig . nodeEndpointEnv)
+    getHandlers = asks (handlers . nodeEndpointEnv)
+    getNodeIdPeerMapTVarP2PEnv = asks (tvarNodeIdPeerMap . nodeEndpointEnv)
 
-runAppM :: P2PEnv -> AppM a -> LoggingT IO a
+instance HasNetworkConfig (P2PEnv r msg) NetworkConfig where
+    networkConfig f p2p =
+        fmap
+            (\nc ->
+                 p2p
+                 { nodeEndpointEnv =
+                       (nodeEndpointEnv p2p) {PE._networkConfig = nc}
+                 })
+            (f ((PE._networkConfig . nodeEndpointEnv) p2p))
+
+instance HasArchivedResourcers AppM ByteString ByteString where
+    archived = asks (tvarArchivedResourceToPeerMap . rpcEnv)
+
+instance HasTransientResourcers AppM ByteString ByteString where
+    transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
+
+runAppM :: P2PEnv ByteString ByteString -> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
 {--
@@ -188,5 +197,5 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler :: (HasLogging m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h >>= send h

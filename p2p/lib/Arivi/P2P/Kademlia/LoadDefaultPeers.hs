@@ -1,8 +1,5 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
 -- |
@@ -34,26 +31,18 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
--- import           Control.Concurrent.Async.Lifted
 import           Control.Exception                     (displayException)
--- import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                    --  try)
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Logger
 import           Control.Monad.Reader
--- import qualified Data.List                             as LL
 import qualified Data.Text                             as T
 
 -- | Sends FIND_NODE to bootstrap nodes and requires a P2P instance to get
 --   local node information which are passed to P2P environment during
 --   P2P instance initialization.
 loadDefaultPeers ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
-       , HasLogging m
+       ( HasP2PEnv env m r msg
        )
     => [Peer]
     -> m ()
@@ -88,10 +77,7 @@ deleteIfPeerExist (x:xs) = do
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
 --  TODO : See if need to be converted to ExceptT
 issueFindNode ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
-       , HasLogging m
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> m ()
@@ -105,7 +91,7 @@ issueFindNode rpeer = do
         fn_msg = packFindMsg nc _nodeId
     $(logDebug) $
         T.pack ("Issuing Find_Node to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg) Nothing
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest fn_msg)
     case resp of
         Left e -> $(logDebug) $ T.pack (displayException e)
         Right (KademliaResponse payload) -> do

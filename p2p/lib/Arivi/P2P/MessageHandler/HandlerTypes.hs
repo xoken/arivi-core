@@ -115,7 +115,7 @@ data PeerDetails = PeerDetails
 defaultPeerDetails :: STM PeerDetails
 defaultPeerDetails = do
   lock <- newTMVar False
-  return $ PeerDetails {
+  return PeerDetails {
       _networkConfig = defaultNetworkConfig
     , _rep = 0.0
     , _streamHandle = NotConnected

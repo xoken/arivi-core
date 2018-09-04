@@ -28,9 +28,8 @@ import           Arivi.P2P.Kademlia.RunConcurrently
 import           Arivi.P2P.Kademlia.Types
 import           Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig (..))
 import           Arivi.P2P.MessageHandler.NodeEndpoint
-import           Arivi.P2P.P2PEnv                      (HasP2PEnv)
+import           Arivi.P2P.P2PEnv--                      (HasNodeEndpoint(..))
 import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad.Except
@@ -66,15 +65,12 @@ addToNewList bl pl
 -- | Issues a ping command and waits for the response and if the response is
 --   is valid returns True else False
 issuePing ::
-       forall m env.
-       ( MonadReader env m
-       , HasP2PEnv m
-       , HasNetworkConfig env NetworkConfig
-       , HasLogging m
+       forall env m r msg.
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> m Bool
-issuePing rpeer  = do
+issuePing rpeer = do
     nc <- (^. networkConfig) <$> ask
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
@@ -84,7 +80,7 @@ issuePing rpeer  = do
         rnc = NetworkConfig rnid rip ruport ruport
     $(logDebug) $
         T.pack ("Issuing ping request to : " ++ show rip ++ ":" ++ show ruport)
-    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest ping_msg) Nothing
+    resp <- runExceptT $ issueKademliaRequest rnc (KademliaRequest ping_msg)
     $(logDebug) $
         T.pack ("Response for ping from : " ++ show rip ++ ":" ++ show ruport)
     case resp of
@@ -107,11 +103,8 @@ deleteIfExist peerR pl =
 
 -- | creates a new list from an existing one by issuing a ping command
 refreshKbucket ::
-       forall m env.
-       ( MonadReader env m
-       , HasP2PEnv m
-       , HasNetworkConfig env NetworkConfig
-       , HasLogging m
+       forall env m r msg.
+       ( HasP2PEnv env m r msg
        )
     => Peer
     -> [Peer]

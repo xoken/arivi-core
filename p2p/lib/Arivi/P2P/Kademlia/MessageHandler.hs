@@ -10,11 +10,10 @@
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE GADTs, DataKinds #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE DataKinds       #-}
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
@@ -29,7 +28,6 @@ import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import Arivi.P2P.MessageHandler.NodeEndpoint
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
-import Arivi.Utils.Logging
 import Control.Concurrent.Async.Lifted (async)
 import Control.Exception
 import Control.Lens
@@ -50,26 +48,13 @@ import qualified Data.Text as T
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-kademliaHandlerHelper ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
-       , HasLogging m
+
+kademliaMessageHandler ::
+       ( HasP2PEnv env m r msg
        )
     => Request 'Kademlia PayLoad
     -> m (Response 'Kademlia PayLoad)
-kademliaHandlerHelper (KademliaRequest payload) =
-    KademliaResponse <$> kademliaMessageHandler payload
-
-kademliaMessageHandler ::
-       ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv m
-       , HasLogging m
-       )
-    => PayLoad
-    -> m PayLoad
-kademliaMessageHandler payload = do
+kademliaMessageHandler (KademliaRequest payload) = KademliaResponse <$> do
     let msgb = messageBody $ message payload
         rnep = fromEndPoint msgb
         rnid = Arivi.P2P.Kademlia.Types.nodeId msgb
@@ -87,9 +72,9 @@ kademliaMessageHandler payload = do
                 T.append
                     (T.pack "Find_Node Message Recieved from : ")
                     (T.pack (show rnep))
-            _ <- runExceptT $ addToKBucket rpeer
+            void . runExceptT $ addToKBucket rpeer
                      -- Initiates the verification process
-            _ <- async $ runExceptT $ verifyPeer rpeer
+            void . async $ runExceptT $ verifyPeer rpeer
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
@@ -112,7 +97,7 @@ kademliaMessageHandler payload = do
                          (nodeIp tnep)
                          (udpPort tnep)
                          (tcpPort tnep))
-                    (KademliaRequest findNodeMsg) Nothing
+                    (KademliaRequest findNodeMsg)
             case resp of
                 Left e -> throw e
                 Right (KademliaResponse resp') ->
