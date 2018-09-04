@@ -36,7 +36,7 @@ import           Arivi.P2P.Kademlia.Kbucket  (Peer (..), getDefaultNodeId,
                                               getKRandomPeers,
                                               getPeersByNodeIds)
 import qualified Arivi.P2P.LevelDB           as LevelDB (getValue, putValue)
-import           Arivi.P2P.P2PEnv            (HasKbucket, HasP2PEnv (..))
+import           Arivi.P2P.P2PEnv            --(HasKbucket, HasP2PEnv (..))
 import           Arivi.P2P.PRT.Exceptions    (PRTExecption (..))
 import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
                                               PeerReputationHistory (..),
@@ -45,10 +45,11 @@ import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
 import           Control.Concurrent          (threadDelay)
 import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
 import           Control.Exception           (throw)
-import           Control.Monad.Except        (ExceptT, runExceptT)
+import           Control.Monad.Except        (ExceptT(..), runExceptT, lift)
 import           Control.Monad.IO.Class      (MonadIO, liftIO)
 import           Control.Monad.IO.Unlift     (MonadUnliftIO)
 import           Control.Monad.STM           (atomically)
+import           Control.Concurrent.STM                (TVar)
 import qualified Data.ByteString.Char8       as Char8 (pack, unpack)
 import qualified Data.HashMap.Strict         as HM (fromList, insert, lookup,
                                                     size, toList)
@@ -76,7 +77,7 @@ isValidRatio mRatio = do
         _   -> False
 
 -- | This  function loads the fields of config file into respective HashMap
-loadPRTConfigToHashMap :: (HasP2PEnv m) => m ()
+loadPRTConfigToHashMap :: (HasPRT m, MonadIO m) => m ()
 loadPRTConfigToHashMap = do
     mConfig <- liftIO $ loadConfigFile "PRTConfig.yaml"
     servicesReputationHashMapTVar <- getServicesReputationHashMapTVar
@@ -98,14 +99,14 @@ loadPRTConfigToHashMap = do
     return ()
 
 -- | Gives the `Reputation` of given `PeerDeed` in case of P2P
-getReputationForP2P :: (HasP2PEnv m) => PeerDeed -> m (Maybe Reputation)
+getReputationForP2P :: (HasPRT m, MonadIO m) => PeerDeed -> m (Maybe Reputation)
 getReputationForP2P peerDeed = do
     p2pReputationHashMapTVar <- getP2PReputationHashMapTVar
     p2pReputationHashMap <- liftIO $ readTVarIO p2pReputationHashMapTVar
     return $ HM.lookup peerDeed p2pReputationHashMap
 
 -- | Gives the `Reputation` of given `PeerDeed` in case of Services
-getReputationForServices :: (HasP2PEnv m) => String -> m (Maybe Reputation)
+getReputationForServices :: (HasPRT m, MonadIO m) => String -> m (Maybe Reputation)
 getReputationForServices peerDeed = do
     servicesReputationHashMapTVar <- getServicesReputationHashMapTVar
     servicesReputationHashMap <-
@@ -114,7 +115,7 @@ getReputationForServices peerDeed = do
 
 -- | Updates the Peer Reputation History of given Peer's NodeId
 updatePeerReputationHistory ::
-       (HasP2PEnv m) => Network.NodeId -> Reputation -> m ()
+       (HasPRT m, MonadIO m) => Network.NodeId -> Reputation -> m ()
 updatePeerReputationHistory peerNodeId reputationToAward = do
     oldMapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     oldMapOfAllPeersHistory <- liftIO $ readTVarIO oldMapOfAllPeersHistoryTVar
@@ -144,7 +145,7 @@ updatePeerReputationHistory peerNodeId reputationToAward = do
 
 -- | Updates the `Reputation` of given `PeerDeed` in case of P2P
 updatePeerReputationForP2P ::
-       (HasP2PEnv m) => Network.NodeId -> PeerDeed -> m ()
+       (HasPRT m, MonadIO m) => Network.NodeId -> PeerDeed -> m ()
 updatePeerReputationForP2P peerNodeId peerDeed = do
     maybeReputation <- getReputationForP2P peerDeed
     case maybeReputation of
@@ -153,7 +154,7 @@ updatePeerReputationForP2P peerNodeId peerDeed = do
 
 -- | Updates the `Reputation` of given `PeerDeed` in case of Services
 updatePeerReputationForServices ::
-       (HasP2PEnv m) => Network.NodeId -> String -> m ()
+       (HasPRT m, MonadIO m) => Network.NodeId -> String -> m ()
 updatePeerReputationForServices peerNodeId peerDeed = do
     maybeReputation <- getReputationForServices peerDeed
     case maybeReputation of
@@ -161,7 +162,7 @@ updatePeerReputationForServices peerNodeId peerDeed = do
         Nothing -> throw PeerDeedNotFound
 
 -- | Gives the current reputation of Peer identified by given NodeId
-getReputation :: (HasP2PEnv m) => Network.NodeId -> m (Maybe Reputation)
+getReputation :: (HasPRT m, MonadIO m) => Network.NodeId -> m (Maybe Reputation)
 getReputation peerNodeId = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
@@ -191,7 +192,7 @@ getnoOfRandom nonReputedNo mKClosestVsRandom =
 
 -- | Given the total no of Peers this function splits it into Reputed,Closest
 -- and Random based on the weightages defined in the config file
-getWeightages :: (HasP2PEnv m) => Integer -> m (Integer, Integer, Integer)
+getWeightages :: (HasPRT m, MonadIO m) => Integer -> m (Integer, Integer, Integer)
 getWeightages k = do
     reputedVsOtherTVar <- getReputedVsOtherTVar
     mReputedVsOther <- liftIO $ readTVarIO reputedVsOtherTVar
@@ -202,6 +203,7 @@ getWeightages k = do
     let noOfRandom = getnoOfRandom noOfNonReputed mKClosestVsRandom
     let noOfReputed = k - (noOfClosest + noOfRandom)
     return (noOfReputed, noOfClosest, noOfRandom)
+
 
 -- | Sorts the given Peer History details according to Reputation and their No
 -- of deeds
@@ -242,46 +244,35 @@ getReputedNodes n mapOfAllPeersHistory = do
 -- | Gives K no of Peer's containting Reputed,Closest and Random based on the
 -- weightages defined in the config file
 getKNodes ::
-       (HasKbucket m, HasP2PEnv (ExceptT AriviP2PException m), MonadIO m)
+       (HasKbucket m, HasPRT m, MonadIO m)
     => Integer
     -> ExceptT AriviP2PException m [Peer]
 getKNodes k = do
-    (noOfReputed, noOfClosest, noOfRandom) <- getWeightages k
+    (noOfReputed, noOfClosest, noOfRandom) <- lift $ getWeightages k
     selfNodeId <- getDefaultNodeId
-    mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
-    mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
+    mapOfAllPeersHistoryTVar <- lift getPeerReputationHistoryTableTVar
+    mapOfAllPeersHistory <- (lift . liftIO) $ readTVarIO mapOfAllPeersHistoryTVar
     let availableReputedPeers = fromIntegral $ HM.size mapOfAllPeersHistory
-    kRandomPeers <- getKRandomPeers (fromIntegral noOfRandom)
+    kRandomPeers <- lift $ getKRandomPeers (fromIntegral noOfRandom)
     if availableReputedPeers < noOfReputed
         then do
             let requiredClosestPeers =
                     fromIntegral
                         (noOfClosest + (noOfReputed - availableReputedPeers))
-            eitherClosestPeers <-
-                runExceptT $
+            closestPeers <-
                 getKClosestPeersByNodeid selfNodeId requiredClosestPeers
-            case eitherClosestPeers of
-                Left e -> throw e
-                Right closestPeers -> do
-                    reputedPeers <-
-                        getReputedNodes
+            reputedPeers <- lift $ getReputedNodes
                             availableReputedPeers
                             mapOfAllPeersHistory
-                    return $ reputedPeers ++ closestPeers ++ kRandomPeers
+            return $ reputedPeers ++ closestPeers ++ kRandomPeers
         else do
-            eitherClosestPeers <-
-                runExceptT $
-                getKClosestPeersByNodeid selfNodeId (fromIntegral noOfClosest)
-            case eitherClosestPeers of
-                Left e -> throw e
-                Right closestPeers -> do
-                    reputedPeers <-
-                        getReputedNodes noOfReputed mapOfAllPeersHistory
-                    return $ reputedPeers ++ closestPeers ++ kRandomPeers
+            closestPeers <- getKClosestPeersByNodeid selfNodeId (fromIntegral noOfClosest)
+            reputedPeers <- lift $ getReputedNodes noOfReputed mapOfAllPeersHistory
+            return $ reputedPeers ++ closestPeers ++ kRandomPeers
 
 -- | This function dumps PeerReputationHistoryTable to Level DB database
 -- periodically
-savePRTHMtoDBPeriodically :: (MonadUnliftIO m, HasP2PEnv m) => Int -> m ()
+savePRTHMtoDBPeriodically :: (MonadUnliftIO m, HasPRT m) => Int -> m ()
 savePRTHMtoDBPeriodically timeInterval = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
@@ -294,7 +285,7 @@ savePRTHMtoDBPeriodically timeInterval = do
 
 -- | Loads the maybeMapOfAllPeersHistory from datbase to
 --  mapOfAllPeersHistoryTVar of P2P Environment
-loadPeerReputationHistoryTable :: (MonadUnliftIO m, HasP2PEnv m) => m ()
+loadPeerReputationHistoryTable :: (MonadUnliftIO m, HasPRT m) => m ()
 loadPeerReputationHistoryTable = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     maybeMapOfAllPeersHistory <- LevelDB.getValue "PeerReputationHistoryTable"
