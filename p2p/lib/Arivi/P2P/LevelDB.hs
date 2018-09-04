@@ -19,14 +19,13 @@ module Arivi.P2P.LevelDB
     , deleteValue
     ) where
 
+import           Control.Monad.IO.Unlift      (MonadUnliftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.ByteString.Char8        (ByteString)
 import           Data.Default                 (def)
-import           Database.LevelDB
- -- (delete, get, put)
-
---
-import           Control.Monad.IO.Unlift      (MonadUnliftIO)
+import           Database.LevelDB             (bloomFilter, createIfMissing,
+                                               defaultOptions, delete,
+                                               filterPolicy, get, open, put)
 
 -- | This is path for the Database location
 getDBPath :: String
