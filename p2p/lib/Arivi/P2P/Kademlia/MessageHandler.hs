@@ -17,7 +17,6 @@
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
-    , kademliaHandlerHelper
     ) where
 
 import Arivi.P2P.Exception
