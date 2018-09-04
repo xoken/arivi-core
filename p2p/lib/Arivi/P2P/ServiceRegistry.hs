@@ -34,6 +34,7 @@ makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk s
            <*> mkRpcEnv
            <*> mkKademlia nc sbound pingThreshold kademliaConcurrencyFactor
            <*> createStatsdClient statsdIP statsdPort statsdPrefix
+           <*> mkPRTEnv
 
 mkHandlers :: Handlers
 mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler

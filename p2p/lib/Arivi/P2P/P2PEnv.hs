@@ -17,20 +17,23 @@ import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.RPC.Types
+import           Arivi.P2P.PRT.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
 import           Codec.Serialise
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Concurrent.STM                (TVar, newTVarIO)
-import           Control.Lens.TH
+-- import           Control.Lens.TH
 import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
+import           Data.Ratio                            (Rational, (%))
 
 type HasP2PEnv env m r msg
      = ( HasNodeEndpoint m
        , HasLogging m
        , HasRpc m r msg
+       , HasPRT m
        , HasKbucket m
        , HasStatsdClient m
        , MonadReader env m
@@ -87,6 +90,7 @@ data P2PEnv r msg = P2PEnv {
     , rpcEnv :: RpcEnv r msg
     , kademliaEnv :: KademliaEnv
     , statsdClient :: StatsdClient
+    , prtEnv       :: PRTEnv
 }
 
 class (HasSecretKey m) => HasNodeEndpoint m where
@@ -109,6 +113,31 @@ class HasArchivedResourcers m r msg | m -> r msg where
 
 class HasTransientResourcers m r msg | m -> r msg where
   transient :: m (TVar (TransientResourceToPeerMap r msg))
+
+data PRTEnv = PRTEnv {
+    tvPeerReputationHashTable     :: TVar PeerReputationHistoryTable
+  , tvServicesReputationHashMap   :: TVar ServicesReputationHashMap
+  , tvP2PReputationHashMap        :: TVar P2PReputationHashMap
+  , tvReputedVsOther              :: TVar Rational
+  , tvKClosestVsRandom            :: TVar Rational
+}
+
+class HasPRT m where
+    getPeerReputationHistoryTableTVar :: m (TVar PeerReputationHistoryTable)
+    getServicesReputationHashMapTVar :: m (TVar ServicesReputationHashMap)
+    getP2PReputationHashMapTVar :: m (TVar P2PReputationHashMap)
+    getReputedVsOtherTVar :: m (TVar Rational)
+    getKClosestVsRandomTVar :: m (TVar Rational)
+
+mkPRTEnv :: IO PRTEnv 
+mkPRTEnv = do
+    peerReputationHashTable <- newTVarIO HM.empty
+    servicesReputationHashMapTVar <- newTVarIO HM.empty
+    p2pReputationHashMapTVar <- newTVarIO HM.empty
+    reputedVsOtherTVar <- newTVarIO (1 % 1 :: Rational)
+    kClosestVsRandomTVar <- newTVarIO (1 % 1 :: Rational)
+    return (PRTEnv peerReputationHashTable servicesReputationHashMapTVar p2pReputationHashMapTVar reputedVsOtherTVar kClosestVsRandomTVar) 
+
 
 -- class HasPubSub where
 --     getWatcherTableP2PEnv :: TVar WatchersTable
