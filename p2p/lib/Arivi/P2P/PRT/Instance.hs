@@ -36,7 +36,7 @@ import           Arivi.P2P.Kademlia.Kbucket  (Peer (..), getDefaultNodeId,
                                               getKRandomPeers,
                                               getPeersByNodeIds)
 import qualified Arivi.P2P.LevelDB           as LevelDB (getValue, putValue)
-import           Arivi.P2P.P2PEnv            --(HasKbucket, HasP2PEnv (..))
+import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.PRT.Exceptions    (PRTExecption (..))
 import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
                                               PeerReputationHistory (..),
@@ -45,11 +45,10 @@ import           Arivi.P2P.PRT.Types         (Config (..), PeerDeed (..),
 import           Control.Concurrent          (threadDelay)
 import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
 import           Control.Exception           (throw)
-import           Control.Monad.Except        (ExceptT(..), runExceptT, lift)
+import           Control.Monad.Except        (ExceptT (..), lift, runExceptT)
 import           Control.Monad.IO.Class      (MonadIO, liftIO)
 import           Control.Monad.IO.Unlift     (MonadUnliftIO)
 import           Control.Monad.STM           (atomically)
-import           Control.Concurrent.STM                (TVar)
 import qualified Data.ByteString.Char8       as Char8 (pack, unpack)
 import qualified Data.HashMap.Strict         as HM (fromList, insert, lookup,
                                                     size, toList)
@@ -57,6 +56,7 @@ import           Data.List                   (sortBy)
 import           Data.Ratio                  (Ratio, Rational, denominator,
                                               numerator)
 import           Data.Yaml                   (ParseException, decodeFileEither)
+
 -- | Reads the config file and converts it's fields to config data type
 loadConfigFile :: FilePath -> IO Config
 loadConfigFile filePath = do
@@ -106,7 +106,8 @@ getReputationForP2P peerDeed = do
     return $ HM.lookup peerDeed p2pReputationHashMap
 
 -- | Gives the `Reputation` of given `PeerDeed` in case of Services
-getReputationForServices :: (HasPRT m, MonadIO m) => String -> m (Maybe Reputation)
+getReputationForServices ::
+       (HasPRT m, MonadIO m) => String -> m (Maybe Reputation)
 getReputationForServices peerDeed = do
     servicesReputationHashMapTVar <- getServicesReputationHashMapTVar
     servicesReputationHashMap <-
@@ -192,7 +193,8 @@ getnoOfRandom nonReputedNo mKClosestVsRandom =
 
 -- | Given the total no of Peers this function splits it into Reputed,Closest
 -- and Random based on the weightages defined in the config file
-getWeightages :: (HasPRT m, MonadIO m) => Integer -> m (Integer, Integer, Integer)
+getWeightages ::
+       (HasPRT m, MonadIO m) => Integer -> m (Integer, Integer, Integer)
 getWeightages k = do
     reputedVsOtherTVar <- getReputedVsOtherTVar
     mReputedVsOther <- liftIO $ readTVarIO reputedVsOtherTVar
@@ -203,7 +205,6 @@ getWeightages k = do
     let noOfRandom = getnoOfRandom noOfNonReputed mKClosestVsRandom
     let noOfReputed = k - (noOfClosest + noOfRandom)
     return (noOfReputed, noOfClosest, noOfRandom)
-
 
 -- | Sorts the given Peer History details according to Reputation and their No
 -- of deeds
@@ -251,7 +252,8 @@ getKNodes k = do
     (noOfReputed, noOfClosest, noOfRandom) <- lift $ getWeightages k
     selfNodeId <- getDefaultNodeId
     mapOfAllPeersHistoryTVar <- lift getPeerReputationHistoryTableTVar
-    mapOfAllPeersHistory <- (lift . liftIO) $ readTVarIO mapOfAllPeersHistoryTVar
+    mapOfAllPeersHistory <-
+        (lift . liftIO) $ readTVarIO mapOfAllPeersHistoryTVar
     let availableReputedPeers = fromIntegral $ HM.size mapOfAllPeersHistory
     kRandomPeers <- lift $ getKRandomPeers (fromIntegral noOfRandom)
     if availableReputedPeers < noOfReputed
@@ -261,13 +263,15 @@ getKNodes k = do
                         (noOfClosest + (noOfReputed - availableReputedPeers))
             closestPeers <-
                 getKClosestPeersByNodeid selfNodeId requiredClosestPeers
-            reputedPeers <- lift $ getReputedNodes
-                            availableReputedPeers
-                            mapOfAllPeersHistory
+            reputedPeers <-
+                lift $
+                getReputedNodes availableReputedPeers mapOfAllPeersHistory
             return $ reputedPeers ++ closestPeers ++ kRandomPeers
         else do
-            closestPeers <- getKClosestPeersByNodeid selfNodeId (fromIntegral noOfClosest)
-            reputedPeers <- lift $ getReputedNodes noOfReputed mapOfAllPeersHistory
+            closestPeers <-
+                getKClosestPeersByNodeid selfNodeId (fromIntegral noOfClosest)
+            reputedPeers <-
+                lift $ getReputedNodes noOfReputed mapOfAllPeersHistory
             return $ reputedPeers ++ closestPeers ++ kRandomPeers
 
 -- | This function dumps PeerReputationHistoryTable to Level DB database
