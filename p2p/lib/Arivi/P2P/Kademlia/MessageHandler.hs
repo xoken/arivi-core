@@ -12,7 +12,8 @@
 --
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE DataKinds       #-}
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
@@ -50,9 +51,9 @@ import qualified Data.Text as T
 kademliaMessageHandler ::
        ( HasP2PEnv env m r msg
        )
-    => PayLoad
-    -> m PayLoad
-kademliaMessageHandler payload = do
+    => Request 'Kademlia PayLoad
+    -> m (Response 'Kademlia PayLoad)
+kademliaMessageHandler (KademliaRequest payload) = KademliaResponse <$> do
     let msgb = messageBody $ message payload
         rnep = fromEndPoint msgb
         rnid = Arivi.P2P.Kademlia.Types.nodeId msgb

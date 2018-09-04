@@ -75,8 +75,9 @@ sendAndReceive peerDetailsTVar messageType connHandle msg = do
 
 -- | Send a message without waiting for any response or registering a uuid.
 -- | Useful for pubsub notifies and publish. To be called by the rpc/pubsub and kademlia handlers on getting a new request
-issueSend :: forall env m r msg t i.
-       (HasP2PEnv env m r msg, Msg t)
+issueSend ::
+       forall env m r msg t i.
+       (HasP2PEnv env m r msg, Msg t, Serialise (Request t i))
     => NodeId
     -> Maybe P2PUUID
     -> Request t i
@@ -84,16 +85,16 @@ issueSend :: forall env m r msg t i.
 issueSend peerNodeId uuid req = do
     nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
     connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
-    case req of
-        RpcRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
-        OptionRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
-        KademliaRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
-        PubSubRequest msg -> ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise msg)
+    ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise req)
 
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
 issueRequest ::
        forall env m r msg i o t.
-       (HasP2PEnv env m r msg, Msg t, Serialise i, Serialise o)
+       ( HasP2PEnv env m r msg
+       , Msg t
+       , Serialise (Request t i)
+       , Serialise (Response t o)
+       )
     => NodeId
     -> Request t i
     -> ExceptT AriviP2PException m (Response t o)
@@ -102,26 +103,8 @@ issueRequest peerNodeId req = do
     nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
     connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
     peerDetailsTVar <- maybe (throwError PeerNotFound) return (nodeIdPeerMap ^.at peerNodeId)
-    case req of
-        RpcRequest msg -> do
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
-            rpcResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (RpcResponse rpcResp)
-
-        OptionRequest msg -> do
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
-            optionResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (OptionResponse optionResp)
-
-        KademliaRequest msg -> do
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
-            kademliaResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (KademliaResponse kademliaResp)
-
-        PubSubRequest msg -> do
-            resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise msg)
-            pubsubResp <- ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
-            return (PubSubResponse pubsubResp)
+    resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise req)
+    ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
 
 -- | Called by kademlia. Adds a default PeerDetails record into hashmap before calling generic issueRequest
 issueKademliaRequest :: (HasP2PEnv env m r smsg, Serialise msg)

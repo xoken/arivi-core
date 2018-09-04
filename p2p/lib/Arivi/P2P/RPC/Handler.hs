@@ -1,4 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
 
 module Arivi.P2P.RPC.Handler
     ( optionsHandler
@@ -19,9 +21,9 @@ import           Control.Applicative
 
 rpcHandler ::
        forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m)
-    => RpcPayload r msg
-    -> m (RpcPayload r msg)
-rpcHandler payload@(RpcPayload resource _) = do
+    => Request 'Rpc (RpcPayload r msg)
+    -> m (Response 'Rpc (RpcPayload r msg))
+rpcHandler (RpcRequest payload@(RpcPayload resource _)) = RpcResponse <$> do
     archivedResourceMap <- archived
     archivedMap <- (liftIO . readTVarIO) archivedResourceMap
     transientResourceMap <- transient
@@ -33,14 +35,14 @@ rpcHandler payload@(RpcPayload resource _) = do
         Just entryMap -> do
             let ResourceHandler resourceHandler = fst entryMap
             return (resourceHandler payload)
-rpcHandler (RpcError _) = error "Change RpcPayload constructor"
+rpcHandler (RpcRequest (RpcError _)) = error "Change RpcPayload constructor"
 
 
 -- | takes an options message and returns a supported message
 optionsHandler ::
        forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m)
-    => m (Supported [r])
-optionsHandler = do
+    => m (Response 'Option (Supported [r]))
+optionsHandler = OptionResponse <$> do
     archivedResourceMapTVar <- archived
     archivedResourceMap <- (liftIO . readTVarIO) archivedResourceMapTVar
     return (Supported (HM.keys (getArchivedMap archivedResourceMap)))

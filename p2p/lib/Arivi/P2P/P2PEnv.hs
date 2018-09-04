@@ -3,6 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE DataKinds        #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -11,7 +12,7 @@ module Arivi.P2P.P2PEnv
     ) where
 
 import           Arivi.Env
-import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..))
+import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..), Request(..), Response(..))
 import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -175,7 +176,7 @@ class HasTransientResourcers m r msg | m -> r msg where
 --   }
 
 data Handlers = Handlers {
-      rpc :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => RpcPayload r msg -> m (RpcPayload r msg)
-    , kademlia :: forall env m r msg. (HasP2PEnv env m r msg) => T.PayLoad -> m T.PayLoad
-    , option :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => m (Supported [r])
+      rpc :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => Request 'Rpc (RpcPayload r msg) -> m (Response 'Rpc (RpcPayload r msg))
+    , kademlia :: forall env m r msg. (HasP2PEnv env m r msg) => Request 'Kademlia T.PayLoad -> m (Response 'Kademlia T.PayLoad)
+    , option :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => m (Response 'Option (Supported [r]))
 }
