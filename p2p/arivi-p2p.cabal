@@ -59,6 +59,7 @@ library
                     ,  either-unwrap >= 1.1
                     ,  sorted-list
                     ,  string-conv
+                    ,  yaml
                     ,  arivi-network
                     ,  arivi-crypto
                     ,  arivi-utils
@@ -67,6 +68,7 @@ library
   exposed-modules:
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
+                       Arivi.P2P.Config
                        Arivi.P2P.P2PEnv
                        Arivi.P2P.Connection
                        Arivi.P2P.Handler
@@ -115,8 +117,6 @@ executable Main
                   , network
                   , arivi-p2p
                   , text
-                  , yaml
                   , cryptonite
                   , memory
                   , string-conv
-  other-modules: CreateConfig

@@ -93,6 +93,5 @@ executable HelloWorldApp
                 , stm
                 , lifted-async
 
-  other-modules: CreateConfig
   default-language:    Haskell2010
  
