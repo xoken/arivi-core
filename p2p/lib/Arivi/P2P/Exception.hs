@@ -28,6 +28,6 @@ data AriviP2PException
     | OptionsHandlerInvalidMessageType
     | KademliaDeserialiseFailure
     | KademliaNoVerifiedPeer
-    deriving (Show)
+    deriving (Eq, Ord, Show)
 
 instance Exception AriviP2PException

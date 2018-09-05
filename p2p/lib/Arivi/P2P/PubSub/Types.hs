@@ -11,6 +11,7 @@ module Arivi.P2P.PubSub.Types
     , TopicHandlerMap(..)
     , Subscribers(..)
     , Notifiers(..)
+    , Status(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -19,6 +20,7 @@ import           Arivi.P2P.Types
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
 import           Data.HashMap.Strict                   as HM
+import           Data.Set                              (Set)
 import           Data.Time.Clock
 import           GHC.Generics                          (Generic)
 
@@ -41,8 +43,12 @@ data NodeTimer = NodeTimer
     , timer :: UTCTime -- time here is current time added with the nominaldifftime in the message
     } deriving (Eq, Ord, Show, Generic, Serialise)
 
-newtype Subscribers t = Subscribers (HM.HashMap t (TVar [NodeId]))
+newtype Subscribers t = Subscribers (HM.HashMap t (TVar (Set NodeId)))
 
-newtype Notifiers t = Notifiers (HM.HashMap t (TVar [NodeId]))
+newtype Notifiers t = Notifiers (HM.HashMap t (TVar (Set NodeId)))
 
 newtype TopicHandlerMap t msg = TopicHandlerMap (HM.HashMap t (TopicHandler t msg))
+
+data Status = Ok
+            | Error
+            deriving (Eq, Ord, Show, Generic, Serialise)

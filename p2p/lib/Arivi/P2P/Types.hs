@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -234,6 +235,28 @@ decodeResponse RttiResPubSub = do
         _ -> fail "Failed to deserialise into a valid PubSubResponse type"
 
 
+deriving instance (Eq i) => Eq (Request t i)
+
+compareRequest :: (Ord i) => Request t i -> Request t i -> Ordering
+compareRequest (RpcRequest a) (RpcRequest b) = compare a b
+compareRequest (KademliaRequest a) (KademliaRequest b) = compare a b
+compareRequest (OptionRequest a) (OptionRequest b) = compare a b
+compareRequest (PubSubRequest a) (PubSubRequest b) = compare a b
+
+instance (Ord i) => Ord (Request t i) where
+  compare = compareRequest
+
+
+deriving instance (Eq i) => Eq (Response t i)
+
+compareResponse :: (Ord i) => Response t i -> Response t i -> Ordering
+compareResponse (RpcResponse a) (RpcResponse b) = compare a b
+compareResponse (KademliaResponse a) (KademliaResponse b) = compare a b
+compareResponse (OptionResponse a) (OptionResponse b) = compare a b
+compareResponse (PubSubResponse a) (PubSubResponse b) = compare a b
+
+instance (Ord i) => Ord (Response t i) where
+  compare = compareResponse
 
 {-
 -- Serialise instances for Request and Response GADTs using Singletons
