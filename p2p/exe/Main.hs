@@ -15,6 +15,7 @@ import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Network
+import qualified Arivi.P2P.Config                       as Config
 import           Arivi.P2P.P2PEnv as PE
 import           Arivi.P2P.ServiceRegistry
 import           Arivi.P2P.Types
@@ -27,7 +28,6 @@ import           Control.Monad                          (mapM_)
 import           Control.Monad.IO.Class                 (liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
-import qualified CreateConfig                           as Config
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import           Data.Monoid                            ((<>))
