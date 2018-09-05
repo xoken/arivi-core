@@ -85,6 +85,7 @@ library
                        Arivi.P2P.PubSub.Types
                        Arivi.P2P.PubSub.Class
                        Arivi.P2P.PubSub.Notify
+                       Arivi.P2P.PubSub.Publish
                        Arivi.P2P.RPC.SendOptions
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
