@@ -1,78 +1,111 @@
 {-# language Rank2Types, ScopedTypeVariables  #-}
-{-# language GADTs, DataKinds, TypeFamilies #-}
-{-# language PartialTypeSignatures, ApplicativeDo, RecordWildCards,ConstraintKinds #-}
+{-# language GADTs, DataKinds, TypeFamilies, RecordWildCards #-}
 
 module Arivi.P2P
     ( module Arivi.P2P
     ) where
 
-import Arivi.P2P.Types hiding (Resource)
 import Arivi.P2P.P2PEnv
+import Arivi.P2P.Handler
 import Arivi.Network
-import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
-import Arivi.P2P.RPC.Functions
-import Arivi.P2P.Kademlia.MessageHandler
-import Arivi.P2P.MessageHandler.NodeEndpoint
+import qualified Arivi.P2P.Config as Config
+import Arivi.P2P.Types
+import Arivi.P2P.MessageHandler.HandlerTypes
+import qualified Arivi.P2P.Kademlia.Types as KademliaTypes
+import Arivi.P2P.Kademlia.LoadDefaultPeers
+import Arivi.P2P.PRT.Instance (getKNodes)
 import Arivi.P2P.RPC.Types
-import Arivi.Env
-import qualified Arivi.P2P.Kademlia.Types              as T
-import qualified CreateConfig                           as Config
-import           Arivi.Utils.Statsd
+import Arivi.P2P.RPC.SendOptions
+import Arivi.P2P.RPC.Functions
 
-import Data.Hashable
 import qualified Data.HashMap.Strict as HM
-import Data.ByteString.Lazy (ByteString)
-import Control.Concurrent.Async.Lifted (async, wait)
-import Codec.Serialise
+import Control.Concurrent.Async.Lifted (async)
 import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
 import Control.Monad.Reader
-import GHC.Generics
-import           Control.Monad.Logger
+import Control.Monad.Except (runExceptT)
+import Control.Monad (unless)
+import Control.Monad.Logger
+import Control.Lens
 
-
-initP2P :: forall m r msg env . (Eq r, Hashable r, Serialise msg, Serialise r, HasP2PEnv m r msg, MonadReader env m) => Config.Config -> HM.HashMap r ResourceHandler -> r -> msg -> ReaderT (P2PEnv r msg) m ()
-initP2P config resourceHandlers resource message = do
-    p2pEnv <- lift $ liftIO $ initP2PEnv config resource message
+-- | Called by the service in Xoken core
+initP2P :: (HasP2PEnv env m r msg) => Config.Config -> HM.HashMap r (ResourceHandler r msg) -> ReaderT (P2PEnv r msg) m ()
+initP2P config resourceHandlers = do
     udpTid <- lift $ async (runUdpServer (show (Config.udpPort config)) newIncomingConnectionHandler)
+    lift $ loadDefaultPeers (Config.trustedPeers config)
+    lift $ mapM_ (\(resource, handler) -> registerResource resource handler Archived) (HM.toList resourceHandlers)
+    --call loadReputedPeers here after fetching reputed peers from PRT
+    lift $ fillQuotas 5 -- hardcoding here assuming each resource requires 5 peers
     return ()
 
+-- | fills up the peer list for resource. Since Options message is not for a specific resource, check after each invocation of sendOptions if the number of peers if less than required quota for any resource. Recursively keep calling till all the quotas have been satisfied.
+fillQuotas :: (HasP2PEnv env m r msg) => Integer -> m ()
+fillQuotas numPeers = do
+    archivedMapTVar <- archived
+    res <- runExceptT $ getKNodes numPeers -- Repetition of peers
+    case res of
+        Left _ -> return ()
+        Right peers -> do
+            peerNodeIds <- addPeerFromKademlia peers
+            sendOptionsMessage peerNodeIds (Options :: Options r)
+            archivedMap <- liftIO (readTVarIO archivedMapTVar)
+            filled <- liftIO $ isFilled archivedMap
+            unless filled (fillQuotas numPeers)
 
-initP2PEnv :: Config.Config -> r -> msg -> IO (P2PEnv r msg)
-initP2PEnv config resource message = do
-    let networkConfig = NetworkConfig (Config.myNodeId config) (Config.myIp config) (Config.tcpPort config) (Config.udpPort config)
-    nodeEndpointEnv <- initNodeEndpoint config networkConfig
-    rpcEnv <- initRpc
-    kademliaEnv <- initKademlia networkConfig 1 1 1
-    newStatsdClient <- createStatsdClient "statsdIP" 8080 "statsdPrefix"
-    rt <- initResourceType resource
-    mt <- initMessageType message
-    return $ P2PEnv nodeEndpointEnv rpcEnv kademliaEnv newStatsdClient rt mt
 
 
-initResourceType :: r -> IO (ResourceType r)
-initResourceType resource = return (ResourceType resource)
+-- | add the peers returned by Kademlia to the PeerDetails HashMap
+addPeerFromKademlia ::
+       (HasNodeEndpoint m, MonadIO m)
+    => [KademliaTypes.Peer]
+    -> m [NodeId]
+addPeerFromKademlia = mapM (\peer -> do
+    nodeIdMapTVar <- getNodeIdPeerMapTVarP2PEnv
+    addPeerFromKademliaHelper peer nodeIdMapTVar)
 
-initMessageType :: msg -> IO (ServiceMessageType msg)
-initMessageType message = return (ServiceMessageType message)
+addPeerFromKademliaHelper ::
+       (MonadIO m)
+    => KademliaTypes.Peer
+    -> TVar NodeIdPeerMap
+    -> m NodeId
+addPeerFromKademliaHelper peerFromKademlia nodeIdPeerMapTVar =
+    liftIO $
+        atomically
+            (do nodeIdPeerMap <- readTVar nodeIdPeerMapTVar
+                let _nodeId = fst $ KademliaTypes.getPeer peerFromKademlia
+                    kadNodeEndPoint = snd $ KademliaTypes.getPeer peerFromKademlia
+                    mapEntry = HM.lookup _nodeId nodeIdPeerMap
+                    _ip = KademliaTypes.nodeIp kadNodeEndPoint
+                    _udpPort = KademliaTypes.udpPort kadNodeEndPoint
+                    _tcpPort = KademliaTypes.tcpPort kadNodeEndPoint
+                case mapEntry of
+                    Nothing -> do
+                        defaultPeer <-
+                            (& networkConfig .~ NetworkConfig {..}) <$>
+                            defaultPeerDetails
+                        newPeer <- newTVar defaultPeer
+                        let newHashMap = HM.insert _nodeId newPeer nodeIdPeerMap
+                        writeTVar nodeIdPeerMapTVar newHashMap
+                    Just value -> do
+                        oldPeerDetails <- readTVar value
+                        let newDetails =
+                                oldPeerDetails & networkConfig .~
+                                NetworkConfig {..}
+                        writeTVar value newDetails
+                return _nodeId)
 
-initNodeEndpoint :: Config.Config -> NetworkConfig -> IO NodeEndpointEnv
-initNodeEndpoint config networkConfig = do
-    let networkEnv = mkAriviEnv (read $ show $ Config.tcpPort config) (read $ show $ Config.udpPort config) (Config.secretKey config)
-    let handlers = Handlers { rpc = rpcHandlerHelper
-                            , kademlia = kademliaHandlerHelper}
-    mkNodeEndpoint networkConfig handlers networkEnv
 
-initRpc :: IO (RpcEnv r)
-initRpc = mkRpcEnv
+-- | Returns true if all the resources have met the minimumNodes quota and false otherwise
+isFilledHelper ::Int -> [TVar [a]] -> IO Bool
+isFilledHelper _ [] = return True
+isFilledHelper minimumNodes l  = not <$> (fmap (any (< minimumNodes)) <$> mapM (fmap length <$> readTVarIO)) l
 
-initKademlia :: NetworkConfig -> Int -> Int -> Int -> IO KademliaEnv
-initKademlia nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
-    KademliaEnv <$>
-        T.createKbucket
-            (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
-            sbound
-            pingThreshold
-            kademliaConcurrencyFactor
+
+isFilled :: ArchivedResourceToPeerMap r msg -> IO Bool
+isFilled archivedMap = do
+    let resourceToPeerList = HM.toList (getArchivedMap archivedMap)
+    let minNodes = 5
+    isFilledHelper minNodes (fmap (snd . snd) resourceToPeerList)
 
 -- init :: Map k (Handler msg IO) -> IO ()
 -- init handlers = do
@@ -80,6 +113,9 @@ initKademlia nc@NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor
 --   -- loadDefaultPeers
 --   -- sendOptions (Map.keys handlers)
 --   return ()
+
+
+
 
 
 
