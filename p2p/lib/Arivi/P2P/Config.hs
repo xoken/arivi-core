@@ -18,13 +18,16 @@ import           GHC.Generics
 import           Network.Socket
 
 data Config = Config
-    { tcpPort      :: PortNumber
-    , udpPort      :: PortNumber
-    , secretKey    :: SecretKey
-    , trustedPeers :: [Peer]
-    , myNodeId     :: ByteString
-    , myIp         :: String
-    , logFile      :: T.Text
+    { tcpPort                      :: PortNumber
+    , udpPort                      :: PortNumber
+    , secretKey                    :: SecretKey
+    , trustedPeers                 :: [Peer]
+    , myNodeId                     :: ByteString
+    , myIp                         :: String
+    , logFile                      :: T.Text
+    , sbound                       :: Int
+    , pingThreshold                :: Int
+    , kademliaConcurrencyFactor    :: Int
     } deriving (Show, Generic)
 
 instance FromJSON ByteString where
