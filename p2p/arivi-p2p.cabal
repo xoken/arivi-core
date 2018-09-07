@@ -79,6 +79,7 @@ library
                        Arivi.P2P.P2PEnv
                        Arivi.P2P.Connection
                        Arivi.P2P.Handler
+                       Arivi.P2P.PeerMaintainer
                        Arivi.P2P.RPC.Handler
                        Arivi.P2P.Exception
                        Arivi.P2P.MessageHandler.NodeEndpoint
