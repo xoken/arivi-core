@@ -73,6 +73,7 @@ library
   exposed-modules:
                       --  Arivi.P2P.PubSub
                       --  Arivi.P2P.Instance
+                       Arivi.P2P
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.Config

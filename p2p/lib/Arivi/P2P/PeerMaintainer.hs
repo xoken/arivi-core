@@ -17,7 +17,6 @@ import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.Except (runExceptT)
 import Control.Monad (unless)
-import Control.Monad.Logger
 import Control.Lens
 
 -- | fills up the peer list for resource. Since Options message is not for a specific resource, check after each invocation of sendOptions if the number of peers if less than required quota for any resource. Recursively keep calling till all the quotas have been satisfied.
