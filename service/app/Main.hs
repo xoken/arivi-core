@@ -87,25 +87,15 @@ defaultConfig path = do
                 (generateNodeId sk)
                 "127.0.0.1"
                 (Data.Text.pack (path <> "/node.log"))
+                20
+                5
+                3
     Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    let ha = Config.myIp config
-    env <-
-        makeP2Pinstance
-            (generateNodeId (Config.secretKey config))
-            ha
-            (Config.tcpPort config)
-            (Config.udpPort config)
-            "127.0.0.1"
-            8089
-            "Xoken"
-            (Config.secretKey config)
-            20
-            5
-            3
+    env <- mkP2PEnv config
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
             env
