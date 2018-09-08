@@ -24,6 +24,7 @@ module Arivi.P2P.PRT.Instance
     , updatePeerReputationForServices
     , getReputation
     , getWeightages
+    , getAllReputedNodes
     , getKNodes
     , savePRTHMtoDBPeriodically
     , loadPeerReputationHistoryTable
@@ -241,6 +242,21 @@ getReputedNodes n mapOfAllPeersHistory = do
     case eitherNReputedPeerList of
         Left e                 -> throw e
         Right nReputedPeerList -> return nReputedPeerList
+
+-- | Gives list of all reputed Peer present in the mapOfAllPeersHistory
+getAllReputedNodes :: (HasKbucket m, HasPRT m, MonadIO m) => Integer -> m [Peer]
+getAllReputedNodes n = do
+    mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
+    mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
+    let sortedListofAllPeersHistory =
+            sortBy sortGT (HM.toList mapOfAllPeersHistory)
+    eitherNReputedPeerList <-
+        runExceptT $
+        getPeersByNodeIds
+            (getNodeIds $ take (fromIntegral n) sortedListofAllPeersHistory)
+    case eitherNReputedPeerList of
+        Left e                 -> throw e
+        Right mReputedPeerList -> return mReputedPeerList
 
 -- | Gives K no of Peer's containting Reputed,Closest and Random based on the
 -- weightages defined in the config file
