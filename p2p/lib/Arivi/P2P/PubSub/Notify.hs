@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE DataKinds  #-}
+{-# LANGUAGE GADTs      #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Arivi.P2P.PubSub.Notify
     ( notify
@@ -12,19 +13,14 @@ import Arivi.P2P.PubSub.Types
 import Arivi.P2P.Types
 import Arivi.Utils.Set
 
-import Codec.Serialise
 import Control.Monad.Except
-import Data.Hashable
 
-notify ::
-       (HasP2PEnv env m r msg, HasSubscribers m t, Serialise t, Hashable msg)
-    => Notify t msg
-    -> m ()
-notify req@(Notify t msg) = do
+notify :: (HasP2PEnv env m r t rmsg msg) => PubSubPayload t msg -> m ()
+notify req@(PubSubPayload (t, msg)) = do
     subs <- subscribers' msg t
     responses <-
         mapSetConcurrently
-            (\node -> runExceptT $ issueRequest node (PubSubRequest req))
+            (\node -> runExceptT $ issueRequest node (notifyRequest req))
             subs
     void $
         traverseSet
@@ -33,3 +29,6 @@ notify req@(Notify t msg) = do
                  Right (PubSubResponse Ok) -> return ()
                  Right (PubSubResponse Error) -> return ())
             responses
+
+notifyRequest :: msg -> Request ('PubSub 'Notify) msg
+notifyRequest = PubSubRequest

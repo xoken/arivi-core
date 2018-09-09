@@ -1,8 +1,9 @@
+{-# LANGUAGE DataKinds  #-}
 {-# LANGUAGE GADTs      #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Arivi.P2P.PubSub.Publish
-    ( module Arivi.P2P.PubSub.Publish
+    ( publish
     ) where
 
 import Arivi.P2P.MessageHandler.NodeEndpoint
@@ -12,33 +13,16 @@ import Arivi.P2P.PubSub.Types
 import Arivi.P2P.Types
 import Arivi.Utils.Set
 
-import Codec.Serialise
-import Control.Concurrent.STM
-import Control.Lens
-import Control.Monad.IO.Class
+import Control.Applicative
 import Control.Monad.Except
-import Data.Hashable
 import Data.Set (union)
 
-
-
-publish ::
-       ( HasP2PEnv env m r msg
-       , HasSubscribers m t
-       , HasNotifiers m t
-       , Hashable t
-       , Eq t
-       , Serialise t
-       )
-    => Publish t msg
-    -> m ()
-publish req@(Publish t _) = do
-    subs <- subscribersForTopic t
-    notf <- notifiersForTopic t
-    let nodes = subs `union` notf
+publish :: (HasP2PEnv env m r t rmsg msg) => PubSubPayload t msg -> m ()
+publish req@(PubSubPayload (t,_)) = do
+    nodes <- liftA2 union (subscribers t) (notifiers t)
     responses <-
         mapSetConcurrently
-            (\node -> runExceptT $ issueRequest node (PubSubRequest req))
+            (\node -> runExceptT $ issueRequest node (publishRequest req))
             nodes
     void $ traverseSet
         (\case
@@ -46,3 +30,6 @@ publish req@(Publish t _) = do
                 Right (PubSubResponse Ok) -> return ()
                 Right (PubSubResponse Error) -> return ())
         responses
+
+publishRequest :: msg -> Request ('PubSub 'Publish) msg
+publishRequest = PubSubRequest

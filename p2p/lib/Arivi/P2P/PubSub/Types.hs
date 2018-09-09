@@ -1,40 +1,30 @@
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Arivi.P2P.PubSub.Types
-    ( Notify(..)
-    , Publish(..)
-    , Subscribe(..)
-    , NodeTimer(..)
+    ( NodeTimer(..)
     , TopicHandler(..)
-    , TopicHandlerMap(..)
     , Subscribers(..)
     , Notifiers(..)
+    , Inbox(..)
+    , Cache(..)
+    , TopicHandlers(..)
     , Status(..)
+    , Timer
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes
-import           Arivi.P2P.Types
 
 import           Codec.Serialise                       (Serialise)
-import           Control.Concurrent.STM.TVar
 import           Data.HashMap.Strict                   as HM
 import           Data.Set                              (Set)
 import           Data.Time.Clock
 import           GHC.Generics                          (Generic)
 
-newtype TopicHandler t msg =
-    TopicHandler (PubSubPayload t msg -> PubSubPayload t msg)
-
-data Publish t msg = Publish t msg
-    deriving (Eq, Ord, Show, Generic, Serialise)
-
-data Notify t msg = Notify t msg
-    deriving (Eq, Ord, Show, Generic, Serialise)
-
-data Subscribe t = Subscribe t Timer
-    deriving (Eq, Ord, Show, Generic, Serialise)
+newtype TopicHandler msg =
+    TopicHandler (forall m . msg -> m msg)
 
 type Timer = Integer
 
@@ -43,11 +33,15 @@ data NodeTimer = NodeTimer
     , timer :: UTCTime -- time here is current time added with the nominaldifftime in the message
     } deriving (Eq, Ord, Show, Generic, Serialise)
 
-newtype Subscribers t = Subscribers (HM.HashMap t (TVar (Set NodeId)))
+newtype Subscribers f t = Subscribers (HM.HashMap t (f (Set NodeId)))
 
-newtype Notifiers t = Notifiers (HM.HashMap t (TVar (Set NodeId)))
+newtype Notifiers f t = Notifiers (HM.HashMap t (f (Set NodeId)))
 
-newtype TopicHandlerMap t msg = TopicHandlerMap (HM.HashMap t (TopicHandler t msg))
+newtype Inbox f msg = Inbox (HM.HashMap msg (f (Set NodeId)))
+
+newtype Cache f msg = Cache (HM.HashMap msg (f msg))
+
+newtype TopicHandlers t msg = TopicHandlers (HM.HashMap t (TopicHandler msg))
 
 data Status = Ok
             | Error
