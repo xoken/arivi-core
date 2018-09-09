@@ -4,6 +4,7 @@ module Arivi.P2P.ServiceRegistry
 
 import           Arivi.Crypto.Utils.Keys.Signature
 import           Arivi.Env
+import           Arivi.P2P.PubSub.Handler
 import           Arivi.P2P.RPC.Handler
 import           Arivi.P2P.Kademlia.MessageHandler
 import           Arivi.P2P.MessageHandler.HandlerTypes
@@ -34,4 +35,4 @@ makeP2Pinstance nodeid mIp tcpport udpport statsdIP statsdPort statsdPrefix sk s
            <*> createStatsdClient statsdIP statsdPort statsdPrefix
 
 mkHandlers :: Handlers
-mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler
+mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler pubSubHandler

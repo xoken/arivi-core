@@ -61,11 +61,7 @@ registerResource resource resourceHandler resourceType = do
 -- if it is less should ask Kademlia for more nodes
 -- send each peer and option message
 -- the options message module will handle the sending of messages and updating of the HashMap based on the support message
-updatePeerInResourceMap ::
-       ( HasP2PEnv env m r msg
-       )
-    => r
-    -> m ()
+updatePeerInResourceMap :: (HasP2PEnv env m r t rmsg pmsg) => r -> m ()
 updatePeerInResourceMap r = do
     nId <- (^.networkConfig.nodeId) <$> ask
     archivedResourceToPeerMapTvar <- archived
@@ -81,8 +77,7 @@ updatePeerInResourceMap r = do
     return ()
 
 updatePeerInResourceMapHelper ::
-       ( HasP2PEnv env m r msg
-       )
+       (HasP2PEnv env m r t msg pmsg)
     => r
     -> ArchivedResourceToPeerMap r msg
     -> Int
@@ -122,7 +117,7 @@ extractMin [] = return 0
 extractMin l  = (fmap minimum <$> mapM (fmap length <$> readTVarIO)) l
 
 fetchResource ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t msg pmsg
        )
     => RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))
@@ -150,7 +145,8 @@ fetchResource payload@(RpcPayload resource _) = do
 fetchResource (RpcError _) = error "Change RpcPayload constructor"
 
 -- | Try fetching resource from a list of nodes. Return first successful response or return an error if didn't get a successfull response from any peer
-sendResourceRequest :: ( HasP2PEnv env m r msg)
+sendResourceRequest ::
+       (HasP2PEnv env m r t msg pmsg)
     => [NodeId]
     -> RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))

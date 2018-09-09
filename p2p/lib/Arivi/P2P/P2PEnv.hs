@@ -12,24 +12,32 @@ module Arivi.P2P.P2PEnv
     ) where
 
 import           Arivi.Env
-import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..), Request(..), Response(..))
+import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..), Request(..), Response(..), PubSub(..))
 import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
+
 import           Codec.Serialise
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Concurrent.STM                (TVar, newTVarIO)
+import           Data.ByteString.Lazy                  (ByteString)
 import           Data.HashMap.Strict                   as HM
 import           Data.Hashable
 
-type HasP2PEnv env m r msg
+-- |Upon writing services, we might discover that topic (t) and resource (r)
+-- can be the same type, and the same with rpc message (rmsg) and
+-- pubsub message (pmsg), for now it has become a huge thing in itself that
+-- modifying it affects a lot of other modules.
+type HasP2PEnv env m r t rmsg pmsg
      = ( HasNodeEndpoint m
        , HasLogging m
-       , HasRpc m r msg
+       , HasPubSub m t pmsg
+       , HasRpc m r rmsg
        , HasKbucket m
        , HasStatsdClient m
        , MonadReader env m
@@ -177,6 +185,7 @@ class HasTransientResourcers m r msg | m -> r msg where
 
 data Handlers = Handlers {
       rpc :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => Request 'Rpc (RpcPayload r msg) -> m (Response 'Rpc (RpcPayload r msg))
-    , kademlia :: forall env m r msg. (HasP2PEnv env m r msg) => Request 'Kademlia T.PayLoad -> m (Response 'Kademlia T.PayLoad)
+    , kademlia :: forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg) => Request 'Kademlia T.PayLoad -> m (Response 'Kademlia T.PayLoad)
     , option :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => m (Response 'Option (Supported [r]))
+    , pubsub :: forall m t msg. (HasPubSub m t msg) => NodeId -> PubSub -> ByteString -> m ByteString
 }

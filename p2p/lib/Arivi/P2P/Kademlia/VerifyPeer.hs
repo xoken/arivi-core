@@ -143,7 +143,7 @@ filterPeer nid rnid peerL = result
     rXor = getXorDistance (C.unpack $ BS.encode rnid) (C.unpack $ BS.encode nid)
 
 initVerification ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => [Peer]
     -> ExceptT AriviP2PException m Bool
@@ -158,7 +158,7 @@ initVerification peerL = do
     return $ (>=) liveNodes minPeerResponded
 
 isVNRESPValid ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => [Peer]
     -> Peer
@@ -178,7 +178,7 @@ isVNRESPValid peerL peerR = do
         else return False
 
 issueVerifyNode ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> Peer
@@ -235,7 +235,7 @@ getRandomVerifiedPeer = do
     getPeerByNodeId rp
 
 responseHandler ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Either SomeException [Peer]
     -> Peer
@@ -262,7 +262,7 @@ responseHandler resp peerR peerT =
         Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
 
 sendVNMsg ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> Peer
@@ -274,7 +274,7 @@ sendVNMsg peerT peerV peerR = do
     wait t
 
 verifyPeer ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> ExceptT AriviP2PException m ()

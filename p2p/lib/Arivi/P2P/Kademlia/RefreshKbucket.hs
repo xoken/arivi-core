@@ -65,8 +65,7 @@ addToNewList bl pl
 -- | Issues a ping command and waits for the response and if the response is
 --   is valid returns True else False
 issuePing ::
-       forall env m r msg.
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> m Bool
@@ -103,8 +102,7 @@ deleteIfExist peerR pl =
 
 -- | creates a new list from an existing one by issuing a ping command
 refreshKbucket ::
-       forall env m r msg.
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> [Peer]
