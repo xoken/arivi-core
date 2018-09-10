@@ -9,6 +9,7 @@ module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
     , HasStatsdClient(..)
     , T.HasKbucket(..)
+    , HasPubSubEnv(..)
     ) where
 
 import           Arivi.Env
@@ -17,6 +18,7 @@ import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Class
+import           Arivi.P2P.PubSub.Env
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging
 import           Arivi.Utils.Statsd
@@ -89,9 +91,10 @@ mkKademlia NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
             kademliaConcurrencyFactor
 
 
-data P2PEnv r msg = P2PEnv {
+data P2PEnv r t rmsg pmsg = P2PEnv {
       nodeEndpointEnv :: NodeEndpointEnv
-    , rpcEnv :: RpcEnv r msg
+    , rpcEnv :: RpcEnv r rmsg
+    , psEnv :: PubSubEnv TVar t pmsg
     , kademliaEnv :: KademliaEnv
     , statsdClient :: StatsdClient
 }

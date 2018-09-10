@@ -12,6 +12,8 @@
 
 module Arivi.P2P.PubSub.Env
     ( PubSubEnv(..)
+    , mkPubSub
+    , HasPubSubEnv(..)
     ) where
 
 import Arivi.P2P.PubSub.Class
@@ -20,10 +22,12 @@ import Arivi.P2P.PubSub.Types
 import Control.Applicative
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Hashable
+import Data.HashMap.Strict as HM
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -39,7 +43,17 @@ data PubSubEnv f t msg = PubSubEnv
     }
 
 class HasPubSubEnv m t msg | m -> t msg where
-    pubSubEnv :: m (PubSubEnv f t msg)
+    pubSubEnv :: m (PubSubEnv TVar t msg)
+
+mkPubSub :: IO (PubSubEnv TVar t msg)
+mkPubSub = do
+    let topics = Set.empty
+    let subs = Subscribers HM.empty
+    let notf = Notifiers HM.empty
+    inbox <- newTVarIO (Inbox HM.empty)
+    cache <- newTVarIO (Cache HM.empty)
+    let handlers = TopicHandlers HM.empty
+    return (PubSubEnv topics subs notf inbox cache handlers)
 
 instance ( Ord t
          , Eq t
