@@ -34,6 +34,7 @@ import           Arivi.Network.Exception
 import           Arivi.Network.Fragmenter
 import           Arivi.Network.Handshake
 import           Arivi.Network.Reassembler
+import           Arivi.Network.Replay           (isReplayAttack, noOfPendings)
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types            hiding (ip)
 import           Arivi.Network.Utils            (getIPAddress, getPortNumber)
@@ -54,7 +55,6 @@ import           Data.Int
 import           Data.IORef
 import           Network.Socket                 hiding (send)
 import qualified Network.Socket.ByteString.Lazy as N (recv)
--- import           System.Timeout
 import           Text.InterpolatedString.Perl6
 
 establishSecureConnection ::
@@ -78,18 +78,18 @@ establishSecureConnection sk sock framer hsInitParcel = do
     writeLock <- newMVar 0
     let connection =
             Conn.mkIncompleteConnection'
-                { Conn.connectionId = cId
-                , Conn.ipAddress = ip
-                , Conn.port = portNum
-                , Conn.transportType = tt
-                , Conn.personalityType = RECIPIENT
-                , Conn.socket = sock
-                , Conn.waitWrite = writeLock
-                , Conn.p2pMessageTChan = p2pMsgTChan
-                , Conn.egressSeqNum = egressNonce
-                , Conn.ingressSeqNum = ingressNonce
-                , Conn.aeadNonceCounter = initNonce
-                }
+            { Conn.connectionId = cId
+            , Conn.ipAddress = ip
+            , Conn.port = portNum
+            , Conn.transportType = tt
+            , Conn.personalityType = RECIPIENT
+            , Conn.socket = sock
+            , Conn.waitWrite = writeLock
+            , Conn.p2pMessageTChan = p2pMsgTChan
+            , Conn.egressSeqNum = egressNonce
+            , Conn.ingressSeqNum = ingressNonce
+            , Conn.aeadNonceCounter = initNonce
+            }
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits
     (serialisedParcel, updatedConn) <-
@@ -142,13 +142,13 @@ getParcel sock = do
 sendPing :: MVar Int -> Socket -> Framer -> IO ()
 sendPing writeLock sock framer =
     let pingFrame = framer $ serialise (Parcel PingHeader (Payload BSL.empty))
-     in sendFrame writeLock sock pingFrame
+    in sendFrame writeLock sock pingFrame
 
 -- | Create and send a pong message on the socket
 sendPong :: MVar Int -> Socket -> Framer -> IO ()
 sendPong writeLock sock framer =
     let pongFrame = framer $ serialise (Parcel PongHeader (Payload BSL.empty))
-     in sendFrame writeLock sock pongFrame
+    in sendFrame writeLock sock pongFrame
 
 sendTcpMessage ::
        forall m. (MonadIO m, HasLogging m)
@@ -234,11 +234,22 @@ processParcel ::
     -> m (Maybe BSL.ByteString)
 processParcel parcel connection fragmentsHM =
     case parcel of
-        Parcel DataHeader {} _ -> do
+        Parcel (DataHeader _ _ _ _ replayNonce _) _ -> do
             hm <- liftIO $ readIORef fragmentsHM
             let (updatedHM, p2pMsg) = reassembleFrames connection parcel hm
             liftIO $ writeIORef fragmentsHM updatedHM
-            return p2pMsg
+            -- let crtNonce = nonce p2pMsg
+            pendingList <- liftIO $ readTVarIO $ Conn.pendingList connection
+            (isReplay, uPendingList) <-
+                isReplayAttack (fromIntegral replayNonce) pendingList
+            pendingNos <- noOfPendings uPendingList
+            if isReplay || (pendingNos > 1000)
+                then throw ReplayAttackException
+                else do
+                    liftIO $
+                        atomically $
+                        writeTVar (Conn.pendingList connection) uPendingList
+                    return p2pMsg
         Parcel PingHeader {} _ -> do
             liftIO $
                 sendPong
@@ -255,7 +266,13 @@ processParcel parcel connection fragmentsHM =
 getDatagramWithTimeout ::
        Socket -> Int -> IO (Either AriviNetworkException Parcel)
 getDatagramWithTimeout sock microseconds = do
-    datagramOrNothing <- Async.race (threadDelay microseconds) (try $ mapIOException (\(_ :: SomeException) -> NetworkSocketException) (N.recv sock 5100))
+    datagramOrNothing <-
+        Async.race
+            (threadDelay microseconds)
+            (try $
+             mapIOException
+                 (\(_ :: SomeException) -> NetworkSocketException)
+                 (N.recv sock 5100))
     case datagramOrNothing of
         Left _ -> return $ Left NetworkTimeoutException
         Right datagramEither ->
