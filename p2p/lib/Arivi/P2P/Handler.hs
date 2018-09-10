@@ -27,7 +27,7 @@ import           Data.Maybe                            (fromJust)
 import           Control.Lens
 
 -- | Processes a new request from peer
-processRequest :: (HasP2PEnv env m r msg)
+processRequest :: (HasP2PEnv env m r t rmsg pmsg)
     => ConnectionHandle
     -> P2PMessage
     -> NodeId
@@ -38,7 +38,7 @@ processRequest connHandle p2pMessage peerNodeId = do
         Rpc -> serialise <$> rpc hh (deserialise $ payload p2pMessage)
         Kademlia -> serialise <$> kademlia hh (deserialise $ payload p2pMessage)
         Option -> serialise <$> option hh
-        PubSub -> error "PubSub Handler not implemented"
+        PubSub p -> pubsub hh undefined p (payload p2pMessage)
     let p2pResponse = generateP2PMessage (uuid p2pMessage) (messageType p2pMessage) responseMsg
     res <- LE.try $ send connHandle (serialise p2pResponse)
     case res of
@@ -47,7 +47,7 @@ processRequest connHandle p2pMessage peerNodeId = do
 
 
 -- | Takes an incoming message from the network layer and procesess it in 2 ways. If the mes0sage was an expected reply, it is put into the waiting mvar or else the appropriate handler for the message type is called and the generated response is sent back
-processIncomingMessage :: (HasP2PEnv env m r msg)
+processIncomingMessage :: (HasP2PEnv env m r t rmsg pmsg)
     => ConnectionHandle
     -> TVar PeerDetails
     -> P2PPayload
@@ -67,7 +67,7 @@ processIncomingMessage connHandle peerDetailsTVar msg = do
                 Nothing -> error "Don't know what to do here"
 
 -- | Recv from connection handle and process incoming message
-readIncomingMessage :: (HasP2PEnv env m r msg)
+readIncomingMessage :: (HasP2PEnv env m r t rmsg pmsg)
     => ConnectionHandle
     -> TVar PeerDetails
     -> m ()
@@ -80,7 +80,7 @@ readIncomingMessage connHandle peerDetailsTVar = do
             _ <- LA.async (processIncomingMessage connHandle peerDetailsTVar msg)
             readIncomingMessage connHandle peerDetailsTVar
 
-newIncomingConnectionHandler :: (HasP2PEnv env m r msg)
+newIncomingConnectionHandler :: (HasP2PEnv env m r t rmsg pmsg)
     => NetworkConfig
     -> TransportType
     -> ConnectionHandle

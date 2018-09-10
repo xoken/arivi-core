@@ -30,9 +30,11 @@ library
   build-depends:       base < 5
                     ,  serialise
                     ,  cryptonite
+                    ,  containers
                     ,  exceptions
                     ,  text
                     ,  lifted-base
+                    ,  lifted-async
                     ,  monad-control
                     ,  mtl >= 2.2.2
                     ,  monad-control
@@ -47,5 +49,6 @@ library
   exposed-modules:
                        Arivi.Utils.Logging
                        Arivi.Utils.Statsd
+                       Arivi.Utils.Set
 
   default-language:    Haskell2010

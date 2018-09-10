@@ -22,7 +22,7 @@ import           Data.HashMap.Strict                   as HM
 --This function will send the options message to all the peers in [NodeId] on separate threads
 --This is the top level function that will be exposed
 sendOptionsMessage ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => [NodeId]
     -> Options r
@@ -35,7 +35,11 @@ sendOptionsMessage peers optionsMessage =
 -- 1. Formulate and send options message
 -- 2. Update the hashMap based on the supported message returned
 -- blocks while waiting for a response from the Other Peer
-sendOptionsToPeer :: forall env m r msg . (HasP2PEnv env m r msg) => NodeId -> Options r -> m ()
+sendOptionsToPeer ::
+       forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg)
+    => NodeId
+    -> Options r
+    -> m ()
 sendOptionsToPeer recievingPeerNodeId optionsMsg = do
     res <-
         runExceptT $ issueRequest recievingPeerNodeId (OptionRequest optionsMsg)
@@ -45,8 +49,8 @@ sendOptionsToPeer recievingPeerNodeId optionsMsg = do
             updateResourcePeers (recievingPeerNodeId, resources)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
-updateResourcePeers :: forall env m r msg .
-       (HasP2PEnv env m r msg) => (NodeId, [r]) -> m ()
+updateResourcePeers ::
+       (HasP2PEnv env m r t rmsg pmsg) => (NodeId, [r]) -> m ()
 updateResourcePeers peerResourceTuple = do
     archivedResourceToPeerMapTvar <- archived
     archivedResourceToPeerMap <-

@@ -22,6 +22,7 @@ import           Arivi.P2P.Types
 import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.PubSub.Env
 
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad                          (mapM_)
@@ -36,7 +37,7 @@ import           Data.Text
 import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
-type AppM = ReaderT (P2PEnv ByteString ByteString) (LoggingT IO)
+type AppM = ReaderT (P2PEnv ByteString ByteString ByteString ByteString) (LoggingT IO)
 
 instance HasNetworkEnv AppM where
     getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
@@ -55,7 +56,7 @@ instance HasNodeEndpoint AppM where
     getHandlers = asks (handlers . nodeEndpointEnv)
     getNodeIdPeerMapTVarP2PEnv = asks (tvarNodeIdPeerMap . nodeEndpointEnv)
 
-instance HasNetworkConfig (P2PEnv r msg) NetworkConfig where
+instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
     networkConfig f p2p =
         fmap
             (\nc ->
@@ -80,7 +81,10 @@ instance HasPRT AppM where
     getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
 
 
-runAppM :: P2PEnv ByteString ByteString -> AppM a -> LoggingT IO a
+instance PE.HasPubSubEnv AppM ByteString ByteString where
+    pubSubEnv = asks PE.psEnv
+
+runAppM :: P2PEnv ByteString ByteString ByteString ByteString-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
 {--

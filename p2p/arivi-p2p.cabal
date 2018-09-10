@@ -59,53 +59,53 @@ library
                     ,  either-unwrap >= 1.1
                     ,  sorted-list
                     ,  string-conv
-                    ,  yaml
                     ,  aeson >= 1.4.0.0
                     ,  leveldb-haskell >= 0.6.5
                     ,  data-default >= 0.7.1.1
                     ,  resourcet >= 1.2.1
                     ,  unliftio-core >= 0.1.2.0
+                    ,  yaml
                     ,  arivi-network
                     ,  arivi-crypto
                     ,  arivi-utils
-  ghc-options:         -Wall -Werror -fno-defer-type-errors -fno-defer-out-of-scope-variables
-  default-extensions:  FlexibleContexts
+  ghc-options:         -Wall -Werror -Wredundant-constraints 
+  default-extensions:  FlexibleContexts 
   exposed-modules:
-                      --  Arivi.P2P.PubSub
-                      --  Arivi.P2P.Instance
-                       Arivi.P2P
+                       Arivi.P2P.Config
+                       Arivi.P2P.Handler
+                       Arivi.P2P.Kademlia.LoadDefaultPeers
+                       Arivi.P2P.MessageHandler.HandlerTypes
+                       Arivi.P2P.P2PEnv
+                       Arivi.P2P.PubSub.Env
+                       Arivi.P2P.PubSub.Publish
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
-                       Arivi.P2P.Config
-                       Arivi.P2P.P2PEnv
+  other-modules:
                        Arivi.P2P.Connection
-                       Arivi.P2P.Handler
-                       Arivi.P2P.PeerMaintainer
-                       Arivi.P2P.RPC.Handler
                        Arivi.P2P.Exception
-                       Arivi.P2P.MessageHandler.NodeEndpoint
-                       Arivi.P2P.MessageHandler.HandlerTypes
-                       Arivi.P2P.MessageHandler.Utils
-                       Arivi.P2P.Kademlia.Types
-                       Arivi.P2P.Kademlia.XorDistance
-                       Arivi.P2P.Kademlia.Utils
                        Arivi.P2P.LevelDB
-                       Arivi.P2P.RPC.Functions
-                       Arivi.P2P.RPC.Types
-                       Arivi.P2P.PubSub.Types
-                       Arivi.P2P.RPC.SendOptions
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
-                       Arivi.P2P.Kademlia.LoadDefaultPeers
                        Arivi.P2P.Kademlia.RefreshKbucket
+                       Arivi.P2P.Kademlia.RunConcurrently
+                       Arivi.P2P.Kademlia.Types
+                       Arivi.P2P.Kademlia.Utils
                        Arivi.P2P.Kademlia.VerifyPeer
+                       Arivi.P2P.Kademlia.XorDistance
+                       Arivi.P2P.MessageHandler.NodeEndpoint
+                       Arivi.P2P.MessageHandler.Utils
+                       Arivi.P2P.PubSub.Class
+                       Arivi.P2P.PubSub.Handler
+                       Arivi.P2P.PubSub.Notify
+                       Arivi.P2P.PubSub.Subscribe
+                       Arivi.P2P.PubSub.Types
                        Arivi.P2P.PRT.Exceptions
                        Arivi.P2P.PRT.Instance
                        Arivi.P2P.PRT.Types
-                      --  Arivi.P2P.PubSub.Functions
-                      --  Arivi.P2P
-                       Arivi.P2P.Kademlia.RunConcurrently
-                       Arivi.P2P.Kademlia.LoadReputedPeers
+                       Arivi.P2P.RPC.Functions
+                       Arivi.P2P.RPC.Handler
+                       Arivi.P2P.RPC.SendOptions
+                       Arivi.P2P.RPC.Types
   default-language:    Haskell2010
 
 executable Main

@@ -42,7 +42,7 @@ import qualified Data.Text                             as T
 --   local node information which are passed to P2P environment during
 --   P2P instance initialization.
 loadDefaultPeers ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => [Peer]
     -> m ()
@@ -77,7 +77,7 @@ deleteIfPeerExist (x:xs) = do
 -- | Issues a FIND_NODE request by calling the network apis from P2P Layer
 --  TODO : See if need to be converted to ExceptT
 issueFindNode ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> m ()

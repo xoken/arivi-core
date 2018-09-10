@@ -49,7 +49,7 @@ import qualified Data.Text as T
 --   bytestring.
 
 kademliaMessageHandler ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => Request 'Kademlia PayLoad
     -> m (Response 'Kademlia PayLoad)

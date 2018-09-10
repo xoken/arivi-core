@@ -38,7 +38,7 @@ registerResource resource resourceHandler resourceType = do
 
 -- | Called by the service to fetch a resource. P2P decides best peer to ask for the resource. 
 fetchResource ::
-       ( HasP2PEnv env m r msg
+       ( HasP2PEnv env m r t msg pmsg
        )
     => RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))
@@ -66,7 +66,8 @@ fetchResource payload@(RpcPayload resource _) = do
 fetchResource (RpcError _) = error "Change RpcPayload constructor"
 
 -- | Try fetching resource from a list of nodes. Return first successful response or return an error if didn't get a successfull response from any peer
-sendResourceRequest :: ( HasP2PEnv env m r msg)
+sendResourceRequest ::
+       (HasP2PEnv env m r t msg pmsg)
     => [NodeId]
     -> RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))

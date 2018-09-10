@@ -1,3 +1,4 @@
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -35,30 +36,29 @@ import           Data.Monoid ((<>))
 
 type Map = HashMap
 
+data PubSub
+    = Notify
+    | Publish
+    | Subscribe
+    deriving (Eq, Show, Ord, Generic, Serialise)
+
 data MessageType = Kademlia
                  | Option
                  | Rpc
-                 | PubSub
-                 deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
-
+                 | PubSub PubSub
+                 deriving (Eq, Show, Ord, Generic, Serialise)
 
 data Request :: MessageType -> * -> * where
-  RpcRequest :: (Serialise msg) => msg -> Request 'Rpc msg
-  OptionRequest :: (Serialise msg) => msg -> Request 'Option msg
-  KademliaRequest :: (Serialise msg) => msg -> Request 'Kademlia msg
-  PubSubRequest :: (Serialise msg) => msg -> Request 'PubSub msg
+    RpcRequest :: msg -> Request 'Rpc msg
+    OptionRequest :: msg -> Request 'Option msg
+    KademliaRequest :: msg -> Request 'Kademlia msg
+    PubSubRequest :: msg -> Request ('PubSub i) msg
 
-data Response (i :: MessageType) msg where
-  RpcResponse :: (Serialise msg) => msg -> Response 'Rpc msg
-  OptionResponse :: (Serialise msg) => msg -> Response 'Option msg
-  KademliaResponse :: (Serialise msg) => msg -> Response 'Kademlia msg
-  PubSubResponse :: (Serialise msg) => msg -> Response 'PubSub msg
-
--- data PubSubMessage (i :: PubSubType) t msg where
---   PubsubPublish :: (Serialise msg, Topic t) => msg -> t ->  PubSubMessage 'Publish t msg
---   PubsubNotify :: (Serialise msg, Topic t) => msg -> t ->  PubSubMessage 'Notify t msg
-
--- data PubSubType = Notify | Publish deriving (Eq, Show, Ord, Generic, Serialise, Hashable)
+data Response :: MessageType -> * -> * where
+    RpcResponse :: msg -> Response 'Rpc msg
+    OptionResponse :: msg -> Response 'Option msg
+    KademliaResponse :: msg -> Response 'Kademlia msg
+    PubSubResponse :: msg -> Response ('PubSub i) msg
 
 class Msg (i :: k) where
   msgType :: Proxy i -> MessageType
@@ -78,25 +78,16 @@ instance Msg 'Option where
 instance Msg 'Kademlia where
   msgType _ = Kademlia
 
-instance Msg 'PubSub where
-  msgType _ = PubSub
+instance Msg ('PubSub 'Notify) where
+  msgType _ = PubSub Notify
 
+instance Msg ('PubSub 'Publish) where
+  msgType _ = PubSub Publish
 
+instance Msg ('PubSub 'Subscribe) where
+  msgType _ = PubSub Subscribe
 
 type Resource r = (Eq r, Hashable r, Serialise r)
-
--- class (Eq r, Hashable r, Serialise r) => Resource r where
---     resourceId :: r -> String
-
--- instance (Resource r, Serialise msg) => Resource (RpcPayload r msg) where
---   resourceId (RpcPayload r _) = resourceId r
-
-class (Serialise t) => Topic t where
-  topicId :: t -> String
-
-instance (Topic t, Serialise msg) => Topic (PubSubPayload t msg) where
-  topicId (PubSubPayload t _) = topicId t
-
 
 data Error = ResourceNotFound deriving (Eq, Ord, Show, Generic, Serialise)
 
@@ -108,13 +99,7 @@ data OptionPayload msg = OptionPayload msg
                        deriving (Eq, Ord, Show, Generic, Serialise)
 
 
-data PubSubPayload t msg = PubSubPayload t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
-
-data PubSubPublish t msg = PubSubPublish t msg
-                      deriving (Eq, Ord, Show, Generic, Serialise)
-
-data PubSubNotify t msg = PubSubNotify t msg
+newtype PubSubPayload t msg = PubSubPayload (t, msg)
                       deriving (Eq, Ord, Show, Generic, Serialise)
 
 data family RTTI (f :: k -> *) :: (k -> *)
@@ -126,7 +111,7 @@ data instance RTTI (Request i) msg where
   RttiReqRpc :: RTTI (Request 'Rpc) msg
   RttiReqKademlia :: RTTI (Request 'Kademlia) msg
   RttiReqOption :: RTTI (Request 'Option) msg
-  RttiReqPubSub :: RTTI (Request 'PubSub) msg
+  RttiReqPubSub :: RTTI (Request ('PubSub i)) msg
 
 instance HasRTTI (Request 'Rpc) msg where
   rtti = RttiReqRpc
@@ -138,7 +123,7 @@ instance HasRTTI (Request 'Option) msg where
   rtti = RttiReqOption
 
 
-instance HasRTTI (Request 'PubSub) msg where
+instance HasRTTI (Request ('PubSub i)) msg where
   rtti = RttiReqPubSub
 
 -- GHC can't derive Generic instances for GADTs, so we need to write
@@ -193,7 +178,7 @@ data instance  RTTI (Response i) msg where
         RttiResRpc :: RTTI (Response 'Rpc) msg
         RttiResOption :: RTTI (Response 'Option) msg
         RttiResKademlia :: RTTI (Response 'Kademlia) msg
-        RttiResPubSub :: RTTI (Response 'PubSub) msg
+        RttiResPubSub :: RTTI (Response ('PubSub i)) msg
 
 instance HasRTTI (Response 'Rpc) msg where
     rtti = RttiResRpc
@@ -204,7 +189,7 @@ instance HasRTTI (Response 'Option) msg where
 instance HasRTTI (Response 'Kademlia) msg where
     rtti = RttiResKademlia
 
-instance HasRTTI (Response 'PubSub) msg where
+instance HasRTTI (Response ('PubSub i)) msg where
     rtti = RttiResPubSub
 
 instance (HasRTTI (Response i) msg, Serialise msg) =>
@@ -241,7 +226,6 @@ decodeResponse RttiResKademlia = do
     case (len, tag) of
         (2, 2) -> KademliaResponse <$> decode
         _ -> fail "Failed to deserialise into a valid KademliaResponse type"
-
 decodeResponse RttiResPubSub = do
     len <- decodeListLen
     tag <- decodeWord
@@ -250,6 +234,28 @@ decodeResponse RttiResPubSub = do
         _ -> fail "Failed to deserialise into a valid PubSubResponse type"
 
 
+deriving instance (Eq i) => Eq (Request t i)
+
+compareRequest :: (Ord i) => Request t i -> Request t i -> Ordering
+compareRequest (RpcRequest a) (RpcRequest b) = compare a b
+compareRequest (KademliaRequest a) (KademliaRequest b) = compare a b
+compareRequest (OptionRequest a) (OptionRequest b) = compare a b
+compareRequest (PubSubRequest a) (PubSubRequest b) = compare a b
+
+instance (Ord i) => Ord (Request t i) where
+  compare = compareRequest
+
+
+deriving instance (Eq i) => Eq (Response t i)
+
+compareResponse :: (Ord i) => Response t i -> Response t i -> Ordering
+compareResponse (RpcResponse a) (RpcResponse b) = compare a b
+compareResponse (KademliaResponse a) (KademliaResponse b) = compare a b
+compareResponse (OptionResponse a) (OptionResponse b) = compare a b
+compareResponse (PubSubResponse a) (PubSubResponse b) = compare a b
+
+instance (Ord i) => Ord (Response t i) where
+  compare = compareResponse
 
 {-
 -- Serialise instances for Request and Response GADTs using Singletons
