@@ -68,7 +68,7 @@ library
                     ,  arivi-network
                     ,  arivi-crypto
                     ,  arivi-utils
-  ghc-options:         -Wall -Werror -Wredundant-constraints 
+  ghc-options:        -Wredundant-constraints 
   default-extensions:  FlexibleContexts 
   exposed-modules:
                        Arivi.P2P.Config
