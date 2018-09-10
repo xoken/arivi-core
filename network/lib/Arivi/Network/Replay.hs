@@ -67,19 +67,16 @@ updatePendingList replayNonce pendingList =
 -- | Checks if the given replayNonce is already received or not. If it is there
 -- then removes it from pending list and gives updated pending list and missing
 -- count
-isReplayAttack ::
-       Monad m
-    => Integer
-    -> [(Integer, Integer)]
-    -> Integer
-    -> m (Bool, [(Integer, Integer)], Integer)
-isReplayAttack replayNonce pendingList missingCount =
+-- isReplayAttack ::
+--        Monad m
+--     => Integer
+--     -> [(Integer, Integer)]
+--     -> Integer
+--     -> m (Bool, [(Integer, Integer)])
+isReplayAttack replayNonce pendingList =
     if isPresent replayNonce pendingList
-        then return
-                 ( False
-                 , updatePendingList replayNonce pendingList
-                 , missingCount - 1)
-        else return (True, pendingList, missingCount)
+        then return (False, updatePendingList replayNonce pendingList)
+        else return (True, pendingList)
 
 -- | Counts the no of pending nonces in pending list
 noOfPendings :: Monad m => [(Integer, Integer)] -> m Integer
