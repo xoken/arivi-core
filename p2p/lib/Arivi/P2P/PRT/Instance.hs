@@ -243,20 +243,15 @@ getReputedNodes n mapOfAllPeersHistory = do
         Left e                 -> throw e
         Right nReputedPeerList -> return nReputedPeerList
 
--- | Gives list of all reputed Peer present in the mapOfAllPeersHistory
-getAllReputedNodes :: (HasKbucket m, HasPRT m, MonadIO m) => Integer -> m [Peer]
-getAllReputedNodes n = do
+-- | Gives list of all reputed Peer's NodeIds present in the
+--   mapOfAllPeersHistory
+getAllReputedNodes :: (HasKbucket m, HasPRT m, MonadIO m) => m [Network.NodeId]
+getAllReputedNodes = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar
     let sortedListofAllPeersHistory =
             sortBy sortGT (HM.toList mapOfAllPeersHistory)
-    eitherNReputedPeerList <-
-        runExceptT $
-        getPeersByNodeIds
-            (getNodeIds $ take (fromIntegral n) sortedListofAllPeersHistory)
-    case eitherNReputedPeerList of
-        Left e                 -> throw e
-        Right mReputedPeerList -> return mReputedPeerList
+    return $ getNodeIds sortedListofAllPeersHistory
 
 -- | Gives K no of Peer's containting Reputed,Closest and Random based on the
 -- weightages defined in the config file
