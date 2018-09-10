@@ -223,9 +223,9 @@ getPeerByNodeId nid = do
     localPeer <- getDefaultNodeId
     let kbi = getKbIndex localPeer nid
     pl <- getPeerListByKIndex kbi
-    t <- filter (\x -> fst (getPeer x) == nid) pl
+    let t = filter (\x -> fst (getPeer x) == nid) pl
     if null t
-        then return KademliaInvalidPeer
+        then throwError KademliaPeerDoesNotExist
         else return $ head t
 
 getPeersByNodeIds ::
