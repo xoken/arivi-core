@@ -80,9 +80,9 @@ library
                        Arivi.P2P.PubSub.Publish
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
+                       Arivi.P2P.Exception 
   other-modules:
                        Arivi.P2P.Connection
-                       Arivi.P2P.Exception
                        Arivi.P2P.LevelDB
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
