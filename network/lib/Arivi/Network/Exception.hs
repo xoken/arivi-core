@@ -2,14 +2,13 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Arivi.Network.Exception
-(
-      AriviNetworkException(..)
+    ( AriviNetworkException(..)
     , mapIOException
-) where
+    ) where
 
-import           Codec.Serialise   (DeserialiseFailure(..))
+import           Codec.Serialise   (DeserialiseFailure (..))
 import           Control.Exception
-import           Crypto.Error      (CryptoError(..))
+import           Crypto.Error      (CryptoError (..))
 
 data AriviNetworkException
     = NetworkCryptoException CryptoError
@@ -18,9 +17,11 @@ data AriviNetworkException
     | NetworkWrongParcelException
     | NetworkTimeoutException
     | NetworkDeserialiseException DeserialiseFailure
+    | ReplayAttackException
     deriving (Eq, Ord, Show)
 
 deriving instance Eq DeserialiseFailure
+
 deriving instance Ord DeserialiseFailure
 
 deriving instance Ord CryptoError
