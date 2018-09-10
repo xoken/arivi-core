@@ -223,7 +223,10 @@ getPeerByNodeId nid = do
     localPeer <- getDefaultNodeId
     let kbi = getKbIndex localPeer nid
     pl <- getPeerListByKIndex kbi
-    return $ head $ filter (\x -> fst (getPeer x) == nid) pl
+    t <- filter (\x -> fst (getPeer x) == nid) pl
+    if null t
+        then return KademliaInvalidPeer
+        else return $ head t
 
 getPeersByNodeIds ::
        (HasKbucket m, MonadIO m)
