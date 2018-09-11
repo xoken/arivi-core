@@ -21,7 +21,7 @@ module Arivi.P2P.LevelDB
 
 import           Control.Monad.IO.Unlift      (MonadUnliftIO)
 import           Control.Monad.Trans.Resource (runResourceT)
-import           Data.ByteString.Char8        (ByteString)
+import           Data.ByteString              (ByteString)
 import           Data.Default                 (def)
 import           Database.LevelDB             (bloomFilter, createIfMissing,
                                                defaultOptions, delete,
