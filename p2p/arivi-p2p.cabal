@@ -81,9 +81,12 @@ library
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.Exception 
+                       Arivi.P2P.LevelDB
+                       Arivi.P2P.RPC.Functions
+                       Arivi.P2P.PubSub.Types
+                       Arivi.P2P.RPC.Types
   other-modules:
                        Arivi.P2P.Connection
-                       Arivi.P2P.LevelDB
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
                        Arivi.P2P.Kademlia.RefreshKbucket
@@ -98,14 +101,11 @@ library
                        Arivi.P2P.PubSub.Handler
                        Arivi.P2P.PubSub.Notify
                        Arivi.P2P.PubSub.Subscribe
-                       Arivi.P2P.PubSub.Types
                        Arivi.P2P.PRT.Exceptions
                        Arivi.P2P.PRT.Instance
                        Arivi.P2P.PRT.Types
-                       Arivi.P2P.RPC.Functions
                        Arivi.P2P.RPC.Handler
                        Arivi.P2P.RPC.SendOptions
-                       Arivi.P2P.RPC.Types
   default-language:    Haskell2010
 
 executable Main
