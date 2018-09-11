@@ -5,6 +5,7 @@
 module Arivi.P2P.RPC.Functions
     ( registerResource
     , fetchResource
+    , fetchResourceForMessage
     -- -- not for Service Layer
     , updatePeerInResourceMap
     , addPeerFromKademlia
@@ -22,6 +23,8 @@ import           Arivi.P2P.MessageHandler.HandlerTypes (NodeIdPeerMap,
 import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
+import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Control.Concurrent                    (threadDelay)
 import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
@@ -33,7 +36,9 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.STM
 import qualified Data.HashMap.Strict                   as HM
+import           Data.Hashable
 import           Data.Maybe
+import qualified Data.Set                              as Set
 import           Control.Applicative
 
 -- register the resource and it's handler in the ResourceToPeerMap of RPC
@@ -143,6 +148,26 @@ fetchResource payload@(RpcPayload resource _) = do
                 then return (Left RPCEmptyNodeListException)
                 else sendResourceRequest nodeList payload
 fetchResource (RpcError _) = error "Change RpcPayload constructor"
+
+
+fetchResourceForMessage ::
+    (
+        HasP2PEnv env m r t msg pmsg
+      , HasPubSubEnv m t pmsg
+      , Eq pmsg
+      , Hashable pmsg
+    )
+    => pmsg
+    -> RpcPayload r msg
+    -> m (Either AriviP2PException (RpcPayload r msg))
+fetchResourceForMessage storedMsg payload@(RpcPayload _ _) = do
+    Inbox inbox <- join $ liftIO . readTVarIO <$> (pubSubInbox <$> pubSubEnv)
+    case HM.lookup storedMsg inbox of
+        Just nodeListTVar -> do
+            nodeList <- (liftIO . readTVarIO) nodeListTVar
+            sendResourceRequest (Set.toList nodeList) payload -- does not make sense to pattern match here on the result and call fetchResource again. If the nodes who sent the notification don't have the resource, why request the same resource from guys who didn't send the notification
+        Nothing -> fetchResource payload
+fetchResourceForMessage _ (RpcError _) = error "Change RpcPayload constructor"
 
 -- | Try fetching resource from a list of nodes. Return first successful response or return an error if didn't get a successfull response from any peer
 sendResourceRequest ::
