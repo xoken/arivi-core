@@ -24,6 +24,7 @@ import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Control.Concurrent                    (threadDelay)
@@ -153,7 +154,6 @@ fetchResource (RpcError _) = error "Change RpcPayload constructor"
 fetchResourceForMessage ::
     (
         HasP2PEnv env m r t msg pmsg
-      , HasPubSubEnv m t pmsg
       , Eq pmsg
       , Hashable pmsg
     )
@@ -161,7 +161,8 @@ fetchResourceForMessage ::
     -> RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))
 fetchResourceForMessage storedMsg payload@(RpcPayload _ _) = do
-    Inbox inbox <- join $ liftIO . readTVarIO <$> (pubSubInbox <$> pubSubEnv)
+    inboxed <-  asks inbox
+    Inbox inbox <- (liftIO . readTVarIO) inboxed
     case HM.lookup storedMsg inbox of
         Just nodeListTVar -> do
             nodeList <- (liftIO . readTVarIO) nodeListTVar

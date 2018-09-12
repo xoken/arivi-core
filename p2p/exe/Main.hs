@@ -23,6 +23,7 @@ import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Class
 
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad.Logger
@@ -70,9 +71,14 @@ instance HasArchivedResourcers AppM ByteString ByteString where
 instance HasTransientResourcers AppM ByteString ByteString where
     transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
 
-
-instance PE.HasPubSubEnv AppM ByteString ByteString where
-    pubSubEnv = asks PE.psEnv
+instance HasTopics (P2PEnv r t rmsg pmsg) t
+instance HasSubscribers (P2PEnv r t rmsg pmsg) t
+instance HasNotifiers (P2PEnv r t rmsg pmsg) t
+instance HasInbox (P2PEnv r t rmsg pmsg) pmsg
+instance HasCache (P2PEnv r t rmsg pmsg) pmsg
+instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg
+instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
+    pubSubEnv = asks psEnv
 
 runAppM :: P2PEnv ByteString ByteString ByteString ByteString-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
