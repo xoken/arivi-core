@@ -71,6 +71,7 @@ library
   ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
+                       Arivi.P2P
                        Arivi.P2P.Config
                        Arivi.P2P.Exception
                        Arivi.P2P.Handler
@@ -88,10 +89,12 @@ library
                        Arivi.P2P.RPC.Types
   other-modules:
                        Arivi.P2P.Connection
+                       Arivi.P2P.PeerMaintainer
                        Arivi.P2P.Kademlia.Kbucket
                        Arivi.P2P.Kademlia.MessageHandler
                        Arivi.P2P.Kademlia.RefreshKbucket
                        Arivi.P2P.Kademlia.RunConcurrently
+                       Arivi.P2P.Kademlia.LoadReputedPeers
                        Arivi.P2P.Kademlia.Types
                        Arivi.P2P.Kademlia.Utils
                        Arivi.P2P.Kademlia.VerifyPeer

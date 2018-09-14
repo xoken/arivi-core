@@ -79,6 +79,7 @@ executable HelloWorldApp
                 , text
                 , bytestring
                 , cryptonite
+                , unordered-containers <= 0.2.9.0
                 , arivi-network
                 , network
                 , arivi-crypto

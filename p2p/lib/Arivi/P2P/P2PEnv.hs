@@ -43,6 +43,7 @@ type HasP2PEnv env m r t rmsg pmsg
        , HasRpc m r rmsg
        , HasKbucket m
        , HasStatsdClient m
+       , HasPRT m
        , MonadReader env m
        , HasNetworkConfig env NetworkConfig
        )

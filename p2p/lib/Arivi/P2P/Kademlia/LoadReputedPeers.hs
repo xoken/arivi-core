@@ -37,24 +37,24 @@ import           Arivi.P2P.Exception
 import qualified Data.Text                             as T
 
 loadReputedPeers ::
-       forall env m r msg.
+       forall env m r t rmsg pmsg.
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv env m r msg
+       , HasP2PEnv env m r t rmsg pmsg
        , HasLogging m
        )
     => [Arivi.P2P.Kademlia.Types.NodeId]
-    ->  m ()
+    ->  ExceptT AriviP2PException m ()
 loadReputedPeers nodeIdList = do
     rpeerList <- mapM (`getKClosestPeersByNodeid` 10) nodeIdList
     let temp = zip nodeIdList rpeerList
     lift $ mapM_ (\x -> mapM_ (findGivenNode (fst x)) (snd x)) temp
 
 findGivenNode ::
-       forall env m r msg.
+       forall env m r t rmsg pmsg.
        ( MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv env m r msg
+       , HasP2PEnv env m r t rmsg pmsg
        , HasLogging m
        )
     => Arivi.P2P.Kademlia.Types.NodeId
