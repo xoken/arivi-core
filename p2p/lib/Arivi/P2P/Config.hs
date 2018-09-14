@@ -1,31 +1,33 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module CreateConfig
-    ( module CreateConfig
+module Arivi.P2P.Config
+    ( module Arivi.P2P.Config
     ) where
 
-import Arivi.Crypto.Utils.PublicKey.Signature
-import Arivi.Network (TransportType(..))
-import Arivi.P2P.Kademlia.Types (NodeEndPoint, NodeId, Peer(..))
-import Control.Exception
-import Crypto.Error (throwCryptoError)
-import Crypto.PubKey.Ed25519
-import qualified Data.ByteArray as BA
-import Data.ByteString.Char8
-import Data.Text as T
-import Data.Yaml
-import GHC.Generics
-import Network.Socket
+import           Arivi.P2P.Kademlia.Types (NodeEndPoint, Peer (..))
+import           Control.Exception
+import           Crypto.Error             (throwCryptoError)
+import           Crypto.PubKey.Ed25519
+import qualified Data.ByteArray           as BA
+import           Data.ByteString.Char8
+import           Data.Text                as T
+import           Data.Yaml
+import           GHC.Generics
+import           Network.Socket
 
 data Config = Config
-    { tcpPort :: PortNumber
-    , udpPort :: PortNumber
-    , secretKey :: SecretKey
-    , trustedPeers :: [Peer]
-    , myNodeId :: ByteString
-    , myIp :: String
-    , logFile :: T.Text
+    { tcpPort                      :: PortNumber
+    , udpPort                      :: PortNumber
+    , secretKey                    :: SecretKey
+    , trustedPeers                 :: [Peer]
+    , myNodeId                     :: ByteString
+    , myIp                         :: String
+    , logFile                      :: T.Text
+    , sbound                       :: Int
+    , pingThreshold                :: Int
+    , kademliaConcurrencyFactor    :: Int
     } deriving (Show, Generic)
 
 instance FromJSON ByteString where
@@ -62,10 +64,12 @@ instance ToJSON SecretKey where
 
 instance ToJSON Config
 
+makeConfig :: Config -> FilePath -> IO ()
 makeConfig config configPath = encodeFile configPath config
 
+readConfig :: FilePath -> IO Config
 readConfig path = do
     config <- decodeFileEither path :: IO (Either ParseException Config)
     case config of
-        Left e -> throw e
+        Left e    -> throw e
         Right con -> return con

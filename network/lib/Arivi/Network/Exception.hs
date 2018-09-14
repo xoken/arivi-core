@@ -1,12 +1,14 @@
-module Arivi.Network.Exception
-(
-      AriviNetworkException(..)
-    , mapIOException
-) where
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
-import           Codec.Serialise   (DeserialiseFailure)
+module Arivi.Network.Exception
+    ( AriviNetworkException(..)
+    , mapIOException
+    ) where
+
+import           Codec.Serialise   (DeserialiseFailure (..))
 import           Control.Exception
-import           Crypto.Error      (CryptoError)
+import           Crypto.Error      (CryptoError (..))
 
 data AriviNetworkException
     = NetworkCryptoException CryptoError
@@ -15,7 +17,14 @@ data AriviNetworkException
     | NetworkWrongParcelException
     | NetworkTimeoutException
     | NetworkDeserialiseException DeserialiseFailure
-    deriving (Show)
+    | ReplayAttackException
+    deriving (Eq, Ord, Show)
+
+deriving instance Eq DeserialiseFailure
+
+deriving instance Ord DeserialiseFailure
+
+deriving instance Ord CryptoError
 
 instance Exception AriviNetworkException
 

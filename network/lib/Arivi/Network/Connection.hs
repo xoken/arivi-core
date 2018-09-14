@@ -1,4 +1,3 @@
-
 {-# OPTIONS_GHC -fno-warn-missing-fields #-}
 {-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE EmptyDataDecls #-}
@@ -40,6 +39,7 @@ module Arivi.Network.Connection
     , socket
     , transportType
     , waitWrite
+    , pendingList
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
@@ -83,6 +83,7 @@ data Connection a = Connection
     , ingressSeqNum        :: TVar SequenceNum -- need not be TVar
     , aeadNonceCounter     :: TVar AeadNonce
     , handshakeComplete    :: TVar HandshakeStatus
+    , pendingList          :: TVar [(Integer, Integer)]
     } deriving (Eq, Generic)
 
 data Complete
@@ -109,6 +110,7 @@ mkIncompleteConnection cid rnid host portNum tt pt sock nonce = do
     ingressNum <- newTVarIO 0
     aeadNonce <- newTVarIO nonce
     writeLock <- newMVar 0
+    mPendingList <- newTVarIO [(0, (2 :: Integer) ^ (32 :: Integer))]
     return
         Connection
         { connectionId = cid
@@ -123,6 +125,7 @@ mkIncompleteConnection cid rnid host portNum tt pt sock nonce = do
         , egressSeqNum = egressNum
         , ingressSeqNum = ingressNum
         , aeadNonceCounter = aeadNonce
+        , pendingList = mPendingList
         }
 
 mkIncompleteConnection' :: Connection Incomplete

@@ -2,28 +2,35 @@ module Arivi.P2P.Exception
     ( AriviP2PException(..)
     ) where
 
-import           Arivi.P2P.RPC.Types (MessageTypeRPC)
+import           Arivi.Network     (AriviNetworkException)
 import           Control.Exception
 
 data AriviP2PException
     = KademliaKbIndexDoesNotExist
     | KademliaInvalidPeer
     | KademliaDefaultPeerDoesNotExists
-    | HandlerSendMessageTimeout
+    | SendMessageTimeout
     | HandlerOpenConnectionError
     | HandlerNotRequest
+    | InvalidUuid
     | HandlerConnectionBroken
+    | DeserialiseFailureP2P
+    | PeerNotFound
+    | NetworkException AriviNetworkException
     | KademliaInvalidRequest
     | KademliaInvalidResponse
     | RPCResourceNotFoundException
     | RPCHandlerResourceNotFoundException
     | RPCEmptyNodeListException
-    | RPCInvalidMessageType MessageTypeRPC
+    | RPCInvalidMessageType
     | SendOptionsFailedException
-    | OptionsInvalidMessageType MessageTypeRPC
-    | OptionsHandlerInvalidMessageType MessageTypeRPC
+    | OptionsInvalidMessageType
+    | OptionsHandlerInvalidMessageType
     | KademliaDeserialiseFailure
+    | PubSubInvalidResponseException
+    | PubSubNoWatcherOrNotifierException
     | KademliaNoVerifiedPeer
-    deriving (Show)
+    | KademliaPeerDoesNotExist
+    deriving (Eq, Ord, Show)
 
 instance Exception AriviP2PException

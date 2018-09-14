@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 module Arivi.Network.Instance
     ( openConnection
@@ -15,9 +16,9 @@ import           Arivi.Network.Exception
 import           Arivi.Network.Handshake
 import           Arivi.Network.StreamClient
 import           Arivi.Network.Types             as ANT (ConnectionHandle (..),
-                                                         NodeId,
                                                          PersonalityType (..),
-                                                         TransportType (..))
+                                                         TransportType (..),
+                                                         NetworkConfig(..))
 import           Arivi.Utils.Logging
 import           Control.Exception               (try)
 
@@ -26,7 +27,6 @@ import           Crypto.PubKey.Ed25519           (SecretKey)
 import           Data.HashMap.Strict             as HM
 import           Data.IORef
 import           Text.InterpolatedString.Perl6
-import           Network.Socket
 
 doEncryptedHandshake ::
        Conn.IncompleteConnection -> SecretKey -> IO Conn.CompleteConnection
@@ -51,23 +51,25 @@ doEncryptedHandshake connection sk = do
 
 openConnection ::
        forall m. (HasLogging m, HasSecretKey m)
-    => HostName
-    -> PortNumber
-    -> TransportType
-    -> NodeId
+    => NetworkConfig 
+    -> TransportType 
     -> m (Either AriviNetworkException ConnectionHandle)
-openConnection host portNum tt rnId =
+openConnection NetworkConfig{..} tt  =
     $(withLoggingTH)
-        (LogNetworkStatement ([qc|Opening Connection to host {host} |]))
+        (LogNetworkStatement ([qc|Opening Connection to host {_ip} |]))
         LevelDebug $ do
-        let cId = makeConnectionId host portNum tt
-        sock <- liftIO $ createSocket host (read (show portNum)) tt
-        conn <-
-            liftIO $
-            mkIncompleteConnection cId rnId host portNum tt INITIATOR sock 2
-        case tt of
-            TCP -> openTcpConnection conn
-            UDP -> openUdpConnection conn
+            let cId = makeConnectionId _ip  portNum tt
+            sock <- liftIO $ createSocket _ip (read (show portNum)) tt
+            conn <-
+                liftIO $
+                mkIncompleteConnection cId _nodeId _ip portNum tt INITIATOR sock 2
+            case tt of
+                TCP -> openTcpConnection conn
+                UDP -> openUdpConnection conn
+  where
+     portNum = portNum' tt
+     portNum' TCP = _tcpPort
+     portNum' UDP = _udpPort
 
 openTcpConnection ::
        forall m. (MonadIO m, HasLogging m, HasSecretKey m)

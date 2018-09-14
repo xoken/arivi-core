@@ -1,8 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
+  FlexibleInstances, TypeSynonymInstances #-}
 
 module Arivi.Network.Types
     ( ConnectionHandle(..)
@@ -40,6 +44,12 @@ module Arivi.Network.Types
     , makeDataParcel
     , deserialise
     , serialise
+    , NetworkConfig(..)
+    , defaultNetworkConfig
+    , HasNodeId(..)
+    , HasIp(..)
+    , HasTcpPort(..)
+    , HasUdpPort(..)
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Encryption as Keys
@@ -60,6 +70,7 @@ import           Data.Int                           (Int32, Int64, Int8)
 import           Data.Monoid
 import           GHC.Generics
 import           Network.Socket                     as Network
+import           Control.Lens.TH
 
 type ConnectionId = ByteString
 
@@ -278,3 +289,15 @@ data ConnectionHandle = ConnectionHandle
     , close :: forall m. (HasLogging m) =>
                              m ()
     }
+
+data NetworkConfig = NetworkConfig
+    { _nodeId  :: NodeId
+    , _ip      :: HostName
+    , _udpPort :: PortNumber
+    , _tcpPort :: PortNumber
+    } deriving (Eq, Ord, Show, Generic)
+
+defaultNetworkConfig :: NetworkConfig
+defaultNetworkConfig = NetworkConfig "0" "127.0.0.1" 6565 6565
+
+makeLensesWith classUnderscoreNoPrefixFields ''NetworkConfig

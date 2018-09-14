@@ -10,38 +10,31 @@
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE DataKinds       #-}
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
     ) where
 
-import           Arivi.P2P.Exception
-import           Arivi.P2P.Kademlia.Kbucket
-import           Arivi.P2P.Kademlia.Types
-import           Arivi.P2P.Kademlia.VerifyPeer
-import           Arivi.P2P.MessageHandler.Handler
-import qualified Arivi.P2P.MessageHandler.HandlerTypes as HT
-import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
-import           Codec.Serialise                       (DeserialiseFailure,
-                                                        deserialiseOrFail,
-                                                        serialise)
-import           Control.Concurrent.Async.Lifted       (async)
-import           Control.Concurrent.STM.TVar
-import           Control.Exception
-import qualified Control.Exception.Lifted              as Exception (SomeException,
-                                                                     try)
-import           Control.Monad.IO.Class
-import           Control.Monad.Logger
-import           Control.Monad.STM
-import qualified Data.ByteString.Lazy                  as L
-import qualified Data.Text                             as T
+import Arivi.P2P.Exception
+import Arivi.P2P.Kademlia.Kbucket
+import Arivi.P2P.Kademlia.Types
+import Arivi.P2P.Kademlia.VerifyPeer
+import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
+import Arivi.P2P.MessageHandler.NodeEndpoint
+import Arivi.P2P.P2PEnv
+import Arivi.P2P.Types
+import Control.Concurrent.Async.Lifted (async)
+import Control.Exception
+import Control.Lens
+import Control.Monad.Except
+import Control.Monad.Logger
+import Control.Monad.Reader
+import qualified Data.Text as T
 
--- import qualified STMContainers.Map           as H
 -- | Handler function to process incoming kademlia requests, requires a
 --   P2P instance to get access to local node information and kbukcet itself.
 --   It takes a bytesting as input which is deserialized to kademlia
@@ -54,75 +47,60 @@ import qualified Data.Text                             as T
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-kademliaMessageHandler ::
-       (HasP2PEnv m, HasLogging m) => L.ByteString -> m L.ByteString
-kademliaMessageHandler payl = do
-    let payl' = deserialiseOrFail payl :: Either DeserialiseFailure PayLoad
-    case payl' of
-        Left _ -> throw KademliaDeserialiseFailure
-        Right payl'' -> do
-            let msgb = messageBody $ message payl''
-                rnep = fromEndPoint msgb
-                rnid = nodeId msgb
-                rpeer = Peer (rnid, rnep)
-            p2pInstanceTVar <- getAriviTVarP2PEnv
-            p2pInstance <- liftIO $ atomically $ readTVar p2pInstanceTVar
-            let lnid = selfNodeId p2pInstance
-                luport = selfUDPPort p2pInstance
-                lip = selfIP p2pInstance
-                ltport = selfTCPPort p2pInstance
-            case msgb of
-                PING {} -> do
-                    $(logDebug) $
-                        T.append
-                            (T.pack "Ping Message Recieved from : ")
-                            (T.pack (show rnep))
-                    return $ serialise $ packPong lnid lip luport ltport
-                FIND_NODE {} -> do
-                    $(logDebug) $
-                        T.append
-                            (T.pack "Find_Node Message Recieved from : ")
-                            (T.pack (show rnep))
-                    addToKBucket rpeer
-                     -- Initiates the verification process
-                    _ <- async $ verifyPeer rpeer
 
+kademliaMessageHandler ::
+       ( HasP2PEnv env m r t rmsg pmsg
+       )
+    => Request 'Kademlia PayLoad
+    -> m (Response 'Kademlia PayLoad)
+kademliaMessageHandler (KademliaRequest payload) = KademliaResponse <$> do
+    let msgb = messageBody $ message payload
+        rnep = fromEndPoint msgb
+        rnid = Arivi.P2P.Kademlia.Types.nodeId msgb
+        rpeer = Peer (rnid, rnep)
+    nc@NetworkConfig {..} <- (^. networkConfig) <$> ask
+    case msgb of
+        PING {} -> do
+            $(logDebug) $
+                T.append
+                    (T.pack "Ping Message Recieved from : ")
+                    (T.pack (show rnep))
+            return $ packPong nc
+        FIND_NODE {} -> do
+            $(logDebug) $
+                T.append
+                    (T.pack "Find_Node Message Recieved from : ")
+                    (T.pack (show rnep))
+            void . runExceptT $ addToKBucket rpeer
+                     -- Initiates the verification process
+            void . async $ runExceptT $ verifyPeer rpeer
                     -- liftIO $ do
                     --     print "Find_Node recieved and peer added"
                     --     i <- atomically $ H.size kb
                     --     print ("Kbucket size after mH " ++ show i)
-                    pl <- getKClosestPeersByNodeid rnid 20
-                    case pl of
-                        Right pl2 ->
-                            return $
-                            serialise $ packFnR lnid pl2 lip luport ltport
-                        Left _ -> throw KademliaInvalidPeer
-                VERIFY_NODE _ tnid refnid tnep _ -> do
-                    $(logDebug) $
-                        T.append
-                            (T.pack "Verify_Node Message Recieved from : ")
-                            (T.pack (show rnep))
-                    let findNodeMsg = packFindMsg lnid refnid lip luport ltport
-                    resp <-
-                        Exception.try $
-                        sendRequestforKademlia
-                            tnid
-                            HT.Kademlia
-                            (serialise findNodeMsg)
-                            (udpPort tnep)
-                            (nodeIp tnep)
-                    case resp of
-                        Left (e :: Exception.SomeException) -> throw e
-                        Right resp' -> do
-                            let resp'' =
-                                    deserialiseOrFail resp' :: Either DeserialiseFailure PayLoad
-                            case resp'' of
-                                Left e -> throw e
-                                Right rl ->
-                                    case messageBody $ message rl of
-                                        FN_RESP _ pl _ ->
-                                            return $
-                                            serialise $
-                                            packVnR lnid pl lip luport ltport
-                                        _ -> throw KademliaInvalidResponse
-                _ -> throw KademliaInvalidRequest
+            pl <- runExceptT $ getKClosestPeersByNodeid rnid 20
+            case pl of
+                Right pl2 -> return $ packFnR nc pl2
+                Left _ -> throw KademliaInvalidPeer
+        VERIFY_NODE _ tnid refnid tnep _ -> do
+            $(logDebug) $
+                T.append
+                    (T.pack "Verify_Node Message Recieved from : ")
+                    (T.pack (show rnep))
+            let findNodeMsg = packFindMsg nc refnid
+            resp <-
+                runExceptT $
+                issueKademliaRequest
+                    (NetworkConfig
+                         tnid
+                         (nodeIp tnep)
+                         (udpPort tnep)
+                         (tcpPort tnep))
+                    (KademliaRequest findNodeMsg)
+            case resp of
+                Left e -> throw e
+                Right (KademliaResponse resp') ->
+                    case messageBody (message resp') of
+                        FN_RESP _ pl _ -> return $ packVnR nc pl
+                        _ -> throw KademliaInvalidResponse
+        _ -> throw KademliaInvalidRequest

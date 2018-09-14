@@ -36,6 +36,7 @@ library
                     ,  cryptonite >= 0.23
                     ,  exceptions
                     ,  interpolatedstring-perl6
+                    ,  lens
                     ,  lifted-base
                     ,  lifted-async
                     ,  memory >= 0.14.11
@@ -50,7 +51,7 @@ library
                     ,  arivi-crypto
                     ,  arivi-utils
 
-  ghc-options:        -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:          FlexibleContexts
   exposed-modules:
                        Arivi.Env

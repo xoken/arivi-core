@@ -2,8 +2,10 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Main
     ( module Main
@@ -13,18 +15,19 @@ import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import           Arivi.Crypto.Utils.PublicKey.Utils
 import           Arivi.Env
 import           Arivi.Network
-import           Arivi.P2P.P2PEnv
+import qualified Arivi.P2P.Config                       as Config
+import           Arivi.P2P.P2PEnv as PE
 import           Arivi.P2P.ServiceRegistry
+import           Arivi.P2P.Types
+import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
+import           Arivi.P2P.Kademlia.LoadDefaultPeers
+import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Class
 
-import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import           Arivi.P2P.Kademlia.VerifyPeer          (initBootStrap)
-import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
 import           Control.Concurrent.Async.Lifted        (async, wait)
-import           Control.Monad                          (mapM_)
-import           Control.Monad.IO.Class                 (liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
-import qualified CreateConfig                           as Config
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import           Data.Monoid                            ((<>))
@@ -33,34 +36,65 @@ import           Data.Text
 import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
-type AppM = ReaderT P2PEnv (LoggingT IO)
+type AppM = ReaderT (P2PEnv ByteString ByteString ByteString ByteString) (LoggingT IO)
 
 instance HasNetworkEnv AppM where
-    getEnv = asks ariviNetworkEnv
+    getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
 
 instance HasSecretKey AppM
 
 instance HasKbucket AppM where
-    getKb = asks kbucket
+    getKb = asks (kbucket . kademliaEnv)
 
 instance HasStatsdClient AppM where
     getStatsdClient = asks statsdClient
 
-instance HasP2PEnv AppM where
-    getP2PEnv = ask
-    getAriviTVarP2PEnv = tvarAriviP2PInstance <$> getP2PEnv
-    getNodeIdPeerMapTVarP2PEnv = tvarNodeIdPeerMap <$> getP2PEnv
-    getMessageTypeMapP2PEnv = tvarMessageTypeMap <$> getP2PEnv
-    getWatcherTableP2PEnv = tvarWatchersTable <$> getP2PEnv
-    getNotifiersTableP2PEnv = tvarNotifiersTable <$> getP2PEnv
-    getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
-    getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
-    getArchivedResourceToPeerMapP2PEnv =
-        tvarArchivedResourceToPeerMap <$> getP2PEnv
-    getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
-    getSelfNodeId = selfNId <$> getP2PEnv
+instance HasNodeEndpoint AppM where
+    getEndpointEnv = asks nodeEndpointEnv
+    getNetworkConfig = asks (PE._networkConfig . nodeEndpointEnv)
+    getHandlers = asks (handlers . nodeEndpointEnv)
+    getNodeIdPeerMapTVarP2PEnv = asks (tvarNodeIdPeerMap . nodeEndpointEnv)
 
-runAppM :: P2PEnv -> AppM a -> LoggingT IO a
+instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
+    networkConfig f p2p =
+        fmap
+            (\nc ->
+                 p2p
+                 { nodeEndpointEnv =
+                       (nodeEndpointEnv p2p) {PE._networkConfig = nc}
+                 })
+            (f ((PE._networkConfig . nodeEndpointEnv) p2p))
+
+instance HasArchivedResourcers AppM ByteString ByteString where
+    archived = asks (tvarArchivedResourceToPeerMap . rpcEnv)
+
+instance HasTransientResourcers AppM ByteString ByteString where
+    transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
+
+
+instance HasPRT AppM where
+    getPeerReputationHistoryTableTVar = asks (tvPeerReputationHashTable . prtEnv)
+    getServicesReputationHashMapTVar = asks (tvServicesReputationHashMap . prtEnv)
+    getP2PReputationHashMapTVar = asks (tvP2PReputationHashMap . prtEnv)
+    getReputedVsOtherTVar = asks (tvReputedVsOther . prtEnv)
+    getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
+
+instance HasTopics (P2PEnv r t rmsg pmsg) t where
+    topics = pubSubTopics . psEnv
+instance HasSubscribers (P2PEnv r t rmsg pmsg) t where
+    subscribers = pubSubSubscribers . psEnv
+instance HasNotifiers (P2PEnv r t rmsg pmsg) t where
+    notifiers = pubSubNotifiers . psEnv
+instance HasInbox (P2PEnv r t rmsg pmsg) pmsg where
+    inbox = pubSubInbox . psEnv
+instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
+    cache = pubSubCache . psEnv
+instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
+    topicHandlers = pubSubHandlers . psEnv
+instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
+    pubSubEnv = psEnv
+
+runAppM :: P2PEnv ByteString ByteString ByteString ByteString-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
 {--
@@ -90,25 +124,15 @@ defaultConfig path = do
                 (generateNodeId sk)
                 "127.0.0.1"
                 (Data.Text.pack (path <> "/node.log"))
+                20
+                5
+                3
     Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    let ha = Config.myIp config
-    env <-
-        makeP2Pinstance
-            (generateNodeId (Config.secretKey config))
-            ha
-            (Config.tcpPort config)
-            (Config.udpPort config)
-            "127.0.0.1"
-            8125
-            "Xoken"
-            (Config.secretKey config)
-            20
-            5
-            3
+    env <- mkP2PEnv config
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
@@ -118,8 +142,7 @@ runNode configPath = do
                     async
                         (runUdpServer
                              (show (Config.udpPort config))
-                             newIncomingConnection)
-                mapM_ initBootStrap (Config.trustedPeers config)
+                             newIncomingConnectionHandler)
                 loadDefaultPeers (Config.trustedPeers config)
                 wait tid
             -- let (bsNodeId, bsNodeEndPoint) = getPeer $ Prelude.head (Config.trustedPeers config)
@@ -141,25 +164,12 @@ runNode configPath = do
 runBSNode :: String -> IO ()
 runBSNode configPath = do
     config <- Config.readConfig configPath
-    let ha = "127.0.0.1"
-    env <-
-        makeP2Pinstance
-            (generateNodeId (Config.secretKey config))
-            ha
-            (Config.tcpPort config)
-            (Config.udpPort config)
-            "127.0.0.1"
-            8125
-            "Xoken"
-            (Config.secretKey config)
-            20
-            5
-            3
+    env <- mkP2PEnv config
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
             env
-            (runUdpServer (show (Config.tcpPort config)) newIncomingConnection
+            (runUdpServer (show (Config.tcpPort config)) newIncomingConnectionHandler
             --async (runTcpServer (show (Config.udpPort config)) newIncomingConnection)
             -- return ()
              )
@@ -186,5 +196,5 @@ main = do
 a :: Int -> BSL.ByteString
 a n = BSLC.pack (Prelude.replicate n 'a')
 
-myAmazingHandler :: (HasLogging m, HasSecretKey m) => ConnectionHandle -> m ()
+myAmazingHandler :: (HasLogging m) => ConnectionHandle -> m ()
 myAmazingHandler h = forever $ recv h >>= send h

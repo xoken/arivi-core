@@ -1,106 +1,51 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Arivi.P2P.RPC.Types
-    ( ServiceId
-    , ResourceHandlerList
-    , ArchivedResourceToPeerMap
-    , ResourceId
-    , MessageTypeRPC(..)
+    ( ArchivedResourceToPeerMap(..)
     , NodeId
-    , P2PUUID
-    , ServicePayload(..)
-    , P2Pinfo(..)
+    , ResourceId
     , ServiceMessage
-    , ResourceHandler
-    , ResponseCode(..)
-    , TransientResourceToPeerMap
-    , ResourceType(..)
+    , ResourceHandler(..)
+    , TransientResourceToPeerMap(..)
+    -- , ResourceType(..)
+    , Options(..)
+    , Supported(..)
+    , ArchivedOrTransient(..)
     ) where
 
 import           Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
 import           Codec.Serialise                       (Serialise)
 import           Control.Concurrent.STM.TVar
-import           Data.ByteString
 import qualified Data.ByteString.Lazy                  as Lazy (ByteString)
 import           Data.HashMap.Strict                   as HM
+import           Data.Hashable
 import           GHC.Generics                          (Generic)
 
-type ResourceId = String
-
-type ServiceId = String
+import           Arivi.P2P.Types (RpcPayload(..))
 
 type ServiceMessage = Lazy.ByteString
+type ResourceId = String
 
-type ResourceHandlerList = [(ResourceId, ResourceHandler)]
 
-type ArchivedResourceToPeerMap
-     = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
+newtype ArchivedResourceToPeerMap r m = ArchivedResourceToPeerMap {
+    getArchivedMap :: HM.HashMap r (ResourceHandler r m, TVar [NodeId])
+}
 
-type ResourceHandler = (ServiceMessage -> ServiceMessage)
+newtype ResourceHandler r msg = ResourceHandler (RpcPayload r msg -> RpcPayload r msg)
 
-data MessageTypeRPC
-    = Options { to   :: NodeId
-              , from :: NodeId }
-    | Support { to                 :: NodeId
-              , from               :: NodeId
-              , supportedResources :: [ResourceId] }
-    | RequestResource { to             :: NodeId
-                      , from           :: NodeId
-                      , rid            :: ResourceId
-                      , serviceMessage :: ServiceMessage }
-    | ReplyResource { to             :: NodeId
-                    , from           :: NodeId
-                    , rid            :: ResourceId
-                    , serviceMessage :: ServiceMessage }
-    | Response { to           :: NodeId
-               , from         :: NodeId
-               , responseCode :: ResponseCode }
-    deriving (Eq, Ord, Show, Generic)
+data Options r = Options deriving (Eq, Ord, Show, Generic, Serialise)
 
-instance Serialise MessageTypeRPC
+data Supported r = Supported r deriving(Eq, Ord, Generic, Serialise, Hashable)
 
--- Error here is a placeholder proper errors will be defined later
-data ResponseCode
-    = Busy
-    | Error
-    | DeserialiseError
-    deriving (Eq, Ord, Show, Generic)
 
-instance Serialise ResponseCode
+newtype TransientResourceToPeerMap r msg = TransientResourceToPeerMap {
+    getTransientMap ::  HM.HashMap r (ResourceHandler r msg, TVar [NodeId])
+}
 
--- any other responses can be added here
---instance Hashable MessageTypeRPC
-{-
-data MessageRC = RequestRC{
-  to ::NodeId
-  ,from ::NodeId
-  ,serviceMessage ::String
-}| ReplyRC {
-  to :: NodeId
-  ,from :: NodeId
-  ,serviceMessage :: String
-}deriving(Eq,Ord,Show,Generic)
--}
-type P2PUUID = String
-
--- assort the extra things in a tuple
-data P2Pinfo = P2Pinfo
-    { uuid :: P2PUUID
-    , node :: NodeId
-    } deriving (Eq, Show)
-
-data ServicePayload = ServicePayload
-    { resid   :: ResourceId
-    , message :: ByteString
-    , extra   :: Maybe P2Pinfo
-    } deriving (Eq, Show)
-
-type TransientResourceToPeerMap
-     = HM.HashMap ResourceId (ResourceHandler, TVar [NodeId])
-
-data ResourceType
+data ArchivedOrTransient
     = Archived
     | Transient
     deriving (Eq, Ord, Show, Generic)
 
-instance Serialise ResourceType
+instance Serialise ArchivedOrTransient

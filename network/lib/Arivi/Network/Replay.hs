@@ -71,15 +71,11 @@ isReplayAttack ::
        Monad m
     => Integer
     -> [(Integer, Integer)]
-    -> Integer
-    -> m (Bool, [(Integer, Integer)], Integer)
-isReplayAttack replayNonce pendingList missingCount =
+    -> m (Bool, [(Integer, Integer)])
+isReplayAttack replayNonce pendingList =
     if isPresent replayNonce pendingList
-        then return
-                 ( False
-                 , updatePendingList replayNonce pendingList
-                 , missingCount - 1)
-        else return (True, pendingList, missingCount)
+        then return (False, updatePendingList replayNonce pendingList)
+        else return (True, pendingList)
 
 -- | Counts the no of pending nonces in pending list
 noOfPendings :: Monad m => [(Integer, Integer)] -> m Integer

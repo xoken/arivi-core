@@ -1,33 +1,39 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 
-module Service.HelloWorld where
+module Service.HelloWorld
+    ( module Service.HelloWorld
+    ) where
 
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.RPC.Functions
-import Arivi.Utils.Logging
+import Arivi.P2P.RPC.Types
+import Arivi.P2P.Types
+
+import GHC.Generics
+import Codec.Serialise
 import Control.Monad.IO.Class
 import Data.ByteString.Lazy as Lazy
-
--- import           Service.Types                    (ResourceType (Archived))
-import Arivi.P2P.RPC.Types (ResourceType(..))
-import Control.Concurrent
+import Data.Hashable
 
 type ServiceMsg = Lazy.ByteString
 
-handler :: Lazy.ByteString -> Lazy.ByteString
-handler serviceMsg = Lazy.concat [serviceMsg, "Praise Jesus"]
+data ServiceResource = HelloWorld deriving (Eq, Ord, Show, Generic)
 
-getResourceId :: String
-getResourceId = "HelloWorld"
+instance Serialise ServiceResource
+instance Hashable ServiceResource
 
-registerHelloWorld :: (HasP2PEnv m, HasLogging m) => m ()
-registerHelloWorld =
-    registerResource getResourceId handler Archived >>
-    liftIO (threadDelay 5000000) >>
-    updatePeerInResourceMap
+handler :: ResourceHandler ServiceResource String
+handler = ResourceHandler (\(RpcPayload resource serviceMsg) -> RpcPayload resource (serviceMsg ++ "Praise Jesus"))
 
-getHelloWorld :: (HasP2PEnv m, HasLogging m) => m ()
+-- registerHelloWorld :: (HasP2PEnv env m ServiceResource String String String) => m ()
+-- registerHelloWorld =
+--     registerResource HelloWorld handler Archived >>
+--     liftIO (threadDelay 5000000) >>
+--     updatePeerInResourceMap HelloWorld
+
+getHelloWorld :: (HasP2PEnv env m ServiceResource ByteString String ByteString) => m ()
 getHelloWorld = do
-    resource <- getResource getResourceId "HelloWorld"
+    resource <- fetchResource (RpcPayload HelloWorld "HelloWorld")
     liftIO $ print "here"
     liftIO $ print resource
