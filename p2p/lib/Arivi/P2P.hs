@@ -18,7 +18,6 @@ import Arivi.P2P.RPC.Functions
 import qualified Data.HashMap.Strict as HM
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async.Lifted (async, wait)
-import Control.Monad (void)
 import Control.Monad.Except
 
 
@@ -30,7 +29,7 @@ initP2P config resourceHandlers = do
     loadDefaultPeers (Config.trustedPeers config)
     liftIO $ threadDelay 5000000
     reputedNodes <- getAllReputedNodes
-    void $ runExceptT $ loadReputedPeers reputedNodes -- What do I do with an error. Doing nothing for now
+    loadReputedPeers reputedNodes -- What do I do with an error. Doing nothing for now
     mapM_ (\(resource, handler) -> registerResource resource handler Archived) (HM.toList resourceHandlers)
     _ <- async $ fillQuotas 5 -- hardcoding here assuming each resource requires 5 peers
     -- wait tcpTid
