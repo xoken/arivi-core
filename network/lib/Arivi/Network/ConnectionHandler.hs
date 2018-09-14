@@ -76,6 +76,7 @@ establishSecureConnection sk sock framer hsInitParcel = do
     initNonce <- newTVarIO (2 ^ 63 + 1 :: AeadNonce)
     p2pMsgTChan <- atomically newTChan
     writeLock <- newMVar 0
+    mPendingList <- newTVarIO [(0, (2 :: Integer) ^ (32 :: Integer))]
     let connection =
             Conn.mkIncompleteConnection'
             { Conn.connectionId = cId
@@ -89,6 +90,7 @@ establishSecureConnection sk sock framer hsInitParcel = do
             , Conn.egressSeqNum = egressNonce
             , Conn.ingressSeqNum = ingressNonce
             , Conn.aeadNonceCounter = initNonce
+            , Conn.pendingList = mPendingList
             }
           -- getParcel, recipientHandshake and sendFrame might fail
           -- In any case, the thread just quits
