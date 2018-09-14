@@ -44,7 +44,7 @@ loadReputedPeers ::
        , HasLogging m
        )
     => [Arivi.P2P.Kademlia.Types.NodeId]
-    -> ExceptT AriviP2PException m ()
+    ->  m ()
 loadReputedPeers nodeIdList = do
     rpeerList <- mapM (`getKClosestPeersByNodeid` 10) nodeIdList
     let temp = zip nodeIdList rpeerList
@@ -102,8 +102,7 @@ findGivenNode tnid rpeer = do
                                     $(logDebug) $
                                         T.append
                                             (T.pack
-                                                 ("Couldn't deserialise message while recieving fn_resp from : " ++
-                                                  show rip ++ ":" ++ show ruport))
+                                                 "Couldn't Find the node ")
                                             (T.pack (displayException e))
                                     runKademliaActionConcurrently_
                                         (findGivenNode tnid)
