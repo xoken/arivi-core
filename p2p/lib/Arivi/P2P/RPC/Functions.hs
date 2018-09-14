@@ -5,26 +5,21 @@ module Arivi.P2P.RPC.Functions
     ( registerResource
     , fetchResource
     , fetchResourceForMessage
-    -- -- not for Service Layer
-    , updatePeerInResourceMap
-    , addPeerFromKademlia
     ) where
 
 import           Arivi.P2P.Types
 import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.RPC.SendOptions
 import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Control.Concurrent.STM.TVar
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Except
+import           Control.Monad.Reader
 import           Control.Monad.STM
 import qualified Data.HashMap.Strict                   as HM
-import           Data.Hashable
-import           Data.Maybe
 import qualified Data.Set                              as Set
 import           Control.Applicative
 

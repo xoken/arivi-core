@@ -26,8 +26,6 @@ import           Arivi.P2P.PubSub.Env
 import           Arivi.P2P.PubSub.Class
 
 import           Control.Concurrent.Async.Lifted        (async, wait)
-import           Control.Monad                          (mapM_)
-import           Control.Monad.IO.Class                 (liftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Reader
 import           Data.ByteString.Lazy                   as BSL (ByteString)

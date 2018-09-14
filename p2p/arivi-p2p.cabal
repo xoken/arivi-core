@@ -83,10 +83,8 @@ library
                        Arivi.P2P.PubSub.Types
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
-                       Arivi.P2P.Exception 
                        Arivi.P2P.LevelDB
                        Arivi.P2P.RPC.Functions
-                       Arivi.P2P.PubSub.Types
                        Arivi.P2P.RPC.Types
   other-modules:
                        Arivi.P2P.Connection
