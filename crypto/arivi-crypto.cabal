@@ -35,7 +35,7 @@ library
                     ,  memory >= 0.14.11
                     ,  raaz >= 0.1.1
 
-  ghc-options:        -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:
                        Arivi.Crypto.Hashing.Blake2b_512
                        Arivi.Crypto.Cipher.AES256

@@ -68,8 +68,8 @@ library
                     ,  arivi-network
                     ,  arivi-crypto
                     ,  arivi-utils
-  ghc-options:        -Wredundant-constraints 
-  default-extensions:  FlexibleContexts 
+  ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  default-extensions:  FlexibleContexts
   exposed-modules:
                        Arivi.P2P.Config
                        Arivi.P2P.Exception

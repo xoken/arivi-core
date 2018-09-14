@@ -61,8 +61,8 @@ library
                     ,  sorted-list
                     ,  string-conv
                     ,  arivi-p2p
-  ghc-options:         -Wall -fno-defer-type-errors -fno-defer-out-of-scope-variables
-  default-extensions:  FlexibleContexts 
+  ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
+  default-extensions:  FlexibleContexts
   exposed-modules:
                          Service.HelloWorld
                        , Service.Types
@@ -94,4 +94,4 @@ executable HelloWorldApp
                 , lifted-async
 
   default-language:    Haskell2010
- 
+
