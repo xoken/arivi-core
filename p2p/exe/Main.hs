@@ -71,14 +71,20 @@ instance HasArchivedResourcers AppM ByteString ByteString where
 instance HasTransientResourcers AppM ByteString ByteString where
     transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
 
-instance HasTopics (P2PEnv r t rmsg pmsg) t
-instance HasSubscribers (P2PEnv r t rmsg pmsg) t
-instance HasNotifiers (P2PEnv r t rmsg pmsg) t
-instance HasInbox (P2PEnv r t rmsg pmsg) pmsg
-instance HasCache (P2PEnv r t rmsg pmsg) pmsg
-instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg
+instance HasTopics (P2PEnv r t rmsg pmsg) t where
+    topics = pubSubTopics . psEnv
+instance HasSubscribers (P2PEnv r t rmsg pmsg) t where
+    subscribers = pubSubSubscribers . psEnv
+instance HasNotifiers (P2PEnv r t rmsg pmsg) t where
+    notifiers = pubSubNotifiers . psEnv
+instance HasInbox (P2PEnv r t rmsg pmsg) pmsg where
+    inbox = pubSubInbox . psEnv
+instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
+    cache = pubSubCache . psEnv
+instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
+    topicHandlers = pubSubHandlers . psEnv
 instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
-    pubSubEnv = asks psEnv
+    pubSubEnv = psEnv
 
 runAppM :: P2PEnv ByteString ByteString ByteString ByteString-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
