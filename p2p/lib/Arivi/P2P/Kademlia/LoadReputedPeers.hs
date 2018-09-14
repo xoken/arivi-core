@@ -15,11 +15,11 @@ import           Arivi.P2P.Kademlia.Kbucket
 import           Arivi.P2P.Kademlia.LoadDefaultPeers   (getPeerListFromPayload)
 import           Arivi.P2P.Kademlia.RunConcurrently
 import           Arivi.P2P.Kademlia.Types
-import           Arivi.P2P.MessageHandler.HandlerTypes
+import           Arivi.P2P.MessageHandler.HandlerTypes hiding (NodeId)
 import           Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
+-- import           Arivi.Utils.Logging
 
 -- import           Control.Concurrent.Async.Lifted
 import           Control.Exception                     (displayException)
@@ -31,31 +31,36 @@ import           Control.Monad.Logger
 import           Control.Monad.Reader
 import qualified Data.List                             as LL
 
-import           Arivi.P2P.Exception
+-- import           Arivi.P2P.Exception
 
 -- import           Data.Maybe                            (fromJust)
 import qualified Data.Text                             as T
 
 loadReputedPeers ::
-       forall env m r msg.
+       forall env m r t rmsg pmsg.
        ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv env m r msg
-       , HasLogging m
+       , HasP2PEnv env m r t rmsg pmsg
        )
     => [Arivi.P2P.Kademlia.Types.NodeId]
-    -> ExceptT AriviP2PException m ()
+    ->  m ()
 loadReputedPeers nodeIdList = do
-    rpeerList <- mapM (`getKClosestPeersByNodeid` 10) nodeIdList
+    rpeerList <- mapM (`getKClosestPeersByNodeid'` 10) nodeIdList
     let temp = zip nodeIdList rpeerList
-    lift $ mapM_ (\x -> mapM_ (findGivenNode (fst x)) (snd x)) temp
+    mapM_ (\x -> mapM_ (findGivenNode (fst x)) (snd x)) temp
+
+getKClosestPeersByNodeid' :: (HasKbucket m, MonadIO m) => NodeId -> Int
+                        -> m [Peer]
+getKClosestPeersByNodeid' nid k = do
+    temp <- runExceptT $ getKClosestPeersByNodeid nid k
+    case temp of
+        Left _ -> return []
+        Right pl -> return pl
+
 
 findGivenNode ::
-       forall env m r msg.
+       forall env m r t rmsg pmsg.
        ( MonadReader env m
-       , HasNetworkConfig env NetworkConfig
-       , HasP2PEnv env m r msg
-       , HasLogging m
+       , HasP2PEnv env m r t rmsg pmsg
        )
     => Arivi.P2P.Kademlia.Types.NodeId
     -> Peer
@@ -102,8 +107,7 @@ findGivenNode tnid rpeer = do
                                     $(logDebug) $
                                         T.append
                                             (T.pack
-                                                 ("Couldn't deserialise message while recieving fn_resp from : " ++
-                                                  show rip ++ ":" ++ show ruport))
+                                                 "Couldn't Find the node ")
                                             (T.pack (displayException e))
                                     runKademliaActionConcurrently_
                                         (findGivenNode tnid)

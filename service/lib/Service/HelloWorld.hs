@@ -27,13 +27,13 @@ instance Hashable ServiceResource
 handler :: ResourceHandler ServiceResource String
 handler = ResourceHandler (\(RpcPayload resource serviceMsg) -> RpcPayload resource (serviceMsg ++ "Praise Jesus"))
 
-registerHelloWorld :: (HasP2PEnv env m ServiceResource String) => m ()
-registerHelloWorld =
-    registerResource HelloWorld handler Archived >>
-    liftIO (threadDelay 5000000) >>
-    updatePeerInResourceMap HelloWorld
+-- registerHelloWorld :: (HasP2PEnv env m ServiceResource String String String) => m ()
+-- registerHelloWorld =
+--     registerResource HelloWorld handler Archived >>
+--     liftIO (threadDelay 5000000) >>
+--     updatePeerInResourceMap HelloWorld
 
-getHelloWorld :: (HasP2PEnv env m ServiceResource String) => m ()
+getHelloWorld :: (HasP2PEnv env m ServiceResource ByteString String ByteString) => m ()
 getHelloWorld = do
     resource <- fetchResource (RpcPayload HelloWorld "HelloWorld")
     liftIO $ print "here"

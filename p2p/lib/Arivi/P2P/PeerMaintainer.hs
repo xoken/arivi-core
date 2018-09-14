@@ -13,27 +13,31 @@ import Arivi.P2P.RPC.Types
 import Arivi.P2P.RPC.SendOptions
 
 import qualified Data.HashMap.Strict as HM
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.Except (runExceptT)
-import Control.Monad (unless)
+-- import Control.Monad (unless, forever)
 import Control.Lens
 
 -- | fills up the peer list for resource. Since Options message is not for a specific resource, check after each invocation of sendOptions if the number of peers if less than required quota for any resource. Recursively keep calling till all the quotas have been satisfied.
 -- | TODO: Logging
-fillQuotas :: (HasP2PEnv env m r msg) => Integer -> m ()
-fillQuotas numPeers = do
+fillQuotas :: (HasP2PEnv env m r t rmsg pmsg) => Integer -> m ()
+fillQuotas numPeers = forever $ do
     archivedMapTVar <- archived
     archivedMap <- liftIO (readTVarIO archivedMapTVar)
     filled <- liftIO $ isFilled archivedMap numPeers
     unless filled $ do
         res <- runExceptT $ getKNodes numPeers -- Repetition of peers
+        -- liftIO $ threadDelay (40 * 1000000)
         case res of
-            Left _ -> return ()
+            Left _ -> liftIO $ threadDelay (40 * 1000000)
             Right peers -> do
                 peerNodeIds <- addPeerFromKademlia peers
                 sendOptionsMessage peerNodeIds Options
-                fillQuotas numPeers
+                liftIO $ print "waiting"
+                liftIO $ threadDelay (40 * 1000000)            
+            -- fillQuotas numPeers
 
 isFilledHelper ::Int -> [TVar [a]] -> IO Bool
 isFilledHelper _ [] = return True
