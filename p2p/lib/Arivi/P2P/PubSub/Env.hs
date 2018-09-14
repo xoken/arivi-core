@@ -60,6 +60,9 @@ mkPubSub =
               <*> newTVarIO (Cache HM.empty)
               <*> pure (TopicHandlers HM.empty)
 
+instance HasPubSubEnv (PubSubEnv t msg) t msg where
+    pubSubEnv = id
+
 instance HasTopics (PubSubEnv t msg) t where
     topics = pubSubTopics
 
