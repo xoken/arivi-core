@@ -18,7 +18,7 @@ import Control.Monad.Except
 import Control.Monad.Reader
 
 notify ::
-    ( HasP2PEnv env m r t rmsg msg, MonadIO m)
+    ( HasP2PEnv env m r t rmsg msg)
     => PubSubPayload t msg
     -> m ()
 notify req@(PubSubPayload (t, msg)) = do

@@ -16,7 +16,6 @@ import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..), Request(..)
 import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
-import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.PubSub.Env
 import           Arivi.P2P.RPC.Types
 import           Arivi.Utils.Logging

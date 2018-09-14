@@ -89,8 +89,8 @@ handleTopic ::
     -> m msg
 handleTopic nid inboxed cached (TopicHandlers handlers) t msg = do
     -- Add node to the inbox
-    Inbox inbox <- liftIO $ readTVarIO inboxed
-    case inbox ^. at msg of
+    Inbox inbox' <- liftIO $ readTVarIO inboxed
+    case inbox' ^. at msg of
         Just x -> liftIO $ atomically $ modifyTVar x (Set.insert nid)
         Nothing -> do
             def <- liftIO $ newTVarIO (Set.singleton nid)
@@ -100,8 +100,8 @@ handleTopic nid inboxed cached (TopicHandlers handlers) t msg = do
                     (\(Inbox i) -> Inbox (i & at msg ?~ def))
     -- Return a response if already computed or add this message
     -- to cache map and wait for the result
-    Cache cache <- liftIO $ readTVarIO cached
-    case cache ^. at msg of
+    Cache cache' <- liftIO $ readTVarIO cached
+    case cache' ^. at msg of
         Just x -> liftIO $ readMVar x
         Nothing -> do
             def <- liftIO newEmptyMVar

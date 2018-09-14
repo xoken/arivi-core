@@ -17,7 +17,6 @@ import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Set (union)
-import qualified Data.Set as Set
 
 publish :: (HasP2PEnv env m r t rmsg msg) => PubSubPayload t msg -> m ()
 publish req@(PubSubPayload (t,_)) = do
