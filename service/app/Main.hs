@@ -141,12 +141,13 @@ runNode configPath = do
                 --              newIncomingConnectionHandler)
                 -- liftIO $ threadDelay 1000000
                 -- void $ async (loadDefaultPeers (Config.trustedPeers config))
-                -- liftIO $ threadDelay 5000000
+                liftIO $ threadDelay 5000000
                 -- -- registerHelloWorld
                 -- -- liftIO $ threadDelay 3000000
                 -- getHelloWorld
                 -- liftIO $ threadDelay 3000000
-                -- getHelloWorld
+                getHelloWorld
+                liftIO $ threadDelay 500000000
                 )
 
 main :: IO ()

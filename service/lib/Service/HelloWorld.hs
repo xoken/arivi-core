@@ -15,7 +15,6 @@ import Codec.Serialise
 import Control.Monad.IO.Class
 import Data.ByteString.Lazy as Lazy
 import Data.Hashable
-import Control.Concurrent
 
 type ServiceMsg = Lazy.ByteString
 
