@@ -245,7 +245,7 @@ getReputedNodes n mapOfAllPeersHistory = do
 
 -- | Gives list of all reputed Peer's NodeIds present in the
 --   mapOfAllPeersHistory
-getAllReputedNodes :: (HasKbucket m, HasPRT m, MonadIO m) => m [Network.NodeId]
+getAllReputedNodes :: (HasPRT m, MonadIO m) => m [Network.NodeId]
 getAllReputedNodes = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
     mapOfAllPeersHistory <- liftIO $ readTVarIO mapOfAllPeersHistoryTVar

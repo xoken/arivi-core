@@ -110,7 +110,7 @@ mkIncompleteConnection cid rnid host portNum tt pt sock nonce = do
     ingressNum <- newTVarIO 0
     aeadNonce <- newTVarIO nonce
     writeLock <- newMVar 0
-    mPendingList <- newTVarIO [(1, 2 ^ 32)]
+    mPendingList <- newTVarIO [(1, (2 :: Integer) ^ (32 :: Integer))]
     return
         Connection
         { connectionId = cid

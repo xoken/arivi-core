@@ -239,9 +239,9 @@ processParcel parcel connection fragmentsHM =
             let (updatedHM, p2pMsg) = reassembleFrames connection parcel hm
             liftIO $ writeIORef fragmentsHM updatedHM
             -- let crtNonce = nonce p2pMsg
-            pendingList <- liftIO $ readTVarIO $ Conn.pendingList connection
+            mPendingList <- liftIO $ readTVarIO $ Conn.pendingList connection
             (isReplay, uPendingList) <-
-                isReplayAttack (fromIntegral replayNonce) pendingList
+                isReplayAttack (fromIntegral replayNonce) mPendingList
             pendingNos <- noOfPendings uPendingList
             if isReplay || (pendingNos > 1000)
                 then throw ReplayAttackException
