@@ -23,6 +23,7 @@ import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Class
 
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad                          (mapM_)
@@ -80,9 +81,20 @@ instance HasPRT AppM where
     getReputedVsOtherTVar = asks (tvReputedVsOther . prtEnv)
     getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
 
-
-instance PE.HasPubSubEnv AppM ByteString ByteString where
-    pubSubEnv = asks PE.psEnv
+instance HasTopics (P2PEnv r t rmsg pmsg) t where
+    topics = pubSubTopics . psEnv
+instance HasSubscribers (P2PEnv r t rmsg pmsg) t where
+    subscribers = pubSubSubscribers . psEnv
+instance HasNotifiers (P2PEnv r t rmsg pmsg) t where
+    notifiers = pubSubNotifiers . psEnv
+instance HasInbox (P2PEnv r t rmsg pmsg) pmsg where
+    inbox = pubSubInbox . psEnv
+instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
+    cache = pubSubCache . psEnv
+instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
+    topicHandlers = pubSubHandlers . psEnv
+instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
+    pubSubEnv = psEnv
 
 runAppM :: P2PEnv ByteString ByteString ByteString ByteString-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT

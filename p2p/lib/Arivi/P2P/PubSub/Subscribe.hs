@@ -14,14 +14,16 @@ import Arivi.P2P.PubSub.Types
 import Arivi.P2P.Types
 
 import Control.Monad.Except
+import Control.Monad.Reader
 
 subscribe ::
        (HasP2PEnv env m r t rmsg msg) => PubSubPayload t Timer -> NodeId -> m ()
 subscribe req@(PubSubPayload (t,_)) nid = do
     resp <- runExceptT $ issueRequest nid (subscribeRequest req)
+    notf <- asks notifiers
     case resp of
         Left _ -> return ()
-        Right (PubSubResponse Ok) -> newNotifier nid t
+        Right (PubSubResponse Ok) -> liftIO $ newNotifier nid notf t
         Right (PubSubResponse Error) -> return ()
 
 subscribeRequest :: msg -> Request ('PubSub 'Subscribe) msg

@@ -15,11 +15,14 @@ import Arivi.Utils.Set
 
 import Control.Applicative
 import Control.Monad.Except
+import Control.Monad.Reader
 import Data.Set (union)
 
 publish :: (HasP2PEnv env m r t rmsg msg) => PubSubPayload t msg -> m ()
 publish req@(PubSubPayload (t,_)) = do
-    nodes <- liftA2 union (subscribers t) (notifiers t)
+    subs <- asks subscribers
+    notf <- asks notifiers
+    nodes <- liftA2 union (liftIO $ subscribersForTopic t subs) (liftIO $ notifiersForTopic t notf)
     responses <-
         mapSetConcurrently
             (\node -> runExceptT $ issueRequest node (publishRequest req))

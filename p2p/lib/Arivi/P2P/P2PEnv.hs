@@ -9,7 +9,6 @@ module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
     , HasStatsdClient(..)
     , T.HasKbucket(..)
-    , HasPubSubEnv(..)
     ) where
 
 import           Arivi.Env
@@ -17,7 +16,6 @@ import           Arivi.P2P.Types (NetworkConfig(..), RpcPayload(..), Request(..)
 import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
-import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.PubSub.Env
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.PRT.Types
@@ -41,7 +39,7 @@ import           Data.Ratio                            (Rational, (%))
 type HasP2PEnv env m r t rmsg pmsg
      = ( HasNodeEndpoint m
        , HasLogging m
-       , HasPubSub m t pmsg
+       , HasPubSub env t pmsg
        , HasRpc m r rmsg
        , HasKbucket m
        , HasStatsdClient m
@@ -72,14 +70,6 @@ mkRpcEnv =
     RpcEnv <$> newTVarIO (ArchivedResourceToPeerMap HM.empty)
            <*> newTVarIO (TransientResourceToPeerMap HM.empty)
 
--- data PubSubEnv = PubSubEnv {
---       tvarWatchersTable :: TVar WatchersTable
---     , tvarNotifiersTable :: TVar NotifiersTable
---     , tvarTopicHandlerMap :: TVar TopicHandlerMap
---     , tvarMessageHashMap :: TVar MessageHashMap
--- }
-
-
 data KademliaEnv = KademliaEnv {
     kbucket :: T.Kbucket Int [T.Peer]
 }
@@ -97,7 +87,7 @@ mkKademlia NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
 data P2PEnv r t rmsg pmsg = P2PEnv {
       nodeEndpointEnv :: NodeEndpointEnv
     , rpcEnv :: RpcEnv r rmsg
-    , psEnv :: PubSubEnv TVar t pmsg
+    , psEnv :: PubSubEnv t pmsg
     , kademliaEnv :: KademliaEnv
     , statsdClient :: StatsdClient
     , prtEnv       :: PRTEnv
@@ -219,5 +209,5 @@ data Handlers = Handlers {
       rpc :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => Request 'Rpc (RpcPayload r msg) -> m (Response 'Rpc (RpcPayload r msg))
     , kademlia :: forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg) => Request 'Kademlia T.PayLoad -> m (Response 'Kademlia T.PayLoad)
     , option :: forall m r msg. (HasNodeEndpoint m, HasRpc m r msg, MonadIO m) => m (Response 'Option (Supported [r]))
-    , pubsub :: forall m t msg. (HasPubSub m t msg) => NodeId -> PubSub -> ByteString -> m ByteString
+    , pubsub :: forall env m t msg. (MonadReader env m, HasPubSub env t msg, MonadIO m) => NodeId -> PubSub -> ByteString -> m ByteString
 }

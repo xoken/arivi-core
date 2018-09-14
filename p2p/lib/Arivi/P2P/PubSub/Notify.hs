@@ -13,15 +13,22 @@ import Arivi.P2P.PubSub.Types
 import Arivi.P2P.Types
 import Arivi.Utils.Set
 
+import Control.Concurrent.STM.TVar (readTVarIO)
 import Control.Monad.Except
+import Control.Monad.Reader
 
-notify :: (HasP2PEnv env m r t rmsg msg) => PubSubPayload t msg -> m ()
+notify ::
+    ( HasP2PEnv env m r t rmsg msg)
+    => PubSubPayload t msg
+    -> m ()
 notify req@(PubSubPayload (t, msg)) = do
-    subs <- subscribers' msg t
+    subs <- asks subscribers
+    inboxed <-  join $ liftIO . readTVarIO <$> asks inbox
+    peers <- liftIO $ notifiersForMessage inboxed subs msg t
     responses <-
         mapSetConcurrently
             (\node -> runExceptT $ issueRequest node (notifyRequest req))
-            subs
+            peers
     void $
         traverseSet
             (\case

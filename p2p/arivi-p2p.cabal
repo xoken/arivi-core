@@ -72,12 +72,15 @@ library
   default-extensions:  FlexibleContexts 
   exposed-modules:
                        Arivi.P2P.Config
+                       Arivi.P2P.Exception
                        Arivi.P2P.Handler
                        Arivi.P2P.Kademlia.LoadDefaultPeers
                        Arivi.P2P.MessageHandler.HandlerTypes
                        Arivi.P2P.P2PEnv
                        Arivi.P2P.PubSub.Env
+                       Arivi.P2P.PubSub.Class
                        Arivi.P2P.PubSub.Publish
+                       Arivi.P2P.PubSub.Types
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.Exception 
@@ -97,7 +100,6 @@ library
                        Arivi.P2P.Kademlia.XorDistance
                        Arivi.P2P.MessageHandler.NodeEndpoint
                        Arivi.P2P.MessageHandler.Utils
-                       Arivi.P2P.PubSub.Class
                        Arivi.P2P.PubSub.Handler
                        Arivi.P2P.PubSub.Notify
                        Arivi.P2P.PubSub.Subscribe

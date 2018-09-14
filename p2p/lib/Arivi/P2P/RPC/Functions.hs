@@ -15,7 +15,7 @@ import           Arivi.P2P.Exception
 import           Arivi.P2P.MessageHandler.NodeEndpoint
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.SendOptions
-import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Types
 import           Control.Concurrent.STM.TVar
@@ -79,16 +79,13 @@ fetchResource (RpcError _) = error "Change RpcPayload constructor"
 fetchResourceForMessage ::
     (
         HasP2PEnv env m r t msg pmsg
-      , HasPubSubEnv m t pmsg
-      , Eq pmsg
-      , Hashable pmsg
     )
     => pmsg
     -> RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))
 fetchResourceForMessage storedMsg payload@(RpcPayload _ _) = do
-    Inbox inbox <- join $ liftIO . readTVarIO <$> (pubSubInbox <$> pubSubEnv)
-    case HM.lookup storedMsg inbox of
+    Inbox inboxed <-  join $ liftIO . readTVarIO <$> asks inbox
+    case HM.lookup storedMsg inboxed of
         Just nodeListTVar -> do
             nodeList <- (liftIO . readTVarIO) nodeListTVar
             sendResourceRequest (Set.toList nodeList) payload -- does not make sense to pattern match here on the result and call fetchResource again. If the nodes who sent the notification don't have the resource, why request the same resource from guys who didn't send the notification
