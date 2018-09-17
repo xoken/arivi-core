@@ -10,10 +10,9 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
-import qualified Control.Concurrent.Async.Lifted       as LAsync (async)
+import qualified Control.Concurrent.Async.Lifted       as LAsync(mapConcurrently_)
 
 import           Control.Concurrent.STM.TVar
-import           Control.Exception
 import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Except
 import           Control.Monad.STM
@@ -28,7 +27,7 @@ sendOptionsMessage ::
     -> Options r
     -> m ()
 sendOptionsMessage peers optionsMessage =
-    mapM_ (LAsync.async . flip sendOptionsToPeer optionsMessage) peers
+    LAsync.mapConcurrently_ (flip sendOptionsToPeer optionsMessage) peers
 
 -- this function runs on each lightweight thread
 -- two major functions
@@ -39,14 +38,14 @@ sendOptionsToPeer ::
        forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg)
     => NodeId
     -> Options r
-    -> m ()
+    -> m (Either AriviP2PException ())
 sendOptionsToPeer recievingPeerNodeId optionsMsg = do
     res <-
         runExceptT $ issueRequest recievingPeerNodeId (OptionRequest optionsMsg)
     case res of
-        Left _ -> throw SendOptionsFailedException
+        Left _ -> return (Left SendOptionsFailedException)
         Right (OptionResponse (Supported resources :: Supported [r])) ->
-            updateResourcePeers (recievingPeerNodeId, resources)
+            Right <$> updateResourcePeers (recievingPeerNodeId, resources)
 
 -- this wrapper will update the hashMap based on the supported message returned by the peer
 updateResourcePeers ::
