@@ -117,6 +117,7 @@ defaultConfig path = do
                 20
                 5
                 3
+                5
     Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()
@@ -126,7 +127,7 @@ runNode configPath = do
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
             env
-            (do 
+            (do
                 let resourceHandlers = HM.insert HelloWorld handler HM.empty
                 initP2P config resourceHandlers
                 -- tid' <-

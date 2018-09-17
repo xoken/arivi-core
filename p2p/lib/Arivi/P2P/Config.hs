@@ -28,6 +28,7 @@ data Config = Config
     , sbound                       :: Int
     , pingThreshold                :: Int
     , kademliaConcurrencyFactor    :: Int
+    , hopBound                     :: Int 
     } deriving (Show, Generic)
 
 instance FromJSON ByteString where

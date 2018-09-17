@@ -127,6 +127,7 @@ defaultConfig path = do
                 20
                 5
                 3
+                5
     Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()

@@ -44,9 +44,11 @@ loadReputedPeers ::
     => [Arivi.P2P.Kademlia.Types.NodeId]
     ->  m ()
 loadReputedPeers nodeIdList = do
+    kb <- getKb
+    let limit = hopBound kb
     rpeerList <- mapM (`getKClosestPeersByNodeid'` 10) nodeIdList
     let temp = zip nodeIdList rpeerList
-    mapM_ (\x -> mapM_ (findGivenNode (fst x)) (snd x)) temp
+    mapM_ (\x -> mapM_ (findGivenNode limit (fst x)) (snd x)) temp
 
 getKClosestPeersByNodeid' :: (HasKbucket m, MonadIO m) => NodeId -> Int
                         -> m [Peer]
@@ -62,10 +64,12 @@ findGivenNode ::
        ( MonadReader env m
        , HasP2PEnv env m r t rmsg pmsg
        )
-    => Arivi.P2P.Kademlia.Types.NodeId
+    => Int
+    -> Arivi.P2P.Kademlia.Types.NodeId
     -> Peer
     -> m ()
-findGivenNode tnid rpeer = do
+findGivenNode 0 _ _ = return ()
+findGivenNode count tnid rpeer = do
     nc@NetworkConfig {..} <- asks (^. networkConfig)
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
@@ -110,7 +114,7 @@ findGivenNode tnid rpeer = do
                                                  "Couldn't Find the node ")
                                             (T.pack (displayException e))
                                     runKademliaActionConcurrently_
-                                        (findGivenNode tnid)
+                                        (findGivenNode (count-1) tnid)
                                         peerl
                                 Right _ ->
                                     $(logDebug) $
@@ -119,5 +123,5 @@ findGivenNode tnid rpeer = do
                                          show tnid ++ "to KBucket")
                         Nothing ->
                             runKademliaActionConcurrently_
-                                (findGivenNode tnid)
+                                (findGivenNode (count-1) tnid)
                                 peerl

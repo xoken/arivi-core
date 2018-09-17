@@ -75,14 +75,15 @@ data KademliaEnv = KademliaEnv {
     kbucket :: T.Kbucket Int [T.Peer]
 }
 
-mkKademlia :: NetworkConfig -> Int -> Int -> Int -> IO KademliaEnv
-mkKademlia NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor =
+mkKademlia :: NetworkConfig -> Int -> Int -> Int ->Int-> IO KademliaEnv
+mkKademlia NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor hopBound =
     KademliaEnv <$>
         T.createKbucket
             (T.Peer (_nodeId, T.NodeEndPoint _ip _tcpPort _udpPort))
             sbound
             pingThreshold
             kademliaConcurrencyFactor
+            hopBound
 
 
 data P2PEnv r t rmsg pmsg = P2PEnv {
@@ -130,14 +131,14 @@ class HasPRT m where
     getReputedVsOtherTVar :: m (TVar Rational)
     getKClosestVsRandomTVar :: m (TVar Rational)
 
-mkPRTEnv :: IO PRTEnv 
+mkPRTEnv :: IO PRTEnv
 mkPRTEnv = do
     peerReputationHashTable <- newTVarIO HM.empty
     servicesReputationHashMapTVar <- newTVarIO HM.empty
     p2pReputationHashMapTVar <- newTVarIO HM.empty
     reputedVsOtherTVar <- newTVarIO (1 % 1 :: Rational)
     kClosestVsRandomTVar <- newTVarIO (1 % 1 :: Rational)
-    return (PRTEnv peerReputationHashTable servicesReputationHashMapTVar p2pReputationHashMapTVar reputedVsOtherTVar kClosestVsRandomTVar) 
+    return (PRTEnv peerReputationHashTable servicesReputationHashMapTVar p2pReputationHashMapTVar reputedVsOtherTVar kClosestVsRandomTVar)
 
 
 -- class HasPubSub where
@@ -183,12 +184,12 @@ mkPRTEnv = do
 --     -- notifierMap <- newTVarIO HM.empty
 --     -- topicHandleMap <- newTVarIO HM.empty
 --     -- messageMap <- newTVarIO HM.empty
---     -- let pubSubEnv = PubSubEnv 
+--     -- let pubSubEnv = PubSubEnv
 --     return P2PEnv {
 --         rpcEnv = rpcEnv
 --       , kademliaEnv = kademliaEnv
 --       -- , pubSubEnv :: PubSubEnv
---     } 
+--     }
         -- P2PEnv
         --     { _networkConfig = nc
         --     , tvarNodeIdPeerMap = nmap
