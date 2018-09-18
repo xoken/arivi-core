@@ -70,7 +70,7 @@ issuePing ::
     => Peer
     -> m Bool
 issuePing rpeer = do
-    nc <- (^. networkConfig) <$> ask
+    nc <- asks (^. networkConfig)
     let rnid = fst $ getPeer rpeer
         rnep = snd $ getPeer rpeer
         ruport = Arivi.P2P.Kademlia.Types.udpPort rnep

@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE FunctionalDependencies#-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -47,8 +46,8 @@ class (HasTopics env t, HasSubscribers env t, HasNotifiers env t, HasInbox env m
 type HasPubSub env t msg
     = ( HasPubSubEnv env t msg
       , Eq t, Ord t, Hashable t, Serialise t
-      , Eq msg, Hashable msg, Serialise msg 
-      ) 
+      , Eq msg, Hashable msg, Serialise msg
+      )
 
 
 mkPubSub :: IO (PubSubEnv t msg)

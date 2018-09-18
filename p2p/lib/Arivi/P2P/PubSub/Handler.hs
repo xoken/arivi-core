@@ -49,7 +49,7 @@ notifyHandler nid (PubSubRequest (PubSubPayload (t, msg))) = do
     inboxed <- asks inbox
     cached <- asks cache
     handlers <- asks topicHandlers
-    (PubSubResponse . PubSubPayload . (t, )) <$> handleTopic nid inboxed cached handlers t msg
+    PubSubResponse . PubSubPayload . (t, ) <$> handleTopic nid inboxed cached handlers t msg
 
 publishHandler ::
        ( MonadReader env m
@@ -61,7 +61,7 @@ publishHandler nid (PubSubRequest (PubSubPayload (t, msg))) = do
     inboxed <- asks inbox
     cached <- asks cache
     handlers <- asks topicHandlers
-    (PubSubResponse . PubSubPayload . (t, )) <$> handleTopic nid inboxed cached handlers t msg
+    PubSubResponse . PubSubPayload . (t, ) <$> handleTopic nid inboxed cached handlers t msg
 
 subscribeHandler ::
        ( MonadReader env m
@@ -78,7 +78,7 @@ subscribeHandler nid (PubSubRequest (PubSubPayload (t, subTimer))) = do
     then return (PubSubResponse Ok)
     else return (PubSubResponse Error)
 
-handleTopic :: 
+handleTopic ::
     (Eq t, Hashable t, Eq msg, Hashable msg, MonadIO m)
     => NodeId
     -> TVar (Inbox msg)
