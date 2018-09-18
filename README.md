@@ -1,5 +1,3 @@
-![P2P Architecture](https://ipfs.io/ipfs/QmRGurUXkk7zFcHdB5QJhD6NR9yJ8ZfVVsrHCRLZc6xH3d)
-
 
 Arivi Network Protocol: A secure network protocol akin to SSH/SCP that supports both TCP & UDP transports and offers the following features.
 - Chunking
