@@ -41,7 +41,7 @@ registerResource resource resourceHandler resourceType = do
         funcA l hm = ArchivedResourceToPeerMap $ HM.insert resource (resourceHandler, l) (getArchivedMap hm)
         funcT l hm = TransientResourceToPeerMap $ HM.insert resource (resourceHandler, l) (getTransientMap hm)
 
--- | Called by the service to fetch a resource. P2P decides best peer to ask for the resource. 
+-- | Called by the service to fetch a resource. P2P decides best peer to ask for the resource.
 fetchResource ::
        ( HasP2PEnv env m r t msg pmsg
        )
@@ -79,7 +79,7 @@ fetchResourceForMessage ::
     -> RpcPayload r msg
     -> m (Either AriviP2PException (RpcPayload r msg))
 fetchResourceForMessage storedMsg payload@(RpcPayload _ _) = do
-    Inbox inboxed <-  join $ liftIO . readTVarIO <$> asks inbox
+    Inbox inboxed <-  (liftIO . readTVarIO) =<< asks inbox
     case HM.lookup storedMsg inboxed of
         Just nodeListTVar -> do
             nodeList <- (liftIO . readTVarIO) nodeListTVar

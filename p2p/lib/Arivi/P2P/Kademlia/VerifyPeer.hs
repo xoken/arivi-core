@@ -126,7 +126,7 @@ getVerifiedPeers peerR k = do
 -- -- getRandomVerifiedNodes :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
 -- -- getRandomVerifiedNodes k = do
 -- --     kb  <- getKb
--- --     let vt = nodeStatusTable  kb 
+-- --     let vt = nodeStatusTable  kb
 -- --     rps <- getKRandomPeers k
 -- --     mapM isVerified rps
 filterPeer :: NodeId -> NodeId -> [Peer] -> [Peer]
@@ -185,7 +185,7 @@ issueVerifyNode ::
     -> Peer
     -> m [Peer]
 issueVerifyNode peerV peerT peerR = do
-    nc@NetworkConfig {..} <- (^. networkConfig) <$> ask
+    nc@NetworkConfig {..} <- asks (^. networkConfig)
         -- TODO randomly select a verified node and not as a parameter
     let vnid = fst $ getPeer peerV
         vnep = snd $ getPeer peerV
