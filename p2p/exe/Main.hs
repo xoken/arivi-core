@@ -24,6 +24,7 @@ import           Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Env
 import           Arivi.P2P.PubSub.Class
+import           Arivi.P2P.RPC.Env
 
 import           Control.Concurrent.Async.Lifted        (async, wait)
 import           Control.Monad.Logger
@@ -65,12 +66,6 @@ instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
                  })
             (f ((PE._networkConfig . nodeEndpointEnv) p2p))
 
-instance HasArchivedResourcers AppM ByteString ByteString where
-    archived = asks (tvarArchivedResourceToPeerMap . rpcEnv)
-
-instance HasTransientResourcers AppM ByteString ByteString where
-    transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
-
 
 instance HasPRT AppM where
     getPeerReputationHistoryTableTVar = asks (tvPeerReputationHashTable . prtEnv)
@@ -93,6 +88,9 @@ instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
     topicHandlers = pubSubHandlers . psEnv
 instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
     pubSubEnv = psEnv
+
+instance HasRpcEnv (P2PEnv r t rmsg pmsg) r rmsg where
+    rpcEnv = rEnv
 
 runAppM :: P2PEnv ByteString ByteString ByteString ByteString-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
@@ -133,7 +131,7 @@ defaultConfig path = do
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    env <- mkP2PEnv config
+    env <- mkP2PEnv config undefined undefined
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
@@ -165,7 +163,7 @@ runNode configPath = do
 runBSNode :: String -> IO ()
 runBSNode configPath = do
     config <- Config.readConfig configPath
-    env <- mkP2PEnv config
+    env <- mkP2PEnv config undefined undefined
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM

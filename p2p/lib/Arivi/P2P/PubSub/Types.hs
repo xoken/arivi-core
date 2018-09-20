@@ -36,7 +36,7 @@ import           Data.Time.Clock
 import           GHC.Generics                          (Generic)
 
 newtype TopicHandler msg =
-    TopicHandler (forall m . msg -> m msg)
+    TopicHandler (msg -> Status)
 
 type Timer = Integer
 
@@ -51,7 +51,7 @@ newtype Notifiers t = Notifiers (HM.HashMap t (TVar (Set NodeId)))
 
 newtype Inbox msg = Inbox (HM.HashMap msg (TVar (Set NodeId)))
 
-newtype Cache msg = Cache (HM.HashMap msg (MVar msg))
+newtype Cache msg = Cache (HM.HashMap msg (MVar Status))
 
 newtype TopicHandlers t msg = TopicHandlers (HM.HashMap t (TopicHandler msg))
 
@@ -132,7 +132,8 @@ newNotifier ::
     -> IO ()
 newNotifier nid (Notifiers notifs) t =
     case notifs ^. at t of
-        Just x -> atomically $ modifyTVar x (Set.insert nid)
+        Just x ->
+            atomically $ modifyTVar x (Set.insert nid) 
         -- |Invariant this branch is never reached.
         -- 'initPubSub' should statically make empty
         -- sets for all topics in the map.

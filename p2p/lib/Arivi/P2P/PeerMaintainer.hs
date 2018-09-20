@@ -9,45 +9,61 @@ import Arivi.P2P.Types
 import Arivi.P2P.MessageHandler.HandlerTypes
 import qualified Arivi.P2P.Kademlia.Types as KademliaTypes
 import Arivi.P2P.PRT.Instance (getKNodes)
+import Arivi.P2P.PubSub.Class
+import Arivi.P2P.PubSub.Types
+import Arivi.P2P.PubSub.Subscribe
 import Arivi.P2P.RPC.Types
+import Arivi.P2P.RPC.Env
 import Arivi.P2P.RPC.SendOptions
 
 import qualified Data.HashMap.Strict as HM
 import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async.Lifted (mapConcurrently_)
 import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.Except (runExceptT)
--- import Control.Monad (unless, forever)
 import Control.Lens
+import Data.Set as Set
+    
+-- | Sends subscribe messages for each topic to every passed peer.
+-- | TODO: Batched subscribes for multiple topics.
+sendSubscribes :: (HasP2PEnv env m r t rmsg pmsg) => [NodeId] -> m ()
+sendSubscribes nodeList = do
+    topicList <- asks topics
+    mapM_ (subscribeForTopic nodeList) (Set.toList topicList)
+
+subscribeForTopic :: (HasP2PEnv env m r t rmsg msg) => [NodeId] -> t -> m ()
+subscribeForTopic nodeList t = mapConcurrently_ (subscribe (PubSubPayload (t, 100000))) nodeList -- Hardcoding timer value for now. No logic for handling it currently. Subscriptions are for the duration of a network connection as of now
 
 -- | fills up the peer list for resource. Since Options message is not for a specific resource, check after each invocation of sendOptions if the number of peers if less than required quota for any resource. Recursively keep calling till all the quotas have been satisfied.
 -- | TODO: Logging
 fillQuotas :: (HasP2PEnv env m r t rmsg pmsg) => Integer -> m ()
 fillQuotas numPeers = forever $ do
-    archivedMapTVar <- archived
-    archivedMap <- liftIO (readTVarIO archivedMapTVar)
-    filled <- liftIO $ isFilled archivedMap numPeers
-    unless filled $ do
+    rpcRecord <- asks rpcEnv
+    let Resourcers resourcers = rpcResourcers rpcRecord
+    filledResources <- liftIO $ isFilled resourcers numPeers
+    Notifiers notif <- asks notifiers
+    _ <- liftIO $ isFilled notif numPeers
+    unless filledResources $ do
         res <- runExceptT $ getKNodes numPeers -- Repetition of peers
-        -- liftIO $ threadDelay (40 * 1000000)
         case res of
             Left _ -> liftIO $ threadDelay (40 * 1000000)
             Right peers -> do
                 peerNodeIds <- addPeerFromKademlia peers
                 sendOptionsMessage peerNodeIds Options
-                liftIO $ print "waiting"
-                liftIO $ threadDelay (40 * 1000000)            
-            -- fillQuotas numPeers
+                sendSubscribes peerNodeIds
+                liftIO $ threadDelay (40 * 1000000)
 
-isFilledHelper ::Int -> [TVar [a]] -> IO Bool
+
+isFilledHelper ::Int -> [TVar (Set a)] -> IO Bool
 isFilledHelper _ [] = return True
-isFilledHelper minimumNodes l  = not <$> (fmap (any (< minimumNodes)) <$> mapM (fmap length <$> readTVarIO)) l
+isFilledHelper minimumNodes l  = not <$> (fmap (any (< minimumNodes)) <$> mapM (fmap Set.size <$> readTVarIO)) l
 
 -- | Returns true if all the resources have met the minimumNodes quota and false otherwise
-isFilled :: ArchivedResourceToPeerMap r msg -> Integer -> IO Bool
-isFilled archivedMap minNodes = do
-    let resourceToPeerList = HM.toList (getArchivedMap archivedMap)
-    isFilledHelper (fromIntegral minNodes) (fmap (snd . snd) resourceToPeerList)
+isFilled :: HM.HashMap a (TVar (Set b)) -> Integer -> IO Bool
+isFilled hm minNodes = do
+    let l = HM.toList hm
+    isFilledHelper (fromIntegral minNodes) (fmap snd l)
 
 -- | add the peers returned by Kademlia to the PeerDetails HashMap
 addPeerFromKademlia ::

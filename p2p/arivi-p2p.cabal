@@ -85,7 +85,8 @@ library
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.LevelDB
-                       Arivi.P2P.RPC.Functions
+                       Arivi.P2P.RPC.Env
+                       Arivi.P2P.RPC.Fetch
                        Arivi.P2P.RPC.Types
   other-modules:
                        Arivi.P2P.Connection

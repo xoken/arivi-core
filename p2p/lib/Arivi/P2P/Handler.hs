@@ -38,7 +38,7 @@ processRequest connHandle p2pMessage peerNodeId = do
         Rpc -> serialise <$> rpc hh (deserialise $ payload p2pMessage)
         Kademlia -> serialise <$> kademlia hh (deserialise $ payload p2pMessage)
         Option -> serialise <$> option hh
-        PubSub p -> pubsub hh undefined p (payload p2pMessage)
+        PubSub p -> pubsub hh peerNodeId p (payload p2pMessage)
     let p2pResponse = generateP2PMessage (uuid p2pMessage) (messageType p2pMessage) responseMsg
     res <- LE.try $ send connHandle (serialise p2pResponse)
     case res of

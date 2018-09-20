@@ -6,21 +6,26 @@ import           Arivi.Env
 import qualified Arivi.P2P.Config as Config
 import           Arivi.P2P.PubSub.Handler
 import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.Kademlia.MessageHandler
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Handler
+import           Arivi.P2P.RPC.Env
+import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Statsd
+
+import           Data.Hashable
 
 mkHandlers :: Handlers
 mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler pubSubHandler
 
 
-mkP2PEnv :: Config.Config -> IO (P2PEnv r t rmsg pmsg)
-mkP2PEnv config = do
+mkP2PEnv :: (Ord t, Hashable t, Ord r, Hashable r) => Config.Config -> ResourceHandlers r rmsg-> TopicHandlers t pmsg -> IO (P2PEnv r t rmsg pmsg)
+mkP2PEnv config rh th = do
     let nc = NetworkConfig (Config.myNodeId config) (Config.myIp config) (Config.tcpPort config) (Config.udpPort config)
     let networkEnv = mkAriviEnv (read $ show $ Config.tcpPort config) (read $ show $ Config.udpPort config) (Config.secretKey config)
-    P2PEnv <$> mkNodeEndpoint nc mkHandlers networkEnv <*> mkRpcEnv <*> mkPubSub <*> mkKademlia nc (Config.sbound config) (Config.pingThreshold config) (Config.kademliaConcurrencyFactor config) (Config.hopBound config) <*> createStatsdClient "127.0.0.1" 8080 "statsdPrefix" <*> mkPRTEnv
+    P2PEnv <$> mkNodeEndpoint nc mkHandlers networkEnv  <*> mkRpc rh <*> mkPubSub th <*> mkKademlia nc (Config.sbound config) (Config.pingThreshold config) (Config.kademliaConcurrencyFactor config) (Config.hopBound config) <*> createStatsdClient "127.0.0.1" 8080 "statsdPrefix" <*> mkPRTEnv
 
 -- makeP2Pinstance ::
 --        NodeId

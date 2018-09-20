@@ -51,14 +51,17 @@ type HasPubSub env t msg
       ) 
 
 
-mkPubSub :: IO (PubSubEnv t msg)
-mkPubSub =
-    PubSubEnv <$> pure Set.empty
-              <*> pure (Subscribers HM.empty)
-              <*> pure (Notifiers HM.empty)
+mkPubSub :: (Ord t, Hashable t) => TopicHandlers t msg -> IO (PubSubEnv t msg)
+mkPubSub (TopicHandlers h) = do
+    let topicList = HM.keys h
+    subTVars <- mapM (\_ -> newTVarIO Set.empty) topicList
+    notifTVars <- mapM (\_ -> newTVarIO Set.empty) topicList
+    PubSubEnv <$> pure (Set.fromList topicList)
+              <*> pure (Subscribers (HM.fromList (zip topicList subTVars)))
+              <*> pure (Notifiers (HM.fromList (zip topicList notifTVars)))
               <*> newTVarIO (Inbox HM.empty)
               <*> newTVarIO (Cache HM.empty)
-              <*> pure (TopicHandlers HM.empty)
+              <*> pure (TopicHandlers h)
 
 instance HasTopics (PubSubEnv t msg) t where
     topics = pubSubTopics

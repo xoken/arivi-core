@@ -9,9 +9,10 @@ module Arivi.P2P.PubSub.Handler
 
 import Arivi.P2P.MessageHandler.HandlerTypes (NodeId)
 import Arivi.P2P.Types
+import Arivi.P2P.P2PEnv
 import Arivi.P2P.PubSub.Class
-import Arivi.P2P.PubSub.Env
 import Arivi.P2P.PubSub.Types
+import Arivi.P2P.PubSub.Notify
 
 import Codec.Serialise
 import Control.Concurrent.MVar
@@ -27,9 +28,7 @@ import qualified Data.Set as Set
 -- in a separate thread.
 
 pubSubHandler ::
-       ( MonadReader env m
-       , HasPubSub env t msg
-       , MonadIO m
+       ( HasP2PEnv env m r t rmsg pmsg
        )
     => NodeId
     -> PubSub
@@ -40,28 +39,34 @@ pubSubHandler nid Publish req = serialise <$> publishHandler nid (deserialise re
 pubSubHandler nid Notify req = serialise <$> notifyHandler nid (deserialise req)
 
 notifyHandler ::
-       ( MonadReader env m
-       , HasPubSub env t msg, MonadIO m)
+       ( HasP2PEnv env m r t rmsg pmsg)
     => NodeId
-    -> Request ('PubSub 'Notify) (PubSubPayload t msg)
-    -> m (Response ('PubSub 'Notify) (PubSubPayload t msg))
-notifyHandler nid (PubSubRequest (PubSubPayload (t, msg))) = do
+    -> Request ('PubSub 'Notify) (PubSubPayload t pmsg)
+    -> m (Response ('PubSub 'Notify) Status)
+notifyHandler nid (PubSubRequest payload@(PubSubPayload (t, msg))) = do
     inboxed <- asks inbox
     cached <- asks cache
-    handlers <- asks topicHandlers
-    (PubSubResponse . PubSubPayload . (t, )) <$> handleTopic nid inboxed cached handlers t msg
+    h <- asks topicHandlers
+    resp <- handleTopic nid inboxed cached h t msg
+    case resp of
+        Ok -> notify payload
+        Error -> return ()
+    return (PubSubResponse resp)
 
 publishHandler ::
-       ( MonadReader env m
-       , HasPubSub env t msg, MonadIO m)
+       ( HasP2PEnv env m r t rmsg pmsg)
     => NodeId
-    -> Request ('PubSub 'Publish) (PubSubPayload t msg)
-    -> m (Response ('PubSub 'Publish) (PubSubPayload t msg))
-publishHandler nid (PubSubRequest (PubSubPayload (t, msg))) = do
+    -> Request ('PubSub 'Publish) (PubSubPayload t pmsg)
+    -> m (Response ('PubSub 'Publish) Status)
+publishHandler nid (PubSubRequest payload@(PubSubPayload (t, msg))) = do
     inboxed <- asks inbox
     cached <- asks cache
-    handlers <- asks topicHandlers
-    (PubSubResponse . PubSubPayload . (t, )) <$> handleTopic nid inboxed cached handlers t msg
+    h <- asks topicHandlers
+    resp <- handleTopic nid inboxed cached h t msg
+    case resp of 
+        Ok -> notify payload
+        Error -> return ()
+    return (PubSubResponse resp)
 
 subscribeHandler ::
        ( MonadReader env m
@@ -86,8 +91,8 @@ handleTopic ::
     -> TopicHandlers t msg
     -> t
     -> msg
-    -> m msg
-handleTopic nid inboxed cached (TopicHandlers handlers) t msg = do
+    -> m Status
+handleTopic nid inboxed cached (TopicHandlers hs) t msg = do
     -- Add node to the inbox
     Inbox inbox' <- liftIO $ readTVarIO inboxed
     case inbox' ^. at msg of
@@ -109,9 +114,9 @@ handleTopic nid inboxed cached (TopicHandlers handlers) t msg = do
                 modifyTVar
                     cached
                     (\(Cache c) -> Cache (c & at msg ?~ def))
-            case handlers ^. at t of
+            case hs ^. at t of
                 Just (TopicHandler h) -> do
-                    resp <- h msg
+                    let resp = h msg
                     liftIO $ putMVar def resp
                     return resp
                 Nothing -> error "Shouldn't reach here"
