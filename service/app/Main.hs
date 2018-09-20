@@ -26,7 +26,10 @@ import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Arivi.P2P.Kademlia.LoadDefaultPeers
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.RPC.Env
+import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.PubSub.Class
+import           Arivi.P2P.PubSub.Types
 
 import           Control.Concurrent                     (threadDelay)
 import           Control.Concurrent.Async.Lifted        (async, wait)
@@ -41,7 +44,7 @@ import           Data.Text
 import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
-type AppM = ReaderT (P2PEnv ServiceResource ByteString String ByteString) (LoggingT IO)
+type AppM = ReaderT (P2PEnv ServiceResource ServiceTopic String String) (LoggingT IO)
 
 instance HasNetworkEnv AppM where
     getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
@@ -70,12 +73,6 @@ instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
                  })
             (f ((PE._networkConfig . nodeEndpointEnv) p2p))
 
-instance HasArchivedResourcers AppM ServiceResource String where
-    archived = asks (tvarArchivedResourceToPeerMap . rpcEnv)
-
-instance HasTransientResourcers AppM ServiceResource String where
-    transient = asks (tvarDynamicResourceToPeerMap . rpcEnv)
-
 
 instance HasPRT AppM where
     getPeerReputationHistoryTableTVar = asks (tvPeerReputationHashTable . prtEnv)
@@ -96,10 +93,13 @@ instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
     cache = pubSubCache . psEnv
 instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
     topicHandlers = pubSubHandlers . psEnv
-instance HasPubSubEnv (P2PEnv ServiceResource ByteString String ByteString) ByteString ByteString where
+instance HasPubSubEnv (P2PEnv ServiceResource ServiceTopic String String) ServiceTopic String where
     pubSubEnv = psEnv
 
-runAppM :: P2PEnv ServiceResource ByteString String ByteString-> AppM a -> LoggingT IO a
+instance HasRpcEnv (P2PEnv r t rmsg pmsg) r rmsg where
+    rpcEnv = rEnv
+
+runAppM :: P2PEnv ServiceResource ServiceTopic String String-> AppM a -> LoggingT IO a
 runAppM = flip runReaderT
 
 defaultConfig :: FilePath -> IO ()
@@ -123,31 +123,17 @@ defaultConfig path = do
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    env <- mkP2PEnv config
+    let resourceHandlersNew = ResourceHandlers (HM.insert HelloWorld handlerNew HM.empty)
+    let topicHandlersNew = TopicHandlers (HM.insert HelloWorldHeader handlerTopic HM.empty)
+    env <- mkP2PEnv config resourceHandlersNew topicHandlersNew
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
             env
             (do
-                let resourceHandlers = HM.insert HelloWorld handler HM.empty
-                initP2P config resourceHandlers
-                -- tid' <-
-                --     async
-                --         (runUdpServer
-                --              (show (Config.udpPort config))
-                --              newIncomingConnectionHandler)
-                -- tid <-
-                --     async
-                --         (runTcpServer
-                --              (show (Config.tcpPort config))
-                --              newIncomingConnectionHandler)
-                -- liftIO $ threadDelay 1000000
-                -- void $ async (loadDefaultPeers (Config.trustedPeers config))
+                initP2P config
                 liftIO $ threadDelay 5000000
-                -- -- registerHelloWorld
-                -- -- liftIO $ threadDelay 3000000
+                stuffPublisher
                 -- getHelloWorld
-                -- liftIO $ threadDelay 3000000
-                getHelloWorld
                 liftIO $ threadDelay 500000000
                 )
 
