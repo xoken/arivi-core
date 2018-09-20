@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds  #-}
 {-# LANGUAGE GADTs      #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Arivi.P2P.PubSub.Notify
     ( notify
@@ -16,12 +17,15 @@ import Arivi.Utils.Set
 import Control.Concurrent.STM.TVar (readTVarIO)
 import Control.Monad.Except
 import Control.Monad.Reader
+import qualified Data.Text  as T
+import Control.Monad.Logger (logDebug)
 
 notify ::
     ( HasP2PEnv env m r t rmsg msg)
     => PubSubPayload t msg
     -> m ()
 notify req@(PubSubPayload (t, msg)) = do
+    $(logDebug) $ T.pack ("notify called")
     subs <- asks subscribers
     inboxed <-  join $ liftIO . readTVarIO <$> asks inbox
     peers <- liftIO $ notifiersForMessage inboxed subs msg t
@@ -33,8 +37,12 @@ notify req@(PubSubPayload (t, msg)) = do
         traverseSet
             (\case
                  Left _ -> return ()
-                 Right (PubSubResponse Ok) -> return ()
-                 Right (PubSubResponse Error) -> return ())
+                 Right (PubSubResponse Ok) -> do
+                    $(logDebug) $ T.pack ("otify Successful")
+                    return ()
+                 Right (PubSubResponse Error) -> do
+                    $(logDebug) $ T.pack ("Notify failed")
+                    return ())
             responses
 
 notifyRequest :: msg -> Request ('PubSub 'Notify) msg

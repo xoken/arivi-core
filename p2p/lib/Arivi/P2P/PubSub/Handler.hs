@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Arivi.P2P.PubSub.Handler
     ( pubSubHandler
@@ -23,6 +24,8 @@ import Control.Monad.Reader
 import Data.Hashable
 import Data.ByteString.Lazy
 import qualified Data.Set as Set
+import qualified Data.Text  as T
+import Control.Monad.Logger (logDebug)
 
 -- |Handler functions might never halt, they should be run
 -- in a separate thread.
@@ -44,13 +47,18 @@ notifyHandler ::
     -> Request ('PubSub 'Notify) (PubSubPayload t pmsg)
     -> m (Response ('PubSub 'Notify) Status)
 notifyHandler nid (PubSubRequest payload@(PubSubPayload (t, msg))) = do
+    $(logDebug) $ T.pack ("Notify received handler invoked")
     inboxed <- asks inbox
     cached <- asks cache
     h <- asks topicHandlers
     resp <- handleTopic nid inboxed cached h t msg
     case resp of
-        Ok -> notify payload
-        Error -> return ()
+        Ok -> do
+            $(logDebug) $ T.pack ("handleTopic successful notifying subscribers")
+            notify payload
+        Error -> do
+            $(logDebug) $ T.pack ("handleTopic unsuccessful")
+            return ()
     return (PubSubResponse resp)
 
 publishHandler ::
@@ -59,13 +67,18 @@ publishHandler ::
     -> Request ('PubSub 'Publish) (PubSubPayload t pmsg)
     -> m (Response ('PubSub 'Publish) Status)
 publishHandler nid (PubSubRequest payload@(PubSubPayload (t, msg))) = do
+    $(logDebug) $ T.pack ("Publish received handler invoked")
     inboxed <- asks inbox
     cached <- asks cache
     h <- asks topicHandlers
     resp <- handleTopic nid inboxed cached h t msg
-    case resp of 
-        Ok -> notify payload
-        Error -> return ()
+    case resp of
+        Ok -> do
+            $(logDebug) $ T.pack ("handleTopic successful notifying subscribers")
+            notify payload
+        Error -> do
+            $(logDebug) $ T.pack ("handleTopic unsuccessful")
+            return ()
     return (PubSubResponse resp)
 
 subscribeHandler ::
@@ -76,14 +89,14 @@ subscribeHandler ::
     -> Request ('PubSub 'Subscribe) (PubSubPayload t Timer)
     -> m (Response ('PubSub 'Subscribe) Status)
 subscribeHandler nid (PubSubRequest (PubSubPayload (t, subTimer))) = do
-  subs <- asks subscribers
-  tops <- asks topics
-  success <- liftIO $ newSubscriber nid subs tops subTimer t
-  if success
+    subs <- asks subscribers
+    tops <- asks topics
+    success <- liftIO $ newSubscriber nid subs tops subTimer t
+    if success
     then return (PubSubResponse Ok)
     else return (PubSubResponse Error)
 
-handleTopic :: 
+handleTopic ::
     (Eq t, Hashable t, Eq msg, Hashable msg, MonadIO m)
     => NodeId
     -> TVar (Inbox msg)
