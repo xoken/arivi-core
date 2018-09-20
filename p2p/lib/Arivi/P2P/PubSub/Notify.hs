@@ -23,7 +23,7 @@ notify ::
     -> m ()
 notify req@(PubSubPayload (t, msg)) = do
     subs <- asks subscribers
-    inboxed <-  join $ liftIO . readTVarIO <$> asks inbox
+    inboxed <-  (liftIO . readTVarIO) =<< asks inbox
     peers <- liftIO $ notifiersForMessage inboxed subs msg t
     responses <-
         mapSetConcurrently

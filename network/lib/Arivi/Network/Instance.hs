@@ -51,12 +51,12 @@ doEncryptedHandshake connection sk = do
 
 openConnection ::
        forall m. (HasLogging m, HasSecretKey m)
-    => NetworkConfig 
-    -> TransportType 
+    => NetworkConfig
+    -> TransportType
     -> m (Either AriviNetworkException ConnectionHandle)
 openConnection NetworkConfig{..} tt  =
     $(withLoggingTH)
-        (LogNetworkStatement ([qc|Opening Connection to host {_ip} |]))
+        (LogNetworkStatement [qc|Opening Connection to host {_ip} |])
         LevelDebug $ do
             let cId = makeConnectionId _ip  portNum tt
             sock <- liftIO $ createSocket _ip (read (show portNum)) tt

@@ -58,7 +58,7 @@ kademliaMessageHandler (KademliaRequest payload) = KademliaResponse <$> do
         rnep = fromEndPoint msgb
         rnid = Arivi.P2P.Kademlia.Types.nodeId msgb
         rpeer = Peer (rnid, rnep)
-    nc@NetworkConfig {..} <- (^. networkConfig) <$> ask
+    nc@NetworkConfig {..} <- asks (^. networkConfig)
     case msgb of
         PING {} -> do
             $(logDebug) $
