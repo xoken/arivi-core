@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE FunctionalDependencies#-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE UndecidableInstances  #-}

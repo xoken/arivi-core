@@ -30,7 +30,7 @@ sendOptionsMessage ::
     -> Options r
     -> m ()
 sendOptionsMessage peers optionsMessage =
-    LAsync.mapConcurrently_ (flip sendOptionsToPeer optionsMessage) peers
+    LAsync.mapConcurrently_ (`sendOptionsToPeer` optionsMessage) peers
 
 -- | Sends the Options message to a single peer and updates the Resourcers table based on the Supported message
 sendOptionsToPeer ::
