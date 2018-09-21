@@ -86,19 +86,23 @@ defaultConfig path = do
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    let resourceHandlersNew = ResourceHandlers (HM.insert HelloWorld handlerNew HM.empty)
-    let topicHandlersNew = TopicHandlers (HM.insert HelloWorldHeader handlerTopic HM.empty)
+    let resourceHandlersNew =
+            ResourceHandlers (HM.insert HelloWorld handlerNew HM.empty)
+    let topicHandlersNew =
+            TopicHandlers (HM.insert HelloWorldHeader handlerTopic HM.empty)
     env <- mkP2PEnv config resourceHandlersNew topicHandlersNew
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
             env
-            (do
-                initP2P config
+            (do initP2P config
                 liftIO $ threadDelay 5000000
-                stuffPublisher
+                liftIO $ putStrLn "Publish (y/n)?"
+                answer <- liftIO getLine
+                if answer == "y"
+                    then stuffPublisher
+                    else return ()
                 -- getHelloWorld
-                liftIO $ threadDelay 500000000
-                )
+                liftIO $ threadDelay 500000000)
 
 main :: IO ()
 main = do
