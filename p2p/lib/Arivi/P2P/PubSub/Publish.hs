@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds  #-}
 {-# LANGUAGE GADTs      #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Arivi.P2P.PubSub.Publish
@@ -18,12 +19,11 @@ import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Set (union)
-import qualified Data.Text  as T
 import Control.Monad.Logger (logDebug)
 
 publish :: (HasP2PEnv env m r t rmsg msg) => PubSubPayload t msg -> m ()
 publish req@(PubSubPayload (t,_)) = do
-    $(logDebug) $ T.pack ("publish called")
+    $(logDebug) "publish called"
     subs <- asks subscribers
     notf <- asks notifiers
     nodes <- liftA2 union (liftIO $ subscribersForTopic t subs) (liftIO $ notifiersForTopic t notf)
@@ -35,10 +35,10 @@ publish req@(PubSubPayload (t,_)) = do
         (\case
                 Left _ -> return ()
                 Right (PubSubResponse Ok) -> do
-                    $(logDebug) $ T.pack ("Publish successful ")
+                    $(logDebug) "Publish successful "
                     return ()
                 Right (PubSubResponse Error) -> do
-                    $(logDebug) $ T.pack ("Publish Failed")
+                    $(logDebug) "Publish Failed"
                     return ())
         responses
 
