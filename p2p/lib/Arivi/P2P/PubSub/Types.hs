@@ -35,8 +35,10 @@ import qualified Data.Set                              as Set
 import           Data.Time.Clock
 import           GHC.Generics                          (Generic)
 
+import Control.Monad.IO.Class
+
 newtype TopicHandler msg =
-    TopicHandler (msg -> Status)
+    TopicHandler (forall m. (MonadIO m) => msg -> m Status)
 
 type Timer = Integer
 

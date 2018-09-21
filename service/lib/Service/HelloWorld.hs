@@ -35,8 +35,14 @@ instance Hashable ServiceTopic
 handlerNew :: ResourceHandler String
 handlerNew = ResourceHandler (++ "Praise Jesus")
 
+ioHello :: (MonadIO m) => String -> m Status
+ioHello msg =
+    if msg == "HelloworldHeader"
+        then liftIO (Prelude.putStrLn "Ok") >> return Ok
+        else liftIO (Prelude.putStrLn "Error") >> return Error
+
 handlerTopic :: TopicHandler String
-handlerTopic = TopicHandler (\msg -> if msg == "HelloworldHeader" then Ok else Error)
+handlerTopic = TopicHandler ioHello
 
 -- registerHelloWorld :: (HasP2PEnv env m ServiceResource String String String) => m ()
 -- registerHelloWorld =
@@ -49,7 +55,6 @@ getHelloWorld = do
     resource <- fetchResource (RpcPayload HelloWorld "HelloWorld")
     liftIO $ print "here"
     liftIO $ print resource
-
 
 stuffPublisher :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => m ()
 stuffPublisher = publish (PubSubPayload (HelloWorldHeader, "HelloworldHeader"))

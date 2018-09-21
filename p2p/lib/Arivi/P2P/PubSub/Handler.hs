@@ -24,7 +24,6 @@ import Control.Monad.Reader
 import Data.Hashable
 import Data.ByteString.Lazy
 import qualified Data.Set as Set
-import qualified Data.Text  as T
 import Control.Monad.Logger (logDebug)
 
 -- |Handler functions might never halt, they should be run
@@ -47,17 +46,17 @@ notifyHandler ::
     -> Request ('PubSub 'Notify) (PubSubPayload t pmsg)
     -> m (Response ('PubSub 'Notify) Status)
 notifyHandler nid (PubSubRequest payload@(PubSubPayload (t, msg))) = do
-    $(logDebug) $ T.pack ("Notify received handler invoked")
+    $(logDebug) "Notify received handler invoked"
     inboxed <- asks inbox
     cached <- asks cache
     h <- asks topicHandlers
     resp <- handleTopic nid inboxed cached h t msg
     case resp of
         Ok -> do
-            $(logDebug) $ T.pack ("handleTopic successful notifying subscribers")
+            $(logDebug) "handleTopic successful notifying subscribers"
             notify payload
         Error -> do
-            $(logDebug) $ T.pack ("handleTopic unsuccessful")
+            $(logDebug) "handleTopic unsuccessful"
             return ()
     return (PubSubResponse resp)
 
@@ -67,17 +66,17 @@ publishHandler ::
     -> Request ('PubSub 'Publish) (PubSubPayload t pmsg)
     -> m (Response ('PubSub 'Publish) Status)
 publishHandler nid (PubSubRequest payload@(PubSubPayload (t, msg))) = do
-    $(logDebug) $ T.pack ("Publish received handler invoked")
+    $(logDebug) "Publish received handler invoked"
     inboxed <- asks inbox
     cached <- asks cache
     h <- asks topicHandlers
     resp <- handleTopic nid inboxed cached h t msg
     case resp of
         Ok -> do
-            $(logDebug) $ T.pack ("handleTopic successful notifying subscribers")
+            $(logDebug) "handleTopic successful notifying subscribers"
             notify payload
         Error -> do
-            $(logDebug) $ T.pack ("handleTopic unsuccessful")
+            $(logDebug) "handleTopic unsuccessful"
             return ()
     return (PubSubResponse resp)
 
@@ -129,7 +128,7 @@ handleTopic nid inboxed cached (TopicHandlers hs) t msg = do
                     (\(Cache c) -> Cache (c & at msg ?~ def))
             case hs ^. at t of
                 Just (TopicHandler h) -> do
-                    let resp = h msg
+                    resp <- h msg
                     liftIO $ putMVar def resp
                     return resp
                 Nothing -> error "Shouldn't reach here"
