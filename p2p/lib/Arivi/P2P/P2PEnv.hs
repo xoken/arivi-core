@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE DataKinds        #-}
 
@@ -17,6 +17,7 @@ import           Arivi.P2P.Kademlia.Types              (HasKbucket)
 import qualified Arivi.P2P.Kademlia.Types              as T
 import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Env
+import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.RPC.Env
 import           Arivi.P2P.PRT.Types
@@ -119,3 +120,32 @@ data Handlers = Handlers {
     , option :: forall env m r msg. (MonadReader env m, HasNodeEndpoint m, HasRpc env r msg, MonadIO m) => m (Response 'Option (Supported [r]))
     , pubsub :: forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg, MonadIO m) => NodeId -> PubSub -> ByteString -> m ByteString
 }
+
+instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
+    networkConfig f p2p =
+        fmap
+            (\nc ->
+                 p2p
+                 { nodeEndpointEnv =
+                       (nodeEndpointEnv p2p) {Arivi.P2P.P2PEnv._networkConfig = nc}
+                 })
+            (f ((Arivi.P2P.P2PEnv._networkConfig . nodeEndpointEnv) p2p))
+
+instance HasTopics (P2PEnv r t rmsg pmsg) t where
+    topics = pubSubTopics . psEnv
+instance HasSubscribers (P2PEnv r t rmsg pmsg) t where
+    subscribers = pubSubSubscribers . psEnv
+instance HasNotifiers (P2PEnv r t rmsg pmsg) t where
+    notifiers = pubSubNotifiers . psEnv
+instance HasInbox (P2PEnv r t rmsg pmsg) pmsg where
+    inbox = pubSubInbox . psEnv
+instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
+    cache = pubSubCache . psEnv
+instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
+    topicHandlers = pubSubHandlers . psEnv
+
+instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
+    pubSubEnv = psEnv
+
+instance HasRpcEnv (P2PEnv r t rmsg pmsg) r rmsg where
+    rpcEnv = rEnv
