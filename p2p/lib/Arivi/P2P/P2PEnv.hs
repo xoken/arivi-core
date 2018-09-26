@@ -19,6 +19,7 @@ import           Arivi.P2P.MessageHandler.HandlerTypes
 import           Arivi.P2P.PubSub.Env
 import           Arivi.P2P.PubSub.Class
 import           Arivi.P2P.RPC.Types
+import           Arivi.P2P.PubSub.Types
 import           Arivi.P2P.RPC.Env
 import           Arivi.P2P.PRT.Types
 import           Arivi.Utils.Logging
@@ -45,6 +46,7 @@ type HasP2PEnv env m r t rmsg pmsg
        , HasPRT m
        , MonadReader env m
        , HasNetworkConfig env NetworkConfig
+       , HasPSGlobalHandler env r t rmsg pmsg
        )
 
 data NodeEndpointEnv = NodeEndpointEnv {
@@ -81,7 +83,14 @@ data P2PEnv r t rmsg pmsg = P2PEnv {
     , kademliaEnv :: KademliaEnv
     , statsdClient :: StatsdClient
     , prtEnv       :: PRTEnv
+    , psHandler :: forall env m . (HasP2PEnv env m r t rmsg pmsg) => pmsg -> m Status
 }
+
+class HasPSGlobalHandler env r t rmsg pmsg where
+    psGlobalHandler :: env -> (forall env' m . (HasP2PEnv env' m r t rmsg pmsg) => pmsg -> m Status)
+
+instance HasPSGlobalHandler (P2PEnv r t rmsg pmsg) r t rmsg pmsg where
+    psGlobalHandler = psHandler
 
 class (HasSecretKey m) => HasNodeEndpoint m where
     getEndpointEnv :: m NodeEndpointEnv
