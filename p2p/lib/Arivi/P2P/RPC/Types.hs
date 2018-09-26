@@ -17,7 +17,7 @@ import           GHC.Generics                          (Generic)
 
 newtype Resourcers r = Resourcers (HM.HashMap r (TVar (Set NodeId)))
 
-newtype ResourceHandler msg = ResourceHandler (forall m. (MonadIO m) => msg -> m msg)
+newtype ResourceHandler msg = ResourceHandler (forall m. (MonadIO m) => msg -> m (Maybe msg))
 
 data Options r = Options deriving (Eq, Ord, Show, Generic, Serialise)
 

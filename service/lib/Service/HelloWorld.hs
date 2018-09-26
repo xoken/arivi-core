@@ -42,10 +42,10 @@ globalHandlerPubSub msg =
             return Ok
         else liftIO (Prelude.putStrLn "Error") >> return Error
 
-globalHandlerRpc :: (MonadIO m) => String -> m String
+globalHandlerRpc :: (MonadIO m) => String -> m (Maybe String)
 globalHandlerRpc msg =
-    if msg == "HelloWorld" then return (msg ++ "Praise Satoshi")
-    else return ("msg" ++ "Fake satoshi") 
+    if msg == "HelloWorld" then return (Just (msg ++ " Praise Satoshi"))
+    else return Nothing
 
 getHelloWorld :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => String -> m ()
 getHelloWorld msg = do

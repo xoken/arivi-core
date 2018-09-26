@@ -19,10 +19,13 @@ rpcHandler ::
     , HasRpc env r msg, MonadIO m)
     => Request 'Rpc (RpcPayload r msg)
     -> m (Response 'Rpc (RpcPayload r msg))
-rpcHandler (RpcRequest (RpcPayload resource msg)) = RpcResponse <$> do
+rpcHandler (RpcRequest (RpcPayload resource msg)) = do
     rpcRecord <- asks rpcEnv
     let ResourceHandler h = rpcHandlers rpcRecord
-    RpcPayload resource <$> h msg
+    resp <- h msg
+    case resp of
+        Just response -> return (RpcResponse (RpcPayload resource response))
+        Nothing -> return (RpcResponse (RpcError ResourceNotFound))
 rpcHandler (RpcRequest (RpcError _)) = error "Shouldn't get an error message as request"
 
 
