@@ -16,6 +16,7 @@ import Arivi.P2P.PubSub.Publish
 
 import GHC.Generics
 import Codec.Serialise
+import Control.Concurrent.Async.Lifted
 import Control.Monad.IO.Class
 import Data.ByteString.Lazy as Lazy
 import Data.Hashable
@@ -44,16 +45,27 @@ ioHello msg =
 handlerTopic :: TopicHandler String
 handlerTopic = TopicHandler ioHello
 
+globalHandler :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => String -> m Status
+globalHandler msg =
+    if msg == "HelloworldHeader"
+        then do
+            liftIO (Prelude.putStrLn "Ok")
+            _ <- async (getHelloWorld msg)
+            return Ok
+        else liftIO (Prelude.putStrLn "Error") >> return Error
+
+
+
 -- registerHelloWorld :: (HasP2PEnv env m ServiceResource String String String) => m ()
 -- registerHelloWorld =
 --     registerResource HelloWorld handler Archived >>
 --     liftIO (threadDelay 5000000) >>
 --     updatePeerInResourceMap HelloWorld
 
-getHelloWorld :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => m ()
-getHelloWorld = do
-    resource <- fetchResource (RpcPayload HelloWorld "HelloWorld")
-    liftIO $ print "here"
+getHelloWorld :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => String -> m ()
+getHelloWorld msg = do
+    resource <- fetchResourceForMessage msg (RpcPayload HelloWorld "HelloWorld")
+    liftIO $ print "got resource from notify/publish"
     liftIO $ print resource
 
 stuffPublisher :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => m ()

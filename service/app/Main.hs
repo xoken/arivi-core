@@ -90,7 +90,7 @@ runNode configPath = do
             ResourceHandlers (HM.insert HelloWorld handlerNew HM.empty)
     let topicHandlersNew =
             TopicHandlers (HM.insert HelloWorldHeader handlerTopic HM.empty)
-    env <- mkP2PEnv config resourceHandlersNew topicHandlersNew
+    env <- mkP2PEnv globalHandler config resourceHandlersNew topicHandlersNew
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
             env

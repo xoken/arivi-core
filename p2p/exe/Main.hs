@@ -100,7 +100,7 @@ defaultConfig path = do
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    env <- mkP2PEnv config undefined undefined
+    env <- mkP2PEnv undefined config undefined undefined
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
@@ -132,7 +132,7 @@ runNode configPath = do
 runBSNode :: String -> IO ()
 runBSNode configPath = do
     config <- Config.readConfig configPath
-    env <- mkP2PEnv config undefined undefined
+    env <- mkP2PEnv undefined config undefined undefined
     runFileLoggingT (toS $ Config.logFile config) $
     -- runStdoutLoggingT $
         runAppM
