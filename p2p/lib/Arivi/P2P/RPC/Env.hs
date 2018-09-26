@@ -18,7 +18,7 @@ import Data.Set as Set
 
 data RpcEnv r msg = RpcEnv {
       rpcResourcers :: Resourcers r
-    , rpcHandlers :: ResourceHandlers r msg
+    , rpcHandlers :: ResourceHandler msg
 }
 
 class HasRpcEnv env r msg | env -> r msg where
@@ -30,9 +30,8 @@ type HasRpc env r msg =
       , Eq msg, Hashable msg, Serialise msg
     )
 
-mkRpc :: (Ord r, Hashable r) => ResourceHandlers r msg -> IO (RpcEnv r msg)
-mkRpc (ResourceHandlers h) = do
-    let resourceList = HM.keys h
+mkRpc :: (Ord r, Hashable r) => ResourceHandler msg -> [r] -> IO (RpcEnv r msg)
+mkRpc rh resourceList = do
     resTVars <- mapM (\_ -> newTVarIO Set.empty) resourceList
     RpcEnv <$> pure (Resourcers (HM.fromList (zip resourceList resTVars)))
-              <*> pure (ResourceHandlers h)
+              <*> pure rh
