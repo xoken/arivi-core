@@ -5,12 +5,10 @@
 
 module Arivi.P2P.PubSub.Types
     ( NodeTimer(..)
-    , TopicHandler(..)
     , Subscribers(..)
     , Notifiers(..)
     , Inbox(..)
     , Cache(..)
-    , TopicHandlers(..)
     , Status(..)
     , Timer
     , subscribersForTopic
@@ -35,10 +33,6 @@ import qualified Data.Set                              as Set
 import           Data.Time.Clock
 import           GHC.Generics                          (Generic)
 
-import Control.Monad.IO.Class
-
-newtype TopicHandler msg =
-    TopicHandler (forall m. (MonadIO m) => msg -> m Status)
 
 type Timer = Integer
 
@@ -54,8 +48,6 @@ newtype Notifiers t = Notifiers (HM.HashMap t (TVar (Set NodeId)))
 newtype Inbox msg = Inbox (HM.HashMap msg (TVar (Set NodeId)))
 
 newtype Cache msg = Cache (HM.HashMap msg (MVar Status))
-
-newtype TopicHandlers t msg = TopicHandlers (HM.HashMap t (TopicHandler msg))
 
 data Status = Ok
             | Error

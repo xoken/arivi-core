@@ -150,8 +150,6 @@ instance HasInbox (P2PEnv r t rmsg pmsg) pmsg where
     inbox = pubSubInbox . psEnv
 instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
     cache = pubSubCache . psEnv
-instance HasTopicHandlers (P2PEnv r t rmsg pmsg) t pmsg where
-    topicHandlers = pubSubHandlers . psEnv
 
 instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
     pubSubEnv = psEnv

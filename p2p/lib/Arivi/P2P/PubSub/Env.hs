@@ -35,13 +35,10 @@ data PubSubEnv t msg = PubSubEnv
     , pubSubNotifiers :: Notifiers t
     , pubSubInbox :: TVar (Inbox msg)
     , pubSubCache :: TVar (Cache msg)
-    , pubSubHandlers :: TopicHandlers t msg
     }
 
-class (HasTopics env t, HasSubscribers env t, HasNotifiers env t, HasInbox env msg, HasCache env msg, HasTopicHandlers env t msg) => HasPubSubEnv env t msg where
+class (HasTopics env t, HasSubscribers env t, HasNotifiers env t, HasInbox env msg, HasCache env msg) => HasPubSubEnv env t msg where
         pubSubEnv :: env -> PubSubEnv t msg
-
--- type HasPubSubEnv env t msg = (HasTopics env t, HasSubscribers env t, HasNotifiers env t, HasInbox env msg, HasCache env msg, HasTopicHandlers env t msg)
 
 type HasPubSub env t msg
     = ( HasPubSubEnv env t msg
@@ -50,9 +47,8 @@ type HasPubSub env t msg
       ) 
 
 
-mkPubSub :: (Ord t, Hashable t) => TopicHandlers t msg -> IO (PubSubEnv t msg)
-mkPubSub (TopicHandlers h) = do
-    let topicList = HM.keys h
+mkPubSub :: (Ord t, Hashable t) => [t] -> IO (PubSubEnv t msg)
+mkPubSub topicList = do
     subTVars <- mapM (\_ -> newTVarIO Set.empty) topicList
     notifTVars <- mapM (\_ -> newTVarIO Set.empty) topicList
     PubSubEnv <$> pure (Set.fromList topicList)
@@ -60,7 +56,6 @@ mkPubSub (TopicHandlers h) = do
               <*> pure (Notifiers (HM.fromList (zip topicList notifTVars)))
               <*> newTVarIO (Inbox HM.empty)
               <*> newTVarIO (Cache HM.empty)
-              <*> pure (TopicHandlers h)
 
 instance HasTopics (PubSubEnv t msg) t where
     topics = pubSubTopics
@@ -76,6 +71,3 @@ instance HasInbox (PubSubEnv t msg) msg where
 
 instance HasCache (PubSubEnv t msg) msg where
     cache = pubSubCache
-
-instance HasTopicHandlers (PubSubEnv t msg) t msg where
-    topicHandlers = pubSubHandlers
