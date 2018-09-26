@@ -8,7 +8,6 @@ module Service.HelloWorld
 
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.RPC.Fetch
-import Arivi.P2P.RPC.Types
 import Arivi.P2P.Types
 import Arivi.P2P.PubSub.Types
 import Arivi.P2P.PubSub.Publish
@@ -33,20 +32,9 @@ instance Hashable ServiceResource
 instance Serialise ServiceTopic
 instance Hashable ServiceTopic
 
-handlerNew :: ResourceHandler String
-handlerNew = ResourceHandler (++ "Praise Jesus")
 
-ioHello :: (MonadIO m) => String -> m Status
-ioHello msg =
-    if msg == "HelloworldHeader"
-        then liftIO (Prelude.putStrLn "Ok") >> return Ok
-        else liftIO (Prelude.putStrLn "Error") >> return Error
-
-handlerTopic :: TopicHandler String
-handlerTopic = TopicHandler ioHello
-
-globalHandler :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => String -> m Status
-globalHandler msg =
+globalHandlerPubSub :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => String -> m Status
+globalHandlerPubSub msg =
     if msg == "HelloworldHeader"
         then do
             liftIO (Prelude.putStrLn "Ok")
@@ -54,13 +42,10 @@ globalHandler msg =
             return Ok
         else liftIO (Prelude.putStrLn "Error") >> return Error
 
-
-
--- registerHelloWorld :: (HasP2PEnv env m ServiceResource String String String) => m ()
--- registerHelloWorld =
---     registerResource HelloWorld handler Archived >>
---     liftIO (threadDelay 5000000) >>
---     updatePeerInResourceMap HelloWorld
+globalHandlerRpc :: (MonadIO m) => String -> m String
+globalHandlerRpc msg =
+    if msg == "HelloWorld" then return (msg ++ "Praise Satoshi")
+    else return ("msg" ++ "Fake satoshi") 
 
 getHelloWorld :: (HasP2PEnv env m ServiceResource ServiceTopic String String) => String -> m ()
 getHelloWorld msg = do

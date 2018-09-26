@@ -86,11 +86,7 @@ defaultConfig path = do
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    let resourceHandlersNew =
-            ResourceHandlers (HM.insert HelloWorld handlerNew HM.empty)
-    let topicHandlersNew =
-            TopicHandlers (HM.insert HelloWorldHeader handlerTopic HM.empty)
-    env <- mkP2PEnv globalHandler config resourceHandlersNew topicHandlersNew
+    env <- mkP2PEnv config (ResourceHandler globalHandlerRpc) globalHandlerPubSub [HelloWorld] [HelloWorldHeader]
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
             env

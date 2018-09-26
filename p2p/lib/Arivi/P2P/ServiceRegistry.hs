@@ -24,13 +24,14 @@ mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler pubSubHan
 
 mkP2PEnv ::
        (Ord t, Hashable t, Ord r, Hashable r)
-    => (forall env m. (HasP2PEnv env m r t rmsg pmsg) =>
-                      pmsg -> m Status)
-    -> Config.Config
-    -> ResourceHandlers r rmsg
-    -> TopicHandlers t pmsg
+    => Config.Config
+    -> ResourceHandler rmsg
+    -> (forall env m. (HasP2PEnv env m r t rmsg pmsg) =>
+    pmsg -> m Status)
+    -> [r]
+    -> [t]
     -> IO (P2PEnv r t rmsg pmsg)
-mkP2PEnv psH config rh th = do
+mkP2PEnv config rh psH resources topics = do
     let nc =
             NetworkConfig
                 (Config.myNodeId config)
@@ -43,8 +44,8 @@ mkP2PEnv psH config rh th = do
                 (read $ show $ Config.udpPort config)
                 (Config.secretKey config)
     nep <- mkNodeEndpoint nc mkHandlers networkEnv
-    nrpc <- mkRpc rh
-    nps <- mkPubSub th
+    nrpc <- mkRpc rh resources
+    nps <- mkPubSub topics
     nk <-
         mkKademlia
             nc
