@@ -32,38 +32,38 @@ getDBPath :: String
 getDBPath = "/tmp/lvlbloomtest"
 
 -- | Returns Value from database corresponding to given key
-getValue :: (MonadUnliftIO m) => ByteString -> m (Maybe ByteString)
-getValue key =
+getValue :: (MonadUnliftIO m) => ByteString -> String -> m (Maybe ByteString)
+getValue key dbPath =
     runResourceT $ do
         bloom <- bloomFilter 10
         db <-
             open
-                getDBPath
+                dbPath
                 defaultOptions
                 {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         get db def key
 
 -- | Stores given (Key,Value) pair in database
-putValue :: (MonadUnliftIO m) => ByteString -> ByteString -> m ()
-putValue key value =
+putValue :: (MonadUnliftIO m) => ByteString -> ByteString -> String -> m ()
+putValue key value dbPath =
     runResourceT $ do
         bloom <- bloomFilter 10
         db <-
             open
-                getDBPath
+                dbPath
                 defaultOptions
                 {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         put db def key value
         return ()
 
 -- | Deletes Value from database corresponding to given key
-deleteValue :: (MonadUnliftIO m) => ByteString -> m ()
-deleteValue key =
+deleteValue :: (MonadUnliftIO m) => ByteString -> String -> m ()
+deleteValue key dbPath =
     runResourceT $ do
         bloom <- bloomFilter 10
         db <-
             open
-                getDBPath
+                dbPath
                 defaultOptions
                 {createIfMissing = True, filterPolicy = Just . Left $ bloom}
         delete db def key

@@ -296,6 +296,7 @@ savePRTHMtoDBPeriodically timeInterval = do
     LevelDB.putValue
         "PeerReputationHistoryTable"
         (Char8.pack $ show listofAllPeersHistory)
+        "prtDatabase"
     savePRTHMtoDBPeriodically timeInterval
 
 -- | Loads the maybeMapOfAllPeersHistory from datbase to
@@ -303,7 +304,8 @@ savePRTHMtoDBPeriodically timeInterval = do
 loadPeerReputationHistoryTable :: (MonadUnliftIO m, HasPRT m) => m ()
 loadPeerReputationHistoryTable = do
     mapOfAllPeersHistoryTVar <- getPeerReputationHistoryTableTVar
-    maybeMapOfAllPeersHistory <- LevelDB.getValue "PeerReputationHistoryTable"
+    maybeMapOfAllPeersHistory <-
+        LevelDB.getValue "PeerReputationHistoryTable" "prtDatabase"
     case maybeMapOfAllPeersHistory of
         Nothing -> return ()
         Just mapPHty -> do
