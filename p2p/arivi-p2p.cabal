@@ -123,11 +123,14 @@ executable Main
                   , base >=4.9 && <4.11
                   , directory
                   , bytestring
+                  , exceptions
                   , hashtables <= 1.2.6.1
                   , lifted-async
+                  , monad-control
                   , monad-logger
                   , mtl
                   , stm >= 2.4.4.1
+                  , transformers-base
                   , time
                   , arivi-crypto
                   , arivi-utils

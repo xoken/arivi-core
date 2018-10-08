@@ -6,6 +6,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Main
     ( module Main
@@ -25,8 +28,11 @@ import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.PubSub.Types
 
 import           Control.Concurrent                     (threadDelay)
+import           Control.Monad.Base
+import           Control.Monad.Catch
 import           Control.Monad.Logger
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Control
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import qualified Data.HashMap.Strict                    as HM
@@ -36,7 +42,20 @@ import           Data.Text
 import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
-type AppM = ReaderT (P2PEnv ServiceResource ServiceTopic String String) (LoggingT IO)
+newtype AppM a =
+    AppM (ReaderT (P2PEnv AppM ServiceResource ServiceTopic String String) (LoggingT IO) a)
+    deriving ( Functor
+             , Applicative
+             , Monad
+             , MonadReader (P2PEnv AppM ServiceResource ServiceTopic String String)
+             , MonadIO
+             , MonadThrow
+             , MonadCatch
+             , MonadLogger
+             )
+
+deriving instance MonadBase IO AppM
+deriving instance MonadBaseControl IO AppM
 
 instance HasNetworkEnv AppM where
     getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
@@ -62,8 +81,11 @@ instance HasPRT AppM where
     getReputedVsOtherTVar = asks (tvReputedVsOther . prtEnv)
     getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
 
-runAppM :: P2PEnv ServiceResource ServiceTopic String String-> AppM a -> LoggingT IO a
-runAppM = flip runReaderT
+runAppM ::
+       P2PEnv AppM ServiceResource ServiceTopic String String
+    -> AppM a
+    -> LoggingT IO a
+runAppM env (AppM app) = runReaderT app env
 
 defaultConfig :: FilePath -> IO ()
 defaultConfig path = do

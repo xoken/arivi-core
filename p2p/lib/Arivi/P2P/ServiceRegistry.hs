@@ -26,11 +26,10 @@ mkP2PEnv ::
        (Ord t, Hashable t, Ord r, Hashable r)
     => Config.Config
     -> ResourceHandler rmsg
-    -> (forall env m. (HasP2PEnv env m r t rmsg pmsg) =>
-    pmsg -> m Status)
+    -> (pmsg -> m Status)
     -> [r]
     -> [t]
-    -> IO (P2PEnv r t rmsg pmsg)
+    -> IO (P2PEnv m r t rmsg pmsg)
 mkP2PEnv config rh psH resources topics = do
     let nc =
             NetworkConfig

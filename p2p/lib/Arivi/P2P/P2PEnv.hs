@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE DataKinds, FunctionalDependencies #-}
 
 module Arivi.P2P.P2PEnv
     ( module Arivi.P2P.P2PEnv
@@ -46,7 +46,7 @@ type HasP2PEnv env m r t rmsg pmsg
        , HasPRT m
        , MonadReader env m
        , HasNetworkConfig env NetworkConfig
-       , HasPSGlobalHandler env r t rmsg pmsg
+       , HasPSGlobalHandler env m r t rmsg pmsg
        )
 
 data NodeEndpointEnv = NodeEndpointEnv {
@@ -76,20 +76,20 @@ mkKademlia NetworkConfig{..} sbound pingThreshold kademliaConcurrencyFactor hopB
             hopBound
 
 
-data P2PEnv r t rmsg pmsg = P2PEnv {
+data P2PEnv m r t rmsg pmsg = P2PEnv {
       nodeEndpointEnv :: NodeEndpointEnv
     , rEnv :: RpcEnv r rmsg
     , psEnv :: PubSubEnv t pmsg
     , kademliaEnv :: KademliaEnv
     , statsdClient :: StatsdClient
     , prtEnv       :: PRTEnv
-    , psHandler :: forall env m . (HasP2PEnv env m r t rmsg pmsg) => pmsg -> m Status
+    , psHandler :: pmsg -> m Status
 }
 
-class HasPSGlobalHandler env r t rmsg pmsg where
-    psGlobalHandler :: env -> (forall env' m . (HasP2PEnv env' m r t rmsg pmsg) => pmsg -> m Status)
+class HasPSGlobalHandler env m r t rmsg pmsg | env -> m r t rmsg where
+    psGlobalHandler :: env -> (pmsg -> m Status)
 
-instance HasPSGlobalHandler (P2PEnv r t rmsg pmsg) r t rmsg pmsg where
+instance HasPSGlobalHandler (P2PEnv m r t rmsg pmsg) m r t rmsg pmsg where
     psGlobalHandler = psHandler
 
 class (HasSecretKey m) => HasNodeEndpoint m where
@@ -130,7 +130,7 @@ data Handlers = Handlers {
     , pubsub :: forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg, MonadIO m) => NodeId -> PubSub -> ByteString -> m ByteString
 }
 
-instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
+instance HasNetworkConfig (P2PEnv m r t rmsg pmsg) NetworkConfig where
     networkConfig f p2p =
         fmap
             (\nc ->
@@ -140,19 +140,19 @@ instance HasNetworkConfig (P2PEnv r t rmsg pmsg) NetworkConfig where
                  })
             (f ((Arivi.P2P.P2PEnv._networkConfig . nodeEndpointEnv) p2p))
 
-instance HasTopics (P2PEnv r t rmsg pmsg) t where
+instance HasTopics (P2PEnv m r t rmsg pmsg) t where
     topics = pubSubTopics . psEnv
-instance HasSubscribers (P2PEnv r t rmsg pmsg) t where
+instance HasSubscribers (P2PEnv m r t rmsg pmsg) t where
     subscribers = pubSubSubscribers . psEnv
-instance HasNotifiers (P2PEnv r t rmsg pmsg) t where
+instance HasNotifiers (P2PEnv m r t rmsg pmsg) t where
     notifiers = pubSubNotifiers . psEnv
-instance HasInbox (P2PEnv r t rmsg pmsg) pmsg where
+instance HasInbox (P2PEnv m r t rmsg pmsg) pmsg where
     inbox = pubSubInbox . psEnv
-instance HasCache (P2PEnv r t rmsg pmsg) pmsg where
+instance HasCache (P2PEnv m r t rmsg pmsg) pmsg where
     cache = pubSubCache . psEnv
 
-instance HasPubSubEnv (P2PEnv r t rmsg pmsg) t pmsg where
+instance HasPubSubEnv (P2PEnv m r t rmsg pmsg) t pmsg where
     pubSubEnv = psEnv
 
-instance HasRpcEnv (P2PEnv r t rmsg pmsg) r rmsg where
+instance HasRpcEnv (P2PEnv m r t rmsg pmsg) r rmsg where
     rpcEnv = rEnv

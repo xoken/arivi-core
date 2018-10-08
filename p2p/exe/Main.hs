@@ -6,6 +6,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Main
     ( module Main
@@ -22,8 +25,11 @@ import           Arivi.P2P.Handler  (newIncomingConnectionHandler)
 import           Arivi.P2P.Kademlia.LoadDefaultPeers
 
 import           Control.Concurrent.Async.Lifted        (async, wait)
+import           Control.Monad.Base
+import           Control.Monad.Catch
 import           Control.Monad.Logger
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Control
 import           Data.ByteString.Lazy                   as BSL (ByteString)
 import           Data.ByteString.Lazy.Char8             as BSLC (pack)
 import           Data.Monoid                            ((<>))
@@ -32,7 +38,20 @@ import           Data.Text
 import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
-type AppM = ReaderT (P2PEnv ByteString ByteString ByteString ByteString) (LoggingT IO)
+newtype AppM a =
+    AppM (ReaderT (P2PEnv AppM ByteString ByteString ByteString ByteString) (LoggingT IO) a)
+    deriving ( Functor
+             , Applicative
+             , Monad
+             , MonadReader (P2PEnv AppM ByteString ByteString ByteString ByteString)
+             , MonadIO
+             , MonadThrow
+             , MonadCatch
+             , MonadLogger
+             )
+
+deriving instance MonadBase IO AppM
+deriving instance MonadBaseControl IO AppM
 
 instance HasNetworkEnv AppM where
     getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
@@ -59,10 +78,10 @@ instance HasPRT AppM where
     getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
 
 runAppM ::
-       P2PEnv ByteString ByteString ByteString ByteString
+       P2PEnv AppM ByteString ByteString ByteString ByteString
     -> AppM a
     -> LoggingT IO a
-runAppM = flip runReaderT
+runAppM env (AppM app) = runReaderT app env
 
 {--
 writeConfigs path = do

@@ -78,16 +78,19 @@ executable HelloWorldApp
                 , yaml
                 , text
                 , bytestring
+                , exceptions
                 , cryptonite
                 , unordered-containers <= 0.2.9.0
                 , arivi-network
                 , network
                 , arivi-crypto
                 , memory
+                , transformers-base
                 , time
                 , string-conv
                 , directory
                 , mtl
+                , monad-control
                 , monad-logger
                 , async
                 , arivi-utils
