@@ -17,12 +17,14 @@ module Arivi.P2P.Kademlia.Utils
     , convToSockAddr
     , randomList
     , count'
+    , addListOfList
     ) where
 
 import           Arivi.Crypto.Utils.Keys.Signature
 import qualified Data.ByteString.Char8             as C
 import           Data.Int
 import qualified Data.List.Split                   as S
+import           Data.Monoid
 import           Data.Word
 import           Network.Socket
 import qualified Network.Socket.Internal           as M
@@ -112,3 +114,9 @@ getRandomSequence2 = randomIO
 
 count' :: Eq a => a -> [a] -> Int
 count' x = length . filter (x ==)
+
+-- | Helper function to add list of list
+addListOfList :: [[a]] -> [a]
+addListOfList [x]    = x
+addListOfList []     = []
+addListOfList (x:xs) = x <> addListOfList xs
