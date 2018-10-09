@@ -13,7 +13,6 @@ import           Arivi.P2P.Kademlia.MessageHandler
 import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.RPC.Handler
 import           Arivi.P2P.RPC.Env
-import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.Types
 import           Arivi.Utils.Statsd
 
@@ -25,7 +24,7 @@ mkHandlers = Handlers rpcHandler kademliaMessageHandler optionsHandler pubSubHan
 mkP2PEnv ::
        (Ord t, Hashable t, Ord r, Hashable r)
     => Config.Config
-    -> ResourceHandler rmsg
+    -> (rmsg -> m (Maybe rmsg))
     -> (pmsg -> m Status)
     -> [r]
     -> [t]
@@ -43,7 +42,7 @@ mkP2PEnv config rh psH resources topics = do
                 (read $ show $ Config.udpPort config)
                 (Config.secretKey config)
     nep <- mkNodeEndpoint nc mkHandlers networkEnv
-    nrpc <- mkRpc rh resources
+    nrpc <- mkRpc resources
     nps <- mkPubSub topics
     nk <-
         mkKademlia
@@ -62,6 +61,7 @@ mkP2PEnv config rh psH resources topics = do
         , kademliaEnv = nk
         , statsdClient = ncsc
         , prtEnv = nprt
+        , rHandler = rh
         , psHandler = psH
         }
 

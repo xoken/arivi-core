@@ -73,8 +73,10 @@ type HasService env m =
     , MonadReader env m
     )
 
-globalHandlerRpc :: (MonadIO m) => String -> m (Maybe String)
-globalHandlerRpc msg =
+globalHandlerRpc :: (HasService env m) => String -> m (Maybe String)
+globalHandlerRpc msg = do
+    val <- asks getSomeVal
+    liftIO $ print ((someVal val) ++ "rpc")
     if msg == "HelloWorld" then return (Just (msg ++ " Praise Satoshi"))
     else return Nothing
 
@@ -118,3 +120,5 @@ instance HasRpcEnv (ServiceEnv m r t rmsg pmsg) r rmsg where
     rpcEnv = rEnv . p2pEnv
 instance HasPSGlobalHandler (ServiceEnv m r t rmsg pmsg) m r t rmsg pmsg where
     psGlobalHandler = psHandler . p2pEnv
+instance HasRpcGlobalHandler (ServiceEnv m r t rmsg pmsg) m r t rmsg pmsg where
+    rpcGlobalHandler = rHandler . p2pEnv

@@ -7,6 +7,7 @@ module Arivi.P2P.RPC.Handler
     , rpcHandler
     ) where
 
+import           Arivi.P2P.P2PEnv
 import           Arivi.P2P.Types
 import           Arivi.P2P.RPC.Types
 import           Arivi.P2P.RPC.Env
@@ -14,14 +15,12 @@ import           Arivi.P2P.RPC.Env
 import           Control.Monad.Reader
 import qualified Data.HashMap.Strict                   as HM
 
-rpcHandler ::
-    ( MonadReader env m
-    , HasRpc env r msg, MonadIO m)
-    => Request 'Rpc (RpcPayload r msg)
-    -> m (Response 'Rpc (RpcPayload r msg))
+rpcHandler :: forall env m r t rmsg pmsg .
+    ( HasP2PEnv env m r t rmsg pmsg)
+    => Request 'Rpc (RpcPayload r rmsg)
+    -> m (Response 'Rpc (RpcPayload r rmsg))
 rpcHandler (RpcRequest (RpcPayload resource msg)) = do
-    rpcRecord <- asks rpcEnv
-    let ResourceHandler h = rpcHandlers rpcRecord
+    h <- asks rpcGlobalHandler
     resp <- h msg
     case resp of
         Just response -> return (RpcResponse (RpcPayload resource response))

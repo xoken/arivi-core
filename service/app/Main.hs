@@ -109,7 +109,7 @@ defaultConfig path = do
 runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
-    env <- mkP2PEnv config (ResourceHandler globalHandlerRpc) globalHandlerPubSub [HelloWorld] [HelloWorldHeader]
+    env <- mkP2PEnv config globalHandlerRpc globalHandlerPubSub [HelloWorld] [HelloWorldHeader]
     let something = SomeEnv "Hello"
     let serviceEnv = ServiceEnv something env
     runFileLoggingT (toS $ Config.logFile config) $

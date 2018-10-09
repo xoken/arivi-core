@@ -46,6 +46,7 @@ type HasP2PEnv env m r t rmsg pmsg
        , HasPRT m
        , MonadReader env m
        , HasNetworkConfig env NetworkConfig
+       , HasRpcGlobalHandler env m r t rmsg pmsg
        , HasPSGlobalHandler env m r t rmsg pmsg
        )
 
@@ -83,6 +84,7 @@ data P2PEnv m r t rmsg pmsg = P2PEnv {
     , kademliaEnv :: KademliaEnv
     , statsdClient :: StatsdClient
     , prtEnv       :: PRTEnv
+    , rHandler :: rmsg -> m (Maybe rmsg)
     , psHandler :: pmsg -> m Status
 }
 
@@ -91,6 +93,12 @@ class HasPSGlobalHandler env m r t rmsg pmsg | env -> m r t rmsg where
 
 instance HasPSGlobalHandler (P2PEnv m r t rmsg pmsg) m r t rmsg pmsg where
     psGlobalHandler = psHandler
+
+class HasRpcGlobalHandler env m r t rmsg pmsg | env -> m r t pmsg where
+    rpcGlobalHandler :: env -> (rmsg -> m (Maybe rmsg))
+
+instance HasRpcGlobalHandler (P2PEnv m r t rmsg pmsg) m r t rmsg pmsg where
+    rpcGlobalHandler = rHandler
 
 class (HasSecretKey m) => HasNodeEndpoint m where
     getEndpointEnv :: m NodeEndpointEnv
@@ -124,7 +132,7 @@ mkPRTEnv = do
     return (PRTEnv peerReputationHashTable servicesReputationHashMapTVar p2pReputationHashMapTVar reputedVsOtherTVar kClosestVsRandomTVar)
 
 data Handlers = Handlers {
-      rpc :: forall env m r msg. (MonadReader env m, HasNodeEndpoint m, HasRpc env r msg, MonadIO m) => Request 'Rpc (RpcPayload r msg) -> m (Response 'Rpc (RpcPayload r msg))
+      rpc :: forall env m r t rmsg pmsg . (HasP2PEnv env m r t rmsg pmsg, MonadIO m) => Request 'Rpc (RpcPayload r rmsg) -> m (Response 'Rpc (RpcPayload r rmsg))
     , kademlia :: forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg) => Request 'Kademlia T.PayLoad -> m (Response 'Kademlia T.PayLoad)
     , option :: forall env m r msg. (MonadReader env m, HasNodeEndpoint m, HasRpc env r msg, MonadIO m) => m (Response 'Option (Supported [r]))
     , pubsub :: forall env m r t rmsg pmsg. (HasP2PEnv env m r t rmsg pmsg, MonadIO m) => NodeId -> PubSub -> ByteString -> m ByteString
