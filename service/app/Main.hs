@@ -43,11 +43,11 @@ import           System.Directory                       (doesPathExist)
 import           System.Environment                     (getArgs)
 
 newtype AppM a =
-    AppM (ReaderT (P2PEnv AppM ServiceResource ServiceTopic String String) (LoggingT IO) a)
+    AppM (ReaderT (ServiceEnv AppM ServiceResource ServiceTopic String String) (LoggingT IO) a)
     deriving ( Functor
              , Applicative
              , Monad
-             , MonadReader (P2PEnv AppM ServiceResource ServiceTopic String String)
+             , MonadReader (ServiceEnv AppM ServiceResource ServiceTopic String String)
              , MonadIO
              , MonadThrow
              , MonadCatch
@@ -58,31 +58,32 @@ deriving instance MonadBase IO AppM
 deriving instance MonadBaseControl IO AppM
 
 instance HasNetworkEnv AppM where
-    getEnv = asks (ariviNetworkEnv . nodeEndpointEnv)
+    getEnv = asks (ariviNetworkEnv . nodeEndpointEnv . p2pEnv)
 
 instance HasSecretKey AppM
 
 instance HasKbucket AppM where
-    getKb = asks (kbucket . kademliaEnv)
+    getKb = asks (kbucket . kademliaEnv . p2pEnv)
 
 instance HasStatsdClient AppM where
-    getStatsdClient = asks statsdClient
+    getStatsdClient = asks (statsdClient . p2pEnv)
 
 instance HasNodeEndpoint AppM where
-    getEndpointEnv = asks nodeEndpointEnv
-    getNetworkConfig = asks (PE._networkConfig . nodeEndpointEnv)
-    getHandlers = asks (handlers . nodeEndpointEnv)
-    getNodeIdPeerMapTVarP2PEnv = asks (tvarNodeIdPeerMap . nodeEndpointEnv)
+    getEndpointEnv = asks (nodeEndpointEnv . p2pEnv)
+    getNetworkConfig = asks (PE._networkConfig . nodeEndpointEnv . p2pEnv)
+    getHandlers = asks (handlers . nodeEndpointEnv . p2pEnv)
+    getNodeIdPeerMapTVarP2PEnv = asks (tvarNodeIdPeerMap . nodeEndpointEnv . p2pEnv)
 
 instance HasPRT AppM where
-    getPeerReputationHistoryTableTVar = asks (tvPeerReputationHashTable . prtEnv)
-    getServicesReputationHashMapTVar = asks (tvServicesReputationHashMap . prtEnv)
-    getP2PReputationHashMapTVar = asks (tvP2PReputationHashMap . prtEnv)
-    getReputedVsOtherTVar = asks (tvReputedVsOther . prtEnv)
-    getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv)
+    getPeerReputationHistoryTableTVar = asks (tvPeerReputationHashTable . prtEnv . p2pEnv)
+    getServicesReputationHashMapTVar = asks (tvServicesReputationHashMap . prtEnv . p2pEnv)
+    getP2PReputationHashMapTVar = asks (tvP2PReputationHashMap . prtEnv . p2pEnv)
+    getReputedVsOtherTVar = asks (tvReputedVsOther . prtEnv . p2pEnv)
+    getKClosestVsRandomTVar = asks (tvKClosestVsRandom . prtEnv . p2pEnv)
+
 
 runAppM ::
-       P2PEnv AppM ServiceResource ServiceTopic String String
+       ServiceEnv AppM ServiceResource ServiceTopic String String
     -> AppM a
     -> LoggingT IO a
 runAppM env (AppM app) = runReaderT app env
@@ -109,9 +110,11 @@ runNode :: String -> IO ()
 runNode configPath = do
     config <- Config.readConfig configPath
     env <- mkP2PEnv config (ResourceHandler globalHandlerRpc) globalHandlerPubSub [HelloWorld] [HelloWorldHeader]
+    let something = SomeEnv "Hello"
+    let serviceEnv = ServiceEnv something env
     runFileLoggingT (toS $ Config.logFile config) $
         runAppM
-            env
+            serviceEnv
             (do initP2P config
                 liftIO $ threadDelay 5000000
                 liftIO $ putStrLn "Publish (y/n)?"
@@ -121,6 +124,7 @@ runNode configPath = do
                     else return ()
                 -- getHelloWorld
                 liftIO $ threadDelay 500000000)
+    return ()
 
 main :: IO ()
 main = do
