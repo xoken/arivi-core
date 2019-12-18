@@ -33,7 +33,11 @@ library
                     ,  bytestring
                     ,  cryptonite >= 0.23
                     ,  memory >= 0.14.11
+<<<<<<< HEAD
                     ,  raaz >= 0.1.1
+=======
+                    ,  raaz >= 0.2.1
+>>>>>>> breaking out arivi-core from arivi
 
   ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
   exposed-modules:

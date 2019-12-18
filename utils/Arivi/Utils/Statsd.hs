@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+=======
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+>>>>>>> breaking out arivi-core from arivi
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Arivi.Utils.Statsd
@@ -14,6 +19,7 @@ module Arivi.Utils.Statsd
     , time
     ) where
 
+<<<<<<< HEAD
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Control
@@ -21,6 +27,15 @@ import           Data.Time.Units
 import           Network.Socket              (PortNumber)
 import qualified Network.Statsd              as S
 import           Network.Statsd.UdpClient
+=======
+import Control.Monad.IO.Class
+import Control.Monad.Reader
+import Control.Monad.Trans.Control
+import Data.Time.Units
+import Network.Socket (PortNumber)
+import qualified Network.Statsd as S
+import Network.Statsd.UdpClient
+>>>>>>> breaking out arivi-core from arivi
 
 -- | Structure to hold the stasd client
 type StatsdClient = UdpClient
@@ -35,12 +50,18 @@ createStatsdClient hostname port prefix = do
 -- | Creates a statsd client which can be used to send encrypted messages
 --   to a statsd server using packet signing with shared secret HMAC SHA256
 --   signatures
+<<<<<<< HEAD
 createStatsdClientWithHmac ::
        String -> Int -> String -> String -> IO StatsdClient
 createStatsdClientWithHmac hostname port secret prefix = do
     let str =
             "statsd://:" ++
             secret ++ "@" ++ hostname ++ ":" ++ show port ++ "/" ++ prefix
+=======
+createStatsdClientWithHmac :: String -> Int -> String -> String -> IO StatsdClient
+createStatsdClientWithHmac hostname port secret prefix = do
+    let str = "statsd://:" ++ secret ++ "@" ++ hostname ++ ":" ++ show port ++ "/" ++ prefix
+>>>>>>> breaking out arivi-core from arivi
     S.statsdClient str
 
 -- | Abstract class which defines a function to get a statsd client

@@ -54,7 +54,11 @@ library
                     ,  unordered-containers <= 0.2.9.0
                     ,  uuid
                     ,  hashable
+<<<<<<< HEAD
                     ,  stm-containers >= 0.2.16 && < 1
+=======
+                    ,  stm-containers
+>>>>>>> breaking out arivi-core from arivi
                     ,  list-t >= 1.0.0.1
                     ,  either-unwrap >= 1.1
                     ,  sorted-list
@@ -68,6 +72,12 @@ library
                     ,  arivi-network
                     ,  arivi-crypto
                     ,  arivi-utils
+<<<<<<< HEAD
+=======
+                    , vector
+                    , QuickCheck
+                    , transformers-base
+>>>>>>> breaking out arivi-core from arivi
   ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
   default-extensions:  FlexibleContexts
   exposed-modules:
@@ -85,8 +95,16 @@ library
                        Arivi.P2P.ServiceRegistry
                        Arivi.P2P.Types
                        Arivi.P2P.LevelDB
+<<<<<<< HEAD
                        Arivi.P2P.RPC.Functions
                        Arivi.P2P.RPC.Types
+=======
+                       -- Arivi.P2P.RPC.Functions
+                       Arivi.P2P.RPC.Env
+                       Arivi.P2P.RPC.Types
+                       Arivi.P2P.RPC.Fetch
+
+>>>>>>> breaking out arivi-core from arivi
   other-modules:
                        Arivi.P2P.Connection
                        Arivi.P2P.PeerMaintainer
@@ -109,6 +127,7 @@ library
                        Arivi.P2P.PRT.Types
                        Arivi.P2P.RPC.Handler
                        Arivi.P2P.RPC.SendOptions
+<<<<<<< HEAD
   default-language:    Haskell2010
 
 executable Main
@@ -137,3 +156,7 @@ executable Main
                   , cryptonite
                   , memory
                   , string-conv
+=======
+
+  default-language:    Haskell2010
+>>>>>>> breaking out arivi-core from arivi

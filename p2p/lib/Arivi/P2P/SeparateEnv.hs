@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass, DataKinds #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
@@ -90,3 +91,7 @@ instance HasNodeEndpoint AppM where
     getEndpointEnv = asks nodeEndpointEnv
     getNetworkConfig = networkConfig <$> getEndpointEnv
     getPeerMap = nodeToPeerMap <$> getEndpointEnv
+=======
+
+--     getPeerMap = nodeToPeerMap <$> getEndpointEnv
+>>>>>>> breaking out arivi-core from arivi
