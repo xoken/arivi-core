@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 resolver: lts-11.11
+=======
+resolver: lts-12.26
+>>>>>>> breaking out arivi-core from arivi
 allow-newer: true
 packages:
 - .

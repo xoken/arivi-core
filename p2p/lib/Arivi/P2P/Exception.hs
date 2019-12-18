@@ -2,8 +2,13 @@ module Arivi.P2P.Exception
     ( AriviP2PException(..)
     ) where
 
+<<<<<<< HEAD
 import           Arivi.Network     (AriviNetworkException)
 import           Control.Exception
+=======
+import Arivi.Network (AriviNetworkException)
+import Control.Exception
+>>>>>>> breaking out arivi-core from arivi
 
 data AriviP2PException
     = KademliaKbIndexDoesNotExist

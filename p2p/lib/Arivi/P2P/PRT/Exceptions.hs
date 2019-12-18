@@ -1,4 +1,5 @@
 --------------------------------------------------------------------------------
+<<<<<<< HEAD
 -- |
 -- Module      : Arivi.P2P.PRT.Exceptions
 -- License     :
@@ -6,6 +7,8 @@
 -- Stability   :
 -- Portability :
 --
+=======
+>>>>>>> breaking out arivi-core from arivi
 -- This module defines different types of Exceptions that comes in Peer
 -- Reputation management
 --
@@ -14,7 +17,11 @@ module Arivi.P2P.PRT.Exceptions
     ( PRTExecption(..)
     ) where
 
+<<<<<<< HEAD
 import           Control.Exception
+=======
+import Control.Exception
+>>>>>>> breaking out arivi-core from arivi
 
 -- | Types of Exceptions that comes in Peer Reputation management
 data PRTExecption

@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 -- |
 -- Module      : Arivi.Kademlia.XorDistance
 -- License     :
 -- Maintainer  : Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
+=======
+>>>>>>> breaking out arivi-core from arivi
 --
 -- This module provides generation of xor distance between two node Id's
 --
@@ -14,10 +17,17 @@ module Arivi.P2P.Kademlia.XorDistance
     ) where
 
 import qualified Arivi.P2P.Kademlia.Types as T
+<<<<<<< HEAD
 import           Data.Bits
 import           Data.ByteString.Base16   (encode)
 import qualified Data.ByteString.Char8    as C
 import           Data.Char                (digitToInt)
+=======
+import Data.Bits
+import Data.ByteString.Base16 (encode)
+import qualified Data.ByteString.Char8 as C
+import Data.Char (digitToInt)
+>>>>>>> breaking out arivi-core from arivi
 
 fn :: Char -> Int
 fn str = digitToInt str :: Int
@@ -26,13 +36,18 @@ hexToDigits :: String -> [Int]
 hexToDigits = map fn
 
 hexToDec :: (Num t1, Integral b) => [t1] -> b -> t -> t1
+<<<<<<< HEAD
 hexToDec [] _ _           = 0
+=======
+hexToDec [] _ _ = 0
+>>>>>>> breaking out arivi-core from arivi
 hexToDec (xs:x) index len = hexToDec x (index + 1) len + (16 ^ index) * xs
 
 hexToDecimal :: Num a => [a] -> a
 hexToDecimal lst = hexToDec (reverse lst) (0 :: Integer) (length lst)
 
 bitWisexorOfKeys :: String -> String -> [Int]
+<<<<<<< HEAD
 bitWisexorOfKeys firstNodeId secondNodeId =
     zipWith xor (hexToDigits firstNodeId) (hexToDigits secondNodeId)
 
@@ -40,6 +55,13 @@ bitWisexorOfKeys firstNodeId secondNodeId =
 getRawXor :: String -> String -> Integer
 getRawXor firstNodeId secondNodeId =
     hexToDecimal (map toInteger (bitWisexorOfKeys firstNodeId secondNodeId))
+=======
+bitWisexorOfKeys firstNodeId secondNodeId = zipWith xor (hexToDigits firstNodeId) (hexToDigits secondNodeId)
+
+-- | Gives the xor between two nodeIds
+getRawXor :: String -> String -> Integer
+getRawXor firstNodeId secondNodeId = hexToDecimal (map toInteger (bitWisexorOfKeys firstNodeId secondNodeId))
+>>>>>>> breaking out arivi-core from arivi
 
 -- getXorDistancelog2 number = logBase 2 (fromIntegral number)
 -- | Gives log2 of xor between two nodeId's if xor of two nodeId's is 0 then
