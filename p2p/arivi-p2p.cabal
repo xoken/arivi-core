@@ -77,8 +77,12 @@ library
                     , vector
                     , QuickCheck
                     , transformers-base
+<<<<<<< HEAD
 >>>>>>> breaking out arivi-core from arivi
   ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
+=======
+  
+>>>>>>> Config changes
   default-extensions:  FlexibleContexts
   exposed-modules:
                        Arivi.P2P
