@@ -46,11 +46,16 @@ instance FromJSON NodeEndPoint
 =======
 import Arivi.P2P.Kademlia.Types
 import Control.Exception
+import Control.Monad (guard)
 import Crypto.Error (throwCryptoError)
 import Crypto.PubKey.Ed25519
 import qualified Data.ByteArray as BA
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as B16
 import Data.ByteString.Char8
+import Data.Maybe
 import Data.Text as T
+import qualified Data.Text.Encoding as E
 import Data.Yaml
 import GHC.Generics
 import Network.Socket
@@ -62,18 +67,17 @@ data Config =
         , secretKey :: SecretKey
         , trustedPeers :: [Peer]
         , myNodeId :: ByteString
-        , myIp :: String
+        , listenIP :: String
         , logFile :: T.Text
         , sbound :: Int
         , pingThreshold :: Int
         , kademliaConcurrencyFactor :: Int
-        , ipcListenPort :: PortNumber
-        , ipcRemotePort :: PortNumber
+        , endPointListenPort :: PortNumber
         }
     deriving (Show, Generic)
 
 instance FromJSON ByteString where
-    parseJSON = withText "ByteString" $ \t -> pure $ Data.ByteString.Char8.pack (T.unpack t)
+    parseJSON = withText "ByteString" $ \t -> pure $ fromJust (decodeHex t)
 
 instance FromJSON NodeEndPoint where
     parseJSON (Object v) = NodeEndPoint <$> v .: "nodeIp" <*> v .: "udpPort" <*> v .: "tcpPort"
@@ -99,7 +103,7 @@ instance FromJSON SecretKey where
 instance FromJSON Config
 
 instance ToJSON ByteString where
-    toJSON a = String $ T.pack (Data.ByteString.Char8.unpack a)
+    toJSON a = String $ encodeHex a -- String $ T.pack (Data.ByteString.Char8.unpack a)
 
 instance ToJSON Peer
 
@@ -126,3 +130,13 @@ readConfig path = do
         Left e -> throw e
 >>>>>>> breaking out arivi-core from arivi
         Right con -> return con
+
+-- | Encode as string of human-readable hex characters.
+encodeHex :: ByteString -> Text
+encodeHex = E.decodeUtf8 . B16.encode
+
+-- | Decode string of human-readable hex characters.
+decodeHex :: Text -> Maybe ByteString
+decodeHex text =
+    let (x, b) = B16.decode (E.encodeUtf8 text)
+     in guard (b == BS.empty) >> return x
