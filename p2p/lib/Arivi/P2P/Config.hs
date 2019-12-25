@@ -72,6 +72,7 @@ data Config =
         , sbound :: Int
         , pingThreshold :: Int
         , kademliaConcurrencyFactor :: Int
+        , endPointListenIP :: String
         , endPointListenPort :: PortNumber
         }
     deriving (Show, Generic)
