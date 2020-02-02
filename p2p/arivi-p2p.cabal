@@ -78,11 +78,15 @@ library
                     , QuickCheck
                     , transformers-base
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> breaking out arivi-core from arivi
   ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
 =======
   
 >>>>>>> Config changes
+=======
+
+>>>>>>> nodeEndPoint - read from yaml file bugfix
   default-extensions:  FlexibleContexts
   exposed-modules:
                        Arivi.P2P
@@ -100,10 +104,14 @@ library
                        Arivi.P2P.Types
                        Arivi.P2P.LevelDB
 <<<<<<< HEAD
+<<<<<<< HEAD
                        Arivi.P2P.RPC.Functions
                        Arivi.P2P.RPC.Types
 =======
                        -- Arivi.P2P.RPC.Functions
+=======
+                       Arivi.P2P.Kademlia.Types
+>>>>>>> nodeEndPoint - read from yaml file bugfix
                        Arivi.P2P.RPC.Env
                        Arivi.P2P.RPC.Types
                        Arivi.P2P.RPC.Fetch
@@ -117,7 +125,6 @@ library
                        Arivi.P2P.Kademlia.RefreshKbucket
                        Arivi.P2P.Kademlia.RunConcurrently
                        Arivi.P2P.Kademlia.LoadReputedPeers
-                       Arivi.P2P.Kademlia.Types
                        Arivi.P2P.Kademlia.Utils
                        Arivi.P2P.Kademlia.VerifyPeer
                        Arivi.P2P.Kademlia.XorDistance

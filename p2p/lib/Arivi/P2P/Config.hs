@@ -52,7 +52,7 @@ import Crypto.PubKey.Ed25519
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as B16
-import Data.ByteString.Char8
+import Data.ByteString.Char8 as C
 import Data.Maybe
 import Data.Text as T
 import qualified Data.Text.Encoding as E
@@ -85,7 +85,7 @@ instance FromJSON NodeEndPoint where
     parseJSON _ = error "Can't parse NodeEndPoint from YAML"
 
 instance FromJSON Peer where
-    parseJSON (Object v) = Peer <$> v .: "nodeID" <*> v .: "endPoint"
+    parseJSON (Object v) = Peer <$> v .: "nodeID" <*> v .: "nodeEndPoint"
     parseJSON _ = error "Can't parse Peer"
 >>>>>>> breaking out arivi-core from arivi
 
@@ -104,7 +104,7 @@ instance FromJSON SecretKey where
 instance FromJSON Config
 
 instance ToJSON ByteString where
-    toJSON a = String $ encodeHex a -- String $ T.pack (Data.ByteString.Char8.unpack a)
+    toJSON a = String $ encodeHex a
 
 instance ToJSON Peer
 
