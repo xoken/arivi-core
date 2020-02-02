@@ -17,18 +17,6 @@ module Arivi.P2P.Kademlia.Utils
     , convToSockAddr
     , randomList
     , count'
-<<<<<<< HEAD
-    ) where
-
-import           Arivi.Crypto.Utils.Keys.Signature
-import qualified Data.ByteString.Char8             as C
-import           Data.Int
-import qualified Data.List.Split                   as S
-import           Data.Word
-import           Network.Socket
-import qualified Network.Socket.Internal           as M
-import           System.Random
-=======
     , addListOfList
     ) where
 
@@ -41,7 +29,6 @@ import Data.Word
 import Network.Socket
 import qualified Network.Socket.Internal as M
 import System.Random
->>>>>>> breaking out arivi-core from arivi
 
 -- Helper functions to extract value from 3-tuple
 extractFirst :: (a, b, c) -> a
@@ -72,13 +59,7 @@ stringToHostAddress x = remoteIp
     temp2 =
         case Prelude.map (read :: String -> Word8) temp of
             [a, b, c, d] -> (a, b, c, d)
-<<<<<<< HEAD
-            _ ->
-                error
-                    "stringToHostAddress: Parse failed trying to make a HostAddress."
-=======
             _ -> error "stringToHostAddress: Parse failed trying to make a HostAddress."
->>>>>>> breaking out arivi-core from arivi
     remoteIp = tupleToHostAddress temp2
 
 -- converts a given port number and a host address to a sock address
@@ -100,21 +81,11 @@ getSockAddr ip udpPort = SockAddrInet udpPort ip
 
 sockAddrToHostAddr :: SockAddr -> HostAddress
 sockAddrToHostAddr (SockAddrInet _ b) = b
-<<<<<<< HEAD
-sockAddrToHostAddr _ =
-    error "sockAddrToHostAddr: SockAddr is not of constructor SockAddrInet "
-
-sockAddrToPortNumber :: SockAddr -> PortNumber
-sockAddrToPortNumber (SockAddrInet a _) = a
-sockAddrToPortNumber _ =
-    error "sockAddrToPortNumber: SockAddr is not of constructor SockAddrInet "
-=======
 sockAddrToHostAddr _ = error "sockAddrToHostAddr: SockAddr is not of constructor SockAddrInet "
 
 sockAddrToPortNumber :: SockAddr -> PortNumber
 sockAddrToPortNumber (SockAddrInet a _) = a
 sockAddrToPortNumber _ = error "sockAddrToPortNumber: SockAddr is not of constructor SockAddrInet "
->>>>>>> breaking out arivi-core from arivi
 
 -- Helper function to check if a values exist in a list of type [(a,_)]
 isNodeIdElem :: Eq t => [(t, b)] -> t -> Bool
@@ -139,12 +110,9 @@ getRandomSequence2 = randomIO
 
 count' :: Eq a => a -> [a] -> Int
 count' x = length . filter (x ==)
-<<<<<<< HEAD
-=======
 
 -- | Helper function to add list of list
 addListOfList :: [[a]] -> [a]
 addListOfList [x] = x
 addListOfList [] = []
 addListOfList (x:xs) = x <> addListOfList xs
->>>>>>> breaking out arivi-core from arivi

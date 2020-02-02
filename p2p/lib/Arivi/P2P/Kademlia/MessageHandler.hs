@@ -1,27 +1,11 @@
-<<<<<<< HEAD
--- |
--- Module      : Arivi.Kademlia.MessageHandler
--- Copyright   : (c) Xoken Labs
--- License     : -
---
--- Maintainer  : Ankit Singh {ankitsiam@gmail.com}
--- Stability   : experimental
--- Portability : portable
-=======
->>>>>>> breaking out arivi-core from arivi
 --
 -- This module process the incoming kademlia request and produces the sutiable
 -- response as per the Kademlia protocol.
 --
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
-<<<<<<< HEAD
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE DataKinds       #-}
-=======
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
->>>>>>> breaking out arivi-core from arivi
 
 module Arivi.P2P.Kademlia.MessageHandler
     ( kademliaMessageHandler
@@ -35,10 +19,7 @@ import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import Arivi.P2P.MessageHandler.NodeEndpoint
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
-<<<<<<< HEAD
-=======
 import Codec.Serialise
->>>>>>> breaking out arivi-core from arivi
 import Control.Concurrent.Async.Lifted (async)
 import Control.Exception
 import Control.Lens
@@ -59,65 +40,6 @@ import qualified Data.Text as T
 --   kbucket is queried to extract k-closest node known by the local node and a
 --   list of k-closest peers wrapped in payload type is returned as a serialised
 --   bytestring.
-<<<<<<< HEAD
-
-kademliaMessageHandler ::
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => Request 'Kademlia PayLoad
-    -> m (Response 'Kademlia PayLoad)
-kademliaMessageHandler (KademliaRequest payload) = KademliaResponse <$> do
-    let msgb = messageBody $ message payload
-        rnep = fromEndPoint msgb
-        rnid = Arivi.P2P.Kademlia.Types.nodeId msgb
-        rpeer = Peer (rnid, rnep)
-    nc@NetworkConfig {..} <- asks (^. networkConfig)
-    case msgb of
-        PING {} -> do
-            $(logDebug) $
-                T.append
-                    (T.pack "Ping Message Recieved from : ")
-                    (T.pack (show rnep))
-            return $ packPong nc
-        FIND_NODE {} -> do
-            $(logDebug) $
-                T.append
-                    (T.pack "Find_Node Message Recieved from : ")
-                    (T.pack (show rnep))
-            void . runExceptT $ addToKBucket rpeer
-                     -- Initiates the verification process
-            void . async $ runExceptT $ verifyPeer rpeer
-                    -- liftIO $ do
-                    --     print "Find_Node recieved and peer added"
-                    --     i <- atomically $ H.size kb
-                    --     print ("Kbucket size after mH " ++ show i)
-            pl <- runExceptT $ getKClosestPeersByNodeid rnid 20
-            case pl of
-                Right pl2 -> return $ packFnR nc pl2
-                Left _ -> throw KademliaInvalidPeer
-        VERIFY_NODE _ tnid refnid tnep _ -> do
-            $(logDebug) $
-                T.append
-                    (T.pack "Verify_Node Message Recieved from : ")
-                    (T.pack (show rnep))
-            let findNodeMsg = packFindMsg nc refnid
-            resp <-
-                runExceptT $
-                issueKademliaRequest
-                    (NetworkConfig
-                         tnid
-                         (nodeIp tnep)
-                         (udpPort tnep)
-                         (tcpPort tnep))
-                    (KademliaRequest findNodeMsg)
-            case resp of
-                Left e -> throw e
-                Right (KademliaResponse resp') ->
-                    case messageBody (message resp') of
-                        FN_RESP _ pl _ -> return $ packVnR nc pl
-                        _ -> throw KademliaInvalidResponse
-        _ -> throw KademliaInvalidRequest
-=======
 kademliaMessageHandler ::
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
@@ -161,4 +83,3 @@ kademliaMessageHandler (KademliaRequest payload) =
                             FN_RESP _ pl _ -> return $ packVnR nc pl
                             _ -> throw KademliaInvalidResponse
             _ -> throw KademliaInvalidRequest
->>>>>>> breaking out arivi-core from arivi

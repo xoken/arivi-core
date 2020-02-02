@@ -4,19 +4,6 @@ module Arivi.Network.StreamClient
     , createFrame
     ) where
 
-<<<<<<< HEAD
-import           Arivi.Network.Types            (TransportType (..))
-
-import           Control.Concurrent.MVar
-import           Control.Monad                  (when)
-import           Data.Binary
-import qualified Data.ByteString.Lazy           as BSL
-import           Data.Int                       (Int16)
-import           Network.Socket
-import qualified Network.Socket.ByteString.Lazy as N (sendAll)
-
-
-=======
 import Arivi.Network.Types (TransportType(..))
 
 import Control.Concurrent.MVar
@@ -27,17 +14,11 @@ import Data.Int (Int16)
 import Network.Socket
 import qualified Network.Socket.ByteString.Lazy as N (sendAll)
 
->>>>>>> breaking out arivi-core from arivi
 -- | Eg: createSocket "127.0.0.1" 3000 TCP
 createSocket :: String -> Int -> TransportType -> IO Socket
 createSocket = createSocketWithOptions []
 
-<<<<<<< HEAD
-createSocketWithOptions ::
-       [SocketOption] -> String -> Int -> TransportType -> IO Socket
-=======
 createSocketWithOptions :: [SocketOption] -> String -> Int -> TransportType -> IO Socket
->>>>>>> breaking out arivi-core from arivi
 createSocketWithOptions options ip port tt =
     withSocketsDo $ do
         let portNo = Just (show port)
@@ -45,16 +26,7 @@ createSocketWithOptions options ip port tt =
         let hints = defaultHints {addrSocketType = transport_type}
         addr:_ <- getAddrInfo (Just hints) (Just ip) portNo
         sock <- socket AF_INET transport_type (addrProtocol addr)
-<<<<<<< HEAD
-        mapM_
-            (\option ->
-                 when
-                     (isSupportedSocketOption option)
-                     (setSocketOption sock option 1))
-            options
-=======
         mapM_ (\option -> when (isSupportedSocketOption option) (setSocketOption sock option 1)) options
->>>>>>> breaking out arivi-core from arivi
         connect sock (addrAddress addr)
         return sock
   where

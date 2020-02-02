@@ -1,11 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
-<<<<<<< HEAD
-{-# LANGUAGE RankNTypes    #-}
-=======
 {-# LANGUAGE RankNTypes #-}
->>>>>>> breaking out arivi-core from arivi
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
   FlexibleInstances, TypeSynonymInstances #-}
 
@@ -35,23 +31,6 @@ module Arivi.P2P.MessageHandler.HandlerTypes
     , rep
     ) where
 
-<<<<<<< HEAD
-import           Arivi.Network                (ConnectionHandle (..),
-                                               TransportType (..))
-import           Arivi.P2P.Types
-import           Codec.Serialise              (Serialise)
-import           Control.Concurrent.STM
-import           Control.Concurrent.MVar
-import           Data.ByteString              as N (ByteString)
-import           Data.ByteString.Lazy         as Lazy (ByteString)
-import           Data.HashMap.Strict          as HM
-import           GHC.Generics                 (Generic)
-import           Network.Socket               (PortNumber)
-import           Control.Lens.TH
-
---import           Arivi.Network.Types            (TransportType(..))
---import Arivi.P2P.Types
-=======
 import Arivi.Network (ConnectionHandle(..), TransportType(..))
 import Arivi.P2P.Types
 import Codec.Serialise (Serialise)
@@ -64,7 +43,6 @@ import Data.HashMap.Strict as HM
 import GHC.Generics (Generic)
 import Network.Socket (PortNumber)
 
->>>>>>> breaking out arivi-core from arivi
 type IP = String
 
 type Port = PortNumber
@@ -75,42 +53,6 @@ type P2PUUID = String
 
 type P2PPayload = Lazy.ByteString
 
-<<<<<<< HEAD
-data P2PMessage = P2PMessage
-    { uuid        :: Maybe P2PUUID
-    , messageType :: MessageType
-    , payload     :: P2PPayload
-    } deriving (Eq, Ord, Show, Generic)
-
-instance Serialise P2PMessage
-
--- data Peer = Peer
---     { nodeId  :: NodeId
---     , ip      :: IP
---     , udpPort :: Port
---     , tcpPort :: Port
---     } deriving (Eq, Show, Generic)
-{-
-PeerToUUIDMap =
-TVar( HashMap[ NodeId->TVar( HashMap[ UUID->MVar] ) ] )
---used for storing blocked readMVars for each sent request
-
-UUID generation done here
-
-P2PMessage = {
-    UUID
-    To
-    From
-    MessageType --sent by caller
-}
-
---final message to be sent to network layer
-
---KademTchan
---RpcTchan
---PubSubTchan
--}
-=======
 data P2PMessage =
     P2PMessage
         { uuid :: Maybe P2PUUID
@@ -121,7 +63,6 @@ data P2PMessage =
 
 instance Serialise P2PMessage
 
->>>>>>> breaking out arivi-core from arivi
 type MessageInfo = (P2PUUID, P2PPayload)
 
 data Handle
@@ -135,28 +76,6 @@ instance Eq Handle where
 
 type UUIDMap = HM.HashMap P2PUUID (MVar P2PMessage)
 
-<<<<<<< HEAD
-data PeerDetails = PeerDetails
-    { _networkConfig :: NetworkConfig
-    , _rep           :: Double -- Can have a fixed default value
-    , _streamHandle   :: Handle
-    , _datagramHandle :: Handle
-    , _uuidMap        :: UUIDMap
-    , _connectionLock :: TMVar Bool
-    }
-
-defaultPeerDetails :: STM PeerDetails
-defaultPeerDetails = do
-  lock <- newTMVar False
-  return PeerDetails {
-      _networkConfig = defaultNetworkConfig
-    , _rep = 0.0
-    , _streamHandle = NotConnected
-    , _datagramHandle = NotConnected
-    , _uuidMap = HM.empty
-    , _connectionLock = lock
-    }
-=======
 data PeerDetails =
     PeerDetails
         { _networkConfig :: NetworkConfig
@@ -179,7 +98,6 @@ defaultPeerDetails = do
             , _uuidMap = HM.empty
             , _connectionLock = lock
             }
->>>>>>> breaking out arivi-core from arivi
 
 makeLensesWith classUnderscoreNoPrefixFields ''PeerDetails
 

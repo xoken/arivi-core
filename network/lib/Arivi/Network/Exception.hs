@@ -6,16 +6,10 @@ module Arivi.Network.Exception
     , mapIOException
     ) where
 
-<<<<<<< HEAD
-import           Codec.Serialise   (DeserialiseFailure (..))
-import           Control.Exception
-import           Crypto.Error      (CryptoError (..))
-=======
 --import Codec.CBOR.Read hiding (DeserialiseFailure)
 import Codec.Serialise (DeserialiseFailure(..))
 import Control.Exception
 import Crypto.Error (CryptoError(..))
->>>>>>> breaking out arivi-core from arivi
 
 data AriviNetworkException
     = NetworkCryptoException CryptoError
@@ -39,9 +33,5 @@ mapIOException :: (Exception e) => (SomeException -> e) -> IO a -> IO a
 mapIOException f ioa = do
     aOrFail <- try ioa
     case aOrFail of
-<<<<<<< HEAD
-        Left e  -> throw (f e)
-=======
         Left e -> throw (f e)
->>>>>>> breaking out arivi-core from arivi
         Right r -> return r

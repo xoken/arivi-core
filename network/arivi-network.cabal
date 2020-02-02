@@ -43,11 +43,7 @@ library
                     ,  monad-logger
                     ,  monad-control
                     ,  mtl
-<<<<<<< HEAD
-                    ,  network
-=======
                     ,  network <=2.8.0.1
->>>>>>> breaking out arivi-core from arivi
                     ,  serialise
                     ,  stm >= 2.4.4.1
                     ,  text
@@ -55,15 +51,7 @@ library
                     ,  arivi-crypto
                     ,  arivi-utils
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-  ghc-options:  -Wall -Werror  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
-=======
-  ghc-options:  -Wall  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables
->>>>>>> breaking out arivi-core from arivi
-=======
   ghc-options:  -Wall  -Wredundant-constraints -fno-defer-type-errors -fno-defer-out-of-scope-variables -Wno-name-shadowing
->>>>>>> Config changes
   default-extensions:          FlexibleContexts
   exposed-modules:
                        Arivi.Env
@@ -106,8 +94,4 @@ test-suite arivi-network-test
                     ,  arivi-crypto
                     ,  arivi-utils
                     ,  arivi-network
-<<<<<<< HEAD
-                    ,  network
-=======
                     ,  network <=2.8.0.1
->>>>>>> breaking out arivi-core from arivi

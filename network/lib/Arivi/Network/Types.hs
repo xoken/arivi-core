@@ -1,13 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-<<<<<<< HEAD
-{-# LANGUAGE RankNTypes            #-}
-{-# OPTIONS_GHC -fno-warn-orphans  #-}
-{-# LANGUAGE DeriveGeneric         #-}
-=======
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 {-# LANGUAGE DeriveGeneric #-}
->>>>>>> breaking out arivi-core from arivi
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -58,27 +52,6 @@ module Arivi.Network.Types
     , HasUdpPort(..)
     ) where
 
-<<<<<<< HEAD
-import           Arivi.Crypto.Utils.Keys.Encryption as Keys
-import           Arivi.Utils.Logging                (HasLogging)
-import           Codec.Serialise
-import           Codec.Serialise.Class
-import           Codec.Serialise.Decoding
-import           Codec.Serialise.Encoding
-import           Crypto.PubKey.Curve25519           as Curve25519 (PublicKey,
-                                                                   publicKey)
-import           Crypto.PubKey.Ed25519              as Ed25519 (SecretKey,
-                                                                Signature,
-                                                                signature)
-import           Data.ByteArray
-import           Data.ByteString
-import qualified Data.ByteString.Lazy               as BSL
-import           Data.Int                           (Int32, Int64, Int8)
-import           Data.Monoid
-import           GHC.Generics
-import           Network.Socket                     as Network
-import           Control.Lens.TH
-=======
 import Arivi.Crypto.Utils.Keys.Encryption as Keys
 import Arivi.Utils.Logging (HasLogging)
 import Codec.Serialise
@@ -95,7 +68,6 @@ import Data.Int (Int32, Int64, Int8)
 import Data.Monoid ()
 import GHC.Generics
 import Network.Socket as Network
->>>>>>> breaking out arivi-core from arivi
 
 type ConnectionId = ByteString
 
@@ -132,45 +104,6 @@ type PlainText = ByteString
 type CipherText = ByteString
 
 -- | This message is encrypted and sent in the handshake message
-<<<<<<< HEAD
-data HandshakeInitMasked = HandshakeInitMessage
-    { versionList   :: [Version]
-    , connectionId  :: ConnectionId
-    , nonce         :: Nonce
-    , nodePublicKey :: NodeId
-    , signature     :: Signature
-    } deriving (Show, Eq, Generic)
-
-data HandshakeRespMasked = HandshakeRespMsg
-    { versionList  :: [Version]
-    , nonce        :: Nonce
-    , connectionId :: ConnectionId
-    } deriving (Show, Eq, Generic)
-
--- | These are the different types of Headers for different types of Parcels
-data Header
-    = HandshakeInitHeader { ephemeralPublicKey :: PublicKey -- ^ `PublicKey` for
-                                                      --    generating ssk
-                          , aeadNonce          :: AeadNonce --  ^ 8 Byte Nonce in
-                                                      --    Int64 format
-                           }
-    | HandshakeRespHeader { ephemeralPublicKey :: PublicKey -- ^ `PublicKey` for
-                                                        --    generating ssk
-                          , aeadNonce          :: AeadNonce -- ^ 8 Byte Nonce used
-                                                       --   for encryption
-                           }
-    | PingHeader
-    | PongHeader
-    | DataHeader { messageId          :: MessageId -- ^ Unique Message
-                                                      --   Identifier
-                 , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                 , totalFragments     :: FragmentNumber -- ^ Total fragments in
-                                                      --   current Message
-                 , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
-                                                      --   for particular
-                                                      --   connection
-                 , nonce              :: Nonce -- ^ Nonce which
-=======
 data HandshakeInitMasked =
     HandshakeInitMessage
         { versionList :: [Version]
@@ -215,37 +148,11 @@ data Header
                                                       --   for particular
                                                       --   connection
           , nonce :: Nonce -- ^ Nonce which
->>>>>>> breaking out arivi-core from arivi
                                                       --   increments by one
                                                       --   after each message
                                                       --   is sent. Useful for
                                                       --   preventing Replay
                                                       --   Attacks
-<<<<<<< HEAD
-                 , aeadNonce          :: AeadNonce -- ^ 8 Byte Nonce used
-                                                       --   for encryption
-                  }
-    | ErrorHeader { messageId          :: MessageId -- ^ Unique Message
-                                                      --   Identifier
-                  , fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                  , totalFragments     :: FragmentNumber -- ^ Total fragments in
-                                                      --   current Message
-                  , descriptor         :: Descriptor -- ^ Shows type of error
-                                                    --   and other fields
-                  , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
-                                                      --   for particular
-                                                      --   connection
-                   }
-    | ByeHeader { fragmentNumber     :: FragmentNumber -- ^ Number of fragment
-                , totalFragments     :: FragmentNumber -- ^ Total fragments in
-                                                      --   current Message
-                , parcelConnectionId :: ConnectionId -- ^ Connection Identifier
-                                                      --   for particular
-                                                      --   connection
-                , messageId          :: MessageId -- ^ Unique Message
-                                                      --   Identifier
-                 }
-=======
           , aeadNonce :: AeadNonce -- ^ 8 Byte Nonce used
                                                        --   for encryption
           }
@@ -271,7 +178,6 @@ data Header
           , messageId :: MessageId -- ^ Unique Message
                                                       --   Identifier
           }
->>>>>>> breaking out arivi-core from arivi
     deriving (Show, Eq, Generic)
 
 -- | This is pseudo frame which contains `Header` and `CipherText`.These fields
@@ -280,19 +186,12 @@ data Header
 --   so it will be useful at the receiving side to know which type of Parcel is
 --   this. After encoding these fields length of the parcel in Plain Text is
 --   appended before sending on the Network.
-<<<<<<< HEAD
-data Parcel = Parcel
-    { header           :: Header -- ^ Header of the Parcel
-    , encryptedPayload :: Payload -- ^ Encrypted `P2PMessage
-    } deriving (Show, Eq, Generic)
-=======
 data Parcel =
     Parcel
         { header :: Header -- ^ Header of the Parcel
         , encryptedPayload :: Payload -- ^ Encrypted `P2PMessage
         }
     deriving (Show, Eq, Generic)
->>>>>>> breaking out arivi-core from arivi
 
 makeDataParcel :: Header -> Payload -> Parcel
 makeDataParcel = Parcel
@@ -328,17 +227,11 @@ data TransportType
     | TCP
     deriving (Eq, Show, Generic, Read)
 
-<<<<<<< HEAD
-newtype Payload = Payload
-    { getPayload :: BSL.ByteString
-    } deriving (Show, Eq, Generic)
-=======
 newtype Payload =
     Payload
         { getPayload :: BSL.ByteString
         }
     deriving (Show, Eq, Generic)
->>>>>>> breaking out arivi-core from arivi
 
 instance Serialise Version
 
@@ -373,13 +266,7 @@ decodePublicKey = do
     len <- decodeListLen
     tag <- decodeWord
     case (len, tag) of
-<<<<<<< HEAD
-        (2, 0) ->
-            throwCryptoError . publicKey <$>
-            (decode :: Decoder s Data.ByteString.ByteString)
-=======
         (2, 0) -> throwCryptoError . publicKey <$> (decode :: Decoder s Data.ByteString.ByteString)
->>>>>>> breaking out arivi-core from arivi
         _ -> fail "invalid PublicKey encoding"
 
 -- Serilaise instance for Signature
@@ -397,28 +284,6 @@ decodeSignature = do
     len <- decodeListLen
     tag <- decodeWord
     case (len, tag) of
-<<<<<<< HEAD
-        (2, 0) ->
-            throwCryptoError . Ed25519.signature <$>
-            (decode :: Decoder s ByteString)
-        _ -> fail "invalid Signature encoding"
-
-data ConnectionHandle = ConnectionHandle
-    { send :: forall m. (HasLogging m) =>
-                            BSL.ByteString -> m ()
-    , recv :: forall m. (HasLogging m) =>
-                            m BSL.ByteString
-    , close :: forall m. (HasLogging m) =>
-                             m ()
-    }
-
-data NetworkConfig = NetworkConfig
-    { _nodeId  :: NodeId
-    , _ip      :: HostName
-    , _udpPort :: PortNumber
-    , _tcpPort :: PortNumber
-    } deriving (Eq, Ord, Show, Generic)
-=======
         (2, 0) -> throwCryptoError . Ed25519.signature <$> (decode :: Decoder s ByteString)
         _ -> fail "invalid Signature encoding"
 
@@ -440,7 +305,6 @@ data NetworkConfig =
         , _tcpPort :: PortNumber
         }
     deriving (Eq, Ord, Show, Generic)
->>>>>>> breaking out arivi-core from arivi
 
 defaultNetworkConfig :: NetworkConfig
 defaultNetworkConfig = NetworkConfig "0" "127.0.0.1" 6565 6565

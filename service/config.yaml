@@ -1,8 +1,0 @@
-logFile: ./node.log
-myIp: '127.0.0.1'
-secretKey: ! "­\x89Ý\"Â¡\x7FÐ\x1A\x94\x90+ãä?@\x03ðim/\x1E(únrË÷£G1¯"
-trustedPeers: []
-udpPort: 8080
-tcpPort: 8080  
-myNodeId: ! "å\a»\x8AÊ×\x1F\x17%$æÊ¶,\x15¦\x12ÊQ\x93ÊKaGÊ\nÑTmÇ\v\x8Fï\x8D¡·\x80ÿ;Ø \x1Eß\x8B~OU_9\x11¨\x80kÙÐ\x126\x01±'0¢PQ"
- 

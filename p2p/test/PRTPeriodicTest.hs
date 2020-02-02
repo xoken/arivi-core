@@ -1,51 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-<<<<<<< HEAD
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE FlexibleContexts     #-}
-=======
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts #-}
->>>>>>> breaking out arivi-core from arivi
 
 module Main
     ( module Main
     ) where
 
-<<<<<<< HEAD
-import qualified Arivi.Crypto.Utils.Keys.Signature      as S
-import           Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
-import           Arivi.Crypto.Utils.PublicKey.Utils
-import qualified Arivi.Crypto.Utils.PublicKey.Utils     as U
-import           Arivi.Env
-import           Arivi.Network
-import           Arivi.P2P.Kademlia.LoadDefaultPeers    (loadDefaultPeers)
-import qualified Arivi.P2P.Kademlia.Types               as T
-import qualified Arivi.P2P.Kademlia.Utils               as U
-import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.ServiceRegistry
-import           Control.Concurrent.Async.Lifted        (async, wait)
-import           Control.Monad.Logger
-import           Control.Monad.Reader
-import           Data.ByteString.Lazy                   as BSL (ByteString)
-import           Data.ByteString.Lazy.Char8             as BSLC (pack)
-import           System.Environment                     (getArgs)
-
--- import           Arivi.P2P.MessageHandler.Handler       (newIncomingConnection)
-import           Arivi.P2P.PRT.Instance
-import           Arivi.P2P.PRT.Types
-import           Control.Monad.IO.Class                 (liftIO)
-import qualified CreateConfig                           as Config
-import           Data.Monoid                            ((<>))
-import           Data.String.Conv
-import           Data.Text
-import           System.Directory                       (doesPathExist)
-=======
 import qualified Arivi.Crypto.Utils.Keys.Signature as S
 import Arivi.Crypto.Utils.PublicKey.Signature as ACUPS
 import Arivi.Crypto.Utils.PublicKey.Utils
@@ -73,7 +36,6 @@ import Data.Monoid ((<>))
 import Data.String.Conv
 import Data.Text
 import System.Directory (doesPathExist)
->>>>>>> breaking out arivi-core from arivi
 
 type AppM = ReaderT P2PEnv (LoggingT IO)
 
@@ -98,12 +60,7 @@ instance HasP2PEnv AppM where
     getTopicHandlerMapP2PEnv = tvarTopicHandlerMap <$> getP2PEnv
     getMessageHashMapP2PEnv = tvarMessageHashMap <$> getP2PEnv
     -- getKademliaConcurrencyFactor = kademliaConcurrencyFactor <$> getP2PEnv
-<<<<<<< HEAD
-    getArchivedResourceToPeerMapP2PEnv =
-        tvarArchivedResourceToPeerMap <$> getP2PEnv
-=======
     getArchivedResourceToPeerMapP2PEnv = tvarArchivedResourceToPeerMap <$> getP2PEnv
->>>>>>> breaking out arivi-core from arivi
     getTransientResourceToPeerMap = tvarDynamicResourceToPeerMap <$> getP2PEnv
     -- getSelfNodeId = selfNId <$> getP2PEnv
     getPeerReputationHistoryTableTVar = tvPeerReputationHashTable <$> getP2PEnv
@@ -125,19 +82,7 @@ getNodeId = do
 defaultConfig :: FilePath -> IO ()
 defaultConfig path = do
     (sk, _) <- ACUPS.generateKeyPair
-<<<<<<< HEAD
-    let config =
-            Config.Config
-                5678
-                5678
-                sk
-                []
-                (generateNodeId sk)
-                "127.0.0.1"
-                (Data.Text.pack (path <> "/node.log"))
-=======
     let config = Config.Config 5678 5678 sk [] (generateNodeId sk) "127.0.0.1" (Data.Text.pack (path <> "/node.log"))
->>>>>>> breaking out arivi-core from arivi
     Config.makeConfig config (path <> "/config.yaml")
 
 runNode :: String -> IO ()

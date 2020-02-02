@@ -1,54 +1,14 @@
-<<<<<<< HEAD
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE RecordWildCards     #-}
-=======
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
->>>>>>> breaking out arivi-core from arivi
 
 module Arivi.Network.Instance
     ( openConnection
     ) where
 
-<<<<<<< HEAD
-import           Arivi.Env
-import           Arivi.Network.Connection        as Conn
-import           Arivi.Network.ConnectionHandler
-import           Arivi.Network.Exception
-import           Arivi.Network.Handshake
-import           Arivi.Network.StreamClient
-import           Arivi.Network.Types             as ANT (ConnectionHandle (..),
-                                                         PersonalityType (..),
-                                                         TransportType (..),
-                                                         NetworkConfig(..))
-import           Arivi.Utils.Logging
-import           Control.Exception               (try)
-
-import           Control.Monad.Reader
-import           Crypto.PubKey.Ed25519           (SecretKey)
-import           Data.HashMap.Strict             as HM
-import           Data.IORef
-import           Text.InterpolatedString.Perl6
-
-doEncryptedHandshake ::
-       Conn.IncompleteConnection -> SecretKey -> IO Conn.CompleteConnection
-doEncryptedHandshake connection sk = do
-    (ephemeralKeyPair, serialisedParcel) <- initiatorHandshake sk connection
-    sendFrame
-        (Conn.waitWrite connection)
-        (Conn.socket connection)
-        (frame serialisedParcel)
-    hsRespParcel <-
-        appropos (Conn.waitWrite connection) (Conn.socket connection)
-=======
 import Arivi.Env
 import Arivi.Network.Connection as Conn
 import Arivi.Network.ConnectionHandler
@@ -67,7 +27,6 @@ doEncryptedHandshake connection sk = do
     (ephemeralKeyPair, serialisedParcel) <- initiatorHandshake sk connection
     sendFrame (Conn.waitWrite connection) (Conn.socket connection) (frame serialisedParcel)
     hsRespParcel <- appropos (Conn.waitWrite connection) (Conn.socket connection)
->>>>>>> breaking out arivi-core from arivi
     return $ receiveHandshakeResponse connection ephemeralKeyPair hsRespParcel
   where
     frame msg =
@@ -80,33 +39,6 @@ doEncryptedHandshake connection sk = do
             UDP -> readUdpHandshakeRespSock
 
 openConnection ::
-<<<<<<< HEAD
-       forall m. (HasLogging m, HasSecretKey m)
-    => NetworkConfig
-    -> TransportType
-    -> m (Either AriviNetworkException ConnectionHandle)
-openConnection NetworkConfig{..} tt  =
-    $(withLoggingTH)
-        (LogNetworkStatement [qc|Opening Connection to host {_ip} |])
-        LevelDebug $ do
-            let cId = makeConnectionId _ip  portNum tt
-            sock <- liftIO $ createSocket _ip (read (show portNum)) tt
-            conn <-
-                liftIO $
-                mkIncompleteConnection cId _nodeId _ip portNum tt INITIATOR sock 2
-            case tt of
-                TCP -> openTcpConnection conn
-                UDP -> openUdpConnection conn
-  where
-     portNum = portNum' tt
-     portNum' TCP = _tcpPort
-     portNum' UDP = _udpPort
-
-openTcpConnection ::
-       forall m. (MonadIO m, HasLogging m, HasSecretKey m)
-    => Conn.IncompleteConnection
-    -> m (Either AriviNetworkException ConnectionHandle)
-=======
        (MonadIO m, HasSecretKey m)
     => NetworkConfig
     -> TransportType
@@ -125,7 +57,6 @@ openConnection NetworkConfig {..} tt = do
 
 openTcpConnection ::
        (MonadIO m, HasSecretKey m) => Conn.IncompleteConnection -> m (Either AriviNetworkException ConnectionHandle)
->>>>>>> breaking out arivi-core from arivi
 openTcpConnection conn = do
     sk <- getSecretKey
     res <- liftIO $ try $ doEncryptedHandshake conn sk
@@ -135,17 +66,6 @@ openTcpConnection conn = do
         Right updatedConn ->
             return . Right $
             ConnectionHandle
-<<<<<<< HEAD
-            { ANT.send = sendTcpMessage updatedConn
-            , ANT.recv = readTcpSock updatedConn fragmentsHM
-            , ANT.close = closeConnection (Conn.socket updatedConn)
-            }
-
-openUdpConnection ::
-       (MonadIO m, HasLogging m, HasSecretKey m)
-    => Conn.IncompleteConnection
-    -> m (Either AriviNetworkException ConnectionHandle)
-=======
                 { ANT.send = sendTcpMessage updatedConn
                 , ANT.recv = readTcpSock updatedConn fragmentsHM
                 , ANT.close = closeConnection (Conn.socket updatedConn)
@@ -153,7 +73,6 @@ openUdpConnection ::
 
 openUdpConnection ::
        (MonadIO m, HasSecretKey m) => Conn.IncompleteConnection -> m (Either AriviNetworkException ConnectionHandle)
->>>>>>> breaking out arivi-core from arivi
 openUdpConnection conn = do
     sk <- getSecretKey
     res <- liftIO $ try $ doEncryptedHandshake conn sk
@@ -162,14 +81,7 @@ openUdpConnection conn = do
         Right updatedConn ->
             return . Right $
             ConnectionHandle
-<<<<<<< HEAD
-            { ANT.send = sendUdpMessage updatedConn
-            , ANT.recv = readUdpSock updatedConn
-            , ANT.close = closeConnection (Conn.socket updatedConn)
-            }
-=======
                 { ANT.send = sendUdpMessage updatedConn
                 , ANT.recv = readUdpSock updatedConn
                 , ANT.close = closeConnection (Conn.socket updatedConn)
                 }
->>>>>>> breaking out arivi-core from arivi
