@@ -1,6 +1,6 @@
 # stylish-haskell configuration file
 # ==================================
-
+ 
 # The stylish-haskell tool is mainly configured by specifying steps. These steps
 # are a list, so they have an order, and one specific step may appear more than
 # once (if needed). Each file is processed by these steps in the given order.
