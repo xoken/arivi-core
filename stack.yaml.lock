@@ -26,6 +26,13 @@ packages:
   original:
     hackage: timers-updatable-0.2.0.2
 - completed:
+    hackage: statsd-client-0.3.0.0@sha256:cd1cd5c38a5f8332354d77b1eb1e58e477b718bc2d849e72415f7df8c5659af6,1222
+    pantry-tree:
+      size: 426
+      sha256: 9e9135ecd89321839753ca9b6d193a1e2f926f699e97eea366490aa7ec46b191
+  original:
+    hackage: statsd-client-0.3.0.0
+- completed:
     hackage: time-units-1.0.0@sha256:27cf54091c4a0ca73d504fc11d5c31ab4041d17404fe3499945e2055697746c1,928
     pantry-tree:
       size: 212
@@ -67,6 +74,13 @@ packages:
       sha256: 61b1dc751b8975175e691b8e1370a249ea523943e40746193c42293a9afc8a03
   original:
     hackage: raaz-0.2.1
+- completed:
+    hackage: rocksdb-query-0.3.0@sha256:9d402bab5a911c19f2bae36f79e49941ca152c8eb8a06792c90cbcb6f33cc20c,1567
+    pantry-tree:
+      size: 382
+      sha256: 21cfc1656aba2ab01ae36c687aec84b3e2441f0e21418d89d67a8073c6a45328
+  original:
+    hackage: rocksdb-query-0.3.0
 - completed:
     hackage: network-2.8.0.1@sha256:0f165dffa752d8cde30c2bde86f80609c4f1dc5eeb3182d593041f97839c5b3b,3011
     pantry-tree:
@@ -117,15 +131,22 @@ packages:
   original:
     hackage: focus-1
 - completed:
-    hackage: tinylog-0.15.0@sha256:5f5d1bf917f03c74401bd5f6e9d7af8c1286064ca5a22fcc336646712b7dd014,1616
+    hackage: murmur3-1.0.3@sha256:e6c97f0b43a7882c4509d1993c347f0dc540e03b90014da63623f1054bb4d2c8,1873
     pantry-tree:
-      size: 527
-      sha256: f26c665b702c8874fc28edc90d75a1acb3ccae967e131ff6d062af3837e32537
+      size: 338
+      sha256: ff5d2f29b96d321c3aa32f7f88bf57e96e869e340a20f326d9876d483ed4371f
   original:
-    hackage: tinylog-0.15.0
+    hackage: murmur3-1.0.3
+- completed:
+    hackage: secp256k1-haskell-0.1.5@sha256:15619e444d240b7ca1563c2f30dc56de88c58b0e38e8c95e299d496a30364da3,2027
+    pantry-tree:
+      size: 602
+      sha256: 1932d17a86db6aca40e5d13707d9c439b4564653521c25cc7c5937606654f79e
+  original:
+    hackage: secp256k1-haskell-0.1.5
 snapshots:
 - completed:
-    size: 523700
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/7.yaml
-    sha256: 8e3f3c894be74d71fa4bf085e0a8baae7e4d7622d07ea31a52736b80f8b9bb1a
-  original: lts-14.7
+    size: 509471
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/12/26.yaml
+    sha256: 95f014df58d0679b1c4a2b7bf2b652b61da8d30de5f571abb0d59015ef678646
+  original: lts-12.26

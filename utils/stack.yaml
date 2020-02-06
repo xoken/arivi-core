@@ -1,0 +1,15 @@
+<<<<<<< HEAD
+resolver: lts-11.11
+=======
+resolver: lts-12.26
+>>>>>>> breaking out arivi-core from arivi
+allow-newer: true
+packages:
+- .
+
+extra-deps:
+- serialise-0.2.0.0
+- cborg-0.2.0.0
+- statsd-client-0.3.0.0
+- time-units-1.0.0
+- digest-pure-0.0.3

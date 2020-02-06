@@ -1,15 +1,12 @@
-# Xoken Core
 
-Xoken Core is a library of Bitcoin SV functions written in Haskell featuring:
+Arivi Network Protocol: A secure network protocol akin to SSH/SCP that supports both TCP & UDP transports and offers the following features.
+- Chunking
+- Multiplexing/Demultiplexing
+- End to end encryption (IES key exchange, with perfect forward secrecy)
+- Authenticated messaging Poly1305-ChaCha20 (AEAD). 
 
-- Hashing functions (SHA-256, RIPEMD-160)
-- Parsing and manipulation of all Bitcoin SV protocol messages
-- Base58 support
-- BIP32 extended key derivation and parsing 
-- BIP39 mnemonic keys
-- ECDSA secp256k1 cryptographic primitives
-- Script parsing
-- Building and signing of standard transactions (regular, multisig)
-- Comprehensive test suite
-
-Note: This repository was originally forked from https://github.com/haskoin/haskoin-core. The code base has undergone significant changes and is exclusively suited for Bitcoin SV.
+P2P Protocol suite : 
+- Peer Lookup/Discovery using an improved Kademlia DHT protocol. Fortified from various forms of eclipse attacks by using a novel peer verification mechanism.
+- Remote Proceduce Calls; pull pattern for fetching larger payload from peers e.g. entire blocks 
+- Pub-Sub messaging pattern for efficient distributed push notifications in the distributed network as an improvement over traditional gossip protocol
+- Peer reputation: a comprehensive peer reputation framework to track the reputation of other peers in the network.

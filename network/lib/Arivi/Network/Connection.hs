@@ -1,0 +1,246 @@
+{-# OPTIONS_GHC -fno-warn-missing-fields #-}
+<<<<<<< HEAD
+{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE EmptyDataDecls #-}
+
+-- |
+-- Module      :  Arivi.Network.Connection
+-- Copyright   :
+-- License     :
+-- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
+-- Stability   :
+-- Portability :
+=======
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE EmptyDataDecls #-}
+
+>>>>>>> breaking out arivi-core from arivi
+--
+-- This module provides useful functions for managing connections in Arivi
+-- communication
+module Arivi.Network.Connection
+    ( ConnectionId
+    , CompleteConnection
+    , HandshakeStatus(..)
+    , IncompleteConnection
+    , aeadNonceCounter
+    , concatenate
+    , connectionId
+    , egressSeqNum
+    , genConnectionId
+    , handshakeComplete
+    , inboundDatagramTChan
+    , ingressSeqNum
+    , ipAddress
+    , makeConnectionId
+    , mkCompleteConnection
+    , mkIncompleteConnection
+    , mkIncompleteConnection'
+    , p2pMessageTChan
+    , personalityType
+    , port
+    , remoteNodeId
+    , remoteSockAddr
+    , sharedSecret
+    , socket
+    , transportType
+    , waitWrite
+    , pendingList
+    ) where
+
+<<<<<<< HEAD
+import           Arivi.Crypto.Utils.Keys.Encryption as Keys
+import           Arivi.Crypto.Utils.Random
+import           Arivi.Network.Types                (AeadNonce, ConnectionId,
+                                                     NodeId, Parcel (..),
+                                                     PersonalityType (..),
+                                                     PortNumber, SequenceNum,
+                                                     TransportType)
+import           Control.Concurrent.MVar            (MVar, newMVar)
+import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TVar
+import           Data.ByteString.Base16             (encode)
+import           Data.ByteString.Char8              (ByteString, append, pack)
+import qualified Data.ByteString.Lazy               as L
+import           GHC.Generics
+import qualified Network.Socket                     as Network (HostName,
+                                                                SockAddr,
+                                                                Socket)
+=======
+import Arivi.Crypto.Utils.Keys.Encryption as Keys
+import Arivi.Crypto.Utils.Random
+import Arivi.Network.Types
+    ( AeadNonce
+    , ConnectionId
+    , NodeId
+    , Parcel(..)
+    , PersonalityType(..)
+    , PortNumber
+    , SequenceNum
+    , TransportType
+    )
+import Control.Concurrent.MVar (MVar, newMVar)
+import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM.TVar
+import Data.ByteString.Base16 (encode)
+import Data.ByteString.Char8 (ByteString, append, pack)
+import qualified Data.ByteString.Lazy as L
+import GHC.Generics
+import qualified Network.Socket as Network (HostName, SockAddr, Socket)
+>>>>>>> breaking out arivi-core from arivi
+
+data HandshakeStatus
+    = HandshakeNotStarted
+    | HandshakeInitiated
+    | HandshakeDone
+    deriving (Eq, Generic, Show)
+
+<<<<<<< HEAD
+data Connection a = Connection
+    { connectionId         :: ConnectionId
+    , remoteNodeId         :: NodeId
+    , ipAddress            :: Network.HostName
+    , port                 :: PortNumber
+    , transportType        :: TransportType
+    , personalityType      :: PersonalityType
+    , socket               :: Network.Socket
+    , waitWrite            :: MVar Int
+    , _cSharedSecret       :: Keys.SharedSecret
+    , remoteSockAddr       :: Network.SockAddr
+    , inboundDatagramTChan :: TChan Parcel
+    , p2pMessageTChan      :: TChan L.ByteString
+    , egressSeqNum         :: TVar SequenceNum
+    , ingressSeqNum        :: TVar SequenceNum -- need not be TVar
+    , aeadNonceCounter     :: TVar AeadNonce
+    , handshakeComplete    :: TVar HandshakeStatus
+    , pendingList          :: TVar [(Integer, Integer)]
+    } deriving (Eq, Generic)
+=======
+data Connection a =
+    Connection
+        { connectionId :: ConnectionId
+        , remoteNodeId :: NodeId
+        , ipAddress :: Network.HostName
+        , port :: PortNumber
+        , transportType :: TransportType
+        , personalityType :: PersonalityType
+        , socket :: Network.Socket
+        , waitWrite :: MVar Int
+        , _cSharedSecret :: Keys.SharedSecret
+        , remoteSockAddr :: Network.SockAddr
+        , inboundDatagramTChan :: TChan Parcel
+        , p2pMessageTChan :: TChan L.ByteString
+        , egressSeqNum :: TVar SequenceNum
+        , ingressSeqNum :: TVar SequenceNum -- need not be TVar
+        , aeadNonceCounter :: TVar AeadNonce
+        , handshakeComplete :: TVar HandshakeStatus
+        , pendingList :: TVar [(Integer, Integer)]
+        }
+    deriving (Eq, Generic)
+>>>>>>> breaking out arivi-core from arivi
+
+data Complete
+
+data Incomplete
+
+type IncompleteConnection = Connection Incomplete
+
+type CompleteConnection = Connection Complete
+
+mkIncompleteConnection ::
+       ConnectionId
+    -> NodeId
+    -> Network.HostName
+    -> PortNumber
+    -> TransportType
+    -> PersonalityType
+    -> Network.Socket
+    -> AeadNonce
+    -> IO IncompleteConnection
+mkIncompleteConnection cid rnid host portNum tt pt sock nonce = do
+    msgChan <- newTChanIO
+    egressNum <- newTVarIO 0
+    ingressNum <- newTVarIO 0
+    aeadNonce <- newTVarIO nonce
+    writeLock <- newMVar 0
+    mPendingList <- newTVarIO [(0, (2 :: Integer) ^ (32 :: Integer))]
+    return
+        Connection
+<<<<<<< HEAD
+        { connectionId = cid
+        , remoteNodeId = rnid
+        , ipAddress = host
+        , port = portNum
+        , transportType = tt
+        , personalityType = pt
+        , socket = sock
+        , waitWrite = writeLock
+        , p2pMessageTChan = msgChan
+        , egressSeqNum = egressNum
+        , ingressSeqNum = ingressNum
+        , aeadNonceCounter = aeadNonce
+        , pendingList = mPendingList
+        }
+=======
+            { connectionId = cid
+            , remoteNodeId = rnid
+            , ipAddress = host
+            , port = portNum
+            , transportType = tt
+            , personalityType = pt
+            , socket = sock
+            , waitWrite = writeLock
+            , p2pMessageTChan = msgChan
+            , egressSeqNum = egressNum
+            , ingressSeqNum = ingressNum
+            , aeadNonceCounter = aeadNonce
+            , pendingList = mPendingList
+            }
+>>>>>>> breaking out arivi-core from arivi
+
+mkIncompleteConnection' :: Connection Incomplete
+mkIncompleteConnection' = Connection {}
+
+<<<<<<< HEAD
+mkCompleteConnection ::
+       Connection Incomplete -> Keys.SharedSecret -> CompleteConnection
+=======
+mkCompleteConnection :: Connection Incomplete -> Keys.SharedSecret -> CompleteConnection
+>>>>>>> breaking out arivi-core from arivi
+mkCompleteConnection connection ssk = connection {_cSharedSecret = ssk}
+
+sharedSecret :: Connection Complete -> Keys.SharedSecret
+sharedSecret = _cSharedSecret
+
+-- | Generates a random 4 Byte ConnectionId using Raaz's random ByteString
+-- generation
+genConnectionId :: IO ByteString
+<<<<<<< HEAD
+genConnectionId =
+    getRandomByteString 4 >>= \byteString -> return (encode byteString)
+=======
+genConnectionId = getRandomByteString 4 >>= \byteString -> return (encode byteString)
+>>>>>>> breaking out arivi-core from arivi
+
+-- | Takes two arguments converts them into ByteString and concatenates them
+concatenate :: (Show first, Show second) => first -> second -> ByteString
+concatenate first second =
+<<<<<<< HEAD
+    Data.ByteString.Char8.append
+        (Data.ByteString.Char8.pack $ show first)
+        (Data.ByteString.Char8.pack $ show second)
+
+-- | ConnectionId is concatenation of IP Address, PortNumber and TransportType
+makeConnectionId ::
+       Network.HostName -> PortNumber -> TransportType -> ConnectionId
+makeConnectionId mIpAddress mPort mTransportType =
+    Data.ByteString.Char8.pack $
+    mIpAddress ++ "|" ++ show mPort ++ "|" ++ show mTransportType
+=======
+    Data.ByteString.Char8.append (Data.ByteString.Char8.pack $ show first) (Data.ByteString.Char8.pack $ show second)
+
+-- | ConnectionId is concatenation of IP Address, PortNumber and TransportType
+makeConnectionId :: Network.HostName -> PortNumber -> TransportType -> ConnectionId
+makeConnectionId mIpAddress mPort mTransportType =
+    Data.ByteString.Char8.pack $ mIpAddress ++ "|" ++ show mPort ++ "|" ++ show mTransportType
+>>>>>>> breaking out arivi-core from arivi
