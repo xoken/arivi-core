@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -9,6 +10,12 @@
 -- Stability   :
 -- Portability :
 --
+=======
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+--------------------------------------------------------------------------------
+>>>>>>> breaking out arivi-core from arivi
 -- This module provides different data types that are used in the Peer
 -- Reputation management
 --
@@ -24,6 +31,7 @@ module Arivi.P2P.PRT.Types
     ) where
 
 import qualified Arivi.Network.Types as Network (NodeId)
+<<<<<<< HEAD
 import           Data.Aeson          (FromJSON (..), FromJSONKey (..),
                                       FromJSONKeyFunction (..))
 import           Data.Hashable       (Hashable)
@@ -31,6 +39,14 @@ import qualified Data.HashMap.Strict as HM (HashMap)
 import           Data.Ratio          (Rational)
 import qualified Data.Text           as Text (unpack)
 import           GHC.Generics        (Generic)
+=======
+import Data.Aeson (FromJSON(..), FromJSONKey(..), FromJSONKeyFunction(..))
+import qualified Data.HashMap.Strict as HM (HashMap)
+import Data.Hashable (Hashable)
+import Data.Ratio (Rational)
+import qualified Data.Text as Text (unpack)
+import GHC.Generics (Generic)
+>>>>>>> breaking out arivi-core from arivi
 
 -- | `Reputation` is a unit to count Peer Reputations
 newtype Reputation =
@@ -69,6 +85,7 @@ instance FromJSONKey PeerDeed where
                 _ -> fail $ "Cannot parse key into PeerDeed: " ++ Text.unpack t
 
 -- | This table contains the brief history of Peer Deeds
+<<<<<<< HEAD
 data PeerReputationHistory = PeerReputationHistory
     { nodeId     :: Network.NodeId -- ^ NodeId of Peer
     , nofDeeds   :: Integer -- ^ No of deeds Peer did till time
@@ -79,6 +96,19 @@ data PeerReputationHistory = PeerReputationHistory
 -- | This hashmap contains `PeerReputationHistory` of each Peer
 type PeerReputationHistoryTable
      = HM.HashMap Network.NodeId PeerReputationHistory
+=======
+data PeerReputationHistory =
+    PeerReputationHistory
+        { nodeId :: Network.NodeId -- ^ NodeId of Peer
+        , nofDeeds :: Integer -- ^ No of deeds Peer did till time
+        , reputation :: Reputation -- ^ Based on the history `Reputation` of
+                                    --   Peer
+        }
+    deriving (Show, Eq, Generic, Read)
+
+-- | This hashmap contains `PeerReputationHistory` of each Peer
+type PeerReputationHistoryTable = HM.HashMap Network.NodeId PeerReputationHistory
+>>>>>>> breaking out arivi-core from arivi
 
 -- | This is structure of config file that contains the details of different
 -- `PeerDeeds` and their respective `Reputation` for services
@@ -90,11 +120,22 @@ type P2PReputationHashMap = HM.HashMap PeerDeed Reputation
 
 -- | This is the structure of config file that  stores the `PeerDeeds` and
 -- their respective `Reputation`
+<<<<<<< HEAD
 data Config = Config
     { services         :: ServicesReputationHashMap -- ^ `PeerDeeds` for services
     , p2p              :: P2PReputationHashMap -- ^  `PeerDeeds` for P2P
     , reputedVsOther   :: Rational -- ^ Ratio of reputated vs non reputated
     , kClosestVsRandom :: Rational -- ^ Ratio of closet vs random
     } deriving (Show, Eq, Generic)
+=======
+data Config =
+    Config
+        { services :: ServicesReputationHashMap -- ^ `PeerDeeds` for services
+        , p2p :: P2PReputationHashMap -- ^  `PeerDeeds` for P2P
+        , reputedVsOther :: Rational -- ^ Ratio of reputated vs non reputated
+        , kClosestVsRandom :: Rational -- ^ Ratio of closet vs random
+        }
+    deriving (Show, Eq, Generic)
+>>>>>>> breaking out arivi-core from arivi
 
 instance FromJSON Config

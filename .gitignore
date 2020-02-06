@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 dist
 dist-newstyle
 cabal-dev
@@ -25,3 +26,11 @@ learn/*
 *.log  
 *.ghc*
 *.local
+=======
+crypto/.stack-work*
+network/.stack-work*
+p2p/.stack-work*
+test/.stack-work*
+utils/.stack-work*
+.stack-work/
+>>>>>>>  adding .gitignore

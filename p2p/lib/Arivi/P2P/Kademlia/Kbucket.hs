@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -- |
 -- Module      : Arivi.Kademlia.Kbucket
 -- Copyright   : (c) Xoken Labs
@@ -6,10 +7,13 @@
 -- Maintainer  : Ankit Singh {ankitsiam@gmail.com}
 -- Stability   : experimental
 -- Portability : portable
+=======
+>>>>>>> breaking out arivi-core from arivi
 --
 -- This module provides access to Kbucket which is responsible for storing
 -- peers, and other helper functions to work with kbucket.
 --
+<<<<<<< HEAD
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -17,6 +21,15 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+=======
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+>>>>>>> breaking out arivi-core from arivi
 
 module Arivi.P2P.Kademlia.Kbucket
     ( Kbucket(..)
@@ -36,6 +49,7 @@ module Arivi.P2P.Kademlia.Kbucket
     , getPeersByNodeIds
     ) where
 
+<<<<<<< HEAD
 import           Arivi.P2P.Exception
 import           Arivi.P2P.Kademlia.RefreshKbucket
 import           Arivi.P2P.Kademlia.Types
@@ -55,6 +69,28 @@ import           Data.Maybe
 import qualified Data.Text                         as T
 import           ListT                             (toList)
 import qualified STMContainers.Map                 as H
+=======
+import Arivi.P2P.Exception
+import Arivi.P2P.Kademlia.RefreshKbucket
+import Arivi.P2P.Kademlia.Types
+import qualified Arivi.P2P.Kademlia.Utils as U
+import Arivi.P2P.Kademlia.XorDistance
+import Arivi.P2P.P2PEnv (HasP2PEnv)
+import Arivi.Utils.Logging
+import Arivi.Utils.Statsd
+import Codec.Serialise
+import Control.Exception ()
+import Control.Monad ()
+import Control.Monad.Except
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Logger (logDebug)
+import Control.Monad.STM
+import qualified Data.List as L
+import Data.Maybe
+import qualified Data.Text as T
+import ListT (toList)
+import qualified StmContainers.Map as H
+>>>>>>> breaking out arivi-core from arivi
 
 -- | Gets default peer relative to which all the peers are stores in Kbucket
 --   hash table based on XorDistance
@@ -68,13 +104,21 @@ getDefaultNodeId = do
     let localPeer = fromMaybe [] lp
     if Prelude.null localPeer
         then throwError KademliaDefaultPeerDoesNotExists
+<<<<<<< HEAD
         else return $ fst $ getPeer $ Prelude.head localPeer
+=======
+        else return $ nodeID $ Prelude.head localPeer
+>>>>>>> breaking out arivi-core from arivi
 
 -- | Gives a peerList of which a peer is part of in kbucket hashtable for any
 --   given peer with respect to the default peer or local peer for which
 --   the kbucket is created. If peer doesn't exist it returns an empty list
+<<<<<<< HEAD
 getPeerList ::
        (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m [Peer]
+=======
+getPeerList :: (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m [Peer]
+>>>>>>> breaking out arivi-core from arivi
 getPeerList peerR = do
     kbucket'' <- lift getKb
     lp <- getDefaultNodeId
@@ -84,34 +128,56 @@ getPeerList peerR = do
     return $ fromMaybe [] pl
 
 -- |Gets Peer by Kbucket-Index (kb-index) Index
+<<<<<<< HEAD
 getPeerListByKIndex ::
        (HasKbucket m, MonadIO m) => Int -> ExceptT AriviP2PException m [Peer]
+=======
+getPeerListByKIndex :: (HasKbucket m, MonadIO m) => Int -> ExceptT AriviP2PException m [Peer]
+>>>>>>> breaking out arivi-core from arivi
 getPeerListByKIndex kbi = do
     kb' <- lift getKb
     peerl <- liftIO $ atomically $ H.lookup kbi (getKbucket kb')
     return $ fromMaybe [] peerl
 
 -- |Checks if a peer already exists
+<<<<<<< HEAD
 ifPeerExist ::
        (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m Bool
 ifPeerExist peer = do
     mPeerList <- getPeerList peer
     return $ peer `elem` fmap (fst . getPeer) mPeerList
+=======
+ifPeerExist :: (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m Bool
+ifPeerExist peer = do
+    mPeerList <- getPeerList peer
+    return $ peer `elem` fmap (nodeID) mPeerList
+>>>>>>> breaking out arivi-core from arivi
 
 -- |Adds a given peer to kbucket hash table by calculating the appropriate
 --  kbindex based on the XOR Distance.
 addToKBucket ::
+<<<<<<< HEAD
        ( HasP2PEnv env m r t rmsg pmsg
        )
     => Peer
     -> ExceptT AriviP2PException m ()
+=======
+       (Serialise pmsg, Show t)
+    => (HasP2PEnv env m r t rmsg pmsg) =>
+           Peer -> ExceptT AriviP2PException m ()
+>>>>>>> breaking out arivi-core from arivi
 addToKBucket peerR = do
     $(logDebug) $ T.pack "Add to kbucket called "
     lp <- getDefaultNodeId
     kb'' <- lift getKb
     let kb = getKbucket kb''
+<<<<<<< HEAD
         kbDistance = getKbIndex lp (fst $ getPeer peerR)
     pl <- getPeerList (fst $ getPeer peerR)
+=======
+        kbDistance = getKbIndex lp (nodeID peerR)
+    pl <- getPeerList (nodeID peerR)
+>>>>>>> breaking out arivi-core from arivi
     if Prelude.null pl
         then do
             liftIO $ atomically $ H.insert [peerR] kbDistance kb
@@ -119,6 +185,7 @@ addToKBucket peerR = do
         else do
             tempp <- lift $ refreshKbucket peerR pl
             liftIO $ atomically $ H.insert tempp kbDistance kb
+<<<<<<< HEAD
     -- Logs the Kbucket and pushes statsd metric to collectd server
     let kbm2 = getKbucket kb''
         kbtemp = H.stream kbm2
@@ -130,12 +197,24 @@ addToKBucket peerR = do
 -- | Removes a given peer from kbucket
 removePeer ::
        (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m ()
+=======
+  -- Logs the Kbucket and pushes statsd metric to collectd server
+    let kbm2 = getKbucket kb''
+        kbtemp = H.listT kbm2
+    kvList <- liftIO $ atomically $ toList kbtemp
+    $(logDebug) $ T.append (T.pack "Kbucket after adding : ") (T.pack (show kvList))
+    lift $ incrementCounter "KbucketSize"
+
+-- | Removes a given peer from kbucket
+removePeer :: (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m ()
+>>>>>>> breaking out arivi-core from arivi
 removePeer peerR = do
     kbb' <- lift getKb
     localPeer <- getDefaultNodeId
     pl <- getPeerList peerR
     let kb = getKbucket kbb'
         kbDistance = getKbIndex localPeer peerR
+<<<<<<< HEAD
         pl2 = fmap (fst . getPeer) pl
     if peerR `elem` pl2
         then liftIO $
@@ -151,6 +230,15 @@ removePeer peerR = do
   where
     fnep = NodeEndPoint "" 0 0
     fp = Peer (peerR, fnep)
+=======
+        pl2 = fmap (nodeID) pl
+    if peerR `elem` pl2
+        then liftIO $ atomically $ H.insert (L.deleteBy (\p1 p2 -> (nodeID p1) == (nodeID p2)) fp pl) kbDistance kb
+        else liftIO $ atomically $ H.insert pl kbDistance kb
+  where
+    fnep = NodeEndPoint "" 0 0
+    fp = Peer peerR fnep
+>>>>>>> breaking out arivi-core from arivi
 
 -- Gives a peer list given a list of keys
 getPeerListFromKeyList :: (HasKbucket m, MonadIO m) => Int -> [Int] -> m [Peer]
@@ -169,6 +257,7 @@ getPeerListFromKeyList k (x:xs) = do
 
 -- | Gets k-closest peers to a given peeer if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
+<<<<<<< HEAD
 getKClosestPeersByPeer ::
        (HasKbucket m, MonadIO m)
     => Peer
@@ -180,6 +269,15 @@ getKClosestPeersByPeer peerR k = do
     let kbtemp = H.stream (getKbucket kbbb')
     kvList <- liftIO $ atomically $ toList kbtemp
     let peer = fst $ getPeer peerR
+=======
+getKClosestPeersByPeer :: (HasKbucket m, MonadIO m) => Peer -> Int -> ExceptT AriviP2PException m [Peer]
+getKClosestPeersByPeer peerR k = do
+    localPeer <- getDefaultNodeId
+    kbbb' <- lift getKb
+    let kbtemp = H.listT (getKbucket kbbb')
+    kvList <- liftIO $ atomically $ toList kbtemp
+    let peer = nodeID peerR
+>>>>>>> breaking out arivi-core from arivi
         kbi = getKbIndex localPeer peer
         tkeys = L.sort $ fmap fst kvList
         keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
@@ -188,6 +286,7 @@ getKClosestPeersByPeer peerR k = do
 
 -- | Gets k-closest peers to a given nodeid if k-peer exist in kbukcet being
 --   queried else returns all availaible peers.
+<<<<<<< HEAD
 getKClosestPeersByNodeid ::
        (HasKbucket m, MonadIO m)
     => NodeId
@@ -197,18 +296,30 @@ getKClosestPeersByNodeid nid k = do
     localPeer <- getDefaultNodeId
     kbbb'' <- lift getKb
     let kbtemp = H.stream (getKbucket kbbb'')
+=======
+getKClosestPeersByNodeid :: (HasKbucket m, MonadIO m) => NodeId -> Int -> ExceptT AriviP2PException m [Peer]
+getKClosestPeersByNodeid nid k = do
+    localPeer <- getDefaultNodeId
+    kbbb'' <- lift getKb
+    let kbtemp = H.listT (getKbucket kbbb'')
+>>>>>>> breaking out arivi-core from arivi
     kvList <- liftIO $ atomically $ toList kbtemp
     let kbi = getKbIndex localPeer nid
         tkeys = L.delete 0 (L.sort $ fmap fst kvList)
         keys = (\(x, y) -> L.reverse x ++ y) (L.splitAt kbi tkeys)
     peerl <- lift $ getPeerListFromKeyList k keys
     let dnep = NodeEndPoint "" 0 0
+<<<<<<< HEAD
         dpeer = Peer (nid, dnep)
         pl2 =
             L.deleteBy
                 (\p1 p2 -> fst (getPeer p1) == fst (getPeer p2))
                 dpeer
                 peerl
+=======
+        dpeer = Peer nid dnep
+        pl2 = L.deleteBy (\p1 p2 -> (nodeID p1) == (nodeID p2)) dpeer peerl
+>>>>>>> breaking out arivi-core from arivi
     return pl2
 
 -- | gets 'k' random peers from the kbucket for a given 'k', notice in this
@@ -218,17 +329,26 @@ getKRandomPeers k = do
     keyl <- liftIO $ U.randomList 512
     getPeerListFromKeyList k keyl
 
+<<<<<<< HEAD
 getPeerByNodeId ::
        (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m Peer
+=======
+getPeerByNodeId :: (HasKbucket m, MonadIO m) => NodeId -> ExceptT AriviP2PException m Peer
+>>>>>>> breaking out arivi-core from arivi
 getPeerByNodeId nid = do
     localPeer <- getDefaultNodeId
     let kbi = getKbIndex localPeer nid
     pl <- getPeerListByKIndex kbi
+<<<<<<< HEAD
     let t = filter (\x -> fst (getPeer x) == nid) pl
+=======
+    let t = filter (\x -> (nodeID x) == nid) pl
+>>>>>>> breaking out arivi-core from arivi
     if null t
         then throwError KademliaPeerDoesNotExist
         else return $ head t
 
+<<<<<<< HEAD
 getPeersByNodeIds ::
        (HasKbucket m, MonadIO m)
     => [NodeId]
@@ -243,6 +363,16 @@ moveToHardBound peer = do
     kb <- lift getKb
     lp' <- getDefaultNodeId
     pl' <- getPeerList (fst $ getPeer peer)
+=======
+getPeersByNodeIds :: (HasKbucket m, MonadIO m) => [NodeId] -> ExceptT AriviP2PException m [Peer]
+getPeersByNodeIds = mapM getPeerByNodeId
+
+moveToHardBound :: (HasKbucket m, MonadIO m, HasLogging m) => Peer -> ExceptT AriviP2PException m ()
+moveToHardBound peer = do
+    kb <- lift getKb
+    lp' <- getDefaultNodeId
+    pl' <- getPeerList (nodeID peer)
+>>>>>>> breaking out arivi-core from arivi
     _ <-
         liftIO $
         atomically $ do
@@ -250,6 +380,10 @@ moveToHardBound peer = do
                 tpl = L.splitAt (kademliaSoftBound kb) pl''
                 hb = peer : snd tpl
                 fpl = fst tpl ++ hb
+<<<<<<< HEAD
                 kbd = getKbIndex lp' (fst $ getPeer peer)
+=======
+                kbd = getKbIndex lp' (nodeID peer)
+>>>>>>> breaking out arivi-core from arivi
             H.insert fpl kbd (getKbucket kb)
     return ()

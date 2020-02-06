@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
+<<<<<<< HEAD
 -- |
 -- Module      :  Arivi.Network.Replay
 -- Copyright   :
@@ -7,6 +8,8 @@
 -- Maintainer  :  Mahesh Uligade <maheshuligade@gmail.com>
 -- Stability   :
 -- Portability :
+=======
+>>>>>>> breaking out arivi-core from arivi
 --
 -- This module provides useful checking and preventing replay attack
 --
@@ -15,7 +18,11 @@ module Arivi.Network.Replay
     , noOfPendings
     ) where
 
+<<<<<<< HEAD
 import           Data.List (genericSplitAt)
+=======
+import Data.List (genericSplitAt)
+>>>>>>> breaking out arivi-core from arivi
 
 -- | Checks if given nonce is present in the pending list
 isPresent :: Integer -> [(Integer, Integer)] -> Bool
@@ -35,8 +42,12 @@ updateElement n (leftPair, rightPair)
     | (&&) (leftPair == n) (n == rightPair) = []
     | (&&) (leftPair == n) (n < rightPair) = [(leftPair + 1, rightPair)]
     | (&&) (leftPair < n) (n == rightPair) = [(leftPair, rightPair - 1)]
+<<<<<<< HEAD
     | (&&) (leftPair < n) (n < rightPair) =
         [(leftPair, n - 1), (n + 1, rightPair)]
+=======
+    | (&&) (leftPair < n) (n < rightPair) = [(leftPair, n - 1), (n + 1, rightPair)]
+>>>>>>> breaking out arivi-core from arivi
     | otherwise = error "Number is out of range"
 
 -- | Gives the index of the range pair where the nonce is present
@@ -57,21 +68,31 @@ updatePendingList replayNonce pendingList =
     case getRangeIndex replayNonce pendingList of
         Nothing -> pendingList
         Just index -> do
+<<<<<<< HEAD
             let (leftPart, middleElmt:rightPart) =
                     genericSplitAt index pendingList
             let updatedMiddle = updateElement replayNonce middleElmt
             let updatedPendingList =
                     (++) ((++) leftPart updatedMiddle) rightPart
+=======
+            let (leftPart, middleElmt:rightPart) = genericSplitAt index pendingList
+            let updatedMiddle = updateElement replayNonce middleElmt
+            let updatedPendingList = (++) ((++) leftPart updatedMiddle) rightPart
+>>>>>>> breaking out arivi-core from arivi
             updatedPendingList
 
 -- | Checks if the given replayNonce is already received or not. If it is there
 -- then removes it from pending list and gives updated pending list and missing
 -- count
+<<<<<<< HEAD
 isReplayAttack ::
        Monad m
     => Integer
     -> [(Integer, Integer)]
     -> m (Bool, [(Integer, Integer)])
+=======
+isReplayAttack :: Monad m => Integer -> [(Integer, Integer)] -> m (Bool, [(Integer, Integer)])
+>>>>>>> breaking out arivi-core from arivi
 isReplayAttack replayNonce pendingList =
     if isPresent replayNonce pendingList
         then return (False, updatePendingList replayNonce pendingList)

@@ -131,6 +131,10 @@ defaultConfig path = do
 
 runNode :: String -> IO ()
 runNode configPath = do
+<<<<<<< HEAD
+=======
+    print "reading config..."
+>>>>>>> breaking out arivi-core from arivi
     config <- Config.readConfig configPath
     env <- mkP2PEnv config
     runFileLoggingT (toS $ Config.logFile config) $

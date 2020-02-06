@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+=======
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+>>>>>>> breaking out arivi-core from arivi
 
 module Arivi.P2P.PubSub.Class
     ( module Arivi.P2P.PubSub.Class
@@ -12,6 +18,7 @@ import Control.Concurrent.STM.TVar (TVar)
 import Data.Set (Set)
 
 class HasTopics env t | env -> t where
+<<<<<<< HEAD
     topics :: env -> Set t
 
 class HasSubscribers env t  | env -> t where
@@ -50,3 +57,12 @@ class HasCache env msg | env -> msg where
 --        , Serialise t
 --        , Serialise msg
 --        , Monad m)
+=======
+    topics :: env -> TVar (Set t)
+
+class HasSubscribers env t | env -> t where
+    subscribers :: env -> Subscribers t
+
+class HasNotifiers env t | env -> t where
+    notifiers :: env -> Notifiers t
+>>>>>>> breaking out arivi-core from arivi
