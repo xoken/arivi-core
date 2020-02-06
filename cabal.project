@@ -1,6 +1,0 @@
-<<<<<<< HEAD
-packages: crypto, network, p2p, utils
-=======
-packages: crypto, network, p2p, utils, service
->>>>>>> breaking out arivi-core from arivi
-allow-newer: base, Cabal
