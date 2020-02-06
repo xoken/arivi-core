@@ -1,14 +1,3 @@
-<<<<<<< HEAD
--- |
--- Module      : Arivi.Kademlia.VerifyPeer
--- Copyright   : (c) Xoken Labs
--- License     : -
---
--- Maintainer  : Ankit Singh {ankitsiam@gmail.com}
--- Stability   : experimental
--- Portability : portable
-=======
->>>>>>> breaking out arivi-core from arivi
 --
 -- This modules implements a new command that a kademlia node can issue
 -- called Verify_Peer. All kademlia node except for bootstrap node starts with
@@ -36,21 +25,14 @@ import Arivi.P2P.Kademlia.Kbucket
 import Arivi.P2P.Kademlia.RefreshKbucket (issuePing)
 import Arivi.P2P.Kademlia.RunConcurrently
 import Arivi.P2P.Kademlia.Types
-<<<<<<< HEAD
-import Arivi.P2P.Kademlia.Utils (count')
-=======
 import Arivi.P2P.Kademlia.Utils (addListOfList, count')
->>>>>>> breaking out arivi-core from arivi
 import Arivi.P2P.Kademlia.XorDistance
 import Arivi.P2P.MessageHandler.HandlerTypes (HasNetworkConfig(..))
 import Arivi.P2P.MessageHandler.NodeEndpoint (issueKademliaRequest)
 import Arivi.P2P.P2PEnv
 import Arivi.P2P.Types
 import Arivi.Utils.Logging
-<<<<<<< HEAD
-=======
 import Codec.Serialise
->>>>>>> breaking out arivi-core from arivi
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async.Lifted (async, wait)
 import Control.Exception
@@ -63,18 +45,6 @@ import Control.Monad.Reader
 import Control.Monad.STM (atomically)
 import qualified Data.ByteString.Base16 as BS (encode)
 import qualified Data.ByteString.Char8 as C
-<<<<<<< HEAD
-import qualified Data.Text as T
-import ListT (toList)
-import qualified STMContainers.Map as H
-import System.Random (randomRIO)
-
-updateNodeStatus ::
-       (HasKbucket m, MonadIO m)
-    => NodeStatus
-    -> NodeId
-    -> ExceptT AriviP2PException m ()
-=======
 import Data.Monoid ()
 import qualified Data.Text as T
 import ListT (toList)
@@ -82,19 +52,11 @@ import qualified StmContainers.Map as H
 import System.Random (randomRIO)
 
 updateNodeStatus :: (HasKbucket m, MonadIO m) => NodeStatus -> NodeId -> ExceptT AriviP2PException m ()
->>>>>>> breaking out arivi-core from arivi
 updateNodeStatus status nid = do
     kb <- lift getKb
     liftIO $ atomically $ H.insert status nid (nodeStatusTable kb)
 
-<<<<<<< HEAD
-deleteVerifiedPeers ::
-       (HasKbucket m, MonadIO m, HasLogging m)
-    => [Peer]
-    -> ExceptT AriviP2PException m [Peer]
-=======
 deleteVerifiedPeers :: (HasKbucket m, MonadIO m, HasLogging m) => [Peer] -> ExceptT AriviP2PException m [Peer]
->>>>>>> breaking out arivi-core from arivi
 deleteVerifiedPeers =
     filterM
         (\x -> do
@@ -103,27 +65,6 @@ deleteVerifiedPeers =
                  Verified -> return False
                  UnVerified -> return True)
 
-<<<<<<< HEAD
-initBootStrap ::
-       (HasKbucket m, MonadIO m, HasLogging m)
-    => Peer
-    -> ExceptT AriviP2PException m ()
-initBootStrap peer = do
-    kb <- lift getKb
-    liftIO $
-        atomically $ H.insert Verified (fst $ getPeer peer) (nodeStatusTable kb)
-    $(logDebug) "BootStrap Node marked as Verified"
-
--- | Simple function to check the status of a Peer
-isVerified ::
-       (HasKbucket m, MonadIO m)
-    => Peer
-    -> ExceptT AriviP2PException m NodeStatus
-isVerified peer = do
-    kb <- lift getKb
-    let vt = nodeStatusTable kb
-        peer' = fst $ getPeer peer
-=======
 initBootStrap :: (HasKbucket m, MonadIO m, HasLogging m) => Peer -> ExceptT AriviP2PException m ()
 initBootStrap peer = do
     kb <- lift getKb
@@ -136,33 +77,12 @@ isVerified peer = do
     kb <- lift getKb
     let vt = nodeStatusTable kb
         peer' = nodeID peer
->>>>>>> breaking out arivi-core from arivi
     st <- liftIO $ atomically $ H.lookup peer' vt
     case st of
         Just st' -> return st'
         Nothing -> throwError KademliaInvalidPeer
         -- TODO add a new exception for peerDoesNotExit
 
-<<<<<<< HEAD
-getVerifiedPeers ::
-       (HasKbucket m, MonadIO m)
-    => Peer
-    -> Int
-    -> ExceptT AriviP2PException m [Peer]
-getVerifiedPeers peerR k = do
-    let nid = fst $ getPeer peerR
-    -- kb <- getKb
-    -- Todo think about below point
-    -- ? Should this multiplier factor exist (2*k)
-    plt <- getKClosestPeersByNodeid nid k
-    filterM
-        (\x -> do
-             st <- isVerified x
-             case st of
-                 Verified -> return True
-                 _ -> return False)
-        plt
-=======
 getVerifiedPeers :: (HasKbucket m, MonadIO m) => Peer -> Int -> ExceptT AriviP2PException m [Peer]
 getVerifiedPeers peerR k = do
     dnid <- getDefaultNodeId
@@ -187,7 +107,6 @@ getVerifiedPeers peerR k = do
     if length vpl > k
         then return (fst $ splitAt k vpl)
         else return vpl
->>>>>>> breaking out arivi-core from arivi
 
 -- -- | Get k-random verified peers
 -- -- getRandomVerifiedNodes :: (HasKbucket m, MonadIO m) => Int -> m [Peer]
@@ -199,23 +118,6 @@ getVerifiedPeers peerR k = do
 filterPeer :: NodeId -> NodeId -> [Peer] -> [Peer]
 filterPeer nid rnid peerL = result
   where
-<<<<<<< HEAD
-    result =
-        filter
-            (\x ->
-                 rXor >=
-                 getXorDistance
-                     (C.unpack $ BS.encode nid)
-                     (C.unpack $ BS.encode $ fst $ getPeer x))
-            peerL
-    rXor = getXorDistance (C.unpack $ BS.encode rnid) (C.unpack $ BS.encode nid)
-
-initVerification ::
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => [Peer]
-    -> ExceptT AriviP2PException m Bool
-=======
     result = filter (\x -> rXor >= getXorDistance (C.unpack $ BS.encode nid) (C.unpack $ BS.encode $ nodeID x)) peerL
     rXor = getXorDistance (C.unpack $ BS.encode rnid) (C.unpack $ BS.encode nid)
 
@@ -223,7 +125,6 @@ initVerification ::
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
            [Peer] -> ExceptT AriviP2PException m Bool
->>>>>>> breaking out arivi-core from arivi
 initVerification peerL = do
     $(logDebug) $ T.pack (show "Issueing Ping for Verification")
     $(logDebug) $ T.append (T.pack "recieved vn_resp : ") (T.pack $ show peerL)
@@ -235,20 +136,6 @@ initVerification peerL = do
     return $ (>=) liveNodes minPeerResponded
 
 isVNRESPValid ::
-<<<<<<< HEAD
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => [Peer]
-    -> Peer
-    -> ExceptT AriviP2PException m Bool
-isVNRESPValid peerL peerR = do
-    dnid <- getDefaultNodeId
-    let temp = filterPeer dnid (fst $ getPeer peerR) peerL
-        minLessPeer = (1 / 10) * fromIntegral (Prelude.length peerL)
-        -- TODO address conditions when (In) is retruned or not
-    let firstCheck
-            | Peer (dnid, undefined) `elem` temp = True
-=======
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
            [Peer] -> Peer -> ExceptT AriviP2PException m Bool
@@ -259,7 +146,6 @@ isVNRESPValid peerL peerR = do
       -- TODO address conditions when (In) is retruned or not
     let firstCheck
             | Peer dnid undefined `elem` temp = True
->>>>>>> breaking out arivi-core from arivi
             | fromIntegral (Prelude.length temp) >= minLessPeer = True
             | Prelude.null temp = False
             | otherwise = False
@@ -268,23 +154,6 @@ isVNRESPValid peerL peerR = do
         else return False
 
 issueVerifyNode ::
-<<<<<<< HEAD
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => Peer
-    -> Peer
-    -> Peer
-    -> m [Peer]
-issueVerifyNode peerV peerT peerR = do
-    nc@NetworkConfig {..} <- asks (^. networkConfig)
-        -- TODO randomly select a verified node and not as a parameter
-    let vnid = fst $ getPeer peerV
-        vnep = snd $ getPeer peerV
-        vuport = Arivi.P2P.Kademlia.Types.udpPort vnep
-        vip = nodeIp vnep
-        tnid = fst $ getPeer peerT
-        tnep = snd $ getPeer peerT
-=======
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
            Peer -> Peer -> Peer -> m [Peer]
@@ -297,26 +166,11 @@ issueVerifyNode peerV peerT peerR = do
         vip = nodeIp vnep
         tnid = nodeID peerT
         tnep = nodeEndPoint peerT
->>>>>>> breaking out arivi-core from arivi
         tuport = Arivi.P2P.Kademlia.Types.udpPort tnep
         ttport = Arivi.P2P.Kademlia.Types.tcpPort tnep
         tip = nodeIp tnep
         tnc = NetworkConfig tnid tip tuport ttport
         vnc = NetworkConfig vnid vip vuport vuport
-<<<<<<< HEAD
-        vmsg = packVerifyMsg nc tnc (fst $ getPeer peerR)
-    $(logDebug) $
-        T.pack ("Issueing Verify_Node for : " ++ show tip ++ ":" ++ show tuport)
-    resp <- runExceptT $ issueKademliaRequest vnc (KademliaRequest vmsg)
-    $(logDebug) $
-        T.pack ("Recieved Verify_Resp for : " ++ show tip ++ ":" ++ show tuport)
-    case resp of
-        Left e -> throw e
-            -- TODO isue verifyNode once more just to be sure
-        Right (KademliaResponse payload) -> do
-            $(logDebug) $
-                T.append (T.pack "VN_RESP MSG : ") (T.pack $ show payload)
-=======
         vmsg = packVerifyMsg nc tnc (nodeID peerR)
     $(logDebug) $ T.pack ("Issueing Verify_Node for : " ++ show tip ++ ":" ++ show tuport)
     resp <- runExceptT $ issueKademliaRequest vnc (KademliaRequest vmsg)
@@ -326,25 +180,15 @@ issueVerifyNode peerV peerT peerR = do
         -- TODO isue verifyNode once more just to be sure
         Right (KademliaResponse payload) -> do
             $(logDebug) $ T.append (T.pack "VN_RESP MSG : ") (T.pack $ show payload)
->>>>>>> breaking out arivi-core from arivi
             case messageBody (message payload) of
                 VN_RESP _ pl' _ -> return pl'
                 _ -> throw KademliaInvalidResponse
 
-<<<<<<< HEAD
-getRandomVerifiedPeer ::
-       (HasKbucket m, MonadIO m) => ExceptT AriviP2PException m Peer
-getRandomVerifiedPeer = do
-    kb <- lift getKb
-    let vt = nodeStatusTable kb
-        st = H.stream vt
-=======
 getRandomVerifiedPeer :: (HasKbucket m, MonadIO m) => ExceptT AriviP2PException m Peer
 getRandomVerifiedPeer = do
     kb <- lift getKb
     let vt = nodeStatusTable kb
         st = H.listT vt
->>>>>>> breaking out arivi-core from arivi
     dnid <- getDefaultNodeId
     kvList <- liftIO $ atomically $ toList st
     let kvList' = filter (\x -> fst x /= dnid) kvList
@@ -360,47 +204,15 @@ getRandomVerifiedPeer = do
     getPeerByNodeId rp
 
 responseHandler ::
-<<<<<<< HEAD
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => Either SomeException [Peer]
-    -> Peer
-    -> Peer
-    -> ExceptT AriviP2PException m ()
-=======
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
            Either SomeException [Peer] -> Peer -> Peer -> ExceptT AriviP2PException m ()
->>>>>>> breaking out arivi-core from arivi
 responseHandler resp peerR peerT =
     case resp of
         Right pl -> do
             kb <- lift getKb
             rl <- isVNRESPValid pl peerR
             if rl
-<<<<<<< HEAD
-                then updateNodeStatus Verified (fst $ getPeer peerT)
-                else do
-                    moveToHardBound peerT
-                    updateNodeStatus UnVerified (fst $ getPeer peerT)
-            -- Logs the NodeStatus Table
-            let kbm2 = nodeStatusTable kb
-                kbtemp = H.stream kbm2
-            kvList <- liftIO $ atomically $ toList kbtemp
-            $(logDebug) $
-                T.append
-                    (T.pack "NodeStatusTable after adding : ")
-                    (T.pack (show kvList))
-        Left (e :: Exception.SomeException) -> $(logDebug) (T.pack (show e))
-
-sendVNMsg ::
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => Peer
-    -> Peer
-    -> Peer
-    -> ExceptT AriviP2PException m ()
-=======
                 then updateNodeStatus Verified (nodeID peerT)
                 else do
                     moveToHardBound peerT
@@ -416,23 +228,15 @@ sendVNMsg ::
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
            Peer -> Peer -> Peer -> ExceptT AriviP2PException m ()
->>>>>>> breaking out arivi-core from arivi
 sendVNMsg peerT peerV peerR = do
     resp <- lift $ Exception.try $ issueVerifyNode peerV peerT peerR
     t <- async $ responseHandler resp peerR peerT
     wait t
 
 verifyPeer ::
-<<<<<<< HEAD
-       ( HasP2PEnv env m r t rmsg pmsg
-       )
-    => Peer
-    -> ExceptT AriviP2PException m ()
-=======
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg) =>
            Peer -> ExceptT AriviP2PException m ()
->>>>>>> breaking out arivi-core from arivi
 verifyPeer peerT = do
     void $ isVerified peerT
     $(logDebug) $ T.pack "Verification Started"

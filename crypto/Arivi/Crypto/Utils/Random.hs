@@ -1,12 +1,3 @@
-<<<<<<< HEAD
--- |
--- Module      : Arivi.Crypto.Utils.Random
--- License     :
--- Maintainer  : Mahesh Uligade <maheshuligade@gmail.com>
--- Stability   :
--- Portability :
-=======
->>>>>>> breaking out arivi-core from arivi
 --
 -- This module provides random generation using Raaz's random no generation
 -- with `securely`
@@ -20,23 +11,6 @@
 -- sensitive information like passwords should use this to run an memory action.[1]
 -- 1.<https://hackage.haskell.org/package/raaz-0.2.0/docs/Raaz-Core-Memory.html#v:securely>
 --
-<<<<<<< HEAD
-
-module Arivi.Crypto.Utils.Random
-(
-    getRandomByteString
-)
-where
-
-import           Data.ByteString
-import           Raaz.Core.Memory
-import           Raaz.Core.Types
-import           Raaz.Random
-
-
--- | Generates RandomByteString of length `len`
-
-=======
 module Arivi.Crypto.Utils.Random
     ( getRandomByteString
     ) where
@@ -47,6 +21,5 @@ import Raaz.Core.Types
 import Raaz.Random
 
 -- | Generates RandomByteString of length `len`
->>>>>>> breaking out arivi-core from arivi
 getRandomByteString :: BYTES Int -> IO ByteString
 getRandomByteString len = securely (randomByteString (len :: BYTES Int) :: RandM ByteString)

@@ -1,42 +1,3 @@
-<<<<<<< HEAD
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-
-module Arivi.P2P.MessageHandler.NodeEndpoint (
-      issueRequest
-    , issueSend
-    , issueKademliaRequest
-) where
-
-import           Arivi.Network                         (AriviNetworkException,
-                                                        ConnectionHandle (..),
-                                                        TransportType (..))
-import           Arivi.P2P.Exception
-import           Arivi.P2P.MessageHandler.HandlerTypes hiding (messageType, uuid, payload)
-import           Arivi.P2P.MessageHandler.Utils
-import           Arivi.P2P.P2PEnv
-import           Arivi.P2P.Types
-import           Arivi.Utils.Logging
-import           Arivi.Network.Types                   hiding (NodeId)
-import           Arivi.P2P.Connection
-
-import           Codec.Serialise
-import           Control.Concurrent                    (threadDelay)
-import qualified Control.Concurrent.Async              as Async (race)
-import           Control.Concurrent.MVar
-import           Control.Concurrent.STM
-import qualified Control.Exception.Lifted              as LE (try)
-import           Control.Monad.IO.Class                (liftIO)
-import           Control.Monad.Logger
-import           Control.Lens
-import           Data.Proxy
-import           Control.Monad.Except
-
-sendWithoutUUID :: (HasNodeEndpoint m, HasLogging m)
-=======
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -73,7 +34,6 @@ import Data.Proxy
 
 sendWithoutUUID ::
        (HasNodeEndpoint m, HasLogging m)
->>>>>>> breaking out arivi-core from arivi
     => NodeId
     -> MessageType
     -> Maybe P2PUUID
@@ -84,11 +44,7 @@ sendWithoutUUID peerNodeId messageType uuid connHandle payload = do
     let p2pMessage = generateP2PMessage uuid messageType payload
     res <- LE.try (send connHandle (serialise p2pMessage))
     case res of
-<<<<<<< HEAD
-        Left (e::AriviNetworkException) -> do
-=======
         Left (e :: AriviNetworkException) -> do
->>>>>>> breaking out arivi-core from arivi
             logWithNodeId peerNodeId "network send failed from sendWithoutUUID for "
             return (Left $ NetworkException e)
         Right a -> return (Right a)
@@ -119,17 +75,6 @@ sendAndReceive peerDetailsTVar messageType connHandle msg = do
 -- | Send a message without waiting for any response or registering a uuid.
 -- | Useful for pubsub notifies and publish. To be called by the rpc/pubsub and kademlia handlers on getting a new request
 issueSend ::
-<<<<<<< HEAD
-       forall env m r topic rmsg pmsg t i.
-       (HasP2PEnv env m r topic rmsg pmsg, Msg t, Serialise (Request t i))
-    => NodeId
-    -> Maybe P2PUUID
-    -> Request t i
-    -> ExceptT AriviP2PException m ()
-issueSend peerNodeId uuid req = do
-    nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
-    connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
-=======
        forall env m r topic rmsg pmsg t i. (Serialise pmsg, Show topic)
     => (HasP2PEnv env m r topic rmsg pmsg, Msg t, Serialise (Request t i)) =>
            NodeId -> Maybe P2PUUID -> Request t i -> ExceptT AriviP2PException m ()
@@ -138,27 +83,10 @@ issueSend peerNodeId uuid req = do
     connHandle <-
         ExceptT $
         getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
->>>>>>> breaking out arivi-core from arivi
     ExceptT $ sendWithoutUUID peerNodeId (msgType (Proxy :: Proxy (Request t i))) uuid connHandle (serialise req)
 
 -- | Sends a request and gets a response. Should be catching all the exceptions thrown and handle them correctly
 issueRequest ::
-<<<<<<< HEAD
-       forall env m r topic rmsg pmsg i o t.
-       ( HasP2PEnv env m r topic rmsg pmsg
-       , Msg t
-       , Serialise (Request t i)
-       , Serialise (Response t o)
-       )
-    => NodeId
-    -> Request t i
-    -> ExceptT AriviP2PException m (Response t o)
-issueRequest peerNodeId req = do
-    nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
-    nodeIdPeerMap <- liftIO $ readTVarIO nodeIdMapTVar
-    connHandle <- ExceptT $ getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
-    peerDetailsTVar <- maybe (throwError PeerNotFound) return (nodeIdPeerMap ^.at peerNodeId)
-=======
        forall env m r topic rmsg pmsg i o t. (Serialise pmsg, Show topic)
     => (HasP2PEnv env m r topic rmsg pmsg, Msg t, Serialise (Request t i), Serialise (Response t o)) =>
            NodeId -> Request t i -> ExceptT AriviP2PException m (Response t o)
@@ -169,31 +97,18 @@ issueRequest peerNodeId req = do
         ExceptT $
         getConnectionHandle peerNodeId nodeIdMapTVar (getTransportType $ msgType (Proxy :: Proxy (Request t i)))
     peerDetailsTVar <- maybe (throwError PeerNotFound) return (nodeIdPeerMap ^. at peerNodeId)
->>>>>>> breaking out arivi-core from arivi
     resp <- ExceptT $ sendAndReceive peerDetailsTVar (msgType (Proxy :: Proxy (Request t i))) connHandle (serialise req)
     ExceptT $ (return . safeDeserialise . deserialiseOrFail) resp
 
 -- | Called by kademlia. Adds a default PeerDetails record into hashmap before calling generic issueRequest
-<<<<<<< HEAD
-issueKademliaRequest :: (HasP2PEnv env m r t rmsg pmsg, Serialise msg)
-    => NetworkConfig
-    -> Request 'Kademlia msg
-    -> ExceptT AriviP2PException m (Response 'Kademlia msg)
-=======
 issueKademliaRequest ::
        (Serialise pmsg, Show t)
     => (HasP2PEnv env m r t rmsg pmsg, Serialise msg) =>
            NetworkConfig -> Request 'Kademlia msg -> ExceptT AriviP2PException m (Response 'Kademlia msg)
->>>>>>> breaking out arivi-core from arivi
 issueKademliaRequest nc payload = do
     nodeIdMapTVar <- lift getNodeIdPeerMapTVarP2PEnv
     peerExists <- (lift . liftIO) $ doesPeerExist nodeIdMapTVar (nc ^. nodeId)
     if peerExists
         then issueRequest (nc ^. nodeId) payload
-<<<<<<< HEAD
-        else (do (lift . liftIO) $
-                     atomically $ addPeerToMap nc UDP nodeIdMapTVar
-=======
         else (do (lift . liftIO) $ atomically $ addPeerToMap nc UDP nodeIdMapTVar
->>>>>>> breaking out arivi-core from arivi
                  issueRequest (nc ^. nodeId) payload)
