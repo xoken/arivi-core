@@ -31,10 +31,10 @@ data Config =
         , myNodeId :: ByteString
         , listenIP :: String
         , logFile :: T.Text
+        , ariviLogFile :: T.Text
         , sbound :: Int
         , pingThreshold :: Int
         , kademliaConcurrencyFactor :: Int
-
         }
     deriving (Show, Generic)
 
