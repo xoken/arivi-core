@@ -34,7 +34,6 @@ data Config =
         , sbound :: Int
         , pingThreshold :: Int
         , kademliaConcurrencyFactor :: Int
-
         }
     deriving (Show, Generic)
 
