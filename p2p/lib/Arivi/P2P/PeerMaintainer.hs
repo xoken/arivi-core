@@ -37,7 +37,7 @@ maintainSubscriptions nodeTV =
         topicVar <- asks topics
         topicList <- liftIO $ atomically $ readTVar topicVar
         nodeList <- liftIO $ atomically $ readTVar nodeTV
-        liftIO $ print (length topicList)
+        -- liftIO $ print (length topicList)
         mapM_ (subscribeForTopic nodeList) (Set.toList topicList)
         liftIO $ threadDelay (30 * 1000000)
 
@@ -62,7 +62,7 @@ fillQuotas numPeers nodeTV =
         let Resourcers resourcers = rpcResourcers rpcRecord
         filledResources <- liftIO $ isFilled resourcers numPeers
         Notifiers _notif <- asks notifiers
-  -- _               <- liftIO $ isFilled notif numPeers
+        -- _ <- liftIO $ isFilled notif numPeers
         unless filledResources $ do
             res <- runExceptT $ getKNodes numPeers -- Repetition of peers
             case res of

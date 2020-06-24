@@ -198,7 +198,7 @@ getNodeIds ((a, _):y) = a : getNodeIds y
 getReputedNodes :: (HasKbucket m, MonadIO m) => Integer -> PeerReputationHistoryTable -> m [Peer]
 getReputedNodes n mapOfAllPeersHistory = do
     let sortedListofAllPeersHistory = sortBy sortGT (HM.toList mapOfAllPeersHistory)
-    liftIO $ print sortedListofAllPeersHistory
+    -- liftIO $ print sortedListofAllPeersHistory
     eitherNReputedPeerList <-
         runExceptT $ getPeersByNodeIds (getNodeIds $ take (fromIntegral n) sortedListofAllPeersHistory)
     case eitherNReputedPeerList of

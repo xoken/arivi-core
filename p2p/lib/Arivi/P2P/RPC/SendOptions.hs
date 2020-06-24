@@ -45,7 +45,7 @@ sendOptionsToPeer recievingPeerNodeId optionsMsg = do
 updateResourcers :: (MonadReader env m, HasRpc env r msg, MonadIO m) => NodeId -> [r] -> m ()
 updateResourcers nId resourceList = do
     rpcRecord <- asks rpcEnv
-    liftIO $ print ("sendOptions-updateResourcers")
+    -- liftIO $ print ("sendOptions-updateResourcers")
     let resourcers = rpcResourcers rpcRecord
     mapM_ (updateResourcers' nId resourcers) resourceList
 
